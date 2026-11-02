@@ -1,0 +1,13 @@
+Void (permanently cancel and delete) an existing sales invoice in ArunakiZen.
+
+Capabilities:
+- Cancels the invoice, restores item quantities to store inventory, and reverts cash drawer inflows.
+- Requires supervisor authorization (`supervisor_user` and `supervisor_password`).
+- Use `arunakizen_edit_sale_order` instead when modifying or revising items on an existing invoice.
+
+Parameters:
+- `invoice` (required): The invoice number to void.
+- `reason` (optional): Reason for voiding.
+- `operator` (optional): Operator name.
+- `supervisor_user` (optional): Supervisor username/code.
+- `supervisor_password` (optional): Supervisor password.

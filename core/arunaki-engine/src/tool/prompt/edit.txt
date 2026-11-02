@@ -1,0 +1,8 @@
+Performs string replacements in files.
+
+Usage:
+- You must use the `read` tool at least once in the conversation before editing a file.
+- When editing text from `read` output, match the exact text (`oldString`) as it appears in the file and provide the updated text (`newString`).
+- ALWAYS prefer editing existing files in the workspace. NEVER create duplicate files unless explicitly requested.
+- Avoid adding emojis to files unless explicitly requested by the user.
+- If `oldString` appears multiple times in the file, either provide more surrounding context lines in `oldString` to identify the target section uniquely, or set `replaceAll: true` to replace every occurrence.

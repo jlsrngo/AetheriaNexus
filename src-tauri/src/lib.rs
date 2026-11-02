@@ -166,6 +166,39 @@ async fn schedule_video(
     Ok(())
 }
 
+fn ensure_bridge_running() {
+    let addr: Result<std::net::SocketAddr, _> = "127.0.0.1:20188".parse();
+    if let Ok(a) = addr {
+        if std::net::TcpStream::connect_timeout(&a, std::time::Duration::from_millis(200)).is_ok() {
+            println!("[arunaki-nexus] Local CLI bridge is already running on port 20188.");
+            return;
+        }
+    }
+
+    println!("[arunaki-nexus] Local CLI bridge not active. Spawning background engine bridge...");
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let candidates = [
+            std::env::current_exe().ok().and_then(|p| p.parent().map(|dir| dir.join("bin").join("arunaki-engine.exe"))),
+            std::env::current_exe().ok().and_then(|p| p.parent().map(|dir| dir.join("arunaki-engine.exe"))),
+            Some(std::path::PathBuf::from("src-tauri/bin/arunaki-engine.exe")),
+            Some(std::path::PathBuf::from("bin/arunaki-engine.exe")),
+            Some(std::path::PathBuf::from("E:\\JS\\Arunika\\dist-portable\\arunaki-engine.exe")),
+        ];
+
+        for opt in candidates.into_iter().flatten() {
+            if opt.exists() {
+                println!("[arunaki-nexus] Spawning bridge binary from: {:?}", opt);
+                let mut cmd = std::process::Command::new(opt);
+                cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+                let _ = cmd.spawn();
+                break;
+            }
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -179,6 +212,9 @@ pub fn run() {
             }
             // Initialize SQLite tables on startup
             let _ = DbManager::new(app.handle());
+
+            // Ensure Local CLI Bridge (:20188) is active for AI agent routing
+            ensure_bridge_running();
 
             // Launch background native dispatch scheduler
             let scheduler = DispatchScheduler::new();

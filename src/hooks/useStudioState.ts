@@ -222,6 +222,7 @@ export function useStudioState() {
       category: script.category,
       themeColor: script.theme,
     }));
+    return script;
   };
 
   const handleRenderToStock = async () => {

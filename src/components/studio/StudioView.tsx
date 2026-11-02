@@ -6,10 +6,12 @@ import { Panel } from "../ui/Panel";
 import { ChatPromptPanel } from "./ChatPromptPanel";
 import { useI18n } from "../../lib/i18n";
 
+import { GeneratedScript } from "../../services/aiService";
+
 interface StudioViewProps {
   props: TikTokVideoProps;
   setProps: (props: TikTokVideoProps) => void;
-  onAiGenerate: (topic?: string) => Promise<void> | void;
+  onAiGenerate: (topic?: string) => Promise<GeneratedScript | void> | any;
   onRender: () => void;
   isRendering: boolean;
   renderProgress: number;
@@ -140,7 +142,7 @@ export const StudioView: React.FC<StudioViewProps> = ({
         props={props}
         setProps={setProps}
         onAiGenerateWithTopic={async (topic) => {
-          await onAiGenerate(topic);
+          return await onAiGenerate(topic);
         }}
         onRender={onRender}
         isRendering={isRendering}

@@ -1,0 +1,15 @@
+Create a new retail sales order (invoice) in ArunakiZen.
+
+Capabilities:
+- Creates a sales transaction and deducts item quantities from store inventory.
+- Records payment method and amount tendered.
+- Automatically merges duplicate item rows with identical code, price, and discount.
+
+Parameters:
+- `customer`: Customer or member code (default: 'UMUM').
+- `payment_method`: One of 'CASH', 'TRANSFER', 'QRIS', 'PIUTANG' (default: 'CASH').
+- `amount_paid`: Amount tendered by the customer.
+- `items`: Array of items (`item_code`, `qty`, `price`, optional `discount_percent`).
+- `notes`: Optional custom memo if explicitly requested by the user; otherwise leave empty ("").
+- `invoice` (optional): Existing invoice number if updating an order in place.
+- `is_edit` (optional): Set to `true` if updating an existing invoice.

@@ -28,7 +28,7 @@ export interface ChatMessage {
 interface ChatPromptPanelProps {
   props: TikTokVideoProps;
   setProps: (props: TikTokVideoProps) => void;
-  onAiGenerateWithTopic: (topic: string) => Promise<void>;
+  onAiGenerateWithTopic: (topic: string) => Promise<any>;
   onRender: () => void;
   isRendering: boolean;
   renderProgress: number;
@@ -140,12 +140,14 @@ RINCIAN TELEMETRI:
     setIsGenerating(true);
 
     try {
-      await onAiGenerateWithTopic(userText);
+      const script = await onAiGenerateWithTopic(userText);
 
       const assistantMsg: ChatMessage = {
         id: `a-${Date.now()}`,
         sender: "assistant",
-        text: `Naskah video berhasil diperbarui untuk topik: "${userText}"\n\nRINCIAN TELEMETRI:\n• Model: ${selectedModel.name}\n• Provider: ${catalog.badge}\n• Durasi: 00:05 (150 Frames)\n• Status: Tersinkronisasi ke Canvas Viewport`,
+        text: script?.hook
+          ? `${script.hook}\n\n${script.body}\n\nRincian:\n• Kategori: ${script.category}\n• Durasi: 00:05 (30 FPS)\n• Model: ${selectedModel.name}\n• Provider: ${catalog.badge}\n• Status: Tersinkronisasi ke Remotion Player`
+          : `Naskah video berhasil diperbarui untuk topik: "${userText}"\n\nRINCIAN TELEMETRI:\n• Model: ${selectedModel.name}\n• Provider: ${catalog.badge}\n• Durasi: 00:05 (150 Frames)\n• Status: Tersinkronisasi ke Canvas Viewport`,
         timestamp: timeStr,
       };
       setMessages((prev) => [...prev, assistantMsg]);
