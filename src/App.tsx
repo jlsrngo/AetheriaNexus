@@ -38,7 +38,7 @@ export const App: React.FC = () => {
       <Header />
 
       {/* Main Workspace: Sidebar on Left, Content Views on Right */}
-      <div className="flex-1 flex h-[calc(100vh-36px)] overflow-hidden relative">
+      <div className="flex-1 flex h-[calc(100vh-44px)] overflow-hidden relative">
         {/* Sidebar Navigation */}
         <Sidebar
           activeTab={activeTab}

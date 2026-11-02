@@ -1,18 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { CornerCrosses } from "../ui/CornerCrosses";
 import { ModelProvider, CliItemStatus } from "../../types";
 import { PROVIDER_TYPES } from "../../constants/providers";
+import { setActiveProviderId, getActiveProviderId } from "../../lib/models";
+import { useI18n } from "../../lib/i18n";
 import {
   Cpu,
   Terminal,
   Folder,
   Check,
   Wifi,
-  Globe,
   ChevronDown,
   AlertTriangle,
-  Loader2,
   RotateCcw,
+  ArrowUp,
+  ArrowDown,
+  Settings2,
+  Trash2,
+  Plus,
+  Info,
+  X,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 interface SettingsViewProps {
@@ -26,38 +35,51 @@ interface SettingsViewProps {
 
 const CLI_REGISTRY = [
   {
+    id: "antigravity",
+    name: "Google Antigravity CLI (AGY)",
+    vendor: "Google DeepMind",
+    version: "1.3.1",
+    docsUrl: "https://antigravity.google.com",
+    command: "ANTIGRAVITY",
+    models: [
+      "gemini-3.8-flash-high",
+      "claude-opus-4.6-thinking",
+      "claude-sonnet-4.6-agy",
+      "claude-sonnet-5.5",
+      "gemini-2.5-flash",
+      "gemini-2.5-pro",
+      "gemini-3-flash",
+      "gemini-3.1-pro",
+    ],
+  },
+  {
     id: "claude",
-    name: "Claude",
+    name: "Claude Code CLI",
     vendor: "Anthropic",
     version: "2.1.202",
     docsUrl: "https://claude.ai",
+    command: "CLAUDE",
     models: ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku"],
     entitlement: "Requires a Claude Max or Pro subscription",
   },
   {
     id: "codex",
-    name: "Codex",
+    name: "OpenAI Codex CLI",
     vendor: "OpenAI",
     version: "0.1.0",
     docsUrl: "https://chatgpt.com/codex",
-    models: ["gpt-5.6-luna", "gpt-5.5", "gpt-4o", "gpt-4o-mini"],
+    command: "CODEX",
+    models: ["gpt-5.6-luna", "gpt-5.5", "gpt-4o", "gpt-4o-mini", "o3-mini"],
   },
   {
     id: "opencode",
-    name: "OpenCode",
+    name: "OpenCode CLI",
     vendor: "opencode",
     version: "1.18.30",
     docsUrl: "https://opencode.ai",
+    command: "OPENCODE",
     models: ["big-pickle", "groq/openai/gpt-oss-120b", "groq/qwen/qwen3.8-27b"],
     note: "Native requests route through OpenCode Zen and can take up to a minute on a cold model. Slow, not stuck.",
-  },
-  {
-    id: "antigravity",
-    name: "Google Antigravity CLI",
-    vendor: "Google DeepMind",
-    version: "1.3.1",
-    docsUrl: "https://antigravity.google.com",
-    models: ["gemini-3.8-flash-high", "gemini-2.5-flash", "gemini-2.5-pro", "claude-sonnet-4-6"],
   },
   {
     id: "kiro",
@@ -65,7 +87,8 @@ const CLI_REGISTRY = [
     vendor: "AWS",
     version: "1.0.0",
     docsUrl: "https://kiro.dev",
-    models: ["claude-sonnet-4.5", "kiro/auto"],
+    command: "KIRO",
+    models: ["kiro/auto", "claude-sonnet-4.5", "kiro/deepseek-3.2"],
   },
   {
     id: "ollama",
@@ -73,6 +96,7 @@ const CLI_REGISTRY = [
     vendor: "Ollama",
     version: "0.5.1",
     docsUrl: "https://ollama.ai",
+    command: "OLLAMA",
     models: ["llama3.2", "qwen2.5:7b", "deepseek-r1:8b", "mistral"],
   },
 ];
@@ -85,23 +109,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   outputDir,
   onSaveOutputDir,
 }) => {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<"cli" | "models" | "storage">("cli");
   const [dirInput, setDirInput] = useState(outputDir);
-  const [editingProvider, setEditingProvider] = useState<ModelProvider | null>(null);
 
-  const [activeCliId, setActiveCliId] = useState<string>("antigravity");
-  const [selectedCliModels, setSelectedCliModels] = useState<Record<string, string>>({
-    claude: "claude-3-7-sonnet",
-    codex: "gpt-5.6-luna",
-    opencode: "big-pickle",
-    antigravity: "gemini-3.8-flash-high",
-    kiro: "claude-sonnet-4.5",
-    ollama: "llama3.2",
-  });
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  // Active CLI state
+  const [activeCliId, setActiveCliId] = useState<string>(() => getActiveProviderId());
+
+  // Ping testing state
   const [testingPingId, setTestingPingId] = useState<string | null>(null);
   const [pingResults, setPingResults] = useState<Record<string, { ms: number; ok: boolean }>>({});
+
+  // Expanded CLI technical details
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+
+  // Model Provider Modal / Edit state
+  const [editingProvider, setEditingProvider] = useState<ModelProvider | null>(null);
+  const [isNewProvider, setIsNewProvider] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Listen for provider changes
+  useEffect(() => {
+    const handleSync = () => {
+      setActiveCliId(getActiveProviderId());
+    };
+    window.addEventListener("arunaki:provider-change", handleSync);
+    return () => window.removeEventListener("arunaki:provider-change", handleSync);
+  }, []);
 
   const handleTestPing = (id: string) => {
     setTestingPingId(id);
@@ -111,29 +146,72 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         [id]: { ms: Math.floor(Math.random() * 45) + 20, ok: true },
       }));
       setTestingPingId(null);
-    }, 450);
+    }, 400);
   };
 
-  const handleToggleConnect = (id: string) => {
-    if (activeCliId === id) {
+  const handleSelectCli = (id: string) => {
+    setActiveCliId(id);
+    setActiveProviderId(id);
+    // Unset cloud providers active flag
+    onSaveProviders(providers.map((p) => ({ ...p, active: false })));
+  };
+
+  // Reorder providers priority
+  const handleMovePriority = (index: number, direction: "up" | "down") => {
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= providers.length) return;
+    const next = [...providers];
+    const [moved] = next.splice(index, 1);
+    next.splice(newIndex, 0, moved);
+    onSaveProviders(next);
+  };
+
+  // Toggle active provider
+  const handleToggleProviderActive = (p: ModelProvider) => {
+    const willBeActive = !p.active;
+    const next = providers.map((item) => ({
+      ...item,
+      active: item.id === p.id ? willBeActive : false,
+    }));
+    onSaveProviders(next);
+    if (willBeActive) {
       setActiveCliId("");
-    } else {
-      setActiveCliId(id);
-      const reg = CLI_REGISTRY.find((c) => c.id === id);
-      if (reg) {
-        const modelName = selectedCliModels[id] || reg.models[0];
-        const newP: ModelProvider = {
-          id: `cli-${id}`,
-          name: reg.name,
-          type: id === "antigravity" ? "gemini" : id === "ollama" ? "ollama" : "custom",
-          baseUrl: id === "ollama" ? "http://localhost:11434/v1" : "https://generativelanguage.googleapis.com/v1beta/openai",
-          apiKey: "",
-          model: modelName,
-          active: true,
-        };
-        onSaveProviders([...providers.map((p) => ({ ...p, active: false })), newP]);
-      }
+      setActiveProviderId(p.id);
     }
+  };
+
+  // Delete provider
+  const handleDeleteProvider = (id: string) => {
+    const next = providers.filter((p) => p.id !== id);
+    onSaveProviders(next);
+    setDeleteConfirmId(null);
+  };
+
+  // Save provider form
+  const handleSaveForm = () => {
+    if (!editingProvider) return;
+    if (isNewProvider) {
+      onSaveProviders([...providers, editingProvider]);
+    } else {
+      onSaveProviders(
+        providers.map((p) => (p.id === editingProvider.id ? editingProvider : p))
+      );
+    }
+    setEditingProvider(null);
+    setIsNewProvider(false);
+  };
+
+  const openNewProviderModal = () => {
+    setIsNewProvider(true);
+    setEditingProvider({
+      id: `p-${Date.now()}`,
+      name: "Kenari AI",
+      type: "aisdk",
+      baseUrl: "https://kenari.id/v1",
+      apiKey: "",
+      model: "glm-4-7-flash:free, mimo-v2-5:free",
+      active: false,
+    });
   };
 
   return (
@@ -143,7 +221,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div>
           <div className="hud-label">// SYSTEM_CONFIGURATION</div>
           <h2 className="font-sans font-black text-sm text-white uppercase tracking-wider">
-            PENGATURAN & INTEGRASI CLI
+            {t("settingsTitle")}
           </h2>
         </div>
 
@@ -159,7 +237,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             }`}
           >
             <Terminal className="w-3.5 h-3.5" />
-            <span>&gt;_ CONNECTION CLI</span>
+            <span>&gt;_ {t("connectionCli")}</span>
           </button>
           <button
             type="button"
@@ -171,7 +249,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             }`}
           >
             <Cpu className="w-3.5 h-3.5" />
-            <span>MODEL PROVIDERS</span>
+            <span>{t("modelProviders")}</span>
           </button>
           <button
             type="button"
@@ -183,14 +261,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             }`}
           >
             <Folder className="w-3.5 h-3.5" />
-            <span>STORAGE OUTPUT</span>
+            <span>{t("storageOutput")}</span>
           </button>
         </div>
       </div>
 
       {/* Main Content Area */}
       <div className="flex-1 p-6 overflow-y-auto space-y-4 max-w-5xl w-full mx-auto">
-        {/* TAB 1: CONNECTION CLI (Swiss Brutalist Cards with Corner Crosses) */}
+        {/* TAB 1: CONNECTION CLI (LOCAL) */}
         {activeTab === "cli" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
@@ -208,7 +286,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 className="px-3 py-1.5 bg-neutral-900 hover:bg-white hover:text-black border border-neutral-700 text-neutral-300 rounded-none text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
               >
                 <RotateCcw className="w-3 h-3" />
-                <span>RESCAN CLIS</span>
+                <span>{t("rescanClis")}</span>
               </button>
             </div>
 
@@ -220,7 +298,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 const isLoggedIn = detected ? detected.logged_in : d.id === "antigravity" || d.id === "codex" || d.id === "opencode" || d.id === "kiro";
                 const isConnected = activeCliId === d.id;
                 const isExpanded = !!expandedCards[d.id];
-                const currentModel = selectedCliModels[d.id] || d.models[0];
                 const ping = pingResults[d.id];
 
                 return (
@@ -240,173 +317,105 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         {/* Sharp Square Radio Check */}
                         <button
                           type="button"
-                          onClick={() => handleToggleConnect(d.id)}
+                          onClick={() => handleSelectCli(d.id)}
                           className={`w-5 h-5 rounded-none border flex items-center justify-center shrink-0 mt-0.5 transition-all cursor-pointer ${
                             isConnected
                               ? "border-white bg-white text-black font-black"
                               : "border-neutral-700 hover:border-white bg-neutral-900 text-transparent"
                           }`}
-                          title={isConnected ? "Disconnect" : "Connect"}
+                          title={isConnected ? "Terhubung" : "Hubungkan"}
                         >
-                          {isConnected ? (
-                            <Check className="w-3.5 h-3.5 stroke-[3]" />
-                          ) : (
-                            <span className="w-1.5 h-1.5 bg-neutral-600" />
-                          )}
+                          {isConnected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                         </button>
 
-                        {/* Telemetry info */}
-                        <div className="min-w-0">
+                        <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono font-bold text-xs uppercase text-white tracking-wider">
-                              {d.name}
-                            </span>
-                            <span className="text-neutral-600">•</span>
-                            <span className="flex items-center gap-1.5 text-[10px]">
-                              <span className={`w-1.5 h-1.5 rounded-full ${isLoggedIn ? "bg-emerald-400 animate-pulse" : "bg-neutral-600"}`} />
-                              <span className={isLoggedIn ? "text-emerald-400 font-bold" : "text-neutral-500"}>
-                                {isLoggedIn ? "CONNECTED" : isInstalled ? "SIGN_IN_NEEDED" : "NOT_INSTALLED"}
-                              </span>
+                            <span className="font-bold text-white text-sm">{d.name}</span>
+                            <span
+                              className={`text-[9px] px-2 py-0.5 font-bold uppercase tracking-wider rounded-none border ${
+                                isLoggedIn
+                                  ? "bg-emerald-950/80 text-emerald-400 border-emerald-500/50"
+                                  : isInstalled
+                                  ? "bg-amber-950/80 text-amber-400 border-amber-500/50"
+                                  : "bg-neutral-900 text-neutral-500 border-neutral-800"
+                              }`}
+                            >
+                              {isLoggedIn ? "READY / LOGGED IN" : isInstalled ? "INSTALLED" : "NOT DETECTED"}
                             </span>
                           </div>
 
-                          <div className="hud-label text-[10px] text-neutral-400 mt-0.5">
-                            {d.vendor}
-                            {isLoggedIn ? " • juliosiringoringo6@gmail.com" : ""}
-                            {d.version ? ` • ${d.name} v${d.version}` : ""}
+                          <div className="font-mono text-[10px] text-neutral-400 mt-1 flex items-center gap-2">
+                            <span>COMMAND: <span className="text-white font-bold">{d.command}</span></span>
+                            <span>•</span>
+                            <span>VENDOR: {d.vendor}</span>
                           </div>
 
-                          {/* Entitlement notice */}
-                          {d.entitlement && !isLoggedIn && (
-                            <div className="mt-1 text-[10px] text-amber-400 bg-amber-950/40 border border-amber-800/80 px-2 py-0.5 inline-flex items-center gap-1.5">
-                              <AlertTriangle className="w-3 h-3 shrink-0" />
-                              <span>{d.entitlement}</span>
-                              <a
-                                href={d.docsUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-white underline underline-offset-2 ml-1"
-                              >
-                                [LIHAT PAKET]
-                              </a>
+                          {detected && (
+                            <div className="mt-2 text-[10px] font-mono text-neutral-400 space-y-0.5">
+                              <div>
+                                BIN_PATH:{" "}
+                                <span className={detected.path ? "text-neutral-300" : "text-neutral-500 italic"}>
+                                  {detected.path || "(Tidak ditemukan di system PATH)"}
+                                </span>
+                              </div>
+                              <div>
+                                AUTH_STATUS:{" "}
+                                {detected.credential_path ? (
+                                  <span className="text-emerald-400">
+                                    ✓ Authenticated via {detected.credential_path}
+                                  </span>
+                                ) : (
+                                  <span className="text-neutral-500 italic">
+                                    Belum login atau file auth tidak ditemukan
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           )}
 
-                          {/* Technical note */}
-                          {d.note && (
-                            <div className="hud-label text-[9px] text-neutral-500 mt-1">
-                              {d.note}
-                            </div>
-                          )}
+                          <div className="mt-2 text-[10px] font-mono text-neutral-400">
+                            AVAILABLE_MODELS: <span className="text-neutral-200">{d.models.join(", ")}</span>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Right Connect Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleConnect(d.id)}
-                        className={`px-3 py-1 text-xs font-mono font-bold rounded-none border transition-all cursor-pointer flex items-center gap-1.5 ${
-                          isConnected
-                            ? "bg-white text-black border-white hover:bg-neutral-200"
-                            : "bg-neutral-900 text-neutral-300 border-neutral-700 hover:border-white hover:text-white"
-                        }`}
-                      >
+                      {/* Action Button: PAKAI CLI INI */}
+                      <div className="flex flex-col items-end gap-2 shrink-0">
                         {isConnected ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                            <span>CONNECTED</span>
-                          </>
+                          <div className="px-3 py-1.5 bg-white text-black font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>{t("connected")}</span>
+                          </div>
                         ) : (
-                          <>
-                            <span className="w-1.5 h-1.5 rounded-full bg-neutral-500" />
-                            <span>CONNECT</span>
-                          </>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectCli(d.id)}
+                            className="px-3 py-1.5 bg-neutral-900 hover:bg-white hover:text-black border border-neutral-700 text-neutral-200 font-mono font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                          >
+                            PAKAI CLI INI
+                          </button>
                         )}
-                      </button>
-                    </div>
 
-                    {/* Action Bar (Sharp Swiss Brutalist Controls) */}
-                    <div className="mt-3 pt-3 border-t border-neutral-800 flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2 relative">
-                        {/* Model Selector Dropdown */}
-                        <div className="relative">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleTestPing(d.id)}
+                            disabled={testingPingId === d.id}
+                            className="text-[10px] font-mono text-neutral-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                          >
+                            <Wifi className="w-3 h-3" />
+                            {testingPingId === d.id ? "PINGING..." : ping ? `${ping.ms}ms` : t("testPing")}
+                          </button>
                           <button
                             type="button"
                             onClick={() =>
-                              setOpenDropdownId(openDropdownId === d.id ? null : d.id)
+                              setExpandedCards((prev) => ({ ...prev, [d.id]: !prev[d.id] }))
                             }
-                            className="px-2.5 py-1 text-[11px] font-mono rounded-none bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-200 hover:text-white flex items-center gap-1.5 transition-colors"
+                            className="p-1 border border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white rounded-none transition-colors"
                           >
-                            <span className="text-neutral-500">≡</span>
-                            <span className="truncate max-w-[150px]">{currentModel}</span>
-                            <ChevronDown className="w-3 h-3 text-neutral-400" />
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                           </button>
-
-                          {openDropdownId === d.id && (
-                            <div className="absolute top-8 left-0 z-50 w-56 bg-neutral-950 border border-white rounded-none shadow-2xl py-1 text-xs font-mono">
-                              <div className="px-3 py-1 text-[9px] text-neutral-400 uppercase font-bold border-b border-neutral-800">
-                                // PILIH_MODEL
-                              </div>
-                              {d.models.map((m) => (
-                                <button
-                                  key={m}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedCliModels((prev) => ({ ...prev, [d.id]: m }));
-                                    setOpenDropdownId(null);
-                                  }}
-                                  className={`w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-white hover:text-black transition-colors ${
-                                    currentModel === m ? "bg-neutral-800 text-white font-bold" : "text-neutral-400"
-                                  }`}
-                                >
-                                  <span>{m}</span>
-                                  {currentModel === m && <Check className="w-3.5 h-3.5 text-emerald-400" />}
-                                </button>
-                              ))}
-                            </div>
-                          )}
                         </div>
-
-                        {/* Test Ping */}
-                        <button
-                          type="button"
-                          onClick={() => handleTestPing(d.id)}
-                          disabled={testingPingId === d.id}
-                          className="px-2.5 py-1 text-[11px] font-mono rounded-none bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
-                        >
-                          {testingPingId === d.id ? (
-                            <Loader2 className="w-3 h-3 animate-spin text-neutral-400" />
-                          ) : (
-                            <Wifi className="w-3 h-3 text-neutral-400" />
-                          )}
-                          <span>{ping ? `${ping.ms}ms` : "TEST PING"}</span>
-                        </button>
-
-                        {/* Docs */}
-                        <a
-                          href={d.docsUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-2.5 py-1 text-[11px] font-mono rounded-none bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-white flex items-center gap-1.5 transition-colors"
-                        >
-                          <Globe className="w-3 h-3 text-neutral-400" />
-                          <span>DOCS</span>
-                        </a>
-
-                        {/* Expand Toggle */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedCards((prev) => ({ ...prev, [d.id]: !prev[d.id] }))
-                          }
-                          className="p-1 border border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white rounded-none transition-colors"
-                        >
-                          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-                        </button>
-                      </div>
-
-                      <div className="font-mono text-[10px] text-neutral-500">
-                        STATUS: {isConnected ? <span className="text-emerald-400 font-bold">ACTIVE_ENGINE</span> : "STANDBY"}
                       </div>
                     </div>
 
@@ -414,12 +423,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     {isExpanded && (
                       <div className="mt-3 pt-3 border-t border-neutral-800 font-mono text-[10px] text-neutral-400 bg-black/60 p-3 space-y-1 rounded-none border border-neutral-900">
                         <div><span className="hud-label">CLI_IDENTIFIER:</span> <span className="text-white">{d.id}</span></div>
-                        <div><span className="hud-label">MODELS_CATALOG:</span> <span className="text-neutral-300">{d.models.join(", ")}</span></div>
-                        {detected && detected.path && (
-                          <div className="truncate"><span className="hud-label">SYSTEM_BINARY_PATH:</span> <span className="text-neutral-300">{detected.path}</span></div>
+                        <div><span className="hud-label">DOCS_URL:</span> <a href={d.docsUrl} target="_blank" rel="noreferrer" className="text-blue-400 underline">{d.docsUrl}</a></div>
+                        {d.entitlement && (
+                          <div><span className="hud-label">ENTITLEMENT:</span> <span className="text-amber-400">{d.entitlement}</span></div>
                         )}
-                        {detected && detected.credential_path && (
-                          <div className="truncate"><span className="hud-label">AUTH_TOKEN_FILE:</span> <span className="text-emerald-400">{detected.credential_path}</span></div>
+                        {d.note && (
+                          <div><span className="hud-label">NOTE:</span> <span className="text-neutral-400">{d.note}</span></div>
                         )}
                       </div>
                     )}
@@ -430,212 +439,379 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         )}
 
-        {/* TAB 2: MODEL PROVIDERS (Sharp Swiss Brutalist Form & Cards) */}
+        {/* TAB 2: MODEL PROVIDERS (Arunika Language Model Routing & Provider Catalogs Architecture) */}
         {activeTab === "models" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
+            {/* Top Header & Add Provider Button */}
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
               <div>
-                <h3 className="font-mono font-bold text-xs uppercase text-white tracking-wider">
-                  // HOSTED_LLM_PROVIDERS
+                <h3 className="font-mono font-bold text-sm uppercase text-white tracking-wider flex items-center gap-2">
+                  <Cpu className="w-4 h-4 text-white" />
+                  <span>Language Model Routing & Provider Catalogs</span>
                 </h3>
-                <span className="hud-label text-[9px]">
-                  Konfigurasi endpoint LLM cloud/lokal (Groq, Gemini, DeepSeek, OpenRouter, Ollama) untuk generator naskah.
-                </span>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Manage provider credentials, API endpoints, and fallback model priority order.
+                </p>
               </div>
+
+              <button
+                type="button"
+                onClick={openNewProviderModal}
+                className="px-3.5 py-2 bg-white text-black hover:bg-neutral-200 font-mono font-bold text-xs uppercase tracking-wider rounded-none flex items-center gap-2 transition-all cursor-pointer shadow-md"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Provider</span>
+              </button>
             </div>
 
-            {/* Provider editing form */}
-            {editingProvider && (
-              <div className="relative p-5 border-2 border-white bg-neutral-900 space-y-3 rounded-none">
-                <CornerCrosses size="sm" className="text-white" />
-                <div className="flex items-center justify-between border-b border-neutral-800 pb-2 font-mono text-xs">
-                  <span className="font-bold text-white uppercase">// FORM_PROVIDER_CONFIGURATION</span>
-                  <button
-                    onClick={() => setEditingProvider(null)}
-                    className="text-neutral-400 hover:text-white"
-                  >
-                    [BATAL]
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-xs font-mono">
-                  <div>
-                    <label className="hud-label block mb-1">PROVIDER_TYPE:</label>
-                    <select
-                      value={editingProvider.type}
-                      onChange={(e) => {
-                        const opt = PROVIDER_TYPES.find((t) => t.value === e.target.value);
-                        if (opt) {
-                          setEditingProvider({
-                            ...editingProvider,
-                            type: opt.value,
-                            name: opt.label,
-                            baseUrl: opt.defaultUrl,
-                            model: opt.defaultModels[0] || "default",
-                          });
-                        }
-                      }}
-                      className="w-full bg-neutral-950 border border-neutral-700 p-2 text-white rounded-none focus:outline-none focus:border-white"
-                    >
-                      {PROVIDER_TYPES.map((t) => (
-                        <option key={t.value} value={t.value}>{t.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="hud-label block mb-1">DISPLAY_NAME:</label>
-                    <input
-                      type="text"
-                      value={editingProvider.name}
-                      onChange={(e) => setEditingProvider({ ...editingProvider, name: e.target.value })}
-                      className="w-full bg-neutral-950 border border-neutral-700 p-2 text-white rounded-none focus:outline-none focus:border-white"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="hud-label block mb-1">BASE_URL_ENDPOINT:</label>
-                    <input
-                      type="text"
-                      value={editingProvider.baseUrl}
-                      onChange={(e) => setEditingProvider({ ...editingProvider, baseUrl: e.target.value })}
-                      className="w-full bg-neutral-950 border border-neutral-700 p-2 text-white rounded-none focus:outline-none focus:border-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="hud-label block mb-1">API_KEY (BEARER TOKEN):</label>
-                    <input
-                      type="password"
-                      placeholder="sk-... atau AIza..."
-                      value={editingProvider.apiKey}
-                      onChange={(e) => setEditingProvider({ ...editingProvider, apiKey: e.target.value })}
-                      className="w-full bg-neutral-950 border border-neutral-700 p-2 text-white rounded-none focus:outline-none focus:border-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="hud-label block mb-1">DEFAULT_MODEL:</label>
-                    <input
-                      type="text"
-                      value={editingProvider.model}
-                      onChange={(e) => setEditingProvider({ ...editingProvider, model: e.target.value })}
-                      className="w-full bg-neutral-950 border border-neutral-700 p-2 text-white rounded-none focus:outline-none focus:border-white"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2 pt-2 border-t border-neutral-800">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const exists = providers.some((p) => p.id === editingProvider.id);
-                      const updated = exists
-                        ? providers.map((p) => (p.id === editingProvider.id ? editingProvider : p))
-                        : [...providers, editingProvider];
-                      onSaveProviders(updated);
-                      setEditingProvider(null);
-                    }}
-                    className="px-4 py-2 bg-white text-black font-bold font-mono text-xs rounded-none border border-white hover:bg-neutral-200"
-                  >
-                    SIMPAN PROVIDER
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* Providers List (Horizontal Cards like Arunika) */}
+            <div className="space-y-3 font-mono">
+              {providers.map((p, index) => {
+                const isPrimary = p.active;
+                const pool = p.model
+                  ? p.model.split(",").map((s) => s.trim()).filter(Boolean)
+                  : ["default"];
+                const ping = pingResults[p.id];
 
-            {/* Providers Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono">
-              {providers.map((p) => (
-                <div
-                  key={p.id}
-                  className={`relative p-4 rounded-none border transition-all ${
-                    p.active ? "bg-neutral-900 border-white ring-1 ring-white" : "bg-neutral-950 border-neutral-800"
-                  }`}
-                >
-                  <CornerCrosses size="sm" className={p.active ? "text-white" : "text-neutral-700"} />
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs uppercase text-white">{p.name}</span>
-                    <span className={`text-[9px] px-2 py-0.5 rounded-none font-bold border ${p.active ? "bg-emerald-500/20 text-emerald-400 border-emerald-500" : "bg-neutral-900 text-neutral-400 border-neutral-800"}`}>
-                      {p.active ? "ACTIVE_ENGINE" : "STANDBY"}
-                    </span>
-                  </div>
-                  <div className="text-xs text-neutral-400 mt-2 space-y-0.5">
-                    <div><span className="hud-label">MODEL:</span> <span className="text-neutral-200">{p.model}</span></div>
-                    <div className="truncate"><span className="hud-label">ENDPOINT:</span> <span className="text-neutral-400">{p.baseUrl}</span></div>
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-neutral-800 flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const updated = providers.map((item) => ({ ...item, active: item.id === p.id }));
-                        onSaveProviders(updated);
-                      }}
-                      className={`text-xs font-mono font-bold px-2.5 py-1 rounded-none border transition-colors ${
-                        p.active ? "bg-emerald-500 text-black border-emerald-500" : "bg-neutral-900 text-neutral-300 border-neutral-700 hover:border-white hover:text-white"
-                      }`}
-                    >
-                      {p.active ? "ACTIVE" : "SET AKTIF"}
-                    </button>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditingProvider(p)}
-                        className="text-xs text-neutral-400 hover:text-white border border-neutral-800 px-2 py-1 rounded-none hover:border-white"
-                      >
-                        EDIT
-                      </button>
-                      {providers.length > 1 && (
+                return (
+                  <div
+                    key={p.id}
+                    className={`relative p-4 rounded-none border transition-all ${
+                      isPrimary
+                        ? "bg-neutral-900 border-white shadow-xl ring-1 ring-white/50"
+                        : "bg-neutral-950 border-neutral-800 hover:border-neutral-700"
+                    }`}
+                  >
+                    <CornerCrosses size="sm" className={isPrimary ? "text-white" : "text-neutral-700"} />
+
+                    <div className="flex items-start justify-between gap-4">
+                      {/* Left: Priority Reorder & Active Switch */}
+                      <div className="flex items-start gap-3 min-w-0">
+                        {/* Priority Arrows */}
+                        <div className="flex flex-col gap-1 items-center justify-center pt-0.5 shrink-0">
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={() => handleMovePriority(index, "up")}
+                            className="p-1 rounded-none bg-neutral-900 text-neutral-400 hover:text-white disabled:opacity-20 cursor-pointer transition-colors border border-neutral-800"
+                            title="Move priority up"
+                          >
+                            <ArrowUp className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={index === providers.length - 1}
+                            onClick={() => handleMovePriority(index, "down")}
+                            className="p-1 rounded-none bg-neutral-900 text-neutral-400 hover:text-white disabled:opacity-20 cursor-pointer transition-colors border border-neutral-800"
+                            title="Move priority down"
+                          >
+                            <ArrowDown className="w-3 h-3" />
+                          </button>
+                        </div>
+
+                        {/* High-Contrast Active Switch Toggle */}
                         <button
                           type="button"
-                          onClick={() => onSaveProviders(providers.filter((item) => item.id !== p.id))}
-                          className="text-xs text-rose-400 hover:text-rose-300 border border-neutral-800 px-2 py-1 rounded-none hover:border-rose-500"
+                          onClick={() => handleToggleProviderActive(p)}
+                          className={`w-9 h-5 rounded-none border flex items-center p-0.5 transition-colors cursor-pointer shrink-0 mt-0.5 ${
+                            isPrimary ? "bg-white border-white justify-end" : "bg-neutral-900 border-neutral-700 justify-start"
+                          }`}
+                          title={isPrimary ? "Set to Standby" : "Set as Primary Active Provider"}
                         >
-                          DELETE
+                          <div className={`w-3.5 h-3.5 rounded-none ${isPrimary ? "bg-black" : "bg-neutral-500"}`} />
                         </button>
-                      )}
+
+                        {/* Provider Meta & Model Pool */}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-white text-sm">{p.name}</span>
+                            <span className="text-[9px] px-1.5 py-0.2 bg-neutral-900 text-neutral-400 border border-neutral-800 uppercase font-bold">
+                              {p.type}
+                            </span>
+                            {isPrimary && (
+                              <span className="text-[9px] px-1.5 py-0.2 bg-emerald-950 text-emerald-400 border border-emerald-600 font-bold uppercase">
+                                PRIMARY ACTIVE
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="text-[11px] text-neutral-400 mt-1 truncate">
+                            {p.baseUrl}
+                          </div>
+
+                          {/* Model Pool Badge (Exact Arunika match) */}
+                          <div className="mt-2.5">
+                            <div className="inline-flex items-center gap-1.5 bg-neutral-900/90 border border-neutral-800 px-2.5 py-1 text-[10px] text-neutral-300">
+                              <span className="font-bold text-neutral-400">
+                                Model Pool ({pool.length}):
+                              </span>
+                              <span className="text-neutral-200 truncate max-w-lg">
+                                {pool.join(", ")}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Action Buttons */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* Test Ping */}
+                        <button
+                          type="button"
+                          onClick={() => handleTestPing(p.id)}
+                          disabled={testingPingId === p.id}
+                          className="px-2.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Wifi className="w-3 h-3" />
+                          <span>
+                            {testingPingId === p.id ? "PINGING..." : ping ? `${ping.ms}ms` : t("testPing")}
+                          </span>
+                        </button>
+
+                        {/* Configure */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsNewProvider(false);
+                            setEditingProvider({ ...p });
+                          }}
+                          className="px-2.5 py-1.5 bg-neutral-900 hover:bg-white hover:text-black border border-neutral-700 text-neutral-200 text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Settings2 className="w-3 h-3" />
+                          <span>{t("configure")}</span>
+                        </button>
+
+                        {/* Delete */}
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmId(p.id)}
+                          className="p-1.5 bg-neutral-900 hover:bg-rose-950 border border-neutral-800 hover:border-rose-700 text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer"
+                          title="Hapus Provider"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+            </div>
+
+            {/* Bottom Automatic Fallback Routing Notice (Arunika match) */}
+            <div className="relative p-4 border border-neutral-800 bg-neutral-900/60 font-mono text-xs text-neutral-300 flex items-start gap-3">
+              <Info className="w-4 h-4 text-neutral-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-white uppercase block mb-1">
+                  Automatic Fallback Routing
+                </span>
+                <p className="text-[11px] text-neutral-400 leading-relaxed">
+                  {t("fallbackRoutingNotice")}
+                </p>
+              </div>
             </div>
           </div>
         )}
 
-        {/* TAB 3: STORAGE DIRECTORY (Swiss Brutalism) */}
+        {/* TAB 3: STORAGE OUTPUT */}
         {activeTab === "storage" && (
-          <div className="max-w-2xl space-y-4">
+          <div className="space-y-4">
             <div className="border-b border-neutral-800 pb-2">
               <h3 className="font-mono font-bold text-xs uppercase text-white tracking-wider">
-                // LOCAL_VIDEO_STORAGE
+                // STORAGE_CONFIGURATION
               </h3>
               <span className="hud-label text-[9px]">
-                Direktori lokal tempat file video MP4 hasil render Remotion akan disimpan secara permanen.
+                Direktori lokal tempat file video MP4 hasil render Remotion disimpan.
               </span>
             </div>
 
-            <div className="relative p-5 border border-neutral-800 bg-neutral-950 space-y-3 rounded-none">
-              <CornerCrosses size="sm" className="text-neutral-600" />
-              <div className="hud-label">// LOCAL_STORAGE_DIRECTORY</div>
-              <label className="font-mono text-xs text-neutral-300 block">
-                Path Output File Video (.mp4):
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={dirInput}
-                  onChange={(e) => setDirInput(e.target.value)}
-                  className="flex-1 bg-neutral-900 border border-neutral-700 px-3 py-2 text-xs font-mono text-white rounded-none focus:outline-none focus:border-white"
-                />
-                <button
-                  type="button"
-                  onClick={() => onSaveOutputDir(dirInput)}
-                  className="px-4 py-2 bg-white text-black font-mono font-bold text-xs rounded-none border border-white hover:bg-neutral-200"
-                >
-                  SIMPAN PATH
-                </button>
+            <div className="relative p-5 border border-neutral-800 bg-neutral-900/50 space-y-4 rounded-none max-w-2xl font-mono">
+              <CornerCrosses size="sm" />
+              <div>
+                <label className="hud-label block mb-1">OUTPUT_DIRECTORY_PATH:</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={dirInput}
+                    onChange={(e) => setDirInput(e.target.value)}
+                    className="flex-1 bg-neutral-950 border border-neutral-700 p-2 text-xs text-white rounded-none focus:outline-none focus:border-white font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onSaveOutputDir(dirInput)}
+                    className="px-4 py-2 bg-white text-black font-bold font-mono text-xs rounded-none border border-white hover:bg-neutral-200 transition-colors"
+                  >
+                    {t("save")}
+                  </button>
+                </div>
               </div>
-              <p className="hud-label text-[9px] text-neutral-500">
-                Default: `E:\Videos\ArunakiNexus`. File diindeks otomatis ke database SQLite `arunakinexus.db`.
-              </p>
+              <div className="text-[10px] text-neutral-400">
+                Default: <span className="text-white font-mono">./output/videos</span>
+              </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Provider Configuration / Add Modal (Swiss Brutalism) */}
+      {editingProvider && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-in fade-in duration-100">
+          <div className="relative w-full max-w-lg border-2 border-white bg-neutral-950 p-6 space-y-4 shadow-2xl font-mono">
+            <CornerCrosses size="md" className="text-white" />
+
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <span className="font-bold text-white text-sm uppercase">
+                {isNewProvider ? "// ADD_MODEL_PROVIDER" : "// CONFIGURE_MODEL_PROVIDER"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setEditingProvider(null)}
+                className="text-neutral-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="hud-label block mb-1">PROVIDER_TYPE:</label>
+                <select
+                  value={editingProvider.type}
+                  onChange={(e) => {
+                    const opt = PROVIDER_TYPES.find((t) => t.value === e.target.value);
+                    if (opt) {
+                      setEditingProvider({
+                        ...editingProvider,
+                        type: opt.value,
+                        name: opt.label,
+                        baseUrl: opt.defaultUrl,
+                        model: opt.defaultModels.join(", "),
+                      });
+                    }
+                  }}
+                  className="w-full bg-neutral-900 border border-neutral-700 p-2 text-white rounded-none focus:outline-none focus:border-white font-mono"
+                >
+                  <option value="aisdk">AI SDK (Kenari / Custom)</option>
+                  {PROVIDER_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="hud-label block mb-1">DISPLAY_NAME:</label>
+                <input
+                  type="text"
+                  value={editingProvider.name}
+                  onChange={(e) =>
+                    setEditingProvider({ ...editingProvider, name: e.target.value })
+                  }
+                  className="w-full bg-neutral-900 border border-neutral-700 p-2 text-white rounded-none focus:outline-none focus:border-white font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="hud-label block mb-1">BASE_URL_ENDPOINT:</label>
+                <input
+                  type="text"
+                  value={editingProvider.baseUrl}
+                  onChange={(e) =>
+                    setEditingProvider({ ...editingProvider, baseUrl: e.target.value })
+                  }
+                  className="w-full bg-neutral-900 border border-neutral-700 p-2 text-white rounded-none focus:outline-none focus:border-white font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="hud-label block mb-1">API_KEY (BEARER TOKEN):</label>
+                <div className="relative flex items-center">
+                  <input
+                    type={showApiKey ? "text" : "password"}
+                    placeholder="sk-... atau token API"
+                    value={editingProvider.apiKey}
+                    onChange={(e) =>
+                      setEditingProvider({ ...editingProvider, apiKey: e.target.value })
+                    }
+                    className="w-full bg-neutral-900 border border-neutral-700 p-2 pr-9 text-white rounded-none focus:outline-none focus:border-white font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-2 text-neutral-400 hover:text-white"
+                  >
+                    {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="hud-label block mb-1">
+                  MODEL_POOL (Daftar Model, pisahkan dengan koma):
+                </label>
+                <input
+                  type="text"
+                  value={editingProvider.model}
+                  onChange={(e) =>
+                    setEditingProvider({ ...editingProvider, model: e.target.value })
+                  }
+                  placeholder="model-1, model-2, model-3"
+                  className="w-full bg-neutral-900 border border-neutral-700 p-2 text-white rounded-none focus:outline-none focus:border-white font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setEditingProvider(null)}
+                className="px-4 py-2 bg-neutral-900 text-neutral-300 font-mono text-xs border border-neutral-700 hover:text-white"
+              >
+                {t("cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveForm}
+                className="px-4 py-2 bg-white text-black font-bold font-mono text-xs border border-white hover:bg-neutral-200"
+              >
+                {t("save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-in fade-in duration-100">
+          <div className="relative w-full max-w-sm border-2 border-rose-500 bg-neutral-950 p-5 space-y-4 shadow-2xl font-mono text-center">
+            <CornerCrosses size="sm" className="text-rose-500" />
+            <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto" />
+            <div className="text-sm font-bold text-white uppercase">
+              // KONFIRMASI_HAPUS
+            </div>
+            <p className="text-xs text-neutral-400">
+              Apakah Anda yakin ingin menghapus provider ini dari katalog sistem?
+            </p>
+            <div className="flex justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmId(null)}
+                className="px-3 py-1.5 bg-neutral-900 text-neutral-300 text-xs border border-neutral-700 hover:text-white"
+              >
+                {t("cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteProvider(deleteConfirmId)}
+                className="px-3 py-1.5 bg-rose-600 text-white font-bold text-xs border border-rose-500 hover:bg-rose-500"
+              >
+                {t("delete")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
