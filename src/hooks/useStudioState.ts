@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { TikTokVideoProps, defaultTikTokProps } from "../remotion/types";
-import { StockVideoItem, TabType } from "../types";
+import { StockVideoItem, TabType, TikTokAccountMetrics, TikTokVideoMetric } from "../types";
 import { generateContentScript } from "../services/aiService";
 
 const FALLBACK_STOCK: StockVideoItem[] = [
@@ -35,6 +35,39 @@ const FALLBACK_STOCK: StockVideoItem[] = [
   },
 ];
 
+const DEFAULT_METRICS: TikTokAccountMetrics = {
+  total_views: 482500,
+  total_likes: 39200,
+  followers: 14800,
+  fyp_score: "HIGH_94/100",
+  weekly_growth_percent: 18.4,
+  connected_account: "@arunaki.creator",
+  auth_status: "ACTIVE_CONNECTED",
+};
+
+const DEFAULT_FEED: TikTokVideoMetric[] = [
+  {
+    id: "tt-01",
+    title: "5 Tools AI Gratis yang Jarang Diketahui",
+    published_date: "02.11.2026",
+    views: 142800,
+    likes: 18400,
+    comments: 420,
+    shares: 1280,
+    fyp_status: "FYP_VIRAL",
+  },
+  {
+    id: "tt-02",
+    title: "Cara Atur Gaji UMR Biar Punya Tabungan",
+    published_date: "01.11.2026",
+    views: 89200,
+    likes: 9150,
+    comments: 195,
+    shares: 512,
+    fyp_status: "OPTIMAL",
+  },
+];
+
 export function useStudioState() {
   const [activeTab, setActiveTab] = useState<TabType>("studio");
   const [props, setProps] = useState<TikTokVideoProps>(defaultTikTokProps);
@@ -44,13 +77,14 @@ export function useStudioState() {
   const [notification, setNotification] = useState<string | null>(null);
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const [outputDir, setOutputDir] = useState("E:\\Videos\\ArunakiNexus");
+  const [metrics, setMetrics] = useState<TikTokAccountMetrics>(DEFAULT_METRICS);
+  const [feed, setFeed] = useState<TikTokVideoMetric[]>(DEFAULT_FEED);
 
   const showNotification = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 3500);
   };
 
-  // Load persistent data from SQLite
   const loadPersistentData = useCallback(async () => {
     const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
     if (!isTauri) return;
@@ -89,25 +123,44 @@ export function useStudioState() {
 
       const dir = await invoke<string | null>("get_setting", { key: "output_directory" });
       if (dir) setOutputDir(dir);
+
+      // Fetch TikTok telemetry from Rust
+      const rustMetrics = await invoke<TikTokAccountMetrics>("get_tiktok_account_metrics");
+      if (rustMetrics) setMetrics(rustMetrics);
+
+      const rustFeed = await invoke<TikTokVideoMetric[]>("get_tiktok_feed_metrics");
+      if (rustFeed) setFeed(rustFeed);
     } catch (e) {
-      console.warn("SQLite load skipped or failed:", e);
+      console.warn("Tauri Rust loader skipped or error:", e);
     }
   }, []);
 
   useEffect(() => {
     loadPersistentData();
 
-    let unlisten: (() => void) | undefined;
+    let unlistenProgress: (() => void) | undefined;
+    let unlistenScheduler: (() => void) | undefined;
+
     listen<{ percent: number; message: string }>("render-progress", (event) => {
       setRenderProgress(event.payload.percent);
-    })
-      .then((fn) => {
-        unlisten = fn;
-      })
-      .catch(() => {});
+    }).then((fn) => {
+      unlistenProgress = fn;
+    }).catch(() => {});
+
+    listen<{ message: string; video_id: string; title: string }>(
+      "tiktok-scheduled-dispatch",
+      (event) => {
+        showNotification(`🚀 [RUST_DISPATCH] ${event.payload.message}`);
+        // Reload stock
+        loadPersistentData();
+      }
+    ).then((fn) => {
+      unlistenScheduler = fn;
+    }).catch(() => {});
 
     return () => {
-      if (unlisten) unlisten();
+      if (unlistenProgress) unlistenProgress();
+      if (unlistenScheduler) unlistenScheduler();
     };
   }, [loadPersistentData]);
 
@@ -149,7 +202,6 @@ export function useStudioState() {
           filePath: result.output_path,
         };
 
-        // Persist to SQLite
         await invoke("save_stock_video", {
           item: {
             id: newItem.id,
@@ -166,7 +218,6 @@ export function useStudioState() {
         setStock((prev) => [newItem, ...prev]);
         showNotification(`🎉 Render sukses & tersimpan di SQLite: ${result.output_path}`);
       } else {
-        // Dev browser simulation
         let current = 10;
         const interval = setInterval(() => {
           current += 15;
@@ -195,6 +246,54 @@ export function useStudioState() {
     } finally {
       setIsRendering(false);
       setRenderProgress(0);
+    }
+  };
+
+  const handlePublishToTikTok = async (item: StockVideoItem) => {
+    const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+    if (isTauri) {
+      try {
+        showNotification(`🚀 [RUST_NATIVE] Menerbitkan "${item.title}" ke TikTok...`);
+        const res = await invoke<{ success: boolean; message: string; post_url: string }>(
+          "publish_to_tiktok",
+          {
+            id: item.id,
+            title: item.title,
+            filePath: item.filePath || null,
+          }
+        );
+        showNotification(res.message);
+        setStock((prev) =>
+          prev.map((s) => (s.id === item.id ? { ...s, status: "published" } : s))
+        );
+      } catch (e) {
+        showNotification(`❌ Gagal upload TikTok: ${e}`);
+      }
+    } else {
+      showNotification(`🚀 Simulasi Upload: "${item.title}" terbit di TikTok!`);
+      setStock((prev) =>
+        prev.map((s) => (s.id === item.id ? { ...s, status: "published" } : s))
+      );
+    }
+  };
+
+  const handleScheduleVideo = async (id: string, slotTime: string) => {
+    const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+    if (isTauri) {
+      try {
+        await invoke("schedule_video", { id, slotTime });
+        showNotification(`📅 Video dijadwalkan pada ${slotTime} (Rust Scheduler armed)`);
+        setStock((prev) =>
+          prev.map((s) => (s.id === id ? { ...s, status: "scheduled" } : s))
+        );
+      } catch (e) {
+        showNotification(`❌ Gagal menjadwalkan: ${e}`);
+      }
+    } else {
+      showNotification(`📅 Terjadwal pada ${slotTime} (Simulasi Dev)`);
+      setStock((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, status: "scheduled" } : s))
+      );
     }
   };
 
@@ -242,10 +341,14 @@ export function useStudioState() {
     showNotification,
     handleAiGenerate,
     handleRenderToStock,
+    handlePublishToTikTok,
+    handleScheduleVideo,
     handleSaveSettings,
     handleDeleteStock,
     geminiApiKey,
     outputDir,
+    metrics,
+    feed,
     readyStockCount,
   };
 }

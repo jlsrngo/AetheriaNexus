@@ -2,19 +2,32 @@ import React from "react";
 import { Panel } from "../ui/Panel";
 import { Badge } from "../ui/Badge";
 import { Eye, Heart, Users, Flame, TrendingUp } from "lucide-react";
+import { TikTokAccountMetrics, TikTokVideoMetric } from "../../types";
 
-export const AnalyticsView: React.FC = () => {
+interface AnalyticsViewProps {
+  metrics: TikTokAccountMetrics;
+  feed: TikTokVideoMetric[];
+}
+
+export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ metrics, feed }) => {
   return (
     <div className="p-8 flex-1 overflow-y-auto blueprint-grid space-y-8">
       {/* Header */}
-      <div className="pb-4 border-b border-neutral-800">
-        <div className="hud-label">// TELEMETRY_ANALYTICS</div>
-        <h2 className="font-mono text-xl font-black text-white uppercase tracking-tight mt-1">
-          MONITORING PERFORMA AKUN & KONTEN TIKTOK
-        </h2>
-        <p className="font-mono text-xs text-neutral-400 mt-1">
-          Metrik langsung integrasi TikTok Content Posting & Analytics API.
-        </p>
+      <div className="pb-4 border-b border-neutral-800 flex items-center justify-between">
+        <div>
+          <div className="hud-label">// RUST_NATIVE_TELEMETRY</div>
+          <h2 className="font-mono text-xl font-black text-white uppercase tracking-tight mt-1">
+            MONITORING PERFORMA AKUN & KONTEN TIKTOK
+          </h2>
+          <p className="font-mono text-xs text-neutral-400 mt-1">
+            Metrik langsung dievaluasi via backend native Rust tanpa membebani browser.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Badge variant="emerald">{metrics.auth_status}</Badge>
+          <span className="font-mono text-xs text-white font-bold">{metrics.connected_account}</span>
+        </div>
       </div>
 
       {/* KPI Cards Grid */}
@@ -24,10 +37,12 @@ export const AnalyticsView: React.FC = () => {
             <span className="hud-label">TOTAL_VIDEO_VIEWS</span>
             <Eye className="w-4 h-4 text-neutral-400" />
           </div>
-          <div className="font-mono text-3xl font-black text-white">482,500</div>
+          <div className="font-mono text-3xl font-black text-white">
+            {metrics.total_views.toLocaleString()}
+          </div>
           <div className="mt-2 flex items-center gap-1.5 font-mono text-[10px] text-emerald-400">
             <TrendingUp className="w-3 h-3" />
-            <span>+18.4% DARI MINGGU LALU</span>
+            <span>+{metrics.weekly_growth_percent}% MINGGU INI</span>
           </div>
         </Panel>
 
@@ -36,10 +51,12 @@ export const AnalyticsView: React.FC = () => {
             <span className="hud-label">TOTAL_LIKES</span>
             <Heart className="w-4 h-4 text-neutral-400" />
           </div>
-          <div className="font-mono text-3xl font-black text-white">39,200</div>
+          <div className="font-mono text-3xl font-black text-white">
+            {metrics.total_likes.toLocaleString()}
+          </div>
           <div className="mt-2 flex items-center gap-1.5 font-mono text-[10px] text-emerald-400">
             <TrendingUp className="w-3 h-3" />
-            <span>+12.1% ENGAGEMENT</span>
+            <span>OPTIMAL_ENGAGEMENT</span>
           </div>
         </Panel>
 
@@ -48,10 +65,12 @@ export const AnalyticsView: React.FC = () => {
             <span className="hud-label">TOTAL_FOLLOWERS</span>
             <Users className="w-4 h-4 text-neutral-400" />
           </div>
-          <div className="font-mono text-3xl font-black text-white">14,800</div>
+          <div className="font-mono text-3xl font-black text-white">
+            {metrics.followers.toLocaleString()}
+          </div>
           <div className="mt-2 flex items-center gap-1.5 font-mono text-[10px] text-emerald-400">
             <TrendingUp className="w-3 h-3" />
-            <span>+620 FOLLOWER BARU</span>
+            <span>PERTUMBUHAN_STABIL</span>
           </div>
         </Panel>
 
@@ -60,9 +79,11 @@ export const AnalyticsView: React.FC = () => {
             <span className="hud-label">FYP_ALGORITHM_SCORE</span>
             <Flame className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="font-mono text-3xl font-black text-amber-400">HIGH_94/100</div>
+          <div className="font-mono text-3xl font-black text-amber-400">
+            {metrics.fyp_score}
+          </div>
           <div className="mt-2 font-mono text-[10px] text-neutral-500">
-            KONSISTENSI POSTING TINGGI
+            KONSISTENSI_HIGH_SCORE
           </div>
         </Panel>
       </div>
@@ -71,7 +92,7 @@ export const AnalyticsView: React.FC = () => {
       <Panel className="p-6">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-neutral-800">
           <span className="hud-label">// PUBLISHED_FEED_BREAKDOWN</span>
-          <Badge variant="neutral">TELEMETRY_LIVE</Badge>
+          <Badge variant="neutral">STREAM_SYNCHRONIZED</Badge>
         </div>
 
         <div className="overflow-x-auto">
@@ -86,24 +107,19 @@ export const AnalyticsView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-800/80">
-              <tr>
-                <td className="py-3 font-sans font-bold text-white">5 Tools AI Gratis yang Jarang Diketahui</td>
-                <td className="py-3 text-neutral-400">02.11.2026</td>
-                <td className="py-3 text-white font-bold">142,800</td>
-                <td className="py-3 text-neutral-300">18,400</td>
-                <td className="py-3">
-                  <Badge variant="rose">🔥 FYP_VIRAL</Badge>
-                </td>
-              </tr>
-              <tr>
-                <td className="py-3 font-sans font-bold text-white">Cara Atur Gaji UMR Biar Punya Tabungan</td>
-                <td className="py-3 text-neutral-400">01.11.2026</td>
-                <td className="py-3 text-white font-bold">89,200</td>
-                <td className="py-3 text-neutral-300">9,150</td>
-                <td className="py-3">
-                  <Badge variant="emerald">OPTIMAL</Badge>
-                </td>
-              </tr>
+              {feed.map((v) => (
+                <tr key={v.id}>
+                  <td className="py-3 font-sans font-bold text-white">{v.title}</td>
+                  <td className="py-3 text-neutral-400">{v.published_date}</td>
+                  <td className="py-3 text-white font-bold">{v.views.toLocaleString()}</td>
+                  <td className="py-3 text-neutral-300">{v.likes.toLocaleString()}</td>
+                  <td className="py-3">
+                    <Badge variant={v.fyp_status.includes("VIRAL") ? "rose" : "emerald"}>
+                      {v.fyp_status}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -111,4 +127,3 @@ export const AnalyticsView: React.FC = () => {
     </div>
   );
 };
-

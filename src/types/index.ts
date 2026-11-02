@@ -13,10 +13,23 @@ export interface StockVideoItem {
   filePath?: string;
 }
 
-export interface TikTokMetricKPI {
-  totalViews: string;
-  totalLikes: string;
-  followers: string;
-  fypScore: string;
+export interface TikTokAccountMetrics {
+  total_views: number;
+  total_likes: number;
+  followers: number;
+  fyp_score: string;
+  weekly_growth_percent: number;
+  connected_account: string;
+  auth_status: string;
 }
 
+export interface TikTokVideoMetric {
+  id: string;
+  title: string;
+  published_date: string;
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  fyp_status: string;
+}

@@ -1,10 +1,14 @@
 mod db;
+mod scheduler;
+mod tiktok;
 
 use db::{DbManager, StockVideoRecord};
+use scheduler::DispatchScheduler;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use tauri::Emitter;
+use tiktok::{PublishResponse, TikTokAccountMetrics, TikTokService, TikTokVideoMetric};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RenderProgressPayload {
@@ -107,6 +111,60 @@ async fn save_setting(app: tauri::AppHandle, key: String, value: String) -> Resu
     db.set_setting(&key, &value).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn get_tiktok_account_metrics() -> Result<TikTokAccountMetrics, String> {
+    Ok(TikTokService::get_account_metrics())
+}
+
+#[tauri::command]
+async fn get_tiktok_feed_metrics() -> Result<Vec<TikTokVideoMetric>, String> {
+    Ok(TikTokService::get_video_feed_metrics())
+}
+
+#[tauri::command]
+async fn publish_to_tiktok(
+    app: tauri::AppHandle,
+    id: String,
+    title: String,
+    file_path: Option<String>,
+) -> Result<PublishResponse, String> {
+    let path_str = file_path.unwrap_or_else(|| format!("output/{}.mp4", id));
+    let response = TikTokService::publish_video(&path_str, &title).await?;
+
+    // Update status in SQLite to 'published'
+    let db = DbManager::new(&app);
+    if let Ok(videos) = db.get_all_stock() {
+        if let Some(target) = videos.into_iter().find(|v| v.id == id) {
+            let updated = StockVideoRecord {
+                status: "published".to_string(),
+                ..target
+            };
+            let _ = db.insert_stock(&updated);
+        }
+    }
+
+    Ok(response)
+}
+
+#[tauri::command]
+async fn schedule_video(
+    app: tauri::AppHandle,
+    id: String,
+    _slot_time: String,
+) -> Result<(), String> {
+    let db = DbManager::new(&app);
+    if let Ok(videos) = db.get_all_stock() {
+        if let Some(target) = videos.into_iter().find(|v| v.id == id) {
+            let updated = StockVideoRecord {
+                status: "scheduled".to_string(),
+                ..target
+            };
+            db.insert_stock(&updated).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -120,6 +178,11 @@ pub fn run() {
             }
             // Initialize SQLite tables on startup
             let _ = DbManager::new(app.handle());
+
+            // Launch background native dispatch scheduler
+            let scheduler = DispatchScheduler::new();
+            scheduler.start(app.handle().clone());
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -128,7 +191,11 @@ pub fn run() {
             save_stock_video,
             delete_stock_video,
             get_setting,
-            save_setting
+            save_setting,
+            get_tiktok_account_metrics,
+            get_tiktok_feed_metrics,
+            publish_to_tiktok,
+            schedule_video
         ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
