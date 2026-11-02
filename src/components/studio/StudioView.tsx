@@ -3,14 +3,13 @@ import { Player } from "@remotion/player";
 import { TikTokVideo } from "../../remotion/TikTokVideo";
 import { TikTokVideoProps } from "../../remotion/types";
 import { Panel } from "../ui/Panel";
-import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
-import { Sparkles, Download } from "lucide-react";
+import { ChatPromptPanel } from "./ChatPromptPanel";
 
 interface StudioViewProps {
   props: TikTokVideoProps;
   setProps: (props: TikTokVideoProps) => void;
-  onAiGenerate: () => void;
+  onAiGenerate: (topic?: string) => Promise<void> | void;
   onRender: () => void;
   isRendering: boolean;
   renderProgress: number;
@@ -67,7 +66,9 @@ export const StudioView: React.FC<StudioViewProps> = ({
               key={color}
               onClick={() => setProps({ ...props, themeColor: color })}
               className={`w-5 h-5 rounded-none border transition-all ${
-                props.themeColor === color ? "border-white scale-110 ring-1 ring-white" : "border-neutral-700 opacity-60 hover:opacity-100"
+                props.themeColor === color
+                  ? "border-white scale-110 ring-1 ring-white"
+                  : "border-neutral-700 opacity-60 hover:opacity-100"
               }`}
               style={{
                 background:
@@ -86,95 +87,17 @@ export const StudioView: React.FC<StudioViewProps> = ({
         </div>
       </div>
 
-      {/* Right Inspector: Props & Parameters Form */}
-      <div className="w-[420px] bg-neutral-950/90 p-6 flex flex-col justify-between overflow-y-auto border-l border-neutral-800">
-        <div className="space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
-            <div>
-              <h2 className="font-mono font-bold text-xs uppercase text-white tracking-wider">
-                // COMPOSITION_PROPS
-              </h2>
-              <span className="hud-label text-[9px]">PARAMETERS_INPUT</span>
-            </div>
-            <Button variant="secondary" size="sm" onClick={onAiGenerate}>
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-              <span>AI GENERATE</span>
-            </Button>
-          </div>
-
-          {/* Form: Category */}
-          <div className="space-y-1">
-            <label className="hud-label block">01_CATEGORY_BADGE:</label>
-            <input
-              type="text"
-              value={props.category}
-              onChange={(e) => setProps({ ...props, category: e.target.value })}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-none px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-white"
-            />
-          </div>
-
-          {/* Form: Hook Text */}
-          <div className="space-y-1">
-            <label className="hud-label block">02_HOOK_TITLE (3 SECONDS):</label>
-            <textarea
-              rows={3}
-              value={props.hookText}
-              onChange={(e) => setProps({ ...props, hookText: e.target.value })}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-none p-3 text-xs font-sans font-bold text-white focus:outline-none focus:border-white resize-none leading-relaxed"
-            />
-          </div>
-
-          {/* Form: Body Text */}
-          <div className="space-y-1">
-            <label className="hud-label block">03_CONTENT_POINTS (1 LINE PER POINT):</label>
-            <textarea
-              rows={4}
-              value={props.bodyText}
-              onChange={(e) => setProps({ ...props, bodyText: e.target.value })}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-none p-3 text-xs font-mono text-neutral-200 focus:outline-none focus:border-white resize-none leading-relaxed"
-            />
-          </div>
-
-          {/* Form: Author Handle */}
-          <div className="space-y-1">
-            <label className="hud-label block">04_WATERMARK_HANDLE:</label>
-            <input
-              type="text"
-              value={props.authorHandle}
-              onChange={(e) => setProps({ ...props, authorHandle: e.target.value })}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-none px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-white"
-            />
-          </div>
-        </div>
-
-        {/* Action Bottom Section */}
-        <div className="pt-5 border-t border-neutral-800 space-y-3">
-          {isRendering ? (
-            <Panel className="p-4 bg-neutral-900 border border-neutral-700">
-              <div className="flex items-center justify-between font-mono text-xs mb-2">
-                <span className="text-white font-bold animate-pulse">// RENDERING_LOCAL_MP4...</span>
-                <span className="text-white font-mono">{renderProgress}%</span>
-              </div>
-              <div className="w-full bg-neutral-950 h-2 border border-neutral-800">
-                <div
-                  className="bg-white h-full transition-all duration-200"
-                  style={{ width: `${renderProgress}%` }}
-                />
-              </div>
-            </Panel>
-          ) : (
-            <Button
-              variant="primary"
-              size="lg"
-              className="w-full"
-              onClick={onRender}
-            >
-              <Download className="w-4 h-4" />
-              <span>RENDER & SIMPAN KE STOK VIDEO</span>
-            </Button>
-          )}
-        </div>
-      </div>
+      {/* Right Conversational Director: Chat Prompt Panel */}
+      <ChatPromptPanel
+        props={props}
+        setProps={setProps}
+        onAiGenerateWithTopic={async (topic) => {
+          await onAiGenerate(topic);
+        }}
+        onRender={onRender}
+        isRendering={isRendering}
+        renderProgress={renderProgress}
+      />
     </div>
   );
 };
