@@ -42,24 +42,24 @@ export const WindowControls: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center border-l border-neutral-800 ml-3 shrink-0 h-14">
+    <div className="flex items-center h-full shrink-0 select-none">
       <button
         onClick={handleMinimize}
-        className="w-12 h-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 border-r border-neutral-800 rounded-none transition-colors"
+        className="w-11 h-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
         title="Minimize Window"
       >
         <Minus className="w-3.5 h-3.5" />
       </button>
       <button
         onClick={handleMaximize}
-        className="w-12 h-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 border-r border-neutral-800 rounded-none transition-colors"
+        className="w-11 h-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
         title="Maximize / Restore Window"
       >
         <Square className="w-3 h-3" />
       </button>
       <button
         onClick={handleClose}
-        className="w-12 h-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-rose-600 rounded-none transition-colors"
+        className="w-11 h-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-rose-600 transition-colors"
         title="Close Application"
       >
         <X className="w-3.5 h-3.5" />
@@ -67,4 +67,3 @@ export const WindowControls: React.FC = () => {
     </div>
   );
 };
-

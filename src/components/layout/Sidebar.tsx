@@ -22,26 +22,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-64 bg-neutral-950 border-r border-neutral-800 flex flex-col justify-between shrink-0 select-none">
+    <aside className="w-60 bg-neutral-950 border-r border-neutral-800 flex flex-col justify-between shrink-0 select-none">
       <div>
-        {/* Logo / Header Branding with drag region (Exact h-14 to match main header border line) */}
-        <div data-tauri-drag-region className="h-14 px-5 border-b border-neutral-800 flex items-center cursor-move box-border shrink-0">
-          <div data-tauri-drag-region className="flex items-center gap-2.5">
-            <div className="w-6 h-6 bg-white text-black font-black flex items-center justify-center font-mono text-xs shrink-0">
-              ⚡
-            </div>
-            <div data-tauri-drag-region>
-              <div data-tauri-drag-region className="font-mono font-black text-sm tracking-tight text-white uppercase leading-none">
-                Arunaki<span className="text-neutral-500">Nexus</span>
-              </div>
-              <div data-tauri-drag-region className="hud-label text-[9px] text-neutral-500 mt-1 leading-none">v0.2.0 // BRUTAL_HUD</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Section Label */}
-        <div className="px-5 pt-4 pb-2 hud-label text-[9px]">
-          [NAVIGATION_MODULES]
+        {/* Sidebar Header: VS Code Section Header style */}
+        <div className="h-9 px-4 border-b border-neutral-800 flex items-center justify-between font-mono text-[11px] text-neutral-400 font-bold uppercase tracking-wider">
+          <span>Explorer</span>
+          <span className="text-[10px] text-neutral-600">// MODULES</span>
         </div>
 
         {/* Navigation list */}
@@ -52,14 +38,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-mono font-bold transition-colors rounded-none border ${
+                className={`w-full flex items-center justify-between px-3 py-2 text-xs font-mono font-bold transition-colors rounded-none border ${
                   isActive
                     ? "bg-white text-black border-white"
                     : "bg-transparent text-neutral-400 border-transparent hover:text-white hover:bg-neutral-900 hover:border-neutral-800"
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <span className={`text-[10px] ${isActive ? "text-neutral-600" : "text-neutral-600"}`}>
+                <div className="flex items-center gap-2.5">
+                  <span className={`text-[10px] ${isActive ? "text-neutral-600" : "text-neutral-500"}`}>
                     {item.code}
                   </span>
                   <span>{item.label}</span>
@@ -79,8 +65,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Footer kosong / disiapkan untuk modul login nanti */}
-      <div className="p-4 border-t border-neutral-800/40"></div>
+      {/* Footer kosong */}
+      <div className="p-3 border-t border-neutral-800/40"></div>
     </aside>
   );
 };

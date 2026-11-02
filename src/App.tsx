@@ -32,26 +32,26 @@ export const App: React.FC = () => {
   } = useStudioState();
 
   return (
-    <div className="flex h-screen w-screen bg-neutral-950 text-neutral-100 overflow-hidden font-sans select-none">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        readyStockCount={readyStockCount}
-      />
+    <div className="flex flex-col h-screen w-screen bg-neutral-950 text-neutral-100 overflow-hidden font-sans select-none border border-neutral-800">
+      {/* VS Code Style Full-Width Titlebar */}
+      <Header />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        {/* Top Header Telemetry */}
-        <Header readyStockCount={readyStockCount} />
-
-        {/* Global Notification Toast (Brutalist style) */}
+      {/* Main Workspace: Sidebar on Left, Content Views on Right */}
+      <div className="flex-1 flex h-[calc(100vh-36px)] overflow-hidden relative">
+        {/* Global Notification Toast */}
         {notification && (
-          <div className="absolute top-16 right-6 z-50 bg-neutral-900 border border-white text-white px-4 py-2 font-mono text-xs flex items-center gap-2.5 shadow-2xl rounded-none">
+          <div className="absolute top-4 right-6 z-50 bg-neutral-900 border border-white text-white px-4 py-2 font-mono text-xs flex items-center gap-2.5 shadow-2xl rounded-none">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{notification}</span>
           </div>
         )}
+
+        {/* Sidebar Navigation */}
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          readyStockCount={readyStockCount}
+        />
 
         {/* Dynamic Views */}
         <main className="flex-1 flex flex-col h-full overflow-hidden">
