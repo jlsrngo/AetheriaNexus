@@ -207,3 +207,4 @@ fn find_binary(bin: &str) -> Option<String> {
 
     None
 }
+
