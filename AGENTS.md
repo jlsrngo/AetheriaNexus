@@ -1,5 +1,24 @@
 # AGENTS.md
 
+## Project Specifications & References (Single Source of Truth)
+
+AI agents working on this project must consult and adhere to the following specification documents:
+
+1. **Primary PRD (Active Architecture & Feature Spec):**
+   * [`PRD_DESKTOP_TAURI.md`](PRD_DESKTOP_TAURI.md)
+   * **Target:** Windows Desktop Application (`.exe` / `.msi` via Tauri v2 + Rust + React + Remotion).
+   * **Key Priorities:** TikTok-First (P0), Local Rendering (Rp 0 / Zero Cloud Costs), Video Stock Inventory, Scheduling & Account Analytics (Views, Likes, Followers).
+2. **Cloud/Serverless Architecture Reference (Secondary/Legacy):**
+   * [`PRD_VERCEL_OPTIMIZED.md`](PRD_VERCEL_OPTIMIZED.md)
+   * Reference for web/cloud concepts if hybrid features are requested.
+3. **Original Background PRD:**
+   * `PRD - Platform Otomasi Konten Sosmed dengan Remotion.docx`
+   * Initial concept draft for Remotion-based automated social media video generation.
+
+---
+
+## Behavioral Guidelines
+
 Behavioral guidelines to reduce common LLM coding mistakes, derived from Andrej Karpathy's observations on LLM coding pitfalls.
 
 **Tradeoff:** These guidelines prioritize caution and precision over raw speed. For trivial tasks, exercise appropriate judgment.

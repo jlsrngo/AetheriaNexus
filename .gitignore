@@ -24,3 +24,9 @@ Thumbs.db
 dist/
 build/
 out/
+src-tauri/target/
+
+# Documents & PRDs
+PRD*
+*.docx
+
