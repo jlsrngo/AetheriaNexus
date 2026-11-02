@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { TikTokVideoProps, defaultTikTokProps } from "../remotion/types";
 import { StockVideoItem, TabType } from "../types";
+import { generateContentScript } from "../services/aiService";
 
-const INITIAL_STOCK: StockVideoItem[] = [
+const FALLBACK_STOCK: StockVideoItem[] = [
   {
     id: "v-01",
     title: "3 Kebiasaan Pagi Orang Sukses",
@@ -32,79 +33,95 @@ const INITIAL_STOCK: StockVideoItem[] = [
     status: "published",
     theme: "cyan",
   },
-  {
-    id: "v-04",
-    title: "Cara Atur Gaji UMR Biar Punya Tabungan",
-    category: "Finansial",
-    duration: "00:05",
-    renderedAt: "Kemarin, 16:10",
-    status: "ready",
-    theme: "amber",
-  },
 ];
 
 export function useStudioState() {
   const [activeTab, setActiveTab] = useState<TabType>("studio");
   const [props, setProps] = useState<TikTokVideoProps>(defaultTikTokProps);
-  const [stock, setStock] = useState<StockVideoItem[]>(INITIAL_STOCK);
+  const [stock, setStock] = useState<StockVideoItem[]>(FALLBACK_STOCK);
   const [isRendering, setIsRendering] = useState(false);
   const [renderProgress, setRenderProgress] = useState(0);
   const [notification, setNotification] = useState<string | null>(null);
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [outputDir, setOutputDir] = useState("E:\\Videos\\ArunakiNexus");
 
   const showNotification = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 3500);
   };
 
+  // Load persistent data from SQLite
+  const loadPersistentData = useCallback(async () => {
+    const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+    if (!isTauri) return;
+
+    try {
+      const records = await invoke<
+        Array<{
+          id: string;
+          title: string;
+          category: string;
+          duration: string;
+          rendered_at: string;
+          status: "ready" | "scheduled" | "published";
+          theme: TikTokVideoProps["themeColor"];
+          file_path?: string;
+        }>
+      >("get_stock_videos");
+
+      if (records && records.length > 0) {
+        setStock(
+          records.map((r) => ({
+            id: r.id,
+            title: r.title,
+            category: r.category,
+            duration: r.duration,
+            renderedAt: r.rendered_at,
+            status: r.status,
+            theme: r.theme,
+            filePath: r.file_path,
+          }))
+        );
+      }
+
+      const apiKey = await invoke<string | null>("get_setting", { key: "gemini_api_key" });
+      if (apiKey) setGeminiApiKey(apiKey);
+
+      const dir = await invoke<string | null>("get_setting", { key: "output_directory" });
+      if (dir) setOutputDir(dir);
+    } catch (e) {
+      console.warn("SQLite load skipped or failed:", e);
+    }
+  }, []);
+
   useEffect(() => {
+    loadPersistentData();
+
     let unlisten: (() => void) | undefined;
-    // Listen to Tauri progress event if inside Tauri desktop window
     listen<{ percent: number; message: string }>("render-progress", (event) => {
       setRenderProgress(event.payload.percent);
     })
       .then((fn) => {
         unlisten = fn;
       })
-      .catch(() => {
-        // Not in Tauri environment or error listening
-      });
+      .catch(() => {});
 
     return () => {
       if (unlisten) unlisten();
     };
-  }, []);
+  }, [loadPersistentData]);
 
-  const handleAiGenerate = () => {
-    const aiIdeas = [
-      {
-        hook: "3 Tanda Kamu Punya Mental Kuat Walau Sering Overthinking",
-        body: "1. Selalu mencari solusi bukan alasan\n2. Mampu berkata 'tidak' tanpa rasa bersalah\n3. Tidak membandingkan proses diri dengan orang lain",
-        category: "Psikologi & Mental",
-        theme: "violet" as const,
-      },
-      {
-        hook: "Rahasia FYP TikTok 2026: Hook 3 Detik Pertama",
-        body: "1. Mulai dengan pertanyaan kontroversial\n2. Tunjukkan visual sebelum audio\n3. Buat rasa penasaran di detik ke-2",
-        category: "Tips Konten",
-        theme: "cyan" as const,
-      },
-      {
-        hook: "Aturan 2 Menit yang Akan Mengubah Hidupmu",
-        body: "1. Jika butuh waktu < 2 menit, lakukan SEKARANG\n2. Memulai hal sulit hanya untuk 2 menit pertama\n3. Konsistensi kecil mengalahkan motivasi besar",
-        category: "Produktivitas",
-        theme: "emerald" as const,
-      },
-    ];
-
-    const randomIdea = aiIdeas[Math.floor(Math.random() * aiIdeas.length)];
-    setProps({
-      ...props,
-      hookText: randomIdea.hook,
-      bodyText: randomIdea.body,
-      category: randomIdea.category,
-      themeColor: randomIdea.theme,
-    });
-    showNotification("✨ AI berhasil membuat naskah & hook baru!");
+  const handleAiGenerate = async (topic?: string) => {
+    showNotification("✨ AI sedang merumuskan hook dan naskah...");
+    const script = await generateContentScript(topic, geminiApiKey);
+    setProps((prev) => ({
+      ...prev,
+      hookText: script.hook,
+      bodyText: script.body,
+      category: script.category,
+      themeColor: script.theme,
+    }));
+    showNotification("✨ Naskah baru siap di canvas preview!");
   };
 
   const handleRenderToStock = async () => {
@@ -112,7 +129,6 @@ export function useStudioState() {
     setRenderProgress(5);
 
     try {
-      // Check if Tauri runtime is available
       const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
       if (isTauri) {
@@ -133,10 +149,24 @@ export function useStudioState() {
           filePath: result.output_path,
         };
 
+        // Persist to SQLite
+        await invoke("save_stock_video", {
+          item: {
+            id: newItem.id,
+            title: newItem.title,
+            category: newItem.category,
+            duration: newItem.duration,
+            rendered_at: newItem.renderedAt,
+            status: newItem.status,
+            theme: newItem.theme,
+            file_path: newItem.filePath,
+          },
+        });
+
         setStock((prev) => [newItem, ...prev]);
-        showNotification(`🎉 Render sukses! Tersimpan di: ${result.output_path}`);
+        showNotification(`🎉 Render sukses & tersimpan di SQLite: ${result.output_path}`);
       } else {
-        // Fallback simulation for browser dev mode
+        // Dev browser simulation
         let current = 10;
         const interval = setInterval(() => {
           current += 15;
@@ -168,6 +198,36 @@ export function useStudioState() {
     }
   };
 
+  const handleSaveSettings = async (key: string, value: string) => {
+    if (key === "gemini_api_key") setGeminiApiKey(value);
+    if (key === "output_directory") setOutputDir(value);
+
+    const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+    if (isTauri) {
+      try {
+        await invoke("save_setting", { key, value });
+        showNotification(`✓ Pengaturan ${key} tersimpan di SQLite lokal!`);
+      } catch (e) {
+        showNotification(`❌ Gagal menyimpan pengaturan: ${e}`);
+      }
+    } else {
+      showNotification(`✓ Pengaturan tersimpan (Mode Dev)`);
+    }
+  };
+
+  const handleDeleteStock = async (id: string) => {
+    const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+    if (isTauri) {
+      try {
+        await invoke("delete_stock_video", { id });
+      } catch (e) {
+        console.warn("Delete stock video failed:", e);
+      }
+    }
+    setStock((prev) => prev.filter((item) => item.id !== id));
+    showNotification("🗑️ Video dihapus dari stok persediaan.");
+  };
+
   const readyStockCount = stock.filter((s) => s.status === "ready").length;
 
   return {
@@ -182,6 +242,10 @@ export function useStudioState() {
     showNotification,
     handleAiGenerate,
     handleRenderToStock,
+    handleSaveSettings,
+    handleDeleteStock,
+    geminiApiKey,
+    outputDir,
     readyStockCount,
   };
 }

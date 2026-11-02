@@ -1,3 +1,6 @@
+mod db;
+
+use db::{DbManager, StockVideoRecord};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
@@ -74,6 +77,36 @@ async fn render_tiktok_video(
     }
 }
 
+#[tauri::command]
+async fn get_stock_videos(app: tauri::AppHandle) -> Result<Vec<StockVideoRecord>, String> {
+    let db = DbManager::new(&app);
+    db.get_all_stock().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn save_stock_video(app: tauri::AppHandle, item: StockVideoRecord) -> Result<(), String> {
+    let db = DbManager::new(&app);
+    db.insert_stock(&item).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn delete_stock_video(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    let db = DbManager::new(&app);
+    db.delete_stock(&id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn get_setting(app: tauri::AppHandle, key: String) -> Result<Option<String>, String> {
+    let db = DbManager::new(&app);
+    db.get_setting(&key).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn save_setting(app: tauri::AppHandle, key: String, value: String) -> Result<(), String> {
+    let db = DbManager::new(&app);
+    db.set_setting(&key, &value).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -85,9 +118,18 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            // Initialize SQLite tables on startup
+            let _ = DbManager::new(app.handle());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![render_tiktok_video])
+        .invoke_handler(tauri::generate_handler![
+            render_tiktok_video,
+            get_stock_videos,
+            save_stock_video,
+            delete_stock_video,
+            get_setting,
+            save_setting
+        ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
 }

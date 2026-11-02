@@ -22,6 +22,10 @@ export const App: React.FC = () => {
     showNotification,
     handleAiGenerate,
     handleRenderToStock,
+    handleSaveSettings,
+    handleDeleteStock,
+    geminiApiKey,
+    outputDir,
     readyStockCount,
   } = useStudioState();
 
@@ -66,6 +70,7 @@ export const App: React.FC = () => {
               onUpload={(item) => showNotification(`[TELEMETRY] Uploading "${item.title}" to TikTok...`)}
               onNavigateToSchedule={() => setActiveTab("schedule")}
               onNavigateToStudio={() => setActiveTab("studio")}
+              onDeleteStock={handleDeleteStock}
             />
           )}
 
@@ -75,7 +80,13 @@ export const App: React.FC = () => {
 
           {activeTab === "analytics" && <AnalyticsView />}
 
-          {activeTab === "settings" && <SettingsView />}
+          {activeTab === "settings" && (
+            <SettingsView
+              geminiApiKey={geminiApiKey}
+              outputDir={outputDir}
+              onSaveSetting={handleSaveSettings}
+            />
+          )}
         </main>
       </div>
     </div>

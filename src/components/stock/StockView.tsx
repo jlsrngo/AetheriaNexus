@@ -3,13 +3,14 @@ import { StockVideoItem } from "../../types";
 import { Panel } from "../ui/Panel";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
-import { Plus, Share2, Calendar } from "lucide-react";
+import { Plus, Share2, Calendar, Trash2 } from "lucide-react";
 
 interface StockViewProps {
   stock: StockVideoItem[];
   onUpload: (item: StockVideoItem) => void;
   onNavigateToSchedule: () => void;
   onNavigateToStudio: () => void;
+  onDeleteStock: (id: string) => void;
 }
 
 export const StockView: React.FC<StockViewProps> = ({
@@ -17,6 +18,7 @@ export const StockView: React.FC<StockViewProps> = ({
   onUpload,
   onNavigateToSchedule,
   onNavigateToStudio,
+  onDeleteStock,
 }) => {
   const readyCount = stock.filter((s) => s.status === "ready").length;
 
@@ -30,7 +32,7 @@ export const StockView: React.FC<StockViewProps> = ({
             STOK PERSEDIAAN KONTEN TIKTOK
           </h2>
           <p className="font-mono text-xs text-neutral-400 mt-1">
-            Persediaan video lokal yang telah terkompilasi dan siap tayang otomatis.
+            Persediaan video lokal tersimpan di database SQLite `arunakinexus.db`.
           </p>
         </div>
 
@@ -79,6 +81,9 @@ export const StockView: React.FC<StockViewProps> = ({
               <div className="font-mono text-[10px] text-neutral-400 space-y-1">
                 <div>DURATION: {item.duration} (30 FPS)</div>
                 <div>RENDERED_AT: {item.renderedAt}</div>
+                {item.filePath && (
+                  <div className="truncate text-neutral-500 font-mono">FILE: {item.filePath}</div>
+                )}
               </div>
             </div>
 
@@ -100,6 +105,15 @@ export const StockView: React.FC<StockViewProps> = ({
               >
                 <Calendar className="w-3.5 h-3.5" />
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onDeleteStock(item.id)}
+                title="Hapus dari Stok"
+                className="hover:text-rose-400"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
             </div>
           </Panel>
         ))}
@@ -107,4 +121,3 @@ export const StockView: React.FC<StockViewProps> = ({
     </div>
   );
 };
-
