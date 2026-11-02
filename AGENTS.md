@@ -95,3 +95,51 @@ These guidelines are functioning effectively when:
 - Clarifying questions are raised **before** committing to flawed implementations.
 - PRs/commits remain minimal, clean, and directly tied to requirements.
 
+---
+
+## 5. UI Design System: Swiss Brutalism + Technical HUD
+
+**Inspirasi & Rujukan:** [`https://juliosiringoringo.space/`](https://juliosiringoringo.space/)
+
+Semua komponen UI aplikasi desktop ini **WAJIB** mengikuti estetika **Swiss Brutalism / Neo-Brutalist Technical HUD**:
+
+### A. Aturan Visual Arsitektur
+1. **Zero Border Radius (`rounded-none`):**
+   * Dilarang keras menggunakan sudut melengkung (`rounded-md`, `rounded-xl`, `rounded-full`, dll.) kecuali elemen lingkaran murni untuk status dot.
+   * Semua tombol, panel, modal, input, dan container bertepi siku tajam 90°.
+2. **Crisp High-Contrast Borders (`border-line`):**
+   * Setiap modul dibatasi garis border 1px yang tegas (`border border-neutral-800` atau `border-white/20`).
+3. **Corner Crosses (`+`):**
+   * Kartu, panel, dan kontainer utama memiliki tanda bidik sudut berupa simbol plus (`+` atau `CornerCrosses`) di sudut-sudutnya ala blueprint teknis.
+4. **Tipografi Presisi & Telemetri:**
+   * **Monospace Teknis:** `font-mono` (menggunakan *JetBrains Mono*) untuk semua data metrik, angka, koordinat, label status, kode, dan frame timing.
+   * **Sans Tegas:** *Archivo* / *Inter* dengan `font-black` / `font-extrabold` untuk judul utama dan heading.
+   * **Micro HUD Labels:** Huruf kapital penuh (*all-caps*), ukuran kecil (`text-[10px]` atau `text-[11px]`), `tracking-widest`, dan warna kontras teredam (*muted telemetry*).
+5. **Palet Monokrom Minimalis Fungsional:**
+   * Background: Hitam pekat teknikal (`bg-neutral-950` / `bg-black`), panel `bg-neutral-900/90`.
+   * Teks: Putih murni (`text-neutral-100`) dan teks teknis abu-abu baja (`text-neutral-400`).
+   * Aksen Sinyal: Hanya digunakan fungsional (sinyal hijau `text-emerald-400` untuk status aktif, merah `text-rose-500` untuk rekam/render, kuning `text-amber-400` untuk peringatan).
+   * Efek Grid: Garis latar halus blueprint grid (`blueprint-grid`).
+
+---
+
+## 6. React Architecture & Maintainability Guidelines
+
+Kode React harus dirancang **modular, bersih, dan mudah dirawat (*maintainable*)**:
+
+1. **Komponen Terpecah & Berfokus (Single Responsibility):**
+   * Dilarang membuat satu file raksasa (monolith > 300 baris).
+   * Pecah UI ke folder modular:
+     * `src/components/ui/` : Primitives Swiss Brutalist (`Button`, `Card`, `CornerCross`, `Badge`, `Input`).
+     * `src/components/layout/` : Layout struktural (`Sidebar`, `Header`, `StatusBar`).
+     * `src/components/studio/` : Komponen editor & preview Remotion.
+     * `src/components/stock/` : Komponen manajemen stok video.
+     * `src/components/schedule/` : Komponen kalender posting.
+     * `src/components/analytics/` : Komponen metrik & tabel performa TikTok.
+2. **Pemisahan Logika & Tampilan (Custom Hooks):**
+   * Logika state kompleks (render engine, CRUD stok, API calls) ditarik ke custom hooks di `src/hooks/` (misal: `useVideoStock.ts`, `useVideoRender.ts`).
+3. **Strict Type Safety:**
+   * Semua props, model data, dan event payload wajib memiliki antarmuka TypeScript eksplisit di `src/types/`. Dilarang menggunakan `any`.
+4. **Desain Komponen Reusable:**
+   * Komponen UI murni menerima props dan callback, meminimalkan efek samping internal.
+

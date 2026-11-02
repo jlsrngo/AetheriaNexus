@@ -1,4 +1,4 @@
-export interface TikTokVideoProps {
+export interface TikTokVideoProps extends Record<string, unknown> {
   hookText: string;
   bodyText: string;
   authorHandle: string;
