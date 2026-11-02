@@ -18,7 +18,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: "stock", label: "Stok Video", code: "02", icon: <Layers className="w-4 h-4" />, badge: readyStockCount },
     { id: "schedule", label: "Jadwal Posting", code: "03", icon: <Calendar className="w-4 h-4" /> },
     { id: "analytics", label: "Analitik TikTok", code: "04", icon: <BarChart3 className="w-4 h-4" /> },
-    { id: "settings", label: "Pengaturan", code: "05", icon: <Settings className="w-4 h-4" /> },
   ];
 
   return (
@@ -30,7 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <span className="text-[10px] text-neutral-600">// MODULES</span>
         </div>
 
-        {/* Navigation list */}
+        {/* Main Navigation list (01 - 04) */}
         <nav className="p-2 space-y-1">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
@@ -38,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 text-xs font-mono font-bold transition-colors rounded-none border ${
+                className={`w-full flex items-center justify-between px-3.5 py-2 text-xs font-mono font-bold transition-colors rounded-none border ${
                   isActive
                     ? "bg-white text-black border-white"
                     : "bg-transparent text-neutral-400 border-transparent hover:text-white hover:bg-neutral-900 hover:border-neutral-800"
@@ -65,8 +64,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Footer kosong */}
-      <div className="p-3 border-t border-neutral-800/40"></div>
+      {/* Footer: Settings moved to footer (VS Code style) */}
+      <div className="p-2 border-t border-neutral-800">
+        <button
+          onClick={() => setActiveTab("settings")}
+          className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-mono font-bold transition-colors rounded-none border ${
+            activeTab === "settings"
+              ? "bg-white text-black border-white"
+              : "bg-transparent text-neutral-400 border-transparent hover:text-white hover:bg-neutral-900 hover:border-neutral-800"
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <Settings className="w-4 h-4" />
+            <span>Pengaturan</span>
+          </div>
+          <span className={`text-[10px] ${activeTab === "settings" ? "text-neutral-600" : "text-neutral-500"}`}>
+            05
+          </span>
+        </button>
+      </div>
     </aside>
   );
 };
