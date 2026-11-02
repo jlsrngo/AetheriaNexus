@@ -2,7 +2,15 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { TikTokVideoProps, defaultTikTokProps } from "../remotion/types";
-import { StockVideoItem, TabType, TikTokAccountMetrics, TikTokVideoMetric } from "../types";
+import {
+  StockVideoItem,
+  TabType,
+  TikTokAccountMetrics,
+  TikTokVideoMetric,
+  ModelProvider,
+  CliItemStatus,
+} from "../types";
+import { INITIAL_PROVIDERS } from "../constants/providers";
 import { generateContentScript } from "../services/aiService";
 
 const FALLBACK_STOCK: StockVideoItem[] = [
@@ -74,16 +82,11 @@ export function useStudioState() {
   const [stock, setStock] = useState<StockVideoItem[]>(FALLBACK_STOCK);
   const [isRendering, setIsRendering] = useState(false);
   const [renderProgress, setRenderProgress] = useState(0);
-  const [notification, setNotification] = useState<string | null>(null);
-  const [geminiApiKey, setGeminiApiKey] = useState("");
   const [outputDir, setOutputDir] = useState("E:\\Videos\\ArunakiNexus");
   const [metrics, setMetrics] = useState<TikTokAccountMetrics>(DEFAULT_METRICS);
   const [feed, setFeed] = useState<TikTokVideoMetric[]>(DEFAULT_FEED);
-
-  const showNotification = (msg: string) => {
-    setNotification(msg);
-    setTimeout(() => setNotification(null), 3500);
-  };
+  const [providers, setProviders] = useState<ModelProvider[]>(INITIAL_PROVIDERS);
+  const [cliStatus, setCliStatus] = useState<Record<string, CliItemStatus>>({});
 
   const loadPersistentData = useCallback(async () => {
     const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -118,8 +121,28 @@ export function useStudioState() {
         );
       }
 
-      const apiKey = await invoke<string | null>("get_setting", { key: "gemini_api_key" });
-      if (apiKey) setGeminiApiKey(apiKey);
+      // Load saved providers
+      const savedProviders = await invoke<string | null>("get_setting", { key: "ai_providers_json" });
+      if (savedProviders) {
+        try {
+          const parsed = JSON.parse(savedProviders);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setProviders(parsed);
+          }
+        } catch {}
+      } else {
+        // Migration: check legacy gemini_api_key
+        const legacyKey = await invoke<string | null>("get_setting", { key: "gemini_api_key" });
+        if (legacyKey) {
+          setProviders((prev) =>
+            prev.map((p) => (p.type === "gemini" ? { ...p, apiKey: legacyKey } : p))
+          );
+        }
+      }
+
+      // Detect local CLIs via Rust
+      const clis = await invoke<Record<string, CliItemStatus>>("detect_local_clis");
+      if (clis) setCliStatus(clis);
 
       const dir = await invoke<string | null>("get_setting", { key: "output_directory" });
       if (dir) setOutputDir(dir);
@@ -135,6 +158,33 @@ export function useStudioState() {
     }
   }, []);
 
+  const handleRefreshClis = async () => {
+    const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+    if (isTauri) {
+      try {
+        const clis = await invoke<Record<string, CliItemStatus>>("detect_local_clis");
+        if (clis) setCliStatus(clis);
+      } catch (e) {
+        console.warn("CLI scan error:", e);
+      }
+    }
+  };
+
+  const handleSaveProviders = async (updated: ModelProvider[]) => {
+    setProviders(updated);
+    const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+    if (isTauri) {
+      try {
+        await invoke("save_setting", {
+          key: "ai_providers_json",
+          value: JSON.stringify(updated),
+        });
+      } catch (e) {
+        console.warn("Save providers failed:", e);
+      }
+    }
+  };
+
   useEffect(() => {
     loadPersistentData();
 
@@ -149,9 +199,7 @@ export function useStudioState() {
 
     listen<{ message: string; video_id: string; title: string }>(
       "tiktok-scheduled-dispatch",
-      (event) => {
-        showNotification(`🚀 [RUST_DISPATCH] ${event.payload.message}`);
-        // Reload stock
+      () => {
         loadPersistentData();
       }
     ).then((fn) => {
@@ -165,8 +213,8 @@ export function useStudioState() {
   }, [loadPersistentData]);
 
   const handleAiGenerate = async (topic?: string) => {
-    showNotification("✨ AI sedang merumuskan hook dan naskah...");
-    const script = await generateContentScript(topic, geminiApiKey);
+    const activeP = providers.find((p) => p.active) || providers[0];
+    const script = await generateContentScript(topic, activeP);
     setProps((prev) => ({
       ...prev,
       hookText: script.hook,
@@ -174,7 +222,6 @@ export function useStudioState() {
       category: script.category,
       themeColor: script.theme,
     }));
-    showNotification("✨ Naskah baru siap di canvas preview!");
   };
 
   const handleRenderToStock = async () => {
@@ -185,7 +232,6 @@ export function useStudioState() {
       const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
       if (isTauri) {
-        showNotification("⚙️ Memicu render MP4 via Tauri Rust engine...");
         const result = await invoke<{ success: boolean; output_path: string }>("render_tiktok_video", {
           propsJson: JSON.stringify(props),
           outputPath: null,
@@ -216,7 +262,6 @@ export function useStudioState() {
         });
 
         setStock((prev) => [newItem, ...prev]);
-        showNotification(`🎉 Render sukses & tersimpan di SQLite: ${result.output_path}`);
       } else {
         let current = 10;
         const interval = setInterval(() => {
@@ -236,13 +281,12 @@ export function useStudioState() {
               theme: props.themeColor,
             };
             setStock((prevStock) => [newItem, ...prevStock]);
-            showNotification("🎉 Video berhasil dirender dan masuk ke Stok Video!");
           }
         }, 250);
         return;
       }
     } catch (err) {
-      showNotification(`❌ Error render: ${err}`);
+      console.warn("Render error:", err);
     } finally {
       setIsRendering(false);
       setRenderProgress(0);
@@ -253,8 +297,7 @@ export function useStudioState() {
     const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
     if (isTauri) {
       try {
-        showNotification(`🚀 [RUST_NATIVE] Menerbitkan "${item.title}" ke TikTok...`);
-        const res = await invoke<{ success: boolean; message: string; post_url: string }>(
+        await invoke<{ success: boolean; message: string; post_url: string }>(
           "publish_to_tiktok",
           {
             id: item.id,
@@ -262,15 +305,13 @@ export function useStudioState() {
             filePath: item.filePath || null,
           }
         );
-        showNotification(res.message);
         setStock((prev) =>
           prev.map((s) => (s.id === item.id ? { ...s, status: "published" } : s))
         );
       } catch (e) {
-        showNotification(`❌ Gagal upload TikTok: ${e}`);
+        console.warn("TikTok upload error:", e);
       }
     } else {
-      showNotification(`🚀 Simulasi Upload: "${item.title}" terbit di TikTok!`);
       setStock((prev) =>
         prev.map((s) => (s.id === item.id ? { ...s, status: "published" } : s))
       );
@@ -282,35 +323,28 @@ export function useStudioState() {
     if (isTauri) {
       try {
         await invoke("schedule_video", { id, slotTime });
-        showNotification(`📅 Video dijadwalkan pada ${slotTime} (Rust Scheduler armed)`);
         setStock((prev) =>
           prev.map((s) => (s.id === id ? { ...s, status: "scheduled" } : s))
         );
       } catch (e) {
-        showNotification(`❌ Gagal menjadwalkan: ${e}`);
+        console.warn("Schedule error:", e);
       }
     } else {
-      showNotification(`📅 Terjadwal pada ${slotTime} (Simulasi Dev)`);
       setStock((prev) =>
         prev.map((s) => (s.id === id ? { ...s, status: "scheduled" } : s))
       );
     }
   };
 
-  const handleSaveSettings = async (key: string, value: string) => {
-    if (key === "gemini_api_key") setGeminiApiKey(value);
-    if (key === "output_directory") setOutputDir(value);
-
+  const handleSaveOutputDir = async (dir: string) => {
+    setOutputDir(dir);
     const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
     if (isTauri) {
       try {
-        await invoke("save_setting", { key, value });
-        showNotification(`✓ Pengaturan ${key} tersimpan di SQLite lokal!`);
+        await invoke("save_setting", { key: "output_directory", value: dir });
       } catch (e) {
-        showNotification(`❌ Gagal menyimpan pengaturan: ${e}`);
+        console.warn("Save output directory error:", e);
       }
-    } else {
-      showNotification(`✓ Pengaturan tersimpan (Mode Dev)`);
     }
   };
 
@@ -324,7 +358,6 @@ export function useStudioState() {
       }
     }
     setStock((prev) => prev.filter((item) => item.id !== id));
-    showNotification("🗑️ Video dihapus dari stok persediaan.");
   };
 
   const readyStockCount = stock.filter((s) => s.status === "ready").length;
@@ -337,18 +370,19 @@ export function useStudioState() {
     stock,
     isRendering,
     renderProgress,
-    notification,
-    showNotification,
     handleAiGenerate,
     handleRenderToStock,
     handlePublishToTikTok,
     handleScheduleVideo,
-    handleSaveSettings,
     handleDeleteStock,
-    geminiApiKey,
     outputDir,
+    handleSaveOutputDir,
     metrics,
     feed,
     readyStockCount,
+    providers,
+    handleSaveProviders,
+    cliStatus,
+    handleRefreshClis,
   };
 }

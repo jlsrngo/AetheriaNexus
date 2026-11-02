@@ -7,7 +7,6 @@ import { StockView } from "./components/stock/StockView";
 import { ScheduleView } from "./components/schedule/ScheduleView";
 import { AnalyticsView } from "./components/analytics/AnalyticsView";
 import { SettingsView } from "./components/settings/SettingsView";
-import { CheckCircle2 } from "lucide-react";
 
 export const App: React.FC = () => {
   const {
@@ -18,17 +17,19 @@ export const App: React.FC = () => {
     stock,
     isRendering,
     renderProgress,
-    notification,
     handleAiGenerate,
     handleRenderToStock,
     handlePublishToTikTok,
-    handleSaveSettings,
     handleDeleteStock,
-    geminiApiKey,
     outputDir,
+    handleSaveOutputDir,
     metrics,
     feed,
     readyStockCount,
+    providers,
+    handleSaveProviders,
+    cliStatus,
+    handleRefreshClis,
   } = useStudioState();
 
   return (
@@ -38,14 +39,6 @@ export const App: React.FC = () => {
 
       {/* Main Workspace: Sidebar on Left, Content Views on Right */}
       <div className="flex-1 flex h-[calc(100vh-36px)] overflow-hidden relative">
-        {/* Global Notification Toast */}
-        {notification && (
-          <div className="absolute top-4 right-6 z-50 bg-neutral-900 border border-white text-white px-4 py-2 font-mono text-xs flex items-center gap-2.5 shadow-2xl rounded-none">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{notification}</span>
-          </div>
-        )}
-
         {/* Sidebar Navigation */}
         <Sidebar
           activeTab={activeTab}
@@ -86,9 +79,12 @@ export const App: React.FC = () => {
 
           {activeTab === "settings" && (
             <SettingsView
-              geminiApiKey={geminiApiKey}
+              providers={providers}
+              onSaveProviders={handleSaveProviders}
+              cliStatus={cliStatus}
+              onRefreshClis={handleRefreshClis}
               outputDir={outputDir}
-              onSaveSetting={handleSaveSettings}
+              onSaveOutputDir={handleSaveOutputDir}
             />
           )}
         </main>

@@ -33,3 +33,25 @@ export interface TikTokVideoMetric {
   shares: number;
   fyp_status: string;
 }
+
+export interface ModelProvider {
+  id: string;
+  name: string;
+  type: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  active: boolean;
+}
+
+export interface CliItemStatus {
+  id: string;
+  name: string;
+  installed: boolean;
+  path?: string;
+  logged_in: boolean;
+  credential_path?: string;
+  default_model: string;
+  available_models: string[];
+}
+

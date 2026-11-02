@@ -1,5 +1,6 @@
 mod db;
 mod scheduler;
+mod system;
 mod tiktok;
 
 use db::{DbManager, StockVideoRecord};
@@ -195,7 +196,8 @@ pub fn run() {
             get_tiktok_account_metrics,
             get_tiktok_feed_metrics,
             publish_to_tiktok,
-            schedule_video
+            schedule_video,
+            system::detect_local_clis
         ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
