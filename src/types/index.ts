@@ -47,11 +47,17 @@ export interface ModelProvider {
 export interface CliItemStatus {
   id: string;
   name: string;
+  vendor?: string;
   installed: boolean;
   path?: string;
   logged_in: boolean;
   credential_path?: string;
+  account_email?: string;
   default_model: string;
   available_models: string[];
+  docs_url?: string;
+  login_command?: string;
+  entitlement?: string;
+  note?: string;
 }
 

@@ -197,7 +197,9 @@ pub fn run() {
             get_tiktok_feed_metrics,
             publish_to_tiktok,
             schedule_video,
-            system::detect_local_clis
+            system::detect_local_clis,
+            system::tauri_cli_login,
+            system::tauri_cli_logout
         ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");

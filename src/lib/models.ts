@@ -103,7 +103,7 @@ export function setActiveProviderId(providerId: string): void {
         detail: { providerId },
       })
     );
-  } catch {}
+  } catch { }
 }
 
 /** Get available models for a given provider or active provider */
@@ -138,7 +138,7 @@ export function getModelsForProvider(providerId?: string): {
         };
       }
     }
-  } catch {}
+  } catch { }
 
   // Fallback to Antigravity
   return {
@@ -162,7 +162,7 @@ export function getActiveModel(providerId?: string): ModelItem {
       if (found) return found;
       return { id: saved, name: saved };
     }
-  } catch {}
+  } catch { }
 
   return catalog.models[0] || { id: "gemini-3.8-flash-high", name: "Gemini 3.8 Flash" };
 }
@@ -178,6 +178,6 @@ export function setActiveModel(providerId: string, model: ModelItem): void {
         detail: { providerId, modelId: model.id },
       })
     );
-  } catch {}
+  } catch { }
 }
 

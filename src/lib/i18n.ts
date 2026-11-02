@@ -129,7 +129,7 @@ export function useI18n() {
         if (saved && (saved === "en" || saved === "id")) {
           setLanguageState(saved);
         }
-      } catch {}
+      } catch { }
     };
 
     window.addEventListener("storage", handleStorageChange);
@@ -140,7 +140,7 @@ export function useI18n() {
     setLanguageState(lang);
     try {
       localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
-    } catch {}
+    } catch { }
   }, []);
 
   const t = useCallback(

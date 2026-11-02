@@ -4,6 +4,7 @@ import { ModelProvider, CliItemStatus } from "../../types";
 import { PROVIDER_TYPES } from "../../constants/providers";
 import { setActiveProviderId, getActiveProviderId } from "../../lib/models";
 import { useI18n } from "../../lib/i18n";
+import { invoke } from "@tauri-apps/api/core";
 import {
   Cpu,
   Terminal,
@@ -22,6 +23,9 @@ import {
   X,
   Eye,
   EyeOff,
+  ExternalLink,
+  LogIn,
+  LogOut,
 } from "lucide-react";
 
 interface SettingsViewProps {
@@ -33,14 +37,14 @@ interface SettingsViewProps {
   onSaveOutputDir: (dir: string) => void;
 }
 
-const CLI_REGISTRY = [
+const DEFAULT_CLI_REGISTRY = [
   {
     id: "antigravity",
-    name: "Google Antigravity CLI (AGY)",
+    name: "Google Antigravity CLI",
     vendor: "Google DeepMind",
     version: "1.3.1",
     docsUrl: "https://antigravity.google.com",
-    command: "ANTIGRAVITY",
+    command: "agy login",
     models: [
       "gemini-3.8-flash-high",
       "claude-opus-4.6-thinking",
@@ -58,7 +62,7 @@ const CLI_REGISTRY = [
     vendor: "Anthropic",
     version: "2.1.202",
     docsUrl: "https://claude.ai",
-    command: "CLAUDE",
+    command: "claude auth login",
     models: ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku"],
     entitlement: "Requires a Claude Max or Pro subscription",
   },
@@ -68,8 +72,9 @@ const CLI_REGISTRY = [
     vendor: "OpenAI",
     version: "0.1.0",
     docsUrl: "https://chatgpt.com/codex",
-    command: "CODEX",
+    command: "codex login",
     models: ["gpt-5.6-luna", "gpt-5.5", "gpt-4o", "gpt-4o-mini", "o3-mini"],
+    entitlement: "Works on ChatGPT account with Codex access",
   },
   {
     id: "opencode",
@@ -77,7 +82,7 @@ const CLI_REGISTRY = [
     vendor: "opencode",
     version: "1.18.30",
     docsUrl: "https://opencode.ai",
-    command: "OPENCODE",
+    command: "opencode auth login",
     models: ["big-pickle", "groq/openai/gpt-oss-120b", "groq/qwen/qwen3.8-27b"],
     note: "Native requests route through OpenCode Zen and can take up to a minute on a cold model. Slow, not stuck.",
   },
@@ -87,7 +92,7 @@ const CLI_REGISTRY = [
     vendor: "AWS",
     version: "1.0.0",
     docsUrl: "https://kiro.dev",
-    command: "KIRO",
+    command: "kiro login",
     models: ["kiro/auto", "claude-sonnet-4.5", "kiro/deepseek-3.2"],
   },
   {
@@ -96,8 +101,9 @@ const CLI_REGISTRY = [
     vendor: "Ollama",
     version: "0.5.1",
     docsUrl: "https://ollama.ai",
-    command: "OLLAMA",
+    command: "ollama serve",
     models: ["llama3.2", "qwen2.5:7b", "deepseek-r1:8b", "mistral"],
+    note: "Runs fully offline on localhost:11434",
   },
 ];
 
@@ -120,6 +126,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [testingPingId, setTestingPingId] = useState<string | null>(null);
   const [pingResults, setPingResults] = useState<Record<string, { ms: number; ok: boolean }>>({});
 
+  // Model selection per CLI
+  const [selectedCliModels, setSelectedCliModels] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    DEFAULT_CLI_REGISTRY.forEach((c) => {
+      try {
+        const saved = localStorage.getItem(`arunaki_cli_model_${c.id}`);
+        initial[c.id] = saved || c.models[0];
+      } catch {
+        initial[c.id] = c.models[0];
+      }
+    });
+    return initial;
+  });
+
+  const [openModelDropdownId, setOpenModelDropdownId] = useState<string | null>(null);
+
   // Expanded CLI technical details
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
@@ -128,6 +150,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isNewProvider, setIsNewProvider] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // CLI operation loading
+  const [cliActionTarget, setCliActionTarget] = useState<string | null>(null);
 
   // Listen for provider changes
   useEffect(() => {
@@ -154,6 +179,50 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setActiveProviderId(id);
     // Unset cloud providers active flag
     onSaveProviders(providers.map((p) => ({ ...p, active: false })));
+  };
+
+  const handleCliModelChange = (cliId: string, model: string) => {
+    setSelectedCliModels((prev) => ({ ...prev, [cliId]: model }));
+    try {
+      localStorage.setItem(`arunaki_cli_model_${cliId}`, model);
+      if (activeCliId === cliId) {
+        localStorage.setItem("arunaki_active_model", model);
+        window.dispatchEvent(
+          new CustomEvent("arunaki:provider-change", {
+            detail: { providerId: cliId, modelId: model },
+          })
+        );
+      }
+    } catch {}
+    setOpenModelDropdownId(null);
+  };
+
+  const handleLaunchCliTerminal = async (id: string) => {
+    setCliActionTarget(id);
+    try {
+      await invoke("tauri_cli_login", { target: id });
+    } catch (e) {
+      console.error("Failed to launch CLI login:", e);
+    } finally {
+      setTimeout(() => {
+        setCliActionTarget(null);
+        onRefreshClis();
+      }, 1500);
+    }
+  };
+
+  const handleCliSignOut = async (id: string) => {
+    setCliActionTarget(id);
+    try {
+      await invoke("tauri_cli_logout", { target: id });
+    } catch (e) {
+      console.error("Failed to sign out CLI:", e);
+    } finally {
+      setTimeout(() => {
+        setCliActionTarget(null);
+        onRefreshClis();
+      }, 500);
+    }
   };
 
   // Reorder providers priority
@@ -268,7 +337,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Main Content Area */}
       <div className="flex-1 p-6 overflow-y-auto space-y-4 max-w-5xl w-full mx-auto">
-        {/* TAB 1: CONNECTION CLI (LOCAL) */}
+        {/* TAB 1: CONNECTION CLI (Matches Arunika CLI System Directly) */}
         {activeTab === "cli" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
@@ -277,7 +346,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   // LOCAL_DEVELOPER_CLI_CONNECTIONS
                 </h3>
                 <span className="hud-label text-[9px]">
-                  Koneksi ke langganan CLI lokal (Antigravity, Claude, Codex, OpenCode, Kiro) tanpa perlu API key tambahan.
+                  Koneksi ke langganan CLI lokal (Antigravity, Claude, Codex, OpenCode, Kiro, Ollama) tanpa biaya per-token terpisah.
                 </span>
               </div>
               <button
@@ -290,15 +359,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </button>
             </div>
 
-            {/* List of Swiss Brutalist Horizontal Cards */}
+            {/* List of Arunika CLI Cards in Swiss Brutalist Aesthetic */}
             <div className="space-y-3">
-              {CLI_REGISTRY.map((d) => {
+              {DEFAULT_CLI_REGISTRY.map((d) => {
                 const detected = cliStatus[d.id];
                 const isInstalled = detected ? detected.installed : true;
                 const isLoggedIn = detected ? detected.logged_in : d.id === "antigravity" || d.id === "codex" || d.id === "opencode" || d.id === "kiro";
                 const isConnected = activeCliId === d.id;
                 const isExpanded = !!expandedCards[d.id];
                 const ping = pingResults[d.id];
+                const currentModel = selectedCliModels[d.id] || d.models[0];
+                const isModelDropdownOpen = openModelDropdownId === d.id;
+                const email = detected?.account_email || (isLoggedIn ? "juliosiringoringo6@gmail.com" : undefined);
+                const isBusy = cliActionTarget === d.id;
 
                 return (
                   <div
@@ -311,10 +384,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   >
                     <CornerCrosses size="sm" className={isConnected ? "text-white" : "text-neutral-600"} />
 
-                    {/* Header Row */}
+                    {/* Top Row: Info and Connect Controls */}
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-3 min-w-0">
-                        {/* Sharp Square Radio Check */}
+                        {/* Radio Check Button */}
                         <button
                           type="button"
                           onClick={() => handleSelectCli(d.id)}
@@ -323,113 +396,205 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               ? "border-white bg-white text-black font-black"
                               : "border-neutral-700 hover:border-white bg-neutral-900 text-transparent"
                           }`}
-                          title={isConnected ? "Terhubung" : "Hubungkan"}
+                          title={isConnected ? "Terhubung" : "Pilih CLI ini"}
                         >
                           {isConnected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                         </button>
 
                         <div>
+                          {/* Title & Connection Status Dot */}
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-white text-sm">{d.name}</span>
-                            <span
-                              className={`text-[9px] px-2 py-0.5 font-bold uppercase tracking-wider rounded-none border ${
-                                isLoggedIn
-                                  ? "bg-emerald-950/80 text-emerald-400 border-emerald-500/50"
+                            <span className="flex items-center gap-1.5 text-[10px] font-mono">
+                              <span
+                                className={`w-2 h-2 rounded-full shrink-0 ${
+                                  isLoggedIn
+                                    ? "bg-emerald-400"
+                                    : isInstalled
+                                    ? "bg-amber-400"
+                                    : "bg-neutral-600"
+                                }`}
+                              />
+                              <span
+                                className={
+                                  isLoggedIn
+                                    ? "text-emerald-400 font-bold"
+                                    : isInstalled
+                                    ? "text-amber-400"
+                                    : "text-neutral-500"
+                                }
+                              >
+                                {isLoggedIn
+                                  ? "Connected"
                                   : isInstalled
-                                  ? "bg-amber-950/80 text-amber-400 border-amber-500/50"
-                                  : "bg-neutral-900 text-neutral-500 border-neutral-800"
-                              }`}
-                            >
-                              {isLoggedIn ? "READY / LOGGED IN" : isInstalled ? "INSTALLED" : "NOT DETECTED"}
+                                  ? "Sign-in needed"
+                                  : "Not installed"}
+                              </span>
                             </span>
                           </div>
 
-                          <div className="font-mono text-[10px] text-neutral-400 mt-1 flex items-center gap-2">
-                            <span>COMMAND: <span className="text-white font-bold">{d.command}</span></span>
-                            <span>•</span>
-                            <span>VENDOR: {d.vendor}</span>
+                          {/* Vendor & Account Email Telemetry */}
+                          <div className="font-mono text-[11px] text-neutral-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                            <span>{d.vendor}</span>
+                            {email && (
+                              <>
+                                <span>•</span>
+                                <span className="text-neutral-300 font-bold">{email}</span>
+                              </>
+                            )}
+                            {detected?.path && (
+                              <>
+                                <span>•</span>
+                                <span className="text-neutral-500 truncate max-w-xs">{detected.path}</span>
+                              </>
+                            )}
                           </div>
 
-                          {detected && (
-                            <div className="mt-2 text-[10px] font-mono text-neutral-400 space-y-0.5">
-                              <div>
-                                BIN_PATH:{" "}
-                                <span className={detected.path ? "text-neutral-300" : "text-neutral-500 italic"}>
-                                  {detected.path || "(Tidak ditemukan di system PATH)"}
-                                </span>
-                              </div>
-                              <div>
-                                AUTH_STATUS:{" "}
-                                {detected.credential_path ? (
-                                  <span className="text-emerald-400">
-                                    ✓ Authenticated via {detected.credential_path}
-                                  </span>
-                                ) : (
-                                  <span className="text-neutral-500 italic">
-                                    Belum login atau file auth tidak ditemukan
-                                  </span>
-                                )}
-                              </div>
+                          {/* Entitlement Warning (Arunika match) */}
+                          {d.entitlement && (
+                            <div className="mt-1 text-[10px] text-amber-400/90 flex items-center gap-1 font-mono">
+                              <AlertTriangle className="w-3 h-3 shrink-0" />
+                              <span>{d.entitlement}</span>
                             </div>
                           )}
 
-                          <div className="mt-2 text-[10px] font-mono text-neutral-400">
-                            AVAILABLE_MODELS: <span className="text-neutral-200">{d.models.join(", ")}</span>
+                          {/* Note (Arunika match) */}
+                          {d.note && (
+                            <div className="mt-1 text-[10px] text-neutral-400 font-mono">
+                              {d.note}
+                            </div>
+                          )}
+
+                          {/* Inline Controls: Model Dropdown, Test Ping, Docs */}
+                          <div className="flex items-center gap-2 mt-3 flex-wrap">
+                            {/* CLI Model Selector Dropdown */}
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOpenModelDropdownId(isModelDropdownOpen ? null : d.id)
+                                }
+                                className="px-2 py-1 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 text-neutral-200 text-[10px] font-mono flex items-center gap-1.5 rounded-none cursor-pointer"
+                              >
+                                <span className="text-neutral-500 font-bold">=</span>
+                                <span className="truncate max-w-[130px] font-bold">{currentModel}</span>
+                                <ChevronDown className="w-2.5 h-2.5 text-neutral-400 shrink-0" />
+                              </button>
+
+                              {/* Dropdown Options */}
+                              {isModelDropdownOpen && (
+                                <div className="absolute top-full mt-1 left-0 w-60 max-h-56 overflow-y-auto bg-neutral-900 border border-neutral-700 z-50 rounded-none shadow-2xl">
+                                  <div className="px-2.5 py-1 text-[9px] font-bold text-neutral-500 border-b border-neutral-800 uppercase">
+                                    // {d.id}_MODELS
+                                  </div>
+                                  {d.models.map((m) => (
+                                    <button
+                                      key={m}
+                                      type="button"
+                                      onClick={() => handleCliModelChange(d.id, m)}
+                                      className={`w-full px-2.5 py-1.5 text-left text-[11px] font-mono flex items-center justify-between hover:bg-white hover:text-black transition-colors ${
+                                        currentModel === m ? "bg-neutral-800 text-white font-bold" : "text-neutral-300"
+                                      }`}
+                                    >
+                                      <span className="truncate">{m}</span>
+                                      {currentModel === m && <Check className="w-3 h-3 text-emerald-400 shrink-0" />}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Test Ping Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleTestPing(d.id)}
+                              disabled={testingPingId === d.id}
+                              className="px-2 py-1 bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-neutral-300 hover:text-white text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <Wifi className="w-3 h-3 text-neutral-400" />
+                              <span>{testingPingId === d.id ? "PINGING..." : ping ? `${ping.ms}ms` : "Test Ping"}</span>
+                            </button>
+
+                            {/* Docs Link */}
+                            <a
+                              href={d.docsUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-2 py-1 bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-neutral-400 hover:text-white text-[10px] font-mono flex items-center gap-1 transition-colors"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span>Docs</span>
+                            </a>
                           </div>
                         </div>
                       </div>
 
-                      {/* Action Button: PAKAI CLI INI */}
+                      {/* Right Action Buttons */}
                       <div className="flex flex-col items-end gap-2 shrink-0">
                         {isConnected ? (
-                          <div className="px-3 py-1.5 bg-white text-black font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md">
+                          <div className="px-3.5 py-1.5 bg-white text-black font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md">
                             <Check className="w-3.5 h-3.5" />
                             <span>{t("connected")}</span>
                           </div>
-                        ) : (
+                        ) : isLoggedIn ? (
                           <button
                             type="button"
                             onClick={() => handleSelectCli(d.id)}
-                            className="px-3 py-1.5 bg-neutral-900 hover:bg-white hover:text-black border border-neutral-700 text-neutral-200 font-mono font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                            className="px-3.5 py-1.5 bg-neutral-900 hover:bg-white hover:text-black border border-neutral-700 text-neutral-200 font-mono font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
                           >
                             PAKAI CLI INI
                           </button>
-                        )}
-
-                        <div className="flex items-center gap-2">
+                        ) : (
                           <button
                             type="button"
-                            onClick={() => handleTestPing(d.id)}
-                            disabled={testingPingId === d.id}
-                            className="text-[10px] font-mono text-neutral-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                            onClick={() => handleLaunchCliTerminal(d.id)}
+                            disabled={isBusy}
+                            className="px-3 py-1.5 bg-amber-950 hover:bg-amber-900 border border-amber-600 text-amber-200 font-mono font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5"
                           >
-                            <Wifi className="w-3 h-3" />
-                            {testingPingId === d.id ? "PINGING..." : ping ? `${ping.ms}ms` : t("testPing")}
+                            <LogIn className="w-3 h-3" />
+                            <span>{isBusy ? "MEMBUKA..." : "LOGIN TERMINAL"}</span>
                           </button>
+                        )}
+
+                        <div className="flex items-center gap-1.5">
+                          {isLoggedIn && (
+                            <button
+                              type="button"
+                              onClick={() => handleCliSignOut(d.id)}
+                              disabled={isBusy}
+                              className="px-2 py-0.5 bg-neutral-900 hover:bg-rose-950 text-neutral-400 hover:text-rose-400 border border-neutral-800 text-[10px] font-mono transition-colors cursor-pointer flex items-center gap-1"
+                              title="Sign out from this CLI"
+                            >
+                              <LogOut className="w-2.5 h-2.5" />
+                              <span>Sign Out</span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() =>
                               setExpandedCards((prev) => ({ ...prev, [d.id]: !prev[d.id] }))
                             }
                             className="p-1 border border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white rounded-none transition-colors"
+                            title="Detail Teknis"
                           >
-                            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                            <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                           </button>
                         </div>
                       </div>
                     </div>
 
-                    {/* Expanded Technical View */}
+                    {/* Expanded Technical View (Arunika style) */}
                     {isExpanded && (
                       <div className="mt-3 pt-3 border-t border-neutral-800 font-mono text-[10px] text-neutral-400 bg-black/60 p-3 space-y-1 rounded-none border border-neutral-900">
                         <div><span className="hud-label">CLI_IDENTIFIER:</span> <span className="text-white">{d.id}</span></div>
-                        <div><span className="hud-label">DOCS_URL:</span> <a href={d.docsUrl} target="_blank" rel="noreferrer" className="text-blue-400 underline">{d.docsUrl}</a></div>
-                        {d.entitlement && (
-                          <div><span className="hud-label">ENTITLEMENT:</span> <span className="text-amber-400">{d.entitlement}</span></div>
+                        <div><span className="hud-label">LOGIN_COMMAND:</span> <span className="text-white font-bold">{d.command}</span></div>
+                        {detected?.path && (
+                          <div className="truncate"><span className="hud-label">SYSTEM_BINARY_PATH:</span> <span className="text-neutral-300">{detected.path}</span></div>
                         )}
-                        {d.note && (
-                          <div><span className="hud-label">NOTE:</span> <span className="text-neutral-400">{d.note}</span></div>
+                        {detected?.credential_path && (
+                          <div className="truncate"><span className="hud-label">AUTH_TOKEN_FILE:</span> <span className="text-emerald-400">{detected.credential_path}</span></div>
                         )}
+                        <div><span className="hud-label">AVAILABLE_MODELS:</span> <span className="text-neutral-300">{d.models.join(", ")}</span></div>
                       </div>
                     )}
                   </div>
@@ -439,7 +604,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         )}
 
-        {/* TAB 2: MODEL PROVIDERS (Arunika Language Model Routing & Provider Catalogs Architecture) */}
+        {/* TAB 2: MODEL PROVIDERS (Language Model Routing & Provider Catalogs) */}
         {activeTab === "models" && (
           <div className="space-y-4">
             {/* Top Header & Add Provider Button */}
