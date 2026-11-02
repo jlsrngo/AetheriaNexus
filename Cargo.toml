@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = [
+  "core/arunaki-docs",
+  "core/arunaki-engine",
+  "src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true

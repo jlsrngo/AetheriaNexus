@@ -1,33 +1,95 @@
-# Dependencies
+# ponytail: first-pass ignores, tightened 2026-08-24
 node_modules/
-.pnp
-.pnp.js
-
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# IDE & Editor settings
-.kiro/
-.vscode/
-.idea/
-
-# OS files
-Thumbs.db
-[Dd]esktop.ini
-.DS_Store
-
-# Build outputs
 dist/
 build/
-out/
-src-tauri/target/
-src-tauri/bin/*.exe
+.next/
+.nuxt/
+coverage/
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+desktop.ini
+Desktop.ini
+ehthumbs.db
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+.vscode/
+!.vscode/extensions.json
+.idea/
 
-# Documents & PRDs
-PRD*
-*.docx
+# Archived reference files (not active code)
+ref/
+
+# Scratch & test artifacts
+*.traineddata
+scratch/
+
+# Runtime sessions & workspace caches
+.arunaki/sessions/
+**/.arunaki/sessions/
+**/.arunaki/backups/
+**/.arunaki/attachments/
+**/.arunaki/uploads/
+**/.arunaki-backups/
+.arunaki-backup/
+**/.arunaki-backup/
+
+# Root-level local business files
+9ROUTER-DEEPDIVE-REPORT.txt
+*DEEPDIVE-REPORT.txt
+REKAPAN TERBARU*.txt
+TABEL REKAPAN*.xlsm
+testing.xlsx
+testing.csv
+test_excel.csv
+
+# Engine dev-server runtime artifacts
+scripts/engine-serve.out.log
+scripts/engine-serve.err.log
+scripts/engine-serve.log.err
+scripts/engine-serve.pid
+*.pid
+
+# Vendored plugin dist sourcemaps
+packages/arunaki-gitlab-auth/dist/*.map
+packages/arunaki-poe-auth/dist/*.map
+
+
+arunaki.json
+
+.arunaki/
+
+# scratch: throwaway launcher probe scripts
+.launch-test*.ts
+
+# Desktop native deliverables
+dist-exe/
+dist-package/
+dist-portable/
+dist-installer/
+
+# Rust build artifacts
+target/
+core/**/target/
+crates/**/target/
+
+# Tauri updater signing keys
+.tauri-keys/
+*.key
+*.pub
+
+docs/
+demo/
+demo-workspace/
+ARTCRAFT_DOCUMENTS_INTEGRATION.txt
+WORKFLOW.md
+
+
 

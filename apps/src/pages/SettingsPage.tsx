@@ -1,0 +1,229 @@
+import { useState, useEffect } from "react";
+import { Cpu, User, Sliders, MessageSquare, Terminal, Store } from "lucide-react";
+import { cn } from "../lib/utils";
+import { API_BASE, apiFetch, directoryQuery } from "../lib/api";
+import { useI18n } from "../lib/i18n";
+import { useTheme } from "../lib/theme";
+import { ModelProviderSettings, Provider, isCliProvider } from "../components/settings/ModelProviderSettings";
+import { SettingsCliConnectionsTab } from "../components/settings/SettingsCliConnectionsTab";
+import { SettingsAppConnectionsTab } from "../components/settings/SettingsAppConnectionsTab";
+import { SettingsAccountTab } from "../components/settings/SettingsAccountTab";
+import { SettingsAutomationTab } from "../components/settings/SettingsAutomationTab";
+import { SettingsMessagingTab } from "../components/settings/SettingsMessagingTab";
+
+const NEO_TAB_COLORS: Record<string, { bg: string; activeBg: string }> = {
+  models: { bg: "bg-[#EFF6FF]", activeBg: "bg-[#93C5FD]" }, // Sky Blue
+  cli: { bg: "bg-[#FAF5FF]", activeBg: "bg-[#D8B4FE]" }, // Lavender
+  apps: { bg: "bg-[#ECFDF5]", activeBg: "bg-[#86EFAC]" }, // Mint Green
+  integrations: { bg: "bg-[#FFF7ED]", activeBg: "bg-[#FDBA74]" }, // Warm Orange
+  messaging: { bg: "bg-[#F0F9FF]", activeBg: "bg-[#7DD3FC]" }, // Light Cyan
+  account: { bg: "bg-[#FEFCE8]", activeBg: "bg-[#FDE047]" }, // Warm Yellow
+};
+
+export function SettingsPage() {
+  const { t } = useI18n();
+  const { isNeobrutalism } = useTheme();
+  const [activeTab, setActiveTab] = useState("models");
+
+  const tabs = [
+    { id: "models", label: t("modelRouting", "Model Providers"), icon: Cpu },
+    { id: "cli", label: t("cliConnections", "Connection CLI"), icon: Terminal },
+    { id: "apps", label: t("appConnections", "Connection Apps"), icon: Store },
+    { id: "integrations", label: t("desktopAutomation", "Office Automation"), icon: Sliders },
+    { id: "messaging", label: t("messagingApps", "Messaging Apps"), icon: MessageSquare },
+    { id: "account", label: t("accountLicense", "Account & License"), icon: User },
+  ];
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [availableCatalogModels, setAvailableCatalogModels] = useState<Record<string, string[]>>({});
+  const [loading, setLoading] = useState(true);
+
+  const fetchProviders = async () => {
+    try {
+      // 1. Fetch user-configured providers from /api/providers and catalog models from /api/model
+      let [providersRes, modelRes] = await Promise.all([
+        apiFetch(`${API_BASE}/providers${directoryQuery()}`),
+        apiFetch(`${API_BASE}/model${directoryQuery()}`),
+      ]);
+
+      // Fallback to global catalogue if directory-scoped fetch failed
+      if (!providersRes.ok && directoryQuery()) {
+        const [fallbackP, fallbackM] = await Promise.all([
+          apiFetch(`${API_BASE}/providers`),
+          apiFetch(`${API_BASE}/model`),
+        ]);
+        if (fallbackP.ok) {
+          providersRes = fallbackP;
+          modelRes = fallbackM;
+        }
+      }
+
+      const mJson = modelRes.ok ? await modelRes.json() : { data: [] };
+      const rawModels: any[] = mJson.data || [];
+
+      // Build a catalog lookup of all discovered models per provider ID
+      const catalogMap: Record<string, string[]> = {};
+      for (const m of rawModels) {
+        if (m.providerID) {
+          catalogMap[m.providerID] = catalogMap[m.providerID] || [];
+          catalogMap[m.providerID].push(m.id);
+        }
+      }
+      setAvailableCatalogModels(catalogMap);
+
+      if (providersRes.ok) {
+        const pJson = await providersRes.json();
+        const rawProviders: any[] = pJson.data || [];
+
+        if (rawProviders.length > 0) {
+          const savedActiveId = localStorage.getItem("arunaki_active_provider");
+          const activeRawP = rawProviders.find((p: any) => p.id === savedActiveId);
+          const isCliActive = savedActiveId
+            ? (typeof activeRawP?.isCli === "boolean"
+                ? activeRawP.isCli
+                : isCliProvider({ id: savedActiveId, baseUrl: activeRawP?.baseUrl || "", name: activeRawP?.name || "", apiKey: activeRawP?.apiKey || "", type: activeRawP?.type || "", model: "", active: true, priority: 0 }))
+            : false;
+
+          const activeId = isCliActive
+            ? null
+            : (savedActiveId && rawProviders.some((p: any) => p.id === savedActiveId)
+                ? savedActiveId
+                : (rawProviders.find((p: any) => p.active)?.id || null));
+
+          const mapped: Provider[] = rawProviders.map((p: any, idx: number) => {
+            const savedSelected = localStorage.getItem("arunaki_provider_models_" + p.id);
+            const associatedModels = rawModels.filter((m: any) => m.providerID === p.id);
+            let modelNames = "";
+            if (savedSelected && savedSelected.trim()) {
+              modelNames = savedSelected.trim();
+            } else if (p.model && p.model.trim()) {
+              modelNames = p.model.trim();
+            } else {
+              const defaults = catalogMap[p.id] || associatedModels.map((m: any) => m.id);
+              modelNames = defaults.slice(0, 3).join(", ") || "default";
+            }
+
+            const rawKey = p.apiKey || "";
+            const isMasked = rawKey.includes("•") || rawKey.includes("****");
+            const cleanKey = isMasked ? "" : rawKey;
+            const isActive = p.id === activeId;
+
+            return {
+              id: p.id,
+              name: p.name || p.id,
+              type: p.type || "openai-compatible",
+              baseUrl: p.baseUrl || "",
+              apiKey: cleanKey,
+              model: modelNames,
+              active: isActive,
+              priority: p.priority ?? idx + 1,
+              isCli: p.isCli,
+              category: p.category,
+            };
+          });
+
+          setProviders(mapped);
+          return;
+        }
+      }
+
+      setProviders([]);
+    } catch (err) {
+      console.error("Failed to fetch providers:", err);
+      setProviders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProviders();
+  }, []);
+
+  return (
+    <div className="flex-1 flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-y-auto select-none p-6 transition-colors duration-150">
+      <div className="max-w-5xl w-full mx-auto flex-1 flex flex-col min-h-0">
+        {/* Header Title */}
+        <div className="mb-4">
+          <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">
+            {t("settingsTitle", "Workstation System Settings")}
+          </h1>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5">
+            {t("settingsSubtitle", "Configure model routing, desktop office automation behavior, and user account licensing.")}
+          </p>
+        </div>
+
+        {/* Tab Navigation Pill Bar */}
+        <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-3 mb-6 overflow-x-auto shrink-0">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            const neoColor = NEO_TAB_COLORS[tab.id] || { bg: "bg-[#FFFDFB]", activeBg: "bg-[#CCFF00]" };
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer whitespace-nowrap h-10 select-none",
+                  isNeobrutalism
+                    ? isActive
+                      ? `${neoColor.activeBg} text-[#141413] border-2 border-[#141413] shadow-[3px_3px_0px_#141413] font-bold`
+                      : `${neoColor.bg} text-[#141413] border-2 border-[#141413] shadow-[1px_1px_0px_#141413] hover:shadow-[2px_2px_0px_#141413] font-semibold hover:brightness-95`
+                    : isActive
+                    ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] font-semibold"
+                    : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border border-transparent"
+                )}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Main Settings Panel Content */}
+        <div
+          className={cn(
+            "flex-1 w-full rounded-2xl p-6 overflow-y-auto min-h-0 transition-colors duration-150",
+            isNeobrutalism
+              ? "bg-[#FFFDFB] border-2 border-[#141413] shadow-[4px_4px_0px_#141413]"
+              : "bg-[var(--bg-panel)] border border-[var(--border-color)]"
+          )}
+        >
+          <div className={cn("w-full", activeTab !== "models" && "hidden")}>
+            <ModelProviderSettings
+              providers={providers}
+              availableCatalogModels={availableCatalogModels}
+              loading={loading}
+              onRefresh={fetchProviders}
+              onUpdateProviders={setProviders}
+            />
+          </div>
+
+          <div className={cn("w-full", activeTab !== "apps" && "hidden")}>
+            <SettingsAppConnectionsTab />
+          </div>
+
+          <div className={cn("w-full", activeTab !== "cli" && "hidden")}>
+            <SettingsCliConnectionsTab
+              providers={providers}
+              onRefresh={fetchProviders}
+            />
+          </div>
+
+          <div className={cn("w-full", activeTab !== "integrations" && "hidden")}>
+            <SettingsAutomationTab />
+          </div>
+
+          <div className={cn("w-full", activeTab !== "messaging" && "hidden")}>
+            <SettingsMessagingTab />
+          </div>
+
+          <div className={cn("w-full", activeTab !== "account" && "hidden")}>
+            <SettingsAccountTab />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
