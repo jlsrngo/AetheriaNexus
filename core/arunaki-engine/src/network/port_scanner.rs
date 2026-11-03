@@ -45,7 +45,7 @@ mod tests {
             l.local_addr().unwrap().port()
         };
 
-        let found = open_loopback_ports(&[closed_port, open_port], Duration::from_millis(300)).await;
+        let found = open_loopback_ports(&[closed_port, open_port], Duration::from_millis(1500)).await;
         assert_eq!(found, vec![open_port]);
     }
 

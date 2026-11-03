@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
-import { Cpu, User, Sliders, MessageSquare, Terminal, Store } from "lucide-react";
+import { Cpu, User, Sliders, MessageSquare, Terminal } from "lucide-react";
 import { cn } from "../lib/utils";
 import { API_BASE, apiFetch, directoryQuery } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { useTheme } from "../lib/theme";
 import { ModelProviderSettings, Provider, isCliProvider } from "../components/settings/ModelProviderSettings";
 import { SettingsCliConnectionsTab } from "../components/settings/SettingsCliConnectionsTab";
-import { SettingsAppConnectionsTab } from "../components/settings/SettingsAppConnectionsTab";
 import { SettingsAccountTab } from "../components/settings/SettingsAccountTab";
 import { SettingsAutomationTab } from "../components/settings/SettingsAutomationTab";
 import { SettingsMessagingTab } from "../components/settings/SettingsMessagingTab";
@@ -14,7 +13,6 @@ import { SettingsMessagingTab } from "../components/settings/SettingsMessagingTa
 const NEO_TAB_COLORS: Record<string, { bg: string; activeBg: string }> = {
   models: { bg: "bg-[#EFF6FF]", activeBg: "bg-[#93C5FD]" }, // Sky Blue
   cli: { bg: "bg-[#FAF5FF]", activeBg: "bg-[#D8B4FE]" }, // Lavender
-  apps: { bg: "bg-[#ECFDF5]", activeBg: "bg-[#86EFAC]" }, // Mint Green
   integrations: { bg: "bg-[#FFF7ED]", activeBg: "bg-[#FDBA74]" }, // Warm Orange
   messaging: { bg: "bg-[#F0F9FF]", activeBg: "bg-[#7DD3FC]" }, // Light Cyan
   account: { bg: "bg-[#FEFCE8]", activeBg: "bg-[#FDE047]" }, // Warm Yellow
@@ -28,7 +26,6 @@ export function SettingsPage() {
   const tabs = [
     { id: "models", label: t("modelRouting", "Model Providers"), icon: Cpu },
     { id: "cli", label: t("cliConnections", "Connection CLI"), icon: Terminal },
-    { id: "apps", label: t("appConnections", "Connection Apps"), icon: Store },
     { id: "integrations", label: t("desktopAutomation", "Office Automation"), icon: Sliders },
     { id: "messaging", label: t("messagingApps", "Messaging Apps"), icon: MessageSquare },
     { id: "account", label: t("accountLicense", "Account & License"), icon: User },
@@ -198,10 +195,6 @@ export function SettingsPage() {
               onRefresh={fetchProviders}
               onUpdateProviders={setProviders}
             />
-          </div>
-
-          <div className={cn("w-full", activeTab !== "apps" && "hidden")}>
-            <SettingsAppConnectionsTab />
           </div>
 
           <div className={cn("w-full", activeTab !== "cli" && "hidden")}>
