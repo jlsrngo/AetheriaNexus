@@ -15,6 +15,8 @@ import {
   Edit3,
   X,
   Check,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { NexusVideoProps } from "../../remotion/types";
 
@@ -31,6 +33,8 @@ interface StudioTimelineProps {
   onSeek: (frame: number) => void;
   onToggleLoop?: () => void;
   isLooping?: boolean;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const StudioTimeline = memo(function StudioTimeline({
@@ -44,6 +48,8 @@ export const StudioTimeline = memo(function StudioTimeline({
   onUpdateProps,
   onPlayPause,
   onSeek,
+  isCollapsed = false,
+  onToggleCollapse,
 }: StudioTimelineProps) {
   const [zoom, setZoom] = useState(1);
   const [editingClip, setEditingClip] = useState<"hook" | "bullets" | "background" | "audio" | null>(null);
@@ -62,6 +68,17 @@ export const StudioTimeline = memo(function StudioTimeline({
       setDraftTheme(videoProps.themeColor);
     }
   }, [videoProps]);
+
+  // Listen to Edit Menu events
+  useEffect(() => {
+    const handleEditTrack = (e: CustomEvent<"hook" | "bullets" | "background" | "audio">) => {
+      if (e.detail) {
+        setEditingClip(e.detail);
+      }
+    };
+    window.addEventListener("arunaki-edit-track", handleEditTrack as any);
+    return () => window.removeEventListener("arunaki-edit-track", handleEditTrack as any);
+  }, []);
 
   const rulerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
@@ -128,6 +145,45 @@ export const StudioTimeline = memo(function StudioTimeline({
   const durationSeconds = Math.ceil(durationInFrames / fps);
   const playheadPercent = durationInFrames > 0 ? (currentFrame / (durationInFrames - 1)) * 100 : 0;
 
+  // Collapsed Minimalist Transport Bar
+  if (isCollapsed) {
+    return (
+      <div className="h-8 bg-neutral-900 border-t border-neutral-800 px-3 flex items-center justify-between shrink-0 select-none font-mono text-xs z-20">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-black border border-neutral-700 px-2 py-0.5 text-white font-mono text-[11px]">
+            <span className="w-1.5 h-1.5 bg-rose-500 rounded-none inline-block animate-pulse" />
+            <span className="font-bold">{formatTimecode(currentFrame)}</span>
+            <span className="text-neutral-500">/</span>
+            <span className="text-neutral-400">{formatTimecode(durationInFrames)}</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={onPlayPause}
+            className="px-2 py-0.5 bg-white text-black font-bold text-[10px] flex items-center gap-1 hover:bg-neutral-200 transition-none cursor-pointer"
+          >
+            {isPlaying ? <Pause className="w-3 h-3 fill-black" /> : <Play className="w-3 h-3 fill-black" />}
+            <span>{isPlaying ? "PAUSE" : "PLAY"}</span>
+          </button>
+
+          <span className="text-[10px] text-neutral-400 hidden sm:inline">FRAME: {currentFrame} | FPS: {fps}</span>
+        </div>
+
+        {onToggleCollapse && (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-white font-mono text-[10px] font-bold uppercase tracking-wider transition-none cursor-pointer"
+            title="Expand Timeline (Ctrl+T)"
+          >
+            <ChevronUp className="w-3 h-3 text-emerald-400" />
+            <span>EXPAND TIMELINE (Ctrl+T)</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="h-64 bg-neutral-950 border-t border-neutral-800 flex flex-col select-none font-mono text-xs overflow-hidden relative">
       {/* 1. TOP TIMELINE TOOLBAR (Swiss Brutalism Technical HUD) */}
@@ -172,8 +228,8 @@ export const StudioTimeline = memo(function StudioTimeline({
           </div>
         </div>
 
-        {/* Zoom Controls */}
-        <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+        {/* Zoom & Collapse Controls */}
+        <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
           <div className="flex items-center gap-1 text-neutral-400 text-[10px] shrink-0 whitespace-nowrap">
             <ZoomOut className="w-3 h-3 shrink-0" />
             <input
@@ -188,6 +244,18 @@ export const StudioTimeline = memo(function StudioTimeline({
             <ZoomIn className="w-3 h-3 shrink-0" />
             <span className="w-7 text-right shrink-0">{Math.round(zoom * 100)}%</span>
           </div>
+
+          {onToggleCollapse && (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="flex items-center gap-1 px-2.5 py-1 bg-neutral-950 hover:bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-white text-[10px] font-mono font-bold tracking-wider uppercase transition-none cursor-pointer"
+              title="Collapse Timeline (Ctrl+T)"
+            >
+              <ChevronDown className="w-3 h-3 text-emerald-400" />
+              <span>COLLAPSE</span>
+            </button>
+          )}
         </div>
       </div>
 

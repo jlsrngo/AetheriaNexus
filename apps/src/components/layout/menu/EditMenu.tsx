@@ -2,13 +2,13 @@ import { memo } from "react";
 import {
   Undo2,
   Redo2,
+  Type,
+  ListOrdered,
+  Palette,
+  Volume2,
   Scissors,
   Copy,
   Clipboard,
-  CheckSquare,
-  Search,
-  Settings,
-  Keyboard,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useI18n } from "../../../lib/i18n";
@@ -40,8 +40,8 @@ export const EditMenu = memo(function EditMenu({
         onMouseEnter={onMouseEnter}
         {...menuTriggerProps(isOpen)}
         className={cn(
-          "text-[var(--text-muted)] hover:text-[var(--text-primary)] text-[13px] font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer",
-          isOpen && "bg-[var(--bg-hover)] text-[var(--text-primary)]"
+          "text-neutral-400 hover:text-white hover:bg-neutral-900 text-xs font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-none border border-transparent hover:border-neutral-800 transition-none cursor-pointer",
+          isOpen && "bg-neutral-900 text-white border-neutral-700"
         )}
       >
         {t("edit", "Edit")}
@@ -53,11 +53,10 @@ export const EditMenu = memo(function EditMenu({
           aria-label={t("edit", "Edit")}
           onKeyDown={menuKeyDown}
           ref={menuAutoFocus}
-          className="absolute top-full left-0 mt-1 min-w-[245px] max-w-[300px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-1.5 z-50 max-h-[70vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
+          className="absolute top-full left-0 mt-1 min-w-[260px] bg-neutral-950 border border-neutral-800 rounded-none py-1 z-50 shadow-2xl font-mono text-xs animate-in fade-in zoom-in-95 duration-100"
         >
           <MenuItem
             icon={Undo2}
-            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
             label={t("undo", "Undo")}
             shortcut={getEffectiveShortcut("undo") || "Ctrl+Z"}
             onClick={() => {
@@ -68,7 +67,6 @@ export const EditMenu = memo(function EditMenu({
 
           <MenuItem
             icon={Redo2}
-            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
             label={t("redo", "Redo")}
             shortcut={getEffectiveShortcut("redo") || "Ctrl+Y"}
             onClick={() => {
@@ -80,10 +78,47 @@ export const EditMenu = memo(function EditMenu({
           <MenuSeparator />
 
           <MenuItem
+            icon={Type}
+            label="Edit Hook Title"
+            onClick={() => {
+              onClose();
+              window.dispatchEvent(new CustomEvent("arunaki-edit-track", { detail: "hook" }));
+            }}
+          />
+
+          <MenuItem
+            icon={ListOrdered}
+            label="Edit Body Bullets"
+            onClick={() => {
+              onClose();
+              window.dispatchEvent(new CustomEvent("arunaki-edit-track", { detail: "bullets" }));
+            }}
+          />
+
+          <MenuItem
+            icon={Palette}
+            label="Select Color Theme"
+            onClick={() => {
+              onClose();
+              window.dispatchEvent(new CustomEvent("arunaki-edit-track", { detail: "background" }));
+            }}
+          />
+
+          <MenuItem
+            icon={Volume2}
+            label="Soundtrack & Audio"
+            onClick={() => {
+              onClose();
+              window.dispatchEvent(new CustomEvent("arunaki-edit-track", { detail: "audio" }));
+            }}
+          />
+
+          <MenuSeparator />
+
+          <MenuItem
             icon={Scissors}
-            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
             label={t("cut", "Cut")}
-            shortcut={getEffectiveShortcut("cut") || "Ctrl+X"}
+            shortcut="Ctrl+X"
             onClick={() => {
               commands.cut();
               onClose();
@@ -92,9 +127,8 @@ export const EditMenu = memo(function EditMenu({
 
           <MenuItem
             icon={Copy}
-            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
             label={t("copy", "Copy")}
-            shortcut={getEffectiveShortcut("copy") || "Ctrl+C"}
+            shortcut="Ctrl+C"
             onClick={() => {
               commands.copy();
               onClose();
@@ -103,71 +137,11 @@ export const EditMenu = memo(function EditMenu({
 
           <MenuItem
             icon={Clipboard}
-            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
             label={t("paste", "Paste")}
-            shortcut={getEffectiveShortcut("paste") || "Ctrl+V"}
-            onClick={async () => {
-              await commands.paste();
-              onClose();
-            }}
-          />
-
-          <MenuItem
-            icon={CheckSquare}
-            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
-            label={t("selectAll", "Select All")}
-            shortcut={getEffectiveShortcut("select-all") || "Ctrl+A"}
+            shortcut="Ctrl+V"
             onClick={() => {
-              commands.selectAll();
+              void commands.paste();
               onClose();
-            }}
-          />
-
-          <MenuSeparator />
-
-          <MenuItem
-            icon={Search}
-            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
-            label={t("findInSession", "Find in Session...")}
-            shortcut={getEffectiveShortcut("find-session") || "Ctrl+F"}
-            onClick={() => {
-              commands.findSession();
-              onClose();
-            }}
-          />
-
-          <MenuItem
-            icon={Search}
-            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
-            label="Search in Workspace..."
-            shortcut={getEffectiveShortcut("workspace-search") || "Ctrl+Shift+F"}
-            onClick={() => {
-              commands.workspaceSearch();
-              onClose();
-            }}
-          />
-
-          <MenuSeparator />
-
-          <MenuItem
-            icon={Keyboard}
-            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
-            label={t("keyboardShortcuts", "Keyboard Shortcuts")}
-            shortcut={getEffectiveShortcut("shortcuts") || "Ctrl+/"}
-            onClick={() => {
-              onClose();
-              commands.openShortcuts?.();
-            }}
-          />
-
-          <MenuItem
-            icon={Settings}
-            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
-            label={t("preferencesSettings", "Preferences & Settings...")}
-            shortcut={getEffectiveShortcut("settings") || "Ctrl+,"}
-            onClick={() => {
-              onClose();
-              commands.openSettings();
             }}
           />
         </div>

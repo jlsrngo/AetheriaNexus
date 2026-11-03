@@ -1,13 +1,12 @@
 import { memo } from "react";
 import {
-  MessageSquarePlus,
+  Film,
   FolderOpen,
+  Video,
   Save,
-  Archive,
   FolderX,
   Settings,
   LogOut,
-  FileSearch,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useI18n } from "../../../lib/i18n";
@@ -41,8 +40,8 @@ export const FileMenu = memo(function FileMenu({
         onMouseEnter={onMouseEnter}
         {...menuTriggerProps(isOpen)}
         className={cn(
-          "text-[var(--text-muted)] hover:text-[var(--text-primary)] text-[13px] font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer",
-          isOpen && "bg-[var(--bg-hover)] text-[var(--text-primary)]"
+          "text-neutral-400 hover:text-white hover:bg-neutral-900 text-xs font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-none border border-transparent hover:border-neutral-800 transition-none cursor-pointer",
+          isOpen && "bg-neutral-900 text-white border-neutral-700"
         )}
       >
         {t("file", "File")}
@@ -54,12 +53,11 @@ export const FileMenu = memo(function FileMenu({
           aria-label={t("file", "File")}
           onKeyDown={menuKeyDown}
           ref={menuAutoFocus}
-          className="absolute top-full left-0 mt-1 min-w-[245px] max-w-[300px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-1.5 z-50 max-h-[70vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
+          className="absolute top-full left-0 mt-1 min-w-[260px] bg-neutral-950 border border-neutral-800 rounded-none py-1 z-50 shadow-2xl font-mono text-xs animate-in fade-in zoom-in-95 duration-100"
         >
           <MenuItem
-            icon={MessageSquarePlus}
-            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
-            label={t("newSession", "New Session")}
+            icon={Film}
+            label="New Video Composition"
             shortcut={getEffectiveShortcut("new-session") || "Ctrl+N"}
             onClick={() => {
               commands.newSession();
@@ -69,8 +67,7 @@ export const FileMenu = memo(function FileMenu({
 
           <MenuItem
             icon={FolderOpen}
-            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
-            label={t("openFolder", "Open Folder...")}
+            label={t("openFolder", "Open Project Folder...")}
             shortcut={getEffectiveShortcut("open-folder") || "Ctrl+O"}
             onClick={() => {
               onClose();
@@ -79,20 +76,18 @@ export const FileMenu = memo(function FileMenu({
           />
 
           <MenuItem
-            icon={FileSearch}
-            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
-            label="Quick Open File..."
-            shortcut={getEffectiveShortcut("quick-open-file") || "Ctrl+P"}
+            icon={Video}
+            label="Render / Export MP4"
+            shortcut="Ctrl+E"
             onClick={() => {
               onClose();
-              commands.quickOpenFile();
+              window.dispatchEvent(new CustomEvent("arunaki-trigger-render"));
             }}
           />
 
           <MenuItem
             icon={Save}
-            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
-            label={t("saveDocument", "Save Document")}
+            label="Save Composition Draft"
             shortcut={getEffectiveShortcut("save-file") || "Ctrl+S"}
             onClick={() => {
               commands.saveFile();
@@ -103,19 +98,8 @@ export const FileMenu = memo(function FileMenu({
           <MenuSeparator />
 
           <MenuItem
-            icon={Archive}
-            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
-            label={t("backupWorkspace", "Backup Workspace (ZIP)")}
-            onClick={() => {
-              onClose();
-              void commands.backupWorkspace();
-            }}
-          />
-
-          <MenuItem
             icon={FolderX}
-            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
-            label={t("closeFolder", "Close Folder")}
+            label={t("closeFolder", "Close Project Folder")}
             disabled={!activeFolder}
             onClick={() => {
               onClose();
@@ -127,8 +111,7 @@ export const FileMenu = memo(function FileMenu({
 
           <MenuItem
             icon={Settings}
-            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
-            label={t("preferencesSettings", "Preferences & Settings...")}
+            label={t("preferencesSettings", "Preferences / Settings")}
             shortcut={getEffectiveShortcut("settings") || "Ctrl+,"}
             onClick={() => {
               onClose();
@@ -138,9 +121,8 @@ export const FileMenu = memo(function FileMenu({
 
           <MenuItem
             icon={LogOut}
-            iconColor="bg-[#FF5964] text-white border border-[#141413]"
-            label={t("exitWindow", "Exit Arunaki")}
-            className="text-rose-500 hover:text-white hover:bg-rose-600"
+            label={t("exitWindow", "Exit Window")}
+            className="text-rose-400 hover:text-white hover:bg-rose-900/60 hover:border-l-rose-500"
             onClick={() => {
               onClose();
               commands.exitApp();

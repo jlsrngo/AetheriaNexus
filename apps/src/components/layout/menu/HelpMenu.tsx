@@ -2,9 +2,7 @@ import { memo } from "react";
 import {
   BookOpen,
   Keyboard,
-  BookText,
-  ExternalLink,
-  Bug,
+  Cpu,
   Info,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
@@ -37,8 +35,8 @@ export const HelpMenu = memo(function HelpMenu({
         onMouseEnter={onMouseEnter}
         {...menuTriggerProps(isOpen)}
         className={cn(
-          "text-[var(--text-muted)] hover:text-[var(--text-primary)] text-[13px] font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer",
-          isOpen && "bg-[var(--bg-hover)] text-[var(--text-primary)]"
+          "text-neutral-400 hover:text-white hover:bg-neutral-900 text-xs font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-none border border-transparent hover:border-neutral-800 transition-none cursor-pointer",
+          isOpen && "bg-neutral-900 text-white border-neutral-700"
         )}
       >
         {t("help", "Help")}
@@ -50,59 +48,33 @@ export const HelpMenu = memo(function HelpMenu({
           aria-label={t("help", "Help")}
           onKeyDown={menuKeyDown}
           ref={menuAutoFocus}
-          className="absolute top-full left-0 mt-1 min-w-[245px] max-w-[300px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-1.5 z-50 max-h-[70vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
+          className="absolute top-full left-0 mt-1 min-w-[260px] bg-neutral-950 border border-neutral-800 rounded-none py-1 z-50 shadow-2xl font-mono text-xs animate-in fade-in zoom-in-95 duration-100"
         >
           <MenuItem
             icon={BookOpen}
-            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
-            label={t("knowledgeRules", "Knowledge & Rules")}
+            label="Nexus Documentation"
             onClick={() => {
               onClose();
-              commands.openKnowledge();
+              window.open("https://github.com/remotion-dev/remotion", "_blank");
             }}
           />
 
           <MenuItem
             icon={Keyboard}
-            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
             label={t("keyboardShortcuts", "Keyboard Shortcuts")}
-            shortcut={getEffectiveShortcut("shortcuts") || "Ctrl+/"}
+            shortcut={getEffectiveShortcut("keyboard-shortcuts") || "Ctrl+/"}
             onClick={() => {
               onClose();
               commands.openShortcuts?.();
             }}
           />
 
-          <MenuSeparator />
-
           <MenuItem
-            icon={BookText}
-            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
-            label={t("documentation", "Documentation")}
-            rightIcon={ExternalLink}
+            icon={Cpu}
+            label="System Telemetry & Engine Status"
             onClick={() => {
               onClose();
-              window.open("https://juliosiringoringo.space/id/arunaki", "_blank");
-            }}
-          />
-
-          <MenuItem
-            icon={ExternalLink}
-            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
-            label={t("githubRepo", "GitHub Repository")}
-            onClick={() => {
-              onClose();
-              window.open("https://github.com/jlsrngo/Arunaki", "_blank");
-            }}
-          />
-
-          <MenuItem
-            icon={Bug}
-            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
-            label={t("reportIssue", "Report an Issue")}
-            onClick={() => {
-              onClose();
-              window.open("https://github.com/jlsrngo/Arunaki/issues", "_blank");
+              commands.openSettings();
             }}
           />
 
@@ -110,8 +82,7 @@ export const HelpMenu = memo(function HelpMenu({
 
           <MenuItem
             icon={Info}
-            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
-            label={t("aboutArunaki", "About Arunaki")}
+            label={t("aboutArunaki", "About Arunaki Nexus")}
             onClick={() => {
               onClose();
               commands.openAbout?.();

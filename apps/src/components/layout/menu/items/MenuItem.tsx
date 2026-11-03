@@ -1,7 +1,6 @@
 import { memo, type ReactNode, type ComponentType, isValidElement } from "react";
 import { Check } from "lucide-react";
 import { cn } from "../../../../lib/utils";
-import { useTheme } from "../../../../lib/theme";
 
 interface MenuItemProps {
   icon?: ComponentType<{ className?: string; strokeWidth?: number }> | ReactNode;
@@ -18,7 +17,6 @@ interface MenuItemProps {
 
 export const MenuItem = memo(function MenuItem({
   icon,
-  iconColor,
   label,
   shortcut,
   checked,
@@ -28,40 +26,14 @@ export const MenuItem = memo(function MenuItem({
   onClick,
   className,
 }: MenuItemProps) {
-  const { isNeobrutalism } = useTheme();
-
   const renderIcon = () => {
     if (!icon) return null;
 
-    if (!isNeobrutalism) {
-      if (isValidElement(icon)) {
-        return icon;
-      }
-      if (
-        typeof icon === "function" ||
-        (typeof icon === "object" && icon !== null && "$$typeof" in icon)
-      ) {
-        const IconComponent = icon as ComponentType<{ className?: string; strokeWidth?: number }>;
-        return (
-          <IconComponent
-            className="w-4 h-4 text-[var(--text-muted)] shrink-0"
-            strokeWidth={1.75}
-          />
-        );
-      }
-      return <>{icon}</>;
-    }
-
     if (isValidElement(icon)) {
       return (
-        <div
-          className={cn(
-            "neo-icon-badge w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-transform group-hover/menuitem:scale-105",
-            iconColor || "bg-[#CCFF00] border border-[#141413] text-[#141413]"
-          )}
-        >
+        <span className="w-4 h-4 flex items-center justify-center shrink-0 text-neutral-400 group-hover/menuitem:text-white">
           {icon}
-        </div>
+        </span>
       );
     }
     if (
@@ -70,21 +42,13 @@ export const MenuItem = memo(function MenuItem({
     ) {
       const IconComponent = icon as ComponentType<{ className?: string; strokeWidth?: number }>;
       return (
-        <div
-          className={cn(
-            "neo-icon-badge w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-transform group-hover/menuitem:scale-105",
-            iconColor || "bg-[#CCFF00] border border-[#141413] text-[#141413]"
-          )}
-        >
-          <IconComponent className="w-3.5 h-3.5 shrink-0" strokeWidth={2.25} />
-        </div>
+        <IconComponent
+          className="w-4 h-4 text-neutral-400 group-hover/menuitem:text-white shrink-0"
+          strokeWidth={1.8}
+        />
       );
     }
-    return (
-      <div className="neo-icon-badge w-6 h-6 rounded-md flex items-center justify-center shrink-0">
-        {icon}
-      </div>
-    );
+    return <span className="w-4 h-4 shrink-0">{icon}</span>;
   };
 
   return (
@@ -94,27 +58,30 @@ export const MenuItem = memo(function MenuItem({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "group/menuitem w-full px-3 py-1.5 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)] disabled:opacity-40 disabled:cursor-not-allowed",
+        "group/menuitem w-full px-3 py-1.5 text-xs font-mono flex items-center justify-between gap-3 whitespace-nowrap transition-none cursor-pointer rounded-none text-neutral-300 hover:bg-neutral-900 hover:text-white border-l-2 border-l-transparent hover:border-l-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed",
         className
       )}
     >
       <div className="flex items-center gap-2.5 min-w-0">
-        {renderIcon()}
-        <span className="truncate">{label}</span>
+        {checked !== undefined ? (
+          <div className="w-4 h-4 flex items-center justify-center shrink-0">
+            {checked && <Check className="w-3.5 h-3.5 text-emerald-400" strokeWidth={2.5} />}
+          </div>
+        ) : (
+          renderIcon()
+        )}
+        <span className="truncate tracking-wide font-medium">{label}</span>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0 ml-auto pl-2">
         {rightBadge}
-        {shortcut && (
-          <span className="pl-2 text-[11px] text-[var(--text-muted)] font-mono">
-            {shortcut}
-          </span>
-        )}
-        {checked && (
-          <Check className="w-4 h-4 text-[var(--text-primary)]" strokeWidth={2.25} />
-        )}
         {RightIcon && (
-          <RightIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" strokeWidth={1.75} />
+          <RightIcon className="w-3.5 h-3.5 text-neutral-500 group-hover/menuitem:text-neutral-300" strokeWidth={1.8} />
+        )}
+        {shortcut && (
+          <kbd className="text-[10px] font-mono text-neutral-500 group-hover/menuitem:text-neutral-300 tracking-wider">
+            {shortcut}
+          </kbd>
         )}
       </div>
     </button>

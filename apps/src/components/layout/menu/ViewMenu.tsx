@@ -1,22 +1,17 @@
 import { memo } from "react";
 import {
-  PanelLeft,
-  PanelRight,
-  WrapText,
+  SlidersHorizontal,
+  FolderKanban,
+  Bot,
   Maximize,
   RotateCcw,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useI18n } from "../../../lib/i18n";
-import { useWordWrap } from "../../../lib/wordWrap";
-import { usePanels } from "../../../lib/panels";
 import { BaseMenuProps } from "./types";
-import { getEffectiveShortcut } from "./shortcutsConfig";
 import { menuAutoFocus, menuKeyDown, menuTriggerProps } from "./menuA11y";
 import { MenuItem } from "./items/MenuItem";
 import { MenuSeparator } from "./items/MenuSeparator";
-import { ThemeSubmenu } from "./submenus/ThemeSubmenu";
-import { LanguageSubmenu } from "./submenus/LanguageSubmenu";
 import { AppCommands } from "./hooks/useAppCommands";
 
 interface ViewMenuProps extends BaseMenuProps {
@@ -31,8 +26,6 @@ export const ViewMenu = memo(function ViewMenu({
   commands,
 }: ViewMenuProps) {
   const { t } = useI18n();
-  const { wordWrap } = useWordWrap();
-  const { explorerOpen, chatOpen } = usePanels();
 
   return (
     <div className="relative">
@@ -42,8 +35,8 @@ export const ViewMenu = memo(function ViewMenu({
         onMouseEnter={onMouseEnter}
         {...menuTriggerProps(isOpen)}
         className={cn(
-          "text-[var(--text-muted)] hover:text-[var(--text-primary)] text-[13px] font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer",
-          isOpen && "bg-[var(--bg-hover)] text-[var(--text-primary)]"
+          "text-neutral-400 hover:text-white hover:bg-neutral-900 text-xs font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-none border border-transparent hover:border-neutral-800 transition-none cursor-pointer",
+          isOpen && "bg-neutral-900 text-white border-neutral-700"
         )}
       >
         {t("view", "View")}
@@ -55,75 +48,56 @@ export const ViewMenu = memo(function ViewMenu({
           aria-label={t("view", "View")}
           onKeyDown={menuKeyDown}
           ref={menuAutoFocus}
-          className="absolute top-full left-0 mt-1 min-w-[245px] max-w-[300px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-1.5 z-50 max-h-[70vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
+          className="absolute top-full left-0 mt-1 min-w-[260px] bg-neutral-950 border border-neutral-800 rounded-none py-1 z-50 shadow-2xl font-mono text-xs animate-in fade-in zoom-in-95 duration-100"
         >
           <MenuItem
-            icon={PanelLeft}
-            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
-            label={t("explorerPanel", "Explorer Panel")}
-            shortcut={getEffectiveShortcut("toggle-explorer") || "Ctrl+B"}
-            checked={explorerOpen}
+            icon={SlidersHorizontal}
+            label="Toggle Timeline (Open / Collapse)"
+            shortcut="Ctrl+T"
             onClick={() => {
+              onClose();
+              window.dispatchEvent(new CustomEvent("arunaki-toggle-timeline"));
+            }}
+          />
+
+          <MenuItem
+            icon={FolderKanban}
+            label="Toggle Project Assets Sidebar"
+            shortcut="Ctrl+B"
+            onClick={() => {
+              onClose();
               commands.toggleExplorer();
-              onClose();
             }}
           />
 
           <MenuItem
-            icon={PanelRight}
-            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
-            label={t("chatPanel", "Chat Panel")}
-            shortcut={getEffectiveShortcut("toggle-chat") || "Ctrl+J"}
-            checked={chatOpen}
+            icon={Bot}
+            label="Toggle Creative Script Assistant"
+            shortcut="Ctrl+J"
             onClick={() => {
+              onClose();
               commands.toggleChat();
-              onClose();
-            }}
-          />
-
-          <MenuItem
-            icon={WrapText}
-            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
-            label={t("wrapText", "Wrap Text")}
-            shortcut={getEffectiveShortcut("toggle-word-wrap") || "Alt+Z"}
-            checked={wordWrap}
-            onClick={() => {
-              commands.toggleWordWrap();
-              onClose();
             }}
           />
 
           <MenuSeparator />
-
-          {/* Dedicated Theme Submenu */}
-          <ThemeSubmenu onClose={onClose} />
-
-          <MenuSeparator />
-
-          {/* Dedicated Language Submenu */}
-          <LanguageSubmenu onClose={onClose} />
-
-          <MenuSeparator />
-
-          <MenuItem
-            icon={Maximize}
-            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
-            label={t("toggleFullscreen", "Toggle Fullscreen")}
-            shortcut={getEffectiveShortcut("fullscreen") || "F11"}
-            onClick={() => {
-              onClose();
-              commands.toggleFullscreen();
-            }}
-          />
 
           <MenuItem
             icon={RotateCcw}
-            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
-            label={t("resetZoom", "Reset Zoom")}
-            shortcut={getEffectiveShortcut("reset-zoom") || "Ctrl+0"}
+            label="Reset Video Preview Zoom"
             onClick={() => {
               onClose();
-              commands.resetZoom();
+              window.dispatchEvent(new CustomEvent("arunaki-reset-zoom"));
+            }}
+          />
+
+          <MenuItem
+            icon={Maximize}
+            label="Toggle Fullscreen"
+            shortcut="F11"
+            onClick={() => {
+              onClose();
+              commands.toggleFullscreen();
             }}
           />
         </div>

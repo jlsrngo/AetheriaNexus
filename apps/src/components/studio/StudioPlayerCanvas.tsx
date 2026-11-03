@@ -38,6 +38,7 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
 
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [isTimelineCollapsed, setIsTimelineCollapsed] = useState(false);
   const [trackVisibility, setTrackVisibility] = useState({
     text: true,
     background: true,
@@ -45,6 +46,32 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
   });
 
   const playerRef = useRef<PlayerRef>(null);
+
+  // Keyboard shortcut listener for Ctrl+T (Toggle Timeline)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "t") {
+        e.preventDefault();
+        setIsTimelineCollapsed((prev) => !prev);
+      }
+    };
+    const handleToggleEvent = () => setIsTimelineCollapsed((prev) => !prev);
+    const handleLoadProps = (e: CustomEvent<Partial<NexusVideoProps>>) => {
+      if (e.detail) {
+        setVideoProps((prev) => ({ ...prev, ...e.detail }));
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("arunaki-toggle-timeline", handleToggleEvent);
+    window.addEventListener("arunaki-load-video-props", handleLoadProps as any);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("arunaki-toggle-timeline", handleToggleEvent);
+      window.removeEventListener("arunaki-load-video-props", handleLoadProps as any);
+    };
+  }, []);
 
   const activeRendering = isRendering || internalRendering;
   const activeProgress = renderProgress || internalProgress;
@@ -118,14 +145,18 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
         return {
           width: 1920,
           height: 1080,
-          containerClass: "h-[85%] max-h-[460px] aspect-[16/9]",
+          containerClass: isTimelineCollapsed
+            ? "h-[92%] max-h-[calc(100vh-140px)] aspect-[16/9]"
+            : "h-[88%] max-h-[580px] aspect-[16/9]",
           label: "16:9 1920x1080 PX",
         };
       case "1:1":
         return {
           width: 1080,
           height: 1080,
-          containerClass: "h-[88%] max-h-[460px] aspect-square",
+          containerClass: isTimelineCollapsed
+            ? "h-[92%] max-h-[calc(100vh-140px)] aspect-square"
+            : "h-[90%] max-h-[580px] aspect-square",
           label: "1:1 1080x1080 PX",
         };
       case "9:16":
@@ -133,7 +164,9 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
         return {
           width: 1080,
           height: 1920,
-          containerClass: "h-[92%] max-h-[460px] aspect-[9/16]",
+          containerClass: isTimelineCollapsed
+            ? "h-[98%] max-h-[calc(100vh-140px)] aspect-[9/16]"
+            : "h-[95%] max-h-[580px] aspect-[9/16]",
           label: "9:16 1080x1920 PX",
         };
     }
@@ -200,6 +233,8 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
         isPlaying={isPlaying}
         videoProps={videoProps}
         trackVisibility={trackVisibility}
+        isCollapsed={isTimelineCollapsed}
+        onToggleCollapse={() => setIsTimelineCollapsed((v) => !v)}
         onToggleTrackVisibility={(track) => {
           setTrackVisibility((prev) => ({
             ...prev,

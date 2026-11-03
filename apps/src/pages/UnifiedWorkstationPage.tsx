@@ -1,10 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { StudioAssetsPanel } from "../components/studio/StudioAssetsPanel";
+import { RemotionStudioSidebar, CompositionPreset } from "../components/studio/RemotionStudioSidebar";
 import { WorkstationCenterPanel } from "../components/workstation/WorkstationCenterPanel";
 import { WorkstationRightChat } from "../components/workstation/WorkstationRightChat";
-import { WorkstationLeftExplorer } from "../components/workstation/WorkstationLeftExplorer";
 import {
   WorkstationActivityBar,
   SidebarView,
@@ -121,14 +120,19 @@ export function UnifiedWorkstationPage() {
   }, []);
 
   const [activeCompositionId, setActiveCompositionId] = useState("nexus-vertical");
-  const [sidebarView, setSidebarView] = useState<SidebarView>("explorer");
+  const [sidebarView, setSidebarView] = useState<SidebarView>("assets");
+
+  const handleSelectComposition = useCallback((preset: CompositionPreset) => {
+    setActiveCompositionId(preset.id);
+    if (preset.props) {
+      window.dispatchEvent(
+        new CustomEvent("arunaki-load-video-props", { detail: preset.props })
+      );
+    }
+  }, []);
 
   const handleSelectSidebarView = useCallback(
     (view: SidebarView) => {
-      if (view === "search") {
-        handleOpenSearchModal();
-        return;
-      }
       if (!leftCollapsed && sidebarView === view) {
         handleToggleLeft();
       } else {
@@ -138,7 +142,7 @@ export function UnifiedWorkstationPage() {
         setSidebarView(view);
       }
     },
-    [leftCollapsed, sidebarView, handleToggleLeft, handleOpenSearchModal]
+    [leftCollapsed, sidebarView, handleToggleLeft]
   );
 
   return (
@@ -146,9 +150,9 @@ export function UnifiedWorkstationPage() {
       <div
         ref={containerRef}
         className="flex-1 flex overflow-hidden relative"
-        style={{ "--left-panel-width": "256px", "--right-panel-width": "320px" } as React.CSSProperties}
+        style={{ "--left-panel-width": "260px", "--right-panel-width": "320px" } as React.CSSProperties}
       >
-        {/* Far-Left Activity Bar (Arunaki Agent Architecture) */}
+        {/* Far-Left Activity Bar (Remotion Video Studio Architecture) */}
         <WorkstationActivityBar
           activeView={sidebarView}
           isCollapsed={leftCollapsed}
@@ -157,34 +161,24 @@ export function UnifiedWorkstationPage() {
           onOpenFolder={handleDirectPickFolder}
         />
 
-        {/* Secondary Left Sidebar Panel: Explorer or Compositions */}
+        {/* Secondary Left Sidebar Panel: Remotion Compositions & Assets */}
         {!leftCollapsed && (
           <div
             className="h-full flex flex-col shrink-0 overflow-hidden"
             style={{ width: "var(--left-panel-width)" }}
           >
-            {sidebarView === "compositions" ? (
-              <StudioAssetsPanel
-                activeCompositionId={activeCompositionId}
-                onSelectComposition={setActiveCompositionId}
-                width="100%"
-              />
-            ) : (
-              <WorkstationLeftExplorer
-                collapsed={false}
-                onClose={handleToggleLeft}
-                activeWorkspace={activeWorkspace}
-                workspaceFiles={workspaceFiles}
-                onOpenFileTab={(path, name, content) =>
-                  tabs.handleOpenFileTab(path, name, content)
-                }
-                onOpenFolderModal={handleDirectPickFolder}
-                width="100%"
-                recentCanvases={tabs.recentCanvases}
-                onOpenCanvasTab={(item) => handleOpenCanvas(item.content)}
-                onCloseFolder={() => openFolder("")}
-              />
-            )}
+            <RemotionStudioSidebar
+              activeCompositionId={activeCompositionId}
+              onSelectComposition={handleSelectComposition}
+              activeWorkspace={activeWorkspace}
+              workspaceFiles={workspaceFiles}
+              onOpenFileTab={(path, name, content) =>
+                tabs.handleOpenFileTab(path, name, content)
+              }
+              onOpenFolderModal={handleDirectPickFolder}
+              recentCanvases={tabs.recentCanvases}
+              width="100%"
+            />
           </div>
         )}
 
