@@ -1,8 +1,8 @@
 import { memo } from "react";
-import { Files, Film, Search, Folder } from "lucide-react";
+import { Files, GitBranch, Film, Search, Folder } from "lucide-react";
 import { cn } from "../../../lib/utils";
 
-export type SidebarView = "explorer" | "compositions" | "search";
+export type SidebarView = "explorer" | "source-control" | "compositions" | "search";
 
 interface WorkstationActivityBarProps {
   activeView: SidebarView;
@@ -42,6 +42,22 @@ export const WorkstationActivityBar = memo(function WorkstationActivityBar({
           aria-label="Explorer"
         >
           <Files className="w-4 h-4 stroke-[1.8]" />
+        </button>
+
+        {/* Source Control Button */}
+        <button
+          type="button"
+          onClick={() => onSelectView("source-control")}
+          className={cn(
+            "w-9 h-9 rounded-none flex items-center justify-center transition-none cursor-pointer relative border",
+            isTabActive("source-control")
+              ? "bg-white text-black border-white"
+              : "bg-neutral-900/60 text-neutral-400 border-neutral-800 hover:text-white hover:border-neutral-600"
+          )}
+          title="SOURCE CONTROL // GIT"
+          aria-label="Source Control"
+        >
+          <GitBranch className="w-4 h-4 stroke-[1.8]" />
         </button>
 
         {/* Video Compositions & Assets Button */}
