@@ -48,17 +48,7 @@ pub fn router() -> Router {
         .route("/api/desktop/read-binary", post(handle_read_binary))
         .route("/api/desktop/read-clipboard-image", post(handle_read_clipboard_image))
         .route("/api/desktop/engine-info", get(handle_engine_info))
-        .route("/api/desktop/pos-config", get(handle_get_pos_config).post(handle_save_pos_config))
-        .route("/api/pos/status", get(handle_pos_status))
-        .route("/api/sop/playbooks", get(handle_list_sop_playbooks).post(handle_list_sop_playbooks_post))
-        .route("/api/sop/generate", post(handle_generate_sop_playbooks))
-        .route("/api/sop/save", post(handle_save_sop_playbook))
-        .route("/api/sop/delete", post(handle_delete_sop_playbook))
-        .route("/api/sop/execute", post(handle_execute_sop_playbook))
-        .route("/api/reconcile/audit", post(handle_reconcile_audit))
-        .route("/api/executive/synthesize", post(handle_executive_synthesize))
-        .route("/api/governance/manage", post(handle_governance_manage))
-        .route("/api/telegram/dispatch", post(handle_telegram_dispatch))
+        .route("/api/video/render", post(handle_video_render))
         .route("/api/desktop/folder-watch", post(handle_folder_watch))
         .route("/api/desktop/folder-watch/acknowledge", post(handle_folder_watch_ack))
         .route("/api/desktop/notify", post(handle_desktop_notify))
@@ -245,8 +235,7 @@ async fn handle_read_file(Json(body): Json<Value>) -> Response {
     );
     if is_binary {
         match std::fs::read(&path) {
-            Ok(mut bytes) => {
-
+            Ok(bytes) => {
                 let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
                 Json(json!({ "content": b64, "encoding": "base64" })).into_response()
             }
@@ -462,19 +451,6 @@ async fn handle_open_path(Json(body): Json<Value>) -> Response {
     Json(json!({ "success": true })).into_response()
 }
 
-fn col_idx_to_letter(mut idx: usize) -> String {
-    let mut out = String::new();
-    loop {
-        let rem = idx % 26;
-        out.insert(0, (b'A' + rem as u8) as char);
-        if idx < 26 {
-            break;
-        }
-        idx = idx / 26 - 1;
-    }
-    out
-}
-
 async fn handle_read_binary(Json(body): Json<Value>) -> Response {
     let fp = body
         .get("filePath")
@@ -511,39 +487,11 @@ async fn handle_engine_info() -> Response {
     .into_response()
 }
 
-async fn handle_get_pos_config() -> Response {
-    let p = arunaki_dot_dir().join("pos-config.json");
-    if let Ok(raw) = std::fs::read_to_string(&p) {
-        if let Ok(val) = serde_json::from_str::<Value>(&raw) {
-            return Json(json!({ "data": val })).into_response();
-        }
-    }
-    let discovered = crate::tool::zen::load_pos_config();
-    Json(json!({
-        "data": {
-            "hostUrl": discovered.host_url,
-            "apiKey": discovered.api_key,
-            "username": discovered.username,
-            "password": discovered.password
-        }
-    }))
-    .into_response()
-}
-
-async fn handle_save_pos_config(Json(body): Json<Value>) -> Response {
-    let p = arunaki_dot_dir().join("pos-config.json");
-    match std::fs::write(&p, serde_json::to_string_pretty(&body).unwrap_or_default()) {
-        Ok(_) => Json(json!({ "success": true })).into_response(),
-        Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
-    }
-}
-
-async fn handle_pos_status() -> Response {
-    let discovered = crate::tool::zen::discover_live_pos_endpoint();
-    Json(json!({
-        "data": discovered
-    }))
-    .into_response()
+async fn handle_video_render(Json(payload): Json<Value>) -> impl IntoResponse {
+    let workspace = get_active_workspace_root().unwrap_or_else(|| ".".to_string());
+    let session_id = payload.get("session_id").and_then(|v| v.as_str()).unwrap_or("video_session");
+    let res = crate::tool::render::execute_render_video(session_id, &workspace, &payload);
+    Json(res)
 }
 
 async fn handle_read_clipboard_image() -> Response {
@@ -977,97 +925,6 @@ pub fn launch_desktop_window(url: &str) {
     });
 }
 
-async fn handle_list_sop_playbooks() -> impl IntoResponse {
-    let workspace = get_active_workspace_root().unwrap_or_else(|| ".".to_string());
-    let playbooks = crate::tool::sop::load_workspace_playbooks(&workspace);
-    Json(serde_json::json!({
-        "status": "success",
-        "workspace_dir": workspace,
-        "count": playbooks.len(),
-        "playbooks": playbooks
-    }))
-}
-
-async fn handle_list_sop_playbooks_post(Json(payload): Json<Value>) -> impl IntoResponse {
-    let workspace = payload.get("workspace_dir")
-        .and_then(|v| v.as_str())
-        .filter(|s| !s.trim().is_empty())
-        .map(|s| s.to_string())
-        .or_else(|| get_active_workspace_root())
-        .unwrap_or_else(|| ".".to_string());
-    let playbooks = crate::tool::sop::load_workspace_playbooks(&workspace);
-    Json(serde_json::json!({
-        "status": "success",
-        "workspace_dir": workspace,
-        "count": playbooks.len(),
-        "playbooks": playbooks
-    }))
-}
-
-async fn handle_generate_sop_playbooks(Json(payload): Json<Value>) -> impl IntoResponse {
-    let workspace = payload.get("workspace_dir")
-        .and_then(|v| v.as_str())
-        .filter(|s| !s.trim().is_empty())
-        .map(|s| s.to_string())
-        .or_else(|| get_active_workspace_root())
-        .unwrap_or_else(|| ".".to_string());
-    let res = crate::tool::sop::generate_playbooks_from_folder(&workspace);
-    Json(res)
-}
-
-async fn handle_save_sop_playbook(Json(payload): Json<Value>) -> impl IntoResponse {
-    let workspace = payload.get("workspace_dir")
-        .and_then(|v| v.as_str())
-        .filter(|s| !s.trim().is_empty())
-        .map(|s| s.to_string())
-        .or_else(|| get_active_workspace_root())
-        .unwrap_or_else(|| ".".to_string());
-    let res = crate::tool::sop::save_custom_playbook(&workspace, &payload);
-    Json(res)
-}
-
-async fn handle_delete_sop_playbook(Json(payload): Json<Value>) -> impl IntoResponse {
-    let workspace = payload.get("workspace_dir")
-        .and_then(|v| v.as_str())
-        .filter(|s| !s.trim().is_empty())
-        .map(|s| s.to_string())
-        .or_else(|| get_active_workspace_root())
-        .unwrap_or_else(|| ".".to_string());
-    let playbook_id = payload.get("playbook_id").and_then(|v| v.as_str()).unwrap_or("");
-    let res = crate::tool::sop::delete_custom_playbook(&workspace, playbook_id);
-    Json(res)
-}
-
-async fn handle_execute_sop_playbook(Json(payload): Json<Value>) -> impl IntoResponse {
-    let workspace = payload.get("workspace_dir")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| get_active_workspace_root())
-        .unwrap_or_else(|| ".".to_string());
-    
-    let session_id = payload.get("session_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("sop_session");
-
-    let res = crate::tool::sop::execute_sop_playbook(session_id, &workspace, &payload);
-    Json(res)
-}
-
-async fn handle_reconcile_audit(Json(payload): Json<Value>) -> impl IntoResponse {
-    let workspace = payload.get("workspace_dir")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| get_active_workspace_root())
-        .unwrap_or_else(|| ".".to_string());
-    
-    let session_id = payload.get("session_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("reconcile_session");
-
-    let res = crate::tool::reconcile::execute_audit_reconciliation(session_id, &workspace, &payload);
-    Json(res)
-}
-
 async fn handle_folder_watch(Json(payload): Json<Value>) -> impl IntoResponse {
     let workspace = payload.get("workspace_dir")
         .and_then(|v| v.as_str())
@@ -1089,54 +946,6 @@ async fn handle_folder_watch_ack(Json(payload): Json<Value>) -> impl IntoRespons
         .and_then(|v| v.as_array())
         .map(|arr| arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect::<Vec<String>>());
     let res = crate::session::watcher::acknowledge_detected_documents(&workspace, filenames);
-    Json(res)
-}
-async fn handle_executive_synthesize(Json(payload): Json<Value>) -> impl IntoResponse {
-    let workspace = payload.get("workspace_dir")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| get_active_workspace_root())
-        .unwrap_or_else(|| ".".to_string());
-    let session_id = payload.get("session_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("executive_session");
-    let res = crate::tool::synthesize::execute_generate_executive_summary(session_id, &workspace, &payload);
-    Json(res)
-}
-async fn handle_governance_manage(Json(payload): Json<Value>) -> impl IntoResponse {
-    let workspace = payload.get("workspace_dir")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| get_active_workspace_root())
-        .unwrap_or_else(|| ".".to_string());
-    let session_id = payload.get("session_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("governance_session");
-    let res = crate::tool::governance::execute_manage_governance(session_id, &workspace, &payload);
-    Json(res)
-}
-async fn handle_telegram_dispatch(Json(payload): Json<Value>) -> impl IntoResponse {
-    let workspace = payload
-        .get("workspace_dir")
-        .or_else(|| payload.get("directory"))
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| get_active_workspace_root())
-        .unwrap_or_else(|| ".".to_string());
-    let session_id = payload
-        .get("session_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("telegram_session");
-    let kind = payload
-        .get("kind")
-        .or_else(|| payload.get("type"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("alert");
-    let res = if kind == "alert" {
-        crate::tool::telegram::execute_send_telegram_alert(session_id, &workspace, &payload).await
-    } else {
-        crate::tool::telegram::execute_dispatch_telegram_report(session_id, &workspace, &payload).await
-    };
     Json(res)
 }
 

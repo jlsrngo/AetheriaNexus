@@ -13,12 +13,12 @@ export interface NexusVideoProps extends Record<string, unknown> {
 export type TikTokVideoProps = NexusVideoProps;
 
 export const defaultNexusVideoProps: NexusVideoProps = {
-  hookText: "3 Kebiasaan Pagi Orang Sukses Yang Jarang Diketahui",
-  bodyText: "1. Minum 500ml air mineral sebelum menyentuh HP\n2. Stretching ringan 10 menit untuk aliran darah\n3. Catat 1 prioritas terpenting hari ini",
-  authorHandle: "@arunaki.director",
+  hookText: "3 Morning Habits of High Performers You Never Knew",
+  bodyText: "1. Drink 500ml of mineral water before checking your phone\n2. 10 minutes of light stretching to boost mental focus\n3. Write down your single most critical priority for today",
+  authorHandle: "@nexus.creative",
   themeColor: "emerald",
-  category: "PRODUKTIVITAS",
-  subCategory: "STRATEGI EKSEKUTIF",
+  category: "PRODUCTIVITY",
+  subCategory: "EXECUTIVE HABITS",
 };
 
 export const defaultTikTokProps: NexusVideoProps = defaultNexusVideoProps;

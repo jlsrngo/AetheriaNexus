@@ -49,8 +49,8 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = ({
   bodyText,
   authorHandle,
   themeColor = "emerald",
-  category = "PRODUKTIVITAS",
-  subCategory = "STRATEGI EKSEKUTIF",
+  category = "PRODUCTIVITY",
+  subCategory = "EXECUTIVE HABITS",
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();

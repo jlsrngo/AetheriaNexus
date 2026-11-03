@@ -1,6 +1,6 @@
 use axum::{response::IntoResponse, response::Response, Json};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 pub use crate::session::ui_mapper::format_tool_step_label;
 
@@ -40,6 +40,10 @@ pub fn classify_tool_icon_type(tool_name: &str, label: &str) -> &'static str {
         if t.contains("stock") || t.contains("stok") {
             return "boxes";
         }
+    }
+
+    if t.contains("render") || t.contains("video") || t.contains("remotion") {
+        return "video";
     }
 
     if t.contains("question") || t.contains("clarification") {
@@ -107,19 +111,19 @@ pub async fn handle_format_step_label(Json(req): Json<FormatStepRequest>) -> Res
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn test_format_and_classify_step() {
-        let label = format_tool_step_label("read_file", &json!({ "path": "docs/laporan.xlsx" }), true);
-        assert_eq!(label, "Explored laporan.xlsx");
+        let label = format_tool_step_label("read_file", &json!({ "path": "docs/script.txt" }), true);
+        assert_eq!(label, "Explored script.txt");
         assert_eq!(classify_tool_icon_type("read_file", &label), "file_search");
 
-        let label_pos = format_tool_step_label("arunakizen_search_catalog", &json!({ "query": "Kopi Susu" }), true);
-        assert_eq!(label_pos, "Searched catalog: Kopi Susu");
-        assert_eq!(classify_tool_icon_type("arunakizen_search_catalog", &label_pos), "package_search");
+        let label_render = format_tool_step_label("render_video", &json!({ "hook_text": "3 Wealth Habits" }), false);
+        assert_eq!(classify_tool_icon_type("render_video", &label_render), "video");
 
-        let label_edit = format_tool_step_label("edit_file", &json!({ "path": "summary.docx" }), false);
-        assert_eq!(label_edit, "Editing summary.docx");
+        let label_edit = format_tool_step_label("edit_file", &json!({ "path": "src/composition.tsx" }), false);
+        assert_eq!(label_edit, "Editing composition.tsx");
         assert_eq!(classify_tool_icon_type("edit_file", &label_edit), "keyboard");
     }
 }

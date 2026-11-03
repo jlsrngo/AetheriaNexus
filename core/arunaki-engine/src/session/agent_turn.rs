@@ -231,57 +231,22 @@ pub async fn run_agent_turn(
                         let clean_name = file_name.replace(|c: char| !c.is_alphanumeric() && c != '.' && c != '_', "_");
                         let img_path = scratch_dir.join(format!("attached_{}_{}", now_ms(), clean_name));
                         if std::fs::write(&img_path, &bytes).is_ok() {
-                            crate::paths::log_engine(
-                                "ocr",
-                                &format!("📸 Processing attached image '{}' via Windows native OCR", img_path.display()),
-                            );
-                            match crate::tool::image_ocr::run_native_ocr(&img_path) {
-                                Ok(text) if !text.trim().is_empty() => {
-                                    crate::paths::log_engine(
-                                        "ocr",
-                                        &format!("🔍 OCR recognized {} chars from '{}'", text.len(), file_name),
-                                    );
-                                    ocr_transcriptions.push(format!(
-                                        "[Attached Image: {} (Native OCR Transcribed Content)]:\n\"\"\"\n{}\n\"\"\"",
-                                        file_name,
-                                        text.trim()
-                                    ));
-                                }
-                                Ok(_) => {
-                                    crate::paths::log_engine(
-                                        "ocr",
-                                        &format!("ℹ️ OCR completed for '{}' (no text detected)", file_name),
-                                    );
-                                }
-                                Err(err) => {
-                                    crate::paths::log_engine(
-                                        "ocr",
-                                        &format!("⚠️ OCR failed for '{}': {}", file_name, err),
-                                    );
-                                }
-                            }
+                            ocr_transcriptions.push(format!(
+                                "[Attached Media Asset: {} saved at {}]",
+                                file_name,
+                                img_path.display()
+                            ));
                         }
                     }
                 }
             } else if !uri.is_empty() {
                 let candidate = std::path::Path::new(workspace_dir).join(uri);
                 if candidate.exists() {
-                    let is_img = uri.ends_with(".png")
-                        || uri.ends_with(".jpg")
-                        || uri.ends_with(".jpeg")
-                        || uri.ends_with(".webp")
-                        || uri.ends_with(".bmp");
-                    if is_img {
-                        if let Ok(text) = crate::tool::image_ocr::run_native_ocr(&candidate) {
-                            if !text.trim().is_empty() {
-                                ocr_transcriptions.push(format!(
-                                    "[Attached Image: {} (Native OCR Transcribed Content)]:\n\"\"\"\n{}\n\"\"\"",
-                                    file_name,
-                                    text.trim()
-                                ));
-                            }
-                        }
-                    }
+                    ocr_transcriptions.push(format!(
+                        "[Attached Media Asset: {} at {}]",
+                        file_name,
+                        candidate.display()
+                    ));
                 }
             }
         }

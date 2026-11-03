@@ -177,6 +177,28 @@ pub fn format_tool_step_label(tool_name: &str, args_or_target: &Value, is_finish
 
     let file_name = if is_internal { "" } else { &raw_file_name };
 
+    // Video Rendering
+    if t.contains("render") || t.contains("video") || t.contains("remotion") {
+        let hook = args_or_target
+            .get("hook_text")
+            .or_else(|| args_or_target.get("title"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        if !hook.is_empty() {
+            let truncated_hook: String = hook.chars().take(30).collect();
+            return if is_finished {
+                format!("Rendered video: \"{}\"", truncated_hook)
+            } else {
+                format!("Rendering video: \"{}\"", truncated_hook)
+            };
+        }
+        return if is_finished {
+            "Rendered video MP4".to_string()
+        } else {
+            "Rendering video MP4".to_string()
+        };
+    }
+
     // 1. POS / Retail
     if t.contains("pos") || t.contains("arunakizen") {
         if t.contains("search") || t.contains("product") || t.contains("katalog") || t.contains("catalog") {
@@ -600,41 +622,41 @@ mod tests {
 
     #[test]
     fn cleans_closed_and_unclosed_thinking_tags() {
-        let raw = "Halo! <think>Menganalisis file dokumen...</think> Ini laporannya.";
+        let raw = "Hello! <think>Analyzing script file...</think> Here is the report.";
         let (clean, thoughts) = clean_reasoning_tags(raw);
-        assert_eq!(clean, "Halo!  Ini laporannya.");
+        assert_eq!(clean, "Hello!  Here is the report.");
         assert_eq!(thoughts.len(), 1);
-        assert_eq!(thoughts[0], "Menganalisis file dokumen...");
+        assert_eq!(thoughts[0], "Analyzing script file...");
 
-        let unclosed = "Langkah awal. <think>Memproses kalkulasi total";
+        let unclosed = "Initial step. <think>Processing total metrics";
         let (clean2, thoughts2) = clean_reasoning_tags(unclosed);
-        assert_eq!(clean2, "Langkah awal.");
+        assert_eq!(clean2, "Initial step.");
         assert_eq!(thoughts2.len(), 1);
-        assert_eq!(thoughts2[0], "Memproses kalkulasi total");
+        assert_eq!(thoughts2[0], "Processing total metrics");
     }
 
     #[test]
     fn formats_antigravity_step_labels() {
         let label1 = format_tool_step_label(
             "read_file",
-            &json!({ "filePath": "laporan_keuangan.xlsx" }),
+            &json!({ "filePath": "docs/script.txt" }),
             true,
         );
-        assert_eq!(label1, "Explored laporan_keuangan.xlsx");
+        assert_eq!(label1, "Explored script.txt");
 
         let label2 = format_tool_step_label(
-            "open_document_app",
-            &json!({ "app": "gridcraft" }),
+            "render_video",
+            &json!({ "hook_text": "3 Wealth Habits" }),
             false,
         );
-        assert_eq!(label2, "Opening GridCraft");
+        assert_eq!(label2, "Rendering video: \"3 Wealth Habits\"");
 
         let label3 = format_tool_step_label(
-            "pos_search_product",
-            &json!({ "query": "Kopi Susu" }),
+            "render_video",
+            &json!({ "hook_text": "3 Wealth Habits" }),
             true,
         );
-        assert_eq!(label3, "Searched catalog: Kopi Susu");
+        assert_eq!(label3, "Rendered video: \"3 Wealth Habits\"");
     }
 
     #[test]

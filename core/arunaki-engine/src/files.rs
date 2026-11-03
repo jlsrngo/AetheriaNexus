@@ -197,7 +197,7 @@ async fn handle_content(
             .into_response();
     }
 
-    let Ok(mut bytes) = std::fs::read(&target) else {
+    let Ok(bytes) = std::fs::read(&target) else {
         return (
             StatusCode::NOT_FOUND,
             Json(json!({ "error": "File not found" })),
