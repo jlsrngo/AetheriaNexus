@@ -213,9 +213,9 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
             <div className="w-10 h-10 rounded-full bg-[var(--bg-card)] flex items-center justify-center mb-3 border border-[var(--border-color)]">
               <ArunakiLogo size={20} className="text-[var(--text-muted)]" />
             </div>
-            <p className="text-xs font-medium text-[var(--text-primary)] mb-1">Workspace Agent</p>
+            <p className="text-xs font-medium text-[var(--text-primary)] mb-1">Nexus Creative Agent</p>
             <p className="text-[11px] text-[var(--text-muted)] max-w-[200px]">
-              Ask anything or provide document instructions.
+              Ask for viral hooks, video scripts, or Remotion props.
             </p>
           </div>
         ) : (
