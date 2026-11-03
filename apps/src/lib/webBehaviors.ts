@@ -8,3 +8,4 @@ export function disableDefaultWebBehaviors(win: Window = window, isDev = false) 
     }
   });
 }
+

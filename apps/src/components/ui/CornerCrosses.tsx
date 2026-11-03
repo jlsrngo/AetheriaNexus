@@ -26,3 +26,4 @@ export const CornerCrosses: React.FC<CornerCrossesProps> = ({ className = "text-
     </>
   );
 };
+
