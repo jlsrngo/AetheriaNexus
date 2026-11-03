@@ -28,7 +28,7 @@ fn main() {
     let mut port: u16 = std::env::var("PORT")
         .ok()
         .and_then(|s| s.parse().ok())
-        .unwrap_or(4096);
+        .unwrap_or(4196);
     let mut hostname = String::from("127.0.0.1");
     // Engine binary defaults to headless/server mode (never opens WebView2 GUI)
     let mut headless = is_engine;
@@ -75,7 +75,7 @@ fn main() {
             println!("================================================================");
             let (listener, _url, actual_port) = init_engine_and_bind(&hostname, port).await;
             println!(" [Engine]  Axum API Engine listening on http://{}:{}", hostname, actual_port);
-            println!(" [Bridge]  Local-CLI Bridge on http://127.0.0.1:20188/v1");
+            println!(" [Bridge]  Local-CLI Bridge on http://127.0.0.1:20288/v1");
             println!(" [Status]  Headless Engine Daemon Active (No Web UI Window)");
             println!("----------------------------------------------------------------");
             println!(" Live AI Activity & Telemetry Logs (Press Ctrl+C to stop):");
@@ -93,7 +93,7 @@ fn main() {
             println!("          ARUNAKI - Desktop Document AI Agent (v{})           ", ENGINE_VERSION);
             println!("================================================================");
             println!(" [Engine]  Axum Engine running on http://{}:{}", hostname, port);
-            println!(" [Bridge]  Local-CLI Bridge on http://127.0.0.1:20188/v1");
+            println!(" [Bridge]  Local-CLI Bridge on http://127.0.0.1:20288/v1");
             println!(" [UI Mode] Native Windows WebView2 Desktop Active");
             println!("----------------------------------------------------------------");
             println!(" Live AI Activity & Telemetry Logs:");

@@ -9,10 +9,10 @@
 // Dev browser (no desktop shell): the Vite proxy forwards /api to the engine on :4096,
 // so a relative path is correct and requests go over HTTP as before.
 
-const ENGINE_URL = "http://127.0.0.1:4096";
+const ENGINE_URL = "http://127.0.0.1:4196";
 
 /** The bridge is a separate process on its own port with its own auth; it is not the engine. */
-export const BRIDGE_URL = "http://127.0.0.1:20188";
+export const BRIDGE_URL = "http://127.0.0.1:20288";
 
 function desktop(): any {
   return typeof globalThis !== "undefined" ? (globalThis as any).arunakiDesktop : undefined;
@@ -91,7 +91,7 @@ export function enginePath(path: string): string {
 }
 
 function withDirectory(url: string): string {
-  if (!url.startsWith(`${API_BASE}/`) && !url.startsWith("/api/") && !url.includes(":4096/api/")) return url;
+  if (!url.startsWith(`${API_BASE}/`) && !url.startsWith("/api/") && !url.includes(":4196/api/")) return url;
   const folder = activeDirectory();
   if (!folder || url.includes("directory=")) return url;
   const separator = url.includes("?") ? "&" : "?";

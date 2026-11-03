@@ -36,8 +36,10 @@ export const isCliProvider = (p: Provider): boolean => {
   if (p.id.endsWith("-cli") || p.id.includes("local-cli")) return true;
   if (
     p.baseUrl &&
-    (p.baseUrl.includes(":20188") ||
-      p.baseUrl.includes(":20189") ||
+    (p.baseUrl.includes(":20288") ||
+      p.baseUrl.includes(":20188") ||
+      p.baseUrl.includes("localhost:20288") ||
+      p.baseUrl.includes("127.0.0.1:20288") ||
       p.baseUrl.includes("localhost:20188") ||
       p.baseUrl.includes("127.0.0.1:20188"))
   ) {

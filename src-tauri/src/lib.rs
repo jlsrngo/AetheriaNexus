@@ -51,7 +51,7 @@ pub fn run() {
         .setup(|app| {
             // 1. Spawn background Axum engine & Local-CLI bridge on localhost (only runs in single active instance)
             let host = "127.0.0.1".to_string();
-            let port = 4096;
+            let port = 4196;
             std::thread::spawn(move || {
                 let rt = tokio::runtime::Builder::new_multi_thread()
                     .enable_all()
@@ -177,8 +177,8 @@ pub fn run() {
             });
 
             // Setup System Tray Icon with Open & Quit menu items safely
-            if let Ok(show_i) = MenuItem::with_id(app, "show", "Open Arunaki", true, None::<&str>) {
-                if let Ok(quit_i) = MenuItem::with_id(app, "quit", "Quit Arunaki", true, None::<&str>) {
+            if let Ok(show_i) = MenuItem::with_id(app, "show", "Open Arunaki Nexus", true, None::<&str>) {
+                if let Ok(quit_i) = MenuItem::with_id(app, "quit", "Quit Arunaki Nexus", true, None::<&str>) {
                     if let Ok(menu) = Menu::with_items(app, &[&show_i, &quit_i]) {
                         let mut tray_builder = TrayIconBuilder::new()
                             .menu(&menu)

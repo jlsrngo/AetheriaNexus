@@ -25,7 +25,7 @@ use claude::handle_claude_request;
 use codex::handle_codex_request;
 use kiro::handle_kiro_request;
 
-pub const LOCAL_CLI_BRIDGE_PORT: u16 = 20188;
+pub const LOCAL_CLI_BRIDGE_PORT: u16 = 20288;
 
 /// Origin guard: Blocks arbitrary browser websites from making cross-site calls to the local bridge.
 /// CLI tools (Cursor IDE, Claude Code, curl, scripts) don't send an Origin header and are allowed.

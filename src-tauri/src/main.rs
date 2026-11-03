@@ -4,7 +4,7 @@
 #[cfg(windows)]
 fn set_windows_app_user_model_id() {
     use std::os::windows::ffi::OsStrExt;
-    let id: Vec<u16> = std::ffi::OsStr::new("com.arunaki.desktop")
+    let id: Vec<u16> = std::ffi::OsStr::new("com.arunakinexus.desktop")
         .encode_wide()
         .chain(std::iter::once(0))
         .collect();

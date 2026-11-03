@@ -478,9 +478,9 @@ async fn handle_engine_info() -> Response {
         }
     }
     Json(json!({
-        "port": 4096,
+        "port": 4196,
         "hostname": "127.0.0.1",
-        "url": "http://127.0.0.1:4096",
+        "url": "http://127.0.0.1:4196",
         "bridgePort": LOCAL_CLI_BRIDGE_PORT,
         "runtime": "rust"
     }))
@@ -628,7 +628,7 @@ pub const DESKTOP_INIT_SCRIPT: &str = r#"
   }, true);
 
   if (window.arunakiDesktop) return;
-  const ORIGIN = window.location.origin || 'http://127.0.0.1:4096';
+  const ORIGIN = window.location.origin || 'http://127.0.0.1:4196';
   const postJson = async (path, body) => {
     const r = await fetch(ORIGIN + path, {
       method: 'POST',

@@ -54,7 +54,7 @@ fn get_credentials(provider: &str) -> (String, String) {
 
 fn redirect_base() -> String {
     std::env::var("ARUNAKI_OAUTH_REDIRECT_BASE")
-        .unwrap_or_else(|_| "http://127.0.0.1:4096".to_string())
+        .unwrap_or_else(|_| "http://127.0.0.1:4196".to_string())
 }
 
 fn url_encode(s: &str) -> String {

@@ -1272,7 +1272,7 @@ pub async fn start_oauth_session(target: &str, open_browser: bool) -> Result<Val
                                     auto_harvested: false,
                                     ..Default::default()
                                 });
-                                register_local_cli_to_config(20188);
+                                register_local_cli_to_config(crate::bridge::LOCAL_CLI_BRIDGE_PORT);
                                 update_oauth_result(OauthResult {
                                     request_id: req_id_clone,
                                     target: "kiro".to_string(),
@@ -1465,7 +1465,7 @@ pub async fn start_oauth_session(target: &str, open_browser: bool) -> Result<Val
                                         auto_harvested: false,
                                         ..Default::default()
                                     });
-                                    register_local_cli_to_config(20188);
+                                    register_local_cli_to_config(crate::bridge::LOCAL_CLI_BRIDGE_PORT);
                                     update_oauth_result(OauthResult {
                                         request_id: req_id_clone,
                                         target: target_clone,

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Arunaki",
+  "productName": "Arunaki Nexus",
   "version": "0.1.0",
-  "identifier": "com.arunaki.desktop",
+  "identifier": "com.arunakinexus.desktop",
   "build": {
     "frontendDist": "../apps/dist",
     "beforeDevCommand": "npm run dev -w apps",
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "Arunaki",
+        "title": "Arunaki Nexus",
         "label": "main",
         "width": 1280,
         "height": 820,

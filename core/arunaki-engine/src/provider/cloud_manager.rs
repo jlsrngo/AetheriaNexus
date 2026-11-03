@@ -33,8 +33,10 @@ pub fn is_cli_provider(id: &str, base_url: &str, name: &str, api_key: &str) -> b
         return true;
     }
     let url_lower = base_url.trim().to_lowercase();
-    if url_lower.contains(":20188")
-        || url_lower.contains(":20189")
+    if url_lower.contains(":20288")
+        || url_lower.contains(":20188")
+        || url_lower.contains("localhost:20288")
+        || url_lower.contains("127.0.0.1:20288")
         || url_lower.contains("localhost:20188")
         || url_lower.contains("127.0.0.1:20188")
     {

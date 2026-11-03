@@ -12,7 +12,7 @@ export const PROVIDER_TYPES = [
   { value: "ollama", label: "Ollama (Local Host)", defaultUrl: "http://localhost:11434/v1" },
   { value: "lmstudio", label: "LM Studio (Local Host)", defaultUrl: "http://localhost:1234/v1" },
   { value: "9router", label: "9Router (Local Gateway)", defaultUrl: "http://localhost:20128/v1" },
-  { value: "claude-code", label: "Claude Code CLI (Local Subscription)", defaultUrl: "http://127.0.0.1:20188/v1" },
+  { value: "claude-code", label: "Claude Code CLI (Local Subscription)", defaultUrl: "http://127.0.0.1:20288/v1" },
   { value: "openai-compatible", label: "Other (Custom Endpoint)", defaultUrl: "" },
 ];
 

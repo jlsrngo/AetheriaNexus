@@ -60,7 +60,7 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
         isCloudOnly: false,
         message: "OpenAI Codex CLI (@openai/codex) is not installed. Run 'npm i -g @openai/codex'.",
       },
-      bridgePort: 20188,
+      bridgePort: 20288,
       bridgeRunning: true,
       registry: FALLBACK_CLI_REGISTRY,
     };
@@ -544,7 +544,7 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
       id: target,
       name,
       type: "openai-compatible",
-      baseUrl: `http://127.0.0.1:${data.bridgePort || 20188}/v1`,
+      baseUrl: `http://127.0.0.1:${data.bridgePort || 20288}/v1`,
       apiKey: `${target}-local-session`,
     };
   };

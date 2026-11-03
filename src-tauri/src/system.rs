@@ -38,7 +38,7 @@ pub fn get_system_telemetry() -> SystemTelemetry {
         app_version: env!("CARGO_PKG_VERSION").to_string(),
         runtime: "Pure-Rust Tauri v2".to_string(),
         desktop_shell: "Microsoft Edge WebView2".to_string(),
-        engine: "Axum v0.7 + Tokio v1.40 (127.0.0.1:4096)".to_string(),
+        engine: "Axum v0.7 + Tokio v1.40 (127.0.0.1:4196)".to_string(),
         docs_engine: "Native Win32 COM & Office XML Sidecar".to_string(),
     }
 }

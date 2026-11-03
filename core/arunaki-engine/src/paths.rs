@@ -61,7 +61,7 @@ pub fn home_dir() -> PathBuf {
 }
 
 pub fn arunaki_dot_dir() -> PathBuf {
-    let dir = home_dir().join(".arunaki");
+    let dir = home_dir().join(".arunaki-nexus");
     let _ = std::fs::create_dir_all(&dir);
     dir
 }
@@ -76,7 +76,7 @@ pub fn arunaki_config_dir() -> PathBuf {
     } else {
         home_dir().join(".config")
     };
-    let dir = base.join("arunaki");
+    let dir = base.join("arunaki-nexus");
     let _ = std::fs::create_dir_all(&dir);
     dir
 }
@@ -91,7 +91,7 @@ pub fn arunaki_data_dir() -> PathBuf {
     } else {
         home_dir().join(".local").join("share")
     };
-    let dir = base.join("arunaki");
+    let dir = base.join("arunaki-nexus");
     let _ = std::fs::create_dir_all(&dir);
     dir
 }

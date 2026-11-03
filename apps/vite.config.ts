@@ -65,16 +65,16 @@ export default defineConfig({
     },
     proxy: {
       '/session': {
-        target: 'http://127.0.0.1:4096',
+        target: 'http://127.0.0.1:4196',
         changeOrigin: true,
       },
       '/api/messaging': {
-        target: 'http://127.0.0.1:4096',
+        target: 'http://127.0.0.1:4196',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/messaging/, '/messaging'),
       },
       '/api': {
-        target: 'http://127.0.0.1:4096',
+        target: 'http://127.0.0.1:4196',
         changeOrigin: true,
       },
     },
