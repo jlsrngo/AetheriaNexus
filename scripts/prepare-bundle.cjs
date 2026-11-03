@@ -18,11 +18,9 @@ const webDistDir = path.join(rootDir, 'apps', 'dist');
 const targetReleaseDir = path.join(rootDir, 'target', 'release');
 const desktopExePath = path.join(targetReleaseDir, 'arunaki.exe');
 const engineExePath = path.join(targetReleaseDir, 'arunaki-engine.exe');
-const docsExePath = path.join(targetReleaseDir, 'arunaki-docs.exe');
 const injectScript = path.join(rootDir, 'scripts', 'inject-icon.ps1');
 const mainIco = path.join(rootDir, 'core', 'arunaki-engine', 'arunaki.ico');
 const gearIco = path.join(rootDir, 'core', 'arunaki-engine', 'gear.ico');
-const docsIco = path.join(rootDir, 'core', 'arunaki-docs', 'arunaki.ico');
 
 function log(step, msg) {
   console.log(`\x1b[36m[prepare-bundle]\x1b[0m \x1b[1m${step}\x1b[0m ${msg}`);
@@ -94,7 +92,7 @@ async function main() {
       ...process.env,
       PATH: `${process.env.PATH || ''}${path.delimiter}${cargoBinDir}`,
     };
-    execSync('cargo build --release -p arunaki-desktop -p arunaki-engine -p arunaki-docs', {
+    execSync('cargo build --release -p arunaki-desktop -p arunaki-engine', {
       cwd: rootDir,
       env: envWithCargo,
       stdio: 'inherit',
@@ -115,11 +113,6 @@ async function main() {
       setPeSubsystem(engineExePath, 3);
       injectIcon(engineExePath, gearIco);
     }
-    if (fs.existsSync(docsExePath)) {
-      // arunaki-docs.exe is the Document Sidecar (Subsystem = 3) with the doc sheet + key icon
-      setPeSubsystem(docsExePath, 3);
-      injectIcon(docsExePath, docsIco);
-    }
   } catch (err) {
     error('Step 2/3', `Failed to compile Rust binaries: ${err.message}`);
     process.exit(1);
@@ -131,7 +124,6 @@ async function main() {
     { name: 'Web Production Bundle (index.html)', path: path.join(webDistDir, 'index.html') },
     { name: 'Native Desktop Shell (arunaki.exe)', path: desktopExePath },
     { name: 'Native AI Engine (arunaki-engine.exe)', path: engineExePath },
-    { name: 'Native Document Sidecar (arunaki-docs.exe)', path: docsExePath },
   ];
 
   let allOk = true;
@@ -168,11 +160,6 @@ async function main() {
       safeCopy(engineExePath, path.join(portableDir, 'arunaki-engine.exe'));
       setPeSubsystem(path.join(portableDir, 'arunaki-engine.exe'), 3);
       injectIcon(path.join(portableDir, 'arunaki-engine.exe'), gearIco);
-    }
-    if (fs.existsSync(docsExePath)) {
-      safeCopy(docsExePath, path.join(portableDir, 'arunaki-docs.exe'));
-      setPeSubsystem(path.join(portableDir, 'arunaki-docs.exe'), 3);
-      injectIcon(path.join(portableDir, 'arunaki-docs.exe'), docsIco);
     }
     const portableWebDir = path.join(portableDir, 'web');
     fs.rmSync(portableWebDir, { recursive: true, force: true });

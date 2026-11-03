@@ -1,4 +1,4 @@
-Summarize what was done in this conversation. Write a clear, concise summary of the document and data work completed.
+Summarize what was done in this conversation. Write a clear, concise summary of the video script, creative production, and project work completed.
 
 Rules:
 - 2-3 sentences max

@@ -8,34 +8,27 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
+          cache: 'npm'
 
       - name: Install dependencies
-        run: bun install
+        run: npm ci
 
       - name: Build Web Frontend
         working-directory: apps
-        run: bun run build
+        run: npm run build
 
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Linux GUI Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: Cargo Check & Test Workspace
         run: |
           cargo check --workspace
           cargo test --workspace
+
