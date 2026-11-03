@@ -421,3 +421,16 @@ export function directoryQuery(): string {
   const folder = activeDirectory();
   return folder ? `?directory=${encodeURIComponent(folder)}` : "";
 }
+
+
+export async function renderNexusVideo(propsJson: string, outputPath?: string) {
+  if (isDesktopBundle()) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return invoke<{ success: boolean; stdout: string; outputPath?: string }>("render_nexus_video", {
+      propsJson,
+      outputPath: outputPath || null,
+    });
+  } else {
+    throw new Error("Local MP4 rendering requires Arunaki Desktop Shell");
+  }
+}

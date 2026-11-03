@@ -33,6 +33,7 @@ pub fn run() {
             api::tauri_engine_fetch,
             api::tauri_cli_login,
             api::tauri_cli_status,
+            api::render_nexus_video,
             // 2. Native Dialogs
             dialog::pick_folder,
             dialog::pick_file,

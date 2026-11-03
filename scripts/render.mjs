@@ -40,7 +40,7 @@ async function main() {
 
   console.log(JSON.stringify({ type: "status", message: "Bundling Nexus Editorial composition..." }));
 
-  const entryPoint = path.resolve(process.cwd(), "apps/src/remotion/index.ts");
+  const entryPoint = path.resolve(process.cwd(), "apps/src/remotion/entry.ts");
   const bundleLocation = await bundle({
     entryPoint,
     webpackOverride: (config) => config,

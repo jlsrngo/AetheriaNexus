@@ -12,6 +12,8 @@ import {
   CanvasDuration,
 } from "./StudioPlayerHeader";
 import { CornerCrosses } from "../ui/CornerCrosses";
+import { renderNexusVideo } from "../../lib/api";
+import { toast } from "sonner";
 
 interface StudioPlayerCanvasProps {
   props?: NexusVideoProps;
@@ -22,13 +24,48 @@ interface StudioPlayerCanvasProps {
 
 export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
   props = defaultNexusVideoProps,
-  onRender = () => {},
+  onRender,
   isRendering = false,
   renderProgress = 0,
 }) => {
   const [ratio, setRatio] = useState<CanvasRatio>("9:16");
   const [fps, setFps] = useState<CanvasFps>(30);
   const [duration, setDuration] = useState<CanvasDuration>(5);
+  const [internalRendering, setInternalRendering] = useState(false);
+  const [internalProgress, setInternalProgress] = useState(0);
+
+  const activeRendering = isRendering || internalRendering;
+  const activeProgress = renderProgress || internalProgress;
+
+  const handleRender = async () => {
+    if (onRender) {
+      onRender();
+      return;
+    }
+
+    setInternalRendering(true);
+    setInternalProgress(15);
+    toast.info("Starting Local Remotion Render Engine...", {
+      description: "Bundling composition & rendering MP4 via hardware acceleration...",
+    });
+
+    try {
+      setInternalProgress(45);
+      const res = await renderNexusVideo(JSON.stringify(props));
+      setInternalProgress(100);
+      toast.success("MP4 Video Rendered Successfully!", {
+        description: res.outputPath || "Export saved to output/ folder.",
+      });
+    } catch (err: any) {
+      console.error("Render error:", err);
+      toast.error("Render Failed", {
+        description: err?.message || String(err),
+      });
+    } finally {
+      setInternalRendering(false);
+      setInternalProgress(0);
+    }
+  };
 
   const getDimensions = () => {
     switch (ratio) {
@@ -70,9 +107,9 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
         onFpsChange={setFps}
         duration={duration}
         onDurationChange={setDuration}
-        onRender={onRender}
-        isRendering={isRendering}
-        renderProgress={renderProgress}
+        onRender={handleRender}
+        isRendering={activeRendering}
+        renderProgress={activeProgress}
       />
 
       {/* 2. Main Player Viewport Stage */}
