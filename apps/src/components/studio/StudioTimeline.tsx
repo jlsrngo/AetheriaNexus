@@ -46,14 +46,11 @@ export const StudioTimeline = memo(function StudioTimeline({
   onSeek,
 }: StudioTimelineProps) {
   const [zoom, setZoom] = useState(1);
-  const [editingTrack, setEditingTrack] = useState<"text" | "background" | "audio" | null>(null);
+  const [editingClip, setEditingClip] = useState<"hook" | "bullets" | "background" | "audio" | null>(null);
 
   // Local draft states for modal
   const [draftHook, setDraftHook] = useState(videoProps?.hookText || "");
   const [draftBody, setDraftBody] = useState(videoProps?.bodyText || "");
-  const [draftAuthor, setDraftAuthor] = useState(videoProps?.authorHandle || "@nexus.creative");
-  const [draftCategory, setDraftCategory] = useState(videoProps?.category || "PRODUCTIVITY");
-  const [draftSubCategory, setDraftSubCategory] = useState(videoProps?.subCategory || "EXECUTIVE HABITS");
   const [draftTheme, setDraftTheme] = useState<NexusVideoProps["themeColor"]>(videoProps?.themeColor || "emerald");
   const [draftVolume, setDraftVolume] = useState(80);
 
@@ -62,9 +59,6 @@ export const StudioTimeline = memo(function StudioTimeline({
     if (videoProps) {
       setDraftHook(videoProps.hookText);
       setDraftBody(videoProps.bodyText);
-      setDraftAuthor(videoProps.authorHandle);
-      setDraftCategory(videoProps.category);
-      setDraftSubCategory(videoProps.subCategory || "EXECUTIVE HABITS");
       setDraftTheme(videoProps.themeColor);
     }
   }, [videoProps]);
@@ -115,21 +109,20 @@ export const StudioTimeline = memo(function StudioTimeline({
     };
   }, [updateSeekFromMouse]);
 
-  const handleApplyText = () => {
-    onUpdateProps?.({
-      hookText: draftHook,
-      bodyText: draftBody,
-      authorHandle: draftAuthor,
-      category: draftCategory,
-      subCategory: draftSubCategory,
-    });
-    setEditingTrack(null);
+  const handleApplyHook = () => {
+    onUpdateProps?.({ hookText: draftHook });
+    setEditingClip(null);
+  };
+
+  const handleApplyBullets = () => {
+    onUpdateProps?.({ bodyText: draftBody });
+    setEditingClip(null);
   };
 
   const handleApplyBackground = (theme: NexusVideoProps["themeColor"]) => {
     setDraftTheme(theme);
     onUpdateProps?.({ themeColor: theme });
-    setEditingTrack(null);
+    setEditingClip(null);
   };
 
   const durationSeconds = Math.ceil(durationInFrames / fps);
@@ -200,80 +193,50 @@ export const StudioTimeline = memo(function StudioTimeline({
 
       {/* 2. TIMELINE MAIN WORKSPACE (Tracks & Ruler) */}
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
-        {/* Left Column: Track Headers (Icons Only - Swiss Brutalism) */}
-        <div className="w-20 bg-neutral-900/95 border-r border-neutral-800 flex flex-col shrink-0 z-20">
+        {/* Left Column: Track Headers (Icons Only - Zero Edit Icons) */}
+        <div className="w-16 bg-neutral-900/95 border-r border-neutral-800 flex flex-col shrink-0 z-20">
           {/* Header spacer aligned with ruler */}
           <div className="h-6 border-b border-neutral-800 px-2 flex items-center justify-center text-[9px] uppercase tracking-wider text-neutral-500 bg-neutral-950 font-bold">
             TRACKS
           </div>
 
           {/* Track 1: TEXT */}
-          <div className="h-14 border-b border-neutral-800 px-2 flex items-center justify-between bg-neutral-900/80">
+          <div className="h-14 border-b border-neutral-800 px-2.5 flex items-center justify-between bg-neutral-900/80">
             <Type className="w-4 h-4 text-amber-400 shrink-0" />
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setEditingTrack("text")}
-                className="p-1 hover:bg-neutral-800 text-amber-300 border border-neutral-700 transition-none cursor-pointer"
-                title="Edit Text Content"
-              >
-                <Edit3 className="w-3 h-3" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onToggleTrackVisibility?.("text")}
-                className="p-1 text-neutral-400 hover:text-white cursor-pointer"
-                title={trackVisibility.text ? "Hide text layer" : "Show text layer"}
-              >
-                {trackVisibility.text ? <Eye className="w-3.5 h-3.5 text-white" /> : <EyeOff className="w-3.5 h-3.5 text-neutral-600" />}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => onToggleTrackVisibility?.("text")}
+              className="p-1 text-neutral-400 hover:text-white cursor-pointer"
+              title={trackVisibility.text ? "Hide text layer" : "Show text layer"}
+            >
+              {trackVisibility.text ? <Eye className="w-3.5 h-3.5 text-white" /> : <EyeOff className="w-3.5 h-3.5 text-neutral-600" />}
+            </button>
           </div>
 
           {/* Track 2: BACKGROUND */}
-          <div className="h-14 border-b border-neutral-800 px-2 flex items-center justify-between bg-neutral-900/80">
+          <div className="h-14 border-b border-neutral-800 px-2.5 flex items-center justify-between bg-neutral-900/80">
             <Layers className="w-4 h-4 text-emerald-400 shrink-0" />
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setEditingTrack("background")}
-                className="p-1 hover:bg-neutral-800 text-emerald-300 border border-neutral-700 transition-none cursor-pointer"
-                title="Edit Background Theme"
-              >
-                <Edit3 className="w-3 h-3" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onToggleTrackVisibility?.("background")}
-                className="p-1 text-neutral-400 hover:text-white cursor-pointer"
-                title={trackVisibility.background ? "Hide background layer" : "Show background layer"}
-              >
-                {trackVisibility.background ? <Eye className="w-3.5 h-3.5 text-white" /> : <EyeOff className="w-3.5 h-3.5 text-neutral-600" />}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => onToggleTrackVisibility?.("background")}
+              className="p-1 text-neutral-400 hover:text-white cursor-pointer"
+              title={trackVisibility.background ? "Hide background layer" : "Show background layer"}
+            >
+              {trackVisibility.background ? <Eye className="w-3.5 h-3.5 text-white" /> : <EyeOff className="w-3.5 h-3.5 text-neutral-600" />}
+            </button>
           </div>
 
           {/* Track 3: AUDIO */}
-          <div className="h-14 border-b border-neutral-800 px-2 flex items-center justify-between bg-neutral-900/80">
+          <div className="h-14 border-b border-neutral-800 px-2.5 flex items-center justify-between bg-neutral-900/80">
             <Music className="w-4 h-4 text-cyan-400 shrink-0" />
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setEditingTrack("audio")}
-                className="p-1 hover:bg-neutral-800 text-cyan-300 border border-neutral-700 transition-none cursor-pointer"
-                title="Edit Audio Settings"
-              >
-                <Edit3 className="w-3 h-3" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onToggleTrackVisibility?.("audio")}
-                className="p-1 text-neutral-400 hover:text-white cursor-pointer"
-                title={trackVisibility.audio ? "Mute audio" : "Unmute audio"}
-              >
-                {trackVisibility.audio ? <Volume2 className="w-3.5 h-3.5 text-cyan-400" /> : <VolumeX className="w-3.5 h-3.5 text-rose-500" />}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => onToggleTrackVisibility?.("audio")}
+              className="p-1 text-neutral-400 hover:text-white cursor-pointer"
+              title={trackVisibility.audio ? "Mute audio" : "Unmute audio"}
+            >
+              {trackVisibility.audio ? <Volume2 className="w-3.5 h-3.5 text-cyan-400" /> : <VolumeX className="w-3.5 h-3.5 text-rose-500" />}
+            </button>
           </div>
         </div>
 
@@ -314,15 +277,14 @@ export const StudioTimeline = memo(function StudioTimeline({
               }}
             />
 
-            {/* Track 1: TEXT Lane (Hook & Bullets) */}
-            <div
-              className="h-14 border-b border-neutral-900 px-1 py-1.5 flex gap-1 relative cursor-pointer group"
-              onClick={() => setEditingTrack("text")}
-              title="Click to edit text content"
-            >
+            {/* Track 1: TEXT Lane (Hook & Bullets edited 1/1) */}
+            <div className="h-14 border-b border-neutral-900 px-1 py-1.5 flex gap-1 relative select-none">
+              {/* Hook Clip */}
               <div
-                className="h-full bg-amber-950/70 border border-amber-500/60 text-amber-200 px-2.5 flex items-center justify-between text-[10px] font-bold group-hover:border-amber-400 transition-colors"
+                onClick={() => setEditingClip("hook")}
+                className="h-full bg-amber-950/70 border border-amber-500/60 text-amber-200 px-2.5 flex items-center justify-between text-[10px] font-bold hover:border-amber-400 hover:bg-amber-900/60 cursor-pointer transition-colors"
                 style={{ width: "45%" }}
+                title="Click to edit Hook Title"
               >
                 <div className="truncate flex items-center gap-1.5">
                   <Type className="w-3 h-3 text-amber-400 shrink-0" />
@@ -331,9 +293,12 @@ export const StudioTimeline = memo(function StudioTimeline({
                 <span className="text-[9px] text-amber-400 font-mono shrink-0 ml-1">HOOK</span>
               </div>
 
+              {/* Bullets Clip */}
               <div
-                className="h-full bg-amber-900/50 border border-amber-600/40 text-amber-100 px-2.5 flex items-center justify-between text-[10px] font-bold group-hover:border-amber-400 transition-colors"
+                onClick={() => setEditingClip("bullets")}
+                className="h-full bg-amber-900/50 border border-amber-600/40 text-amber-100 px-2.5 flex items-center justify-between text-[10px] font-bold hover:border-amber-400 hover:bg-amber-850/60 cursor-pointer transition-colors"
                 style={{ width: "55%" }}
+                title="Click to edit Body Bullets"
               >
                 <div className="truncate flex items-center gap-1.5">
                   <span className="truncate">{videoProps?.bodyText ? videoProps.bodyText.replace(/\n/g, " • ") : "3 Value Points"}</span>
@@ -345,7 +310,7 @@ export const StudioTimeline = memo(function StudioTimeline({
             {/* Track 2: BACKGROUND Lane (Theme Gradient) */}
             <div
               className="h-14 border-b border-neutral-900 px-1 py-1.5 relative cursor-pointer group"
-              onClick={() => setEditingTrack("background")}
+              onClick={() => setEditingClip("background")}
               title="Click to edit background theme"
             >
               <div
@@ -363,7 +328,7 @@ export const StudioTimeline = memo(function StudioTimeline({
             {/* Track 3: AUDIO Lane (Soundtrack Waveform) */}
             <div
               className="h-14 border-b border-neutral-900 px-1 py-1.5 relative cursor-pointer group"
-              onClick={() => setEditingTrack("audio")}
+              onClick={() => setEditingClip("audio")}
               title="Click to edit audio settings"
             >
               <div
@@ -406,8 +371,8 @@ export const StudioTimeline = memo(function StudioTimeline({
         </div>
       </div>
 
-      {/* 3. CENTER SCREEN MANUAL TRACK EDITING MODAL (Swiss Brutalism) */}
-      {editingTrack && (
+      {/* 3. CENTER SCREEN MANUAL CLIP EDITING MODAL (1/1 Individual Clip Editing) */}
+      {editingClip && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-neutral-950 border border-neutral-700 shadow-2xl p-4 font-mono text-xs flex flex-col gap-3">
             {/* Modal Header */}
@@ -415,24 +380,26 @@ export const StudioTimeline = memo(function StudioTimeline({
               <div className="flex items-center gap-2 font-bold text-white text-[11px] uppercase tracking-wider">
                 <Edit3 className="w-3.5 h-3.5 text-emerald-400" />
                 <span>
-                  {editingTrack === "text"
-                    ? "EDIT TEXT TRACK"
-                    : editingTrack === "background"
-                    ? "EDIT BACKGROUND TRACK"
+                  {editingClip === "hook"
+                    ? "EDIT HOOK HEADLINE"
+                    : editingClip === "bullets"
+                    ? "EDIT VALUE BULLETS"
+                    : editingClip === "background"
+                    ? "EDIT BACKGROUND THEME"
                     : "EDIT AUDIO TRACK"}
                 </span>
               </div>
               <button
                 type="button"
-                onClick={() => setEditingTrack(null)}
-                className="text-neutral-400 hover:text-white p-1"
+                onClick={() => setEditingClip(null)}
+                className="text-neutral-400 hover:text-white p-1 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {/* Modal Body */}
-            {editingTrack === "text" && (
+            {/* 1/1 Modal Body: Hook Headline Only */}
+            {editingClip === "hook" && (
               <div className="space-y-3">
                 <div>
                   <label className="text-[10px] text-neutral-400 block mb-1 uppercase font-bold">
@@ -444,59 +411,22 @@ export const StudioTimeline = memo(function StudioTimeline({
                     onChange={(e) => setDraftHook(e.target.value)}
                     className="w-full bg-neutral-900 border border-neutral-700 px-2.5 py-1.5 text-white font-mono text-xs focus:border-white focus:outline-none"
                     placeholder="Enter viral hook..."
+                    autoFocus
                   />
-                </div>
-
-                <div>
-                  <label className="text-[10px] text-neutral-400 block mb-1 uppercase font-bold">
-                    Body Bullets (3 Points, separated by newlines)
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={draftBody}
-                    onChange={(e) => setDraftBody(e.target.value)}
-                    className="w-full bg-neutral-900 border border-neutral-700 px-2.5 py-1.5 text-white font-mono text-xs focus:border-white focus:outline-none resize-none"
-                    placeholder="1. First point&#10;2. Second point&#10;3. Third point"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] text-neutral-400 block mb-1 uppercase font-bold">
-                      Category Tag
-                    </label>
-                    <input
-                      type="text"
-                      value={draftCategory}
-                      onChange={(e) => setDraftCategory(e.target.value)}
-                      className="w-full bg-neutral-900 border border-neutral-700 px-2 py-1 text-white font-mono text-xs focus:border-white focus:outline-none uppercase"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-neutral-400 block mb-1 uppercase font-bold">
-                      Author / Watermark
-                    </label>
-                    <input
-                      type="text"
-                      value={draftAuthor}
-                      onChange={(e) => setDraftAuthor(e.target.value)}
-                      className="w-full bg-neutral-900 border border-neutral-700 px-2 py-1 text-white font-mono text-xs focus:border-white focus:outline-none"
-                    />
-                  </div>
                 </div>
 
                 <div className="pt-2 flex justify-end gap-2 border-t border-neutral-800">
                   <button
                     type="button"
-                    onClick={() => setEditingTrack(null)}
-                    className="px-3 py-1.5 bg-neutral-900 border border-neutral-700 text-neutral-300 hover:text-white"
+                    onClick={() => setEditingClip(null)}
+                    className="px-3 py-1.5 bg-neutral-900 border border-neutral-700 text-neutral-300 hover:text-white cursor-pointer"
                   >
                     CANCEL
                   </button>
                   <button
                     type="button"
-                    onClick={handleApplyText}
-                    className="px-4 py-1.5 bg-white text-black font-bold flex items-center gap-1.5 hover:bg-neutral-200"
+                    onClick={handleApplyHook}
+                    className="px-4 py-1.5 bg-white text-black font-bold flex items-center gap-1.5 hover:bg-neutral-200 cursor-pointer"
                   >
                     <Check className="w-3 h-3" />
                     <span>APPLY TO STAGE</span>
@@ -505,7 +435,45 @@ export const StudioTimeline = memo(function StudioTimeline({
               </div>
             )}
 
-            {editingTrack === "background" && (
+            {/* 1/1 Modal Body: Body Bullets Only */}
+            {editingClip === "bullets" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[10px] text-neutral-400 block mb-1 uppercase font-bold">
+                    Body Bullets (3 Points, separated by newlines)
+                  </label>
+                  <textarea
+                    rows={5}
+                    value={draftBody}
+                    onChange={(e) => setDraftBody(e.target.value)}
+                    className="w-full bg-neutral-900 border border-neutral-700 px-2.5 py-1.5 text-white font-mono text-xs focus:border-white focus:outline-none resize-none leading-relaxed"
+                    placeholder="1. First point&#10;2. Second point&#10;3. Third point"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="pt-2 flex justify-end gap-2 border-t border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => setEditingClip(null)}
+                    className="px-3 py-1.5 bg-neutral-900 border border-neutral-700 text-neutral-300 hover:text-white cursor-pointer"
+                  >
+                    CANCEL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApplyBullets}
+                    className="px-4 py-1.5 bg-white text-black font-bold flex items-center gap-1.5 hover:bg-neutral-200 cursor-pointer"
+                  >
+                    <Check className="w-3 h-3" />
+                    <span>APPLY TO STAGE</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 1/1 Modal Body: Background Theme Only */}
+            {editingClip === "background" && (
               <div className="space-y-3">
                 <label className="text-[10px] text-neutral-400 block uppercase font-bold">
                   Select Color Theme Gradient
@@ -547,7 +515,8 @@ export const StudioTimeline = memo(function StudioTimeline({
               </div>
             )}
 
-            {editingTrack === "audio" && (
+            {/* 1/1 Modal Body: Audio Settings Only */}
+            {editingClip === "audio" && (
               <div className="space-y-3">
                 <div>
                   <label className="text-[10px] text-neutral-400 block mb-1 uppercase font-bold">
@@ -559,7 +528,7 @@ export const StudioTimeline = memo(function StudioTimeline({
                     max="100"
                     value={draftVolume}
                     onChange={(e) => setDraftVolume(parseInt(e.target.value, 10))}
-                    className="w-full bg-neutral-800 accent-white"
+                    className="w-full bg-neutral-800 accent-white cursor-pointer"
                   />
                 </div>
 
@@ -579,8 +548,8 @@ export const StudioTimeline = memo(function StudioTimeline({
                 <div className="pt-2 flex justify-end gap-2 border-t border-neutral-800">
                   <button
                     type="button"
-                    onClick={() => setEditingTrack(null)}
-                    className="px-4 py-1.5 bg-white text-black font-bold flex items-center gap-1.5 hover:bg-neutral-200"
+                    onClick={() => setEditingClip(null)}
+                    className="px-4 py-1.5 bg-white text-black font-bold flex items-center gap-1.5 hover:bg-neutral-200 cursor-pointer"
                   >
                     <Check className="w-3 h-3" />
                     <span>DONE</span>
