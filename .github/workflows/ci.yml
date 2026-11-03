@@ -26,8 +26,9 @@ jobs:
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cargo Check & Test Workspace
-        run: |
-          cargo check --workspace
-          cargo test --workspace
+      - name: Cargo Check Workspace
+        run: cargo check --workspace
+
+      - name: Cargo Test Workspace
+        run: cargo test --workspace -- --nocapture
 
