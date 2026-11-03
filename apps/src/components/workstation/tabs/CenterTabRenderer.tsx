@@ -3,6 +3,7 @@ import { CenterTab } from "./types";
 import { CenterEditorView } from "./CenterEditorView";
 import { SplitDiffViewer } from "./SplitDiffViewer";
 import { SopPlaybookCenterView } from "../sop/SopPlaybookCenterView";
+import { StudioPlayerCanvas } from "../../studio/StudioPlayerCanvas";
 import { cn } from "../../../lib/utils";
 
 const CanvasView = lazy(() =>
@@ -96,6 +97,8 @@ export const CenterTabRenderer = memo(function CenterTabRenderer({
             onSave={() => onSaveForTab(tab.id)}
           />
         </Suspense>
+      ) : tab.type === "stage" ? (
+        <StudioPlayerCanvas />
       ) : tab.type === "diff" ? (
         <SplitDiffViewer
           fileName={tab.title.replace(" (Working Tree)", "")}

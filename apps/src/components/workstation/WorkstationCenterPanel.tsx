@@ -2,9 +2,9 @@ import { memo, useCallback } from "react";
 import { CenterTab } from "./tabs/types";
 import { CenterTabHeader } from "./tabs/CenterTabHeader";
 import { CenterBreadcrumbs } from "./tabs/CenterBreadcrumbs";
-import { CenterEmptyState } from "./tabs/CenterEmptyState";
 import { CenterStatusBar } from "./tabs/CenterStatusBar";
 import { CenterTabRenderer } from "./tabs/CenterTabRenderer";
+import { StudioPlayerCanvas } from "../studio/StudioPlayerCanvas";
 import { getLanguageMode } from "./tabs/centerUtils";
 import { useCenterPanelEditor } from "./hooks/useCenterPanelEditor";
 
@@ -32,7 +32,7 @@ function WorkstationCenterPanelComponent({
   onCloseTab,
   onUpdateTabContent,
   onSaveTabContent,
-  onOpenFolder,
+  onOpenFolder: _onOpenFolder,
   onRevertDiff,
   onAcceptDiff,
   onOpenFileTab,
@@ -149,10 +149,7 @@ function WorkstationCenterPanelComponent({
             );
           })
         ) : (
-          <CenterEmptyState
-            onOpenFolder={onOpenFolder}
-            hasOpenFolder={!!activeFolder}
-          />
+          <StudioPlayerCanvas />
         )}
       </div>
 
