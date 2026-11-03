@@ -123,7 +123,7 @@ export function SettingsPage() {
         <div className="mb-6 border-b border-neutral-800 pb-4">
           <div className="flex items-center gap-2 font-mono text-[11px] text-emerald-400 uppercase tracking-widest mb-1">
             <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
-            NEXUS SYSTEM SETTINGS // CONFIGURATION
+            NEXUS SYSTEM SETTINGS | CONFIGURATION
           </div>
           <h1 className="text-xl font-mono font-extrabold tracking-tight text-white uppercase">
             SYSTEM TELEMETRY & PROVIDER ROUTING

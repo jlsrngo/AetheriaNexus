@@ -46,13 +46,13 @@ export const StudioPlayerHeader: React.FC<StudioPlayerHeaderProps> = ({
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 bg-emerald-400 inline-block animate-pulse"></span>
-          <span className="text-white font-bold tracking-wider uppercase flex items-center gap-1.5">
+          <span className="text-white font-bold tracking-wider uppercase flex items-center gap-1.5 text-xs">
             <Video className="w-3.5 h-3.5 text-emerald-400" />
-            REMOTION // LIVE_STUDIO
+            LIVE STAGE
           </span>
         </div>
-        <span className="text-neutral-600">|</span>
-        <div className="text-[10px] text-neutral-400 font-mono tracking-widest uppercase">
+        <span className="text-neutral-700">|</span>
+        <div className="text-[10px] text-neutral-400 font-mono tracking-wider uppercase">
           RES: <span className="text-neutral-200 font-bold">{getResolutionText()}</span>
         </div>
       </div>

@@ -100,11 +100,11 @@ export const AppHeader = memo(function AppHeader({
         >
           <ArunakiLogo size={18} />
           <span className="font-extrabold text-[11px] tracking-wider text-white uppercase">
-            ARUNAKI // NEXUS
+            ARUNAKI NEXUS
           </span>
         </div>
 
-        {/* Remotion-style active composition breadcrumb */}
+        {/* Active stage breadcrumb */}
         <div
           className="hidden md:flex items-center gap-1.5 px-2 py-0.5 bg-neutral-900 border border-neutral-800 text-[10px] text-neutral-300"
           data-tauri-drag-region="false"
@@ -112,7 +112,7 @@ export const AppHeader = memo(function AppHeader({
         >
           <span className="w-1.5 h-1.5 bg-emerald-400 rounded-none inline-block animate-pulse" />
           <span className="text-neutral-500">▶</span>
-          <span className="text-neutral-400 font-mono">compositions /</span>
+          <span className="text-neutral-400 font-mono">stage:</span>
           <span className="text-white font-bold font-mono">nexus-vertical</span>
         </div>
 
@@ -137,7 +137,7 @@ export const AppHeader = memo(function AppHeader({
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
         <div className="hidden lg:flex items-center gap-2 text-[10px] text-neutral-500 tracking-wider mr-2">
-          <span>ENGINE: REMOTION_LOCAL</span>
+          <span>ENGINE: LOCAL</span>
           <span className="text-neutral-700">|</span>
           <span className="text-emerald-400 font-bold">COST: RP 0</span>
         </div>

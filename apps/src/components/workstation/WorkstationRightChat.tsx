@@ -215,7 +215,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
             </div>
             <p className="text-xs font-medium text-[var(--text-primary)] mb-1">Nexus Creative Agent</p>
             <p className="text-[11px] text-[var(--text-muted)] max-w-[200px]">
-              Ask for viral hooks, video scripts, or Remotion props.
+              Ask for viral hooks, video scripts, or video parameters.
             </p>
           </div>
         ) : (

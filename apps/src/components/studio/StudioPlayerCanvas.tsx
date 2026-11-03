@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Player, PlayerRef } from "@remotion/player";
 import { NexusVideoComposition } from "../../remotion/NexusVideoComposition";
 import {
@@ -29,6 +29,7 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
   isRendering = false,
   renderProgress = 0,
 }) => {
+  const [videoProps, setVideoProps] = useState<NexusVideoProps>(props);
   const [ratio, setRatio] = useState<CanvasRatio>("9:16");
   const [fps, setFps] = useState<CanvasFps>(30);
   const [duration, setDuration] = useState<CanvasDuration>(5);
@@ -44,6 +45,10 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
   const activeProgress = renderProgress || internalProgress;
 
   const durationInFrames = duration * fps;
+
+  const handleUpdateProps = useCallback((updated: Partial<NexusVideoProps>) => {
+    setVideoProps((prev) => ({ ...prev, ...updated }));
+  }, []);
 
   // Real-time synchronization between Remotion Player and Timeline Scrubber
   useEffect(() => {
@@ -80,13 +85,13 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
 
     setInternalRendering(true);
     setInternalProgress(15);
-    toast.info("Starting Local Remotion Render Engine...", {
+    toast.info("Starting Local Render Engine...", {
       description: "Bundling composition & rendering MP4 via hardware acceleration...",
     });
 
     try {
       setInternalProgress(45);
-      const res = await renderNexusVideo(JSON.stringify(props));
+      const res = await renderNexusVideo(JSON.stringify(videoProps));
       setInternalProgress(100);
       toast.success("MP4 Video Rendered Successfully!", {
         description: res.outputPath || "Export saved to output/ folder.",
@@ -108,23 +113,23 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
         return {
           width: 1920,
           height: 1080,
-          containerClass: "w-full max-w-[540px] aspect-[16/9]",
-          label: "16:9 // 1920x1080 PX",
+          containerClass: "h-[85%] max-h-[460px] aspect-[16/9]",
+          label: "16:9 1920x1080 PX",
         };
       case "1:1":
         return {
           width: 1080,
           height: 1080,
-          containerClass: "w-full max-w-[360px] aspect-square",
-          label: "1:1 // 1080x1080 PX",
+          containerClass: "h-[88%] max-h-[460px] aspect-square",
+          label: "1:1 1080x1080 PX",
         };
       case "9:16":
       default:
         return {
           width: 1080,
           height: 1920,
-          containerClass: "w-full max-w-[280px] aspect-[9/16]",
-          label: "9:16 // 1080x1920 PX",
+          containerClass: "h-[92%] max-h-[460px] aspect-[9/16]",
+          label: "9:16 1080x1920 PX",
         };
     }
   };
@@ -147,17 +152,17 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
       />
 
       {/* 2. Main Player Viewport Stage */}
-      <div className="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden bg-[radial-gradient(#1f1f1f_1px,transparent_1px)] [background-size:16px_16px]">
+      <div className="flex-1 flex items-center justify-center p-3 relative overflow-hidden bg-[radial-gradient(#1f1f1f_1px,transparent_1px)] [background-size:16px_16px]">
         {/* Viewport Frame with Swiss Brutalism Sharp Borders & Corner Crosses */}
         <div
-          className={`${dim.containerClass} relative bg-black border border-neutral-700 shadow-2xl flex items-center justify-center overflow-hidden transition-all duration-300 rounded-none`}
+          className={`${dim.containerClass} relative bg-black border border-neutral-700 shadow-2xl flex items-center justify-center overflow-hidden transition-all duration-300 rounded-none shrink-0`}
         >
           <CornerCrosses className="text-white" size="md" />
 
           <Player
             ref={playerRef}
             component={NexusVideoComposition}
-            inputProps={props}
+            inputProps={videoProps}
             durationInFrames={durationInFrames}
             fps={fps}
             compositionWidth={dim.width}
@@ -176,24 +181,29 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
           />
         </div>
 
-        {/* Telemetry Stage Info */}
-        <div className="mt-2 flex items-center gap-4 font-mono text-[10px] text-neutral-400 tracking-wider">
-          <span>// STAGE: {dim.label}</span>
-          <span className="text-neutral-700">|</span>
-          <span>FPS: {fps}</span>
-          <span className="text-neutral-700">|</span>
-          <span>FRAMES: {durationInFrames}</span>
-          <span className="text-neutral-700">|</span>
-          <span>CODEC: H.264 / AAC</span>
+        {/* Side Telemetry Info (Placed beside the player, not underneath, for maximal canvas height) */}
+        <div className="hidden lg:flex flex-col gap-2 font-mono text-[10px] text-neutral-400 ml-6 p-3 bg-neutral-900/80 border border-neutral-800 shrink-0 w-44">
+          <div className="text-white font-bold tracking-wider uppercase border-b border-neutral-800 pb-1 flex items-center justify-between">
+            <span>TELEMETRY</span>
+            <span className="w-1.5 h-1.5 bg-emerald-400" />
+          </div>
+          <div className="flex justify-between"><span className="text-neutral-500">STAGE</span> <span className="text-neutral-200">{ratio}</span></div>
+          <div className="flex justify-between"><span className="text-neutral-500">RES</span> <span className="text-neutral-200">{dim.width}x{dim.height}</span></div>
+          <div className="flex justify-between"><span className="text-neutral-500">FPS</span> <span className="text-neutral-200">{fps}</span></div>
+          <div className="flex justify-between"><span className="text-neutral-500">FRAMES</span> <span className="text-neutral-200">{durationInFrames}</span></div>
+          <div className="flex justify-between"><span className="text-neutral-500">CODEC</span> <span className="text-neutral-200">H.264 AAC</span></div>
+          <div className="flex justify-between"><span className="text-neutral-500">HW ACCEL</span> <span className="text-emerald-400 font-bold">ACTIVE</span></div>
         </div>
       </div>
 
-      {/* 3. Bottom Multi-Track Remotion Timeline HUD */}
+      {/* 3. Bottom Multi-Track Timeline HUD (Editable Text, Background, Audio) */}
       <StudioTimeline
         currentFrame={currentFrame}
         durationInFrames={durationInFrames}
         fps={fps}
         isPlaying={isPlaying}
+        videoProps={videoProps}
+        onUpdateProps={handleUpdateProps}
         onPlayPause={() => {
           if (playerRef.current) {
             playerRef.current.toggle();

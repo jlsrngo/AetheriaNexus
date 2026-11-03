@@ -138,7 +138,7 @@ export function UnifiedWorkstationPage() {
               type="button"
               onClick={handleToggleLeft}
               className="p-1.5 text-neutral-400 hover:text-white bg-neutral-900 border border-neutral-800 cursor-pointer"
-              title="Expand Compositions & Assets (Remotion Sidebar)"
+              title="Expand Compositions & Assets"
             >
               <PanelLeftOpen className="w-3.5 h-3.5" />
             </button>

@@ -10,7 +10,7 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
         <div className="border-b border-neutral-800 pb-4">
           <div className="flex items-center gap-2 font-mono text-[10px] text-emerald-400 uppercase tracking-widest mb-1">
             <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
-            TIKTOK TELEMETRY // ENGAGEMENT METRICS
+            TIKTOK TELEMETRY | ENGAGEMENT METRICS
           </div>
           <h1 className="text-2xl font-mono font-extrabold uppercase tracking-tight text-white">
             ACCOUNT ANALYTICS & AUDIENCE INSIGHTS

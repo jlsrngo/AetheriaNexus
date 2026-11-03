@@ -40,9 +40,9 @@ export const StudioAssetsPanel = memo(function StudioAssetsPanel({
   ];
 
   const templates = [
-    { id: "tmpl-1", name: "3 Morning Habits // High Pacing", cat: "Productivity", duration: "5s" },
-    { id: "tmpl-2", name: "Why 99% Fail // Finance Truth", cat: "Finance", duration: "15s" },
-    { id: "tmpl-3", name: "2-Min Dopamine Reset // Hook", cat: "Psychology", duration: "30s" },
+    { id: "tmpl-1", name: "3 Morning Habits (High Pacing)", cat: "Productivity", duration: "5s" },
+    { id: "tmpl-2", name: "Why 99% Fail (Finance)", cat: "Finance", duration: "15s" },
+    { id: "tmpl-3", name: "2-Min Dopamine Reset (Hook)", cat: "Psychology", duration: "30s" },
   ];
 
   const assets = [
@@ -145,7 +145,7 @@ export const StudioAssetsPanel = memo(function StudioAssetsPanel({
                 <div className="flex items-center gap-1.5">
                   {openFolders.templates ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                   <Folder className="w-3.5 h-3.5 text-amber-400" />
-                  <span>TEMPLATES // VIRAL HOOKS</span>
+                  <span>VIRAL HOOK TEMPLATES</span>
                 </div>
                 <span className="text-neutral-600 font-mono">3</span>
               </button>
@@ -198,9 +198,9 @@ export const StudioAssetsPanel = memo(function StudioAssetsPanel({
         )}
       </div>
 
-      {/* 4. Bottom Footer Info: Remotion Composition Version */}
+      {/* 4. Bottom Footer Info: Nexus Engine Version */}
       <div className="p-2 border-t border-neutral-800 bg-neutral-900/90 flex items-center justify-between text-[10px] text-neutral-400 shrink-0">
-        <span className="text-emerald-400">REMOTION // v4.0.540</span>
+        <span className="text-emerald-400">NEXUS ENGINE v4.0</span>
         <span className="text-neutral-500">1080x1920 PX</span>
       </div>
     </aside>

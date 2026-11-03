@@ -72,7 +72,7 @@ export const StockVaultPage = memo(function StockVaultPage() {
           <div>
             <div className="flex items-center gap-2 font-mono text-[10px] text-emerald-400 uppercase tracking-widest mb-1">
               <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
-              INVENTORY VAULT // LOCAL MP4 STORAGE
+              INVENTORY VAULT | LOCAL MP4 STORAGE
             </div>
             <h1 className="text-2xl font-mono font-extrabold uppercase tracking-tight text-white">
               VIDEO STOCK & CONTENT VAULT

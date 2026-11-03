@@ -375,7 +375,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                 >
                   <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-neutral-800 text-[9px] font-mono uppercase tracking-widest text-neutral-500">
                     <span className="w-1.5 h-1.5 bg-emerald-400 shrink-0" />
-                    <span>// ARUNAKI_AI // SCRIPTWRITER</span>
+                    <span>ARUNAKI AI | SCRIPTWRITER</span>
                   </div>
                   {attachedImages.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-2.5">
@@ -452,7 +452,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
             >
               <div className="flex items-center gap-1.5 mb-2 pb-1 border-b border-neutral-800 text-[9px] font-mono uppercase tracking-widest text-neutral-500">
                 <span className={cn("w-1.5 h-1.5 shrink-0", isUser ? "bg-white" : "bg-emerald-400")} />
-                <span>{isUser ? "// USER_PROMPT" : "// ARUNAKI_AI // SCRIPTWRITER"}</span>
+                <span>{isUser ? "USER PROMPT" : "ARUNAKI AI | SCRIPTWRITER"}</span>
               </div>
               {attachedImages.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-2.5">

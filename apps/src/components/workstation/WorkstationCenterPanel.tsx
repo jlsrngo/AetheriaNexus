@@ -60,66 +60,67 @@ function WorkstationCenterPanelComponent({
 
   return (
     <main className="flex-1 flex flex-col min-w-0 bg-neutral-950 overflow-hidden select-none border-l border-r border-neutral-800 transition-none font-mono">
-      {/* 1. TOP VIEW SELECTOR BAR (Swiss Brutalism) */}
-      <div className="h-9 bg-neutral-900/90 border-b border-neutral-800 px-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-1">
-          {/* Remotion Studio Tab */}
-          <button
-            type="button"
-            onClick={() => setActiveView("studio")}
-            className={cn(
-              "px-3 py-1 text-[11px] font-mono uppercase tracking-wider flex items-center gap-1.5 border transition-none cursor-pointer",
-              activeView === "studio"
-                ? "bg-white text-black font-extrabold border-white"
-                : "bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white"
-            )}
-          >
-            <Film className="w-3.5 h-3.5 text-emerald-400" />
-            <span>REMOTION // LIVE STUDIO</span>
-          </button>
+      {/* 1. TOP VIEW SELECTOR BAR (Only shown when script/document tabs are open) */}
+      {tabs.length > 0 && (
+        <div className="h-9 bg-neutral-900/90 border-b border-neutral-800 px-3 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveView("studio")}
+              className={cn(
+                "px-3 py-1 text-[11px] font-mono uppercase tracking-wider flex items-center gap-1.5 border transition-none cursor-pointer",
+                activeView === "studio"
+                  ? "bg-white text-black font-extrabold border-white"
+                  : "bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white"
+              )}
+            >
+              <Film className="w-3.5 h-3.5 text-emerald-400" />
+              <span>LIVE STAGE</span>
+            </button>
 
-          {/* Open Script Tabs if any */}
-          {tabs.map((tab) => {
-            const isTabActive = activeView === "script" && activeTabId === tab.id;
-            return (
-              <div
-                key={tab.id}
-                onClick={() => {
-                  onSelectTab(tab.id);
-                  setActiveView("script");
-                }}
-                className={cn(
-                  "px-3 py-1 text-[11px] font-mono uppercase tracking-wider flex items-center gap-1.5 border transition-none cursor-pointer",
-                  isTabActive
-                    ? "bg-white text-black font-extrabold border-white"
-                    : "bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white"
-                )}
-              >
-                <FileCode className="w-3 h-3 text-amber-400" />
-                <span className="truncate max-w-[120px]">{tab.title}</span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCloseTab(tab.id);
-                    if (tabs.length <= 1) setActiveView("studio");
+            {/* Open Script Tabs if any */}
+            {tabs.map((tab) => {
+              const isTabActive = activeView === "script" && activeTabId === tab.id;
+              return (
+                <div
+                  key={tab.id}
+                  onClick={() => {
+                    onSelectTab(tab.id);
+                    setActiveView("script");
                   }}
-                  className="hover:text-rose-500 ml-1 p-0.5"
+                  className={cn(
+                    "px-3 py-1 text-[11px] font-mono uppercase tracking-wider flex items-center gap-1.5 border transition-none cursor-pointer",
+                    isTabActive
+                      ? "bg-white text-black font-extrabold border-white"
+                      : "bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white"
+                  )}
                 >
-                  <X className="w-2.5 h-2.5" />
-                </button>
-              </div>
-            );
-          })}
-        </div>
+                  <FileCode className="w-3 h-3 text-amber-400" />
+                  <span className="truncate max-w-[120px]">{tab.title}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCloseTab(tab.id);
+                      if (tabs.length <= 1) setActiveView("studio");
+                    }}
+                    className="hover:text-rose-500 ml-1 p-0.5"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
 
-        {/* Telemetry Indicator */}
-        <div className="hidden md:flex items-center gap-2 text-[10px] text-neutral-500">
-          <span>COMPO: NEXUS_VERTICAL_9:16</span>
-          <span className="text-neutral-700">|</span>
-          <span className="text-emerald-400 font-bold">HW_ACCEL: ON</span>
+          {/* Telemetry Indicator */}
+          <div className="hidden md:flex items-center gap-2 text-[10px] text-neutral-500">
+            <span>NEXUS VERTICAL 9:16</span>
+            <span className="text-neutral-700">|</span>
+            <span className="text-emerald-400 font-bold">HW ACCEL ON</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 2. MAIN CENTER CONTENT VIEW */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-neutral-950">

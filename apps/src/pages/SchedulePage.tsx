@@ -62,7 +62,7 @@ export const SchedulePage = memo(function SchedulePage() {
           <div>
             <div className="flex items-center gap-2 font-mono text-[10px] text-emerald-400 uppercase tracking-widest mb-1">
               <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
-              AUTO-SCHEDULER // DISTRIBUTION ENGINE
+              AUTO-SCHEDULER | DISTRIBUTION ENGINE
             </div>
             <h1 className="text-2xl font-mono font-extrabold uppercase tracking-tight text-white">
               TIKTOK POSTING SCHEDULE & QUEUE

@@ -27,11 +27,11 @@ export const AppFooter = memo(function AppFooter({
   const location = useLocation();
 
   const navItems = [
-    { label: "STUDIO // 01", path: "/", icon: Video },
-    { label: "STOCK // 02", path: "/stock", icon: Film },
-    { label: "SCHEDULE // 03", path: "/schedule", icon: Calendar },
-    { label: "ANALYTICS // 04", path: "/analytics", icon: BarChart3 },
-    { label: "SETTINGS // 05", path: "/settings", icon: Settings },
+    { label: "STUDIO", path: "/", icon: Video },
+    { label: "STOCK", path: "/stock", icon: Film },
+    { label: "SCHEDULE", path: "/schedule", icon: Calendar },
+    { label: "ANALYTICS", path: "/analytics", icon: BarChart3 },
+    { label: "SETTINGS", path: "/settings", icon: Settings },
   ];
 
   const handleNavigateStudio = useCallback(() => {
@@ -122,7 +122,7 @@ export const AppFooter = memo(function AppFooter({
             <>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
               <Wifi className="w-3 h-3 shrink-0 text-emerald-400" />
-              <span>ONLINE // 20288</span>
+              <span>ONLINE 20288</span>
             </>
           ) : (
             <>
