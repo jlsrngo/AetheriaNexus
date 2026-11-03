@@ -198,7 +198,7 @@ export const CliProviderCard = memo(function CliProviderCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border transition-all duration-200",
+        "rounded-none border transition-all duration-200",
         isNeobrutalism
           ? `${neoCardBg} border-2 border-[#141413] shadow-[3px_3px_0px_#141413]`
           : state.active
@@ -331,7 +331,7 @@ export const CliProviderCard = memo(function CliProviderCard({
           onClick={() => onTestPing(id, d.name)}
           disabled={testingPingTarget === id}
           className={cn(
-            "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 border",
+            "px-2.5 py-1 text-[11px] rounded-none transition-all cursor-pointer font-medium flex items-center gap-1.5 border",
             isNeobrutalism
               ? "bg-[#FFFDFB] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] hover:bg-[#CCFF00]"
               : ping
@@ -371,7 +371,7 @@ export const CliProviderCard = memo(function CliProviderCard({
             type="button"
             onClick={() => window.open(d.docsUrl, "_blank")}
             className={cn(
-              "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 border",
+              "px-2.5 py-1 text-[11px] rounded-none transition-all cursor-pointer font-medium flex items-center gap-1.5 border",
               isNeobrutalism
                 ? "bg-[#FFFDFB] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] hover:bg-[#CCFF00]"
                 : "bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-color)]"
@@ -387,7 +387,7 @@ export const CliProviderCard = memo(function CliProviderCard({
           type="button"
           onClick={() => onToggleExpand(id)}
           className={cn(
-            "p-1.5 rounded-lg transition-colors cursor-pointer",
+            "p-1.5 rounded-none transition-colors cursor-pointer",
             isNeobrutalism
               ? "text-[#141413] hover:bg-[#141413]/10"
               : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
@@ -415,7 +415,7 @@ export const CliProviderCard = memo(function CliProviderCard({
           }}
           disabled={busy}
           className={cn(
-            "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none group",
+            "px-3 py-1 rounded-none text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none group",
             isNeobrutalism
               ? state.active
                 ? "bg-[#CCFF00] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] hover:brightness-95"
@@ -486,7 +486,7 @@ export const CliProviderCard = memo(function CliProviderCard({
                 type="button"
                 onClick={() => onRefreshCred(id as "claude" | "codex")}
                 disabled={refreshingTarget === id}
-                className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
+                className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-none transition-all cursor-pointer font-medium flex items-center gap-1"
                 title={isEn ? "Refresh the harvested OAuth token" : "Perbarui token OAuth"}
               >
                 <RefreshCw className={cn("w-3 h-3", refreshingTarget === id && "animate-spin")} />
@@ -505,7 +505,7 @@ export const CliProviderCard = memo(function CliProviderCard({
                 type="button"
                 onClick={() => onInjectCli(id as "claude" | "codex")}
                 disabled={injectingTarget === id}
-                className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
+                className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-none transition-all cursor-pointer font-medium flex items-center gap-1"
               >
                 {injectingTarget === id ? (
                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -521,7 +521,7 @@ export const CliProviderCard = memo(function CliProviderCard({
                 type="button"
                 onClick={() => onBrowserSignIn(id)}
                 disabled={oauthPendingTarget === id}
-                className="px-2.5 py-1 bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-app)] border border-[var(--text-primary)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 disabled:opacity-60"
+                className="px-2.5 py-1 bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-app)] border border-[var(--text-primary)] text-[11px] rounded-none transition-all cursor-pointer font-medium flex items-center gap-1.5 disabled:opacity-60"
               >
                 {oauthPendingTarget === id ? (
                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -591,7 +591,7 @@ export const CliProviderCard = memo(function CliProviderCard({
                 type="button"
                 onClick={onAntigravityCliLogin}
                 disabled={isSigningInCli}
-                className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
+                className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-none transition-all cursor-pointer font-medium flex items-center gap-1"
               >
                 {isSigningInCli ? (
                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -607,7 +607,7 @@ export const CliProviderCard = memo(function CliProviderCard({
                 type="button"
                 onClick={onAntigravityLogout}
                 disabled={isLoggingOutAntigravity}
-                className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1 disabled:opacity-60"
+                className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-none transition-all cursor-pointer font-medium flex items-center gap-1 disabled:opacity-60"
               >
                 {isLoggingOutAntigravity ? (
                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -628,7 +628,7 @@ export const CliProviderCard = memo(function CliProviderCard({
               <button
                 type="button"
                 onClick={() => onOpenAuthModal(id)}
-                className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
+                className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-none transition-all cursor-pointer font-medium flex items-center gap-1"
               >
                 <SlidersHorizontal className="w-3 h-3" />
                 {isEn ? "Auth Method" : "Metode Masuk"}

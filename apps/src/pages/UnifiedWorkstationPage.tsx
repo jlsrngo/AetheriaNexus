@@ -4,6 +4,11 @@ import { toast } from "sonner";
 import { StudioAssetsPanel } from "../components/studio/StudioAssetsPanel";
 import { WorkstationCenterPanel } from "../components/workstation/WorkstationCenterPanel";
 import { WorkstationRightChat } from "../components/workstation/WorkstationRightChat";
+import { WorkstationLeftExplorer } from "../components/workstation/WorkstationLeftExplorer";
+import {
+  WorkstationActivityBar,
+  SidebarView,
+} from "../components/workstation/activity/WorkstationActivityBar";
 import { ConnectFolderModal } from "../components/workstation/ConnectFolderModal";
 import { SearchSectionModal } from "../components/workstation/SearchSectionModal";
 import { QuickOpenFileModal } from "../components/workstation/QuickOpenFileModal";
@@ -14,7 +19,6 @@ import { useWorkstationFiles } from "../components/workstation/hooks/useWorkstat
 import { useWorkstationLayout } from "../components/workstation/hooks/useWorkstationLayout";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
 import { tauriPickFolder } from "../lib/api";
-import { PanelLeftOpen } from "lucide-react";
 
 export function UnifiedWorkstationPage() {
   const location = useLocation();
@@ -117,6 +121,25 @@ export function UnifiedWorkstationPage() {
   }, []);
 
   const [activeCompositionId, setActiveCompositionId] = useState("nexus-vertical");
+  const [sidebarView, setSidebarView] = useState<SidebarView>("explorer");
+
+  const handleSelectSidebarView = useCallback(
+    (view: SidebarView) => {
+      if (view === "search") {
+        handleOpenSearchModal();
+        return;
+      }
+      if (!leftCollapsed && sidebarView === view) {
+        handleToggleLeft();
+      } else {
+        if (leftCollapsed) {
+          handleToggleLeft();
+        }
+        setSidebarView(view);
+      }
+    },
+    [leftCollapsed, sidebarView, handleToggleLeft, handleOpenSearchModal]
+  );
 
   return (
     <div className="flex flex-col h-full w-full bg-neutral-950 text-neutral-100 overflow-hidden select-none transition-none font-mono">
@@ -125,23 +148,43 @@ export function UnifiedWorkstationPage() {
         className="flex-1 flex overflow-hidden relative"
         style={{ "--left-panel-width": "256px", "--right-panel-width": "320px" } as React.CSSProperties}
       >
-        {/* Primary Sidebar Panel: Remotion Compositions & Assets (Direct Parity) */}
-        {!leftCollapsed ? (
-          <StudioAssetsPanel
-            activeCompositionId={activeCompositionId}
-            onSelectComposition={setActiveCompositionId}
-            width="var(--left-panel-width)"
-          />
-        ) : (
-          <div className="w-8 bg-neutral-950 border-r border-neutral-800 flex flex-col items-center py-2 shrink-0">
-            <button
-              type="button"
-              onClick={handleToggleLeft}
-              className="p-1.5 text-neutral-400 hover:text-white bg-neutral-900 border border-neutral-800 cursor-pointer"
-              title="Expand Compositions & Assets"
-            >
-              <PanelLeftOpen className="w-3.5 h-3.5" />
-            </button>
+        {/* Far-Left Activity Bar (Arunaki Agent Architecture) */}
+        <WorkstationActivityBar
+          activeView={sidebarView}
+          isCollapsed={leftCollapsed}
+          onSelectView={handleSelectSidebarView}
+          activeFolderName={activeFolder ? activeFolder.split(/[\\/]/).pop() : undefined}
+          onOpenFolder={handleDirectPickFolder}
+        />
+
+        {/* Secondary Left Sidebar Panel: Explorer or Compositions */}
+        {!leftCollapsed && (
+          <div
+            className="h-full flex flex-col shrink-0 overflow-hidden"
+            style={{ width: "var(--left-panel-width)" }}
+          >
+            {sidebarView === "compositions" ? (
+              <StudioAssetsPanel
+                activeCompositionId={activeCompositionId}
+                onSelectComposition={setActiveCompositionId}
+                width="100%"
+              />
+            ) : (
+              <WorkstationLeftExplorer
+                collapsed={false}
+                onClose={handleToggleLeft}
+                activeWorkspace={activeWorkspace}
+                workspaceFiles={workspaceFiles}
+                onOpenFileTab={(path, name, content) =>
+                  tabs.handleOpenFileTab(path, name, content)
+                }
+                onOpenFolderModal={handleDirectPickFolder}
+                width="100%"
+                recentCanvases={tabs.recentCanvases}
+                onOpenCanvasTab={(item) => handleOpenCanvas(item.content)}
+                onCloseFolder={() => openFolder("")}
+              />
+            )}
           </div>
         )}
 

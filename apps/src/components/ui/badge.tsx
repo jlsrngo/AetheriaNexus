@@ -4,7 +4,7 @@ import { cn } from "../../lib/utils";
 import { useTheme } from "../../lib/theme";
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold transition-colors select-none shrink-0",
+  "inline-flex items-center gap-1 rounded-none border px-2 py-0.5 text-[9px] font-mono font-bold transition-none select-none shrink-0 uppercase tracking-wider",
   {
     variants: {
       variant: {

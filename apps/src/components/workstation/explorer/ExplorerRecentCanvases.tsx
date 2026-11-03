@@ -61,7 +61,7 @@ export const ExplorerRecentCanvases = memo(function ExplorerRecentCanvases({
           />
           <PanelsTopLeft className="w-3.5 h-3.5 text-neutral-400" strokeWidth={1.5} />
           <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-200">
-            Drafts & Hooks
+            Canvas
           </span>
           {recentCanvases.length > 0 && (
             <span className="text-[10px] px-1 py-0.2 rounded-none bg-neutral-900 text-neutral-300 border border-neutral-700 font-mono">
@@ -69,7 +69,7 @@ export const ExplorerRecentCanvases = memo(function ExplorerRecentCanvases({
             </span>
           )}
         </div>
-        <span className="text-[10px] text-neutral-500 font-mono">recent</span>
+        <span className="text-[10px] text-neutral-500 font-mono">top 5</span>
       </button>
 
       {isOpen && (

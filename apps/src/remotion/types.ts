@@ -5,6 +5,9 @@ export interface NexusVideoProps extends Record<string, unknown> {
   themeColor: "emerald" | "violet" | "rose" | "amber" | "cyan";
   category: string;
   subCategory?: string;
+  showText?: boolean;
+  showBackground?: boolean;
+  isMuted?: boolean;
 }
 
 /**

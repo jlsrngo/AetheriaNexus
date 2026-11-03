@@ -48,7 +48,7 @@ export function TelegramSetupGuideModal({
         {/* Modal Header */}
         <DialogHeader>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-none bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] flex items-center justify-center">
               <BookOpen className="w-4 h-4 text-[var(--text-muted)]" />
             </div>
             <div>
@@ -66,7 +66,7 @@ export function TelegramSetupGuideModal({
         </DialogHeader>
 
         {/* Stepper Tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-[var(--bg-app)] rounded-xl border border-[var(--border-color)]">
+        <div className="flex items-center gap-1.5 p-1 bg-[var(--bg-app)] rounded-none border border-[var(--border-color)]">
           {[
             { step: 1, label: t("step1Title", "1. Create Bot") },
             { step: 2, label: t("step2Title", "2. Copy Token") },
@@ -78,7 +78,7 @@ export function TelegramSetupGuideModal({
               type="button"
               onClick={() => setGuideStep(s.step)}
               className={cn(
-                "flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer text-center",
+                "flex-1 py-1.5 rounded-none text-[11px] font-semibold transition-all cursor-pointer text-center",
                 guideStep === s.step
                   ? "bg-[var(--bg-card)] text-[var(--text-primary)] border border-[var(--border-strong)]"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
@@ -90,7 +90,7 @@ export function TelegramSetupGuideModal({
         </div>
 
         {/* Step Body Content */}
-        <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] min-h-[220px] flex flex-col justify-between">
+        <div className="p-4 rounded-none bg-[var(--bg-card)] border border-[var(--border-color)] min-h-[220px] flex flex-col justify-between">
           {guideStep === 1 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -164,7 +164,7 @@ export function TelegramSetupGuideModal({
                   "After you specify a username, @BotFather will reply with your bot token:"
                 )}
               </p>
-              <div className="p-3 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-strong)] font-mono text-[11px] text-[var(--text-muted)] space-y-1">
+              <div className="p-3 rounded-none bg-[var(--bg-panel)] border border-[var(--border-strong)] font-mono text-[11px] text-[var(--text-muted)] space-y-1">
                 <p className="text-[10px] text-[var(--text-primary)] font-sans font-semibold">
                   {t("step2Example", "Example message from BotFather:")}
                 </p>

@@ -55,7 +55,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
         className={cn(
           "p-5 transition-all",
           isNeobrutalism
-            ? "bg-[#F0F9FF] border-2 border-[#141413] shadow-[4px_4px_0px_#141413] rounded-2xl"
+            ? "bg-[#F0F9FF] border-2 border-[#141413] shadow-[4px_4px_0px_#141413] rounded-none"
             : "bg-[var(--bg-card)] border-[var(--border-color)]"
         )}
       >
@@ -63,7 +63,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
           <div className="flex items-center gap-3">
             <div
               className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center border transition-colors",
+                "w-10 h-10 rounded-none flex items-center justify-center border transition-colors",
                 isNeobrutalism
                   ? "bg-[#0EA5E9] text-white border-2 border-[#141413] shadow-[2px_2px_0px_#141413]"
                   : status.connected
@@ -151,7 +151,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
         </div>
 
         {status.lastError && (
-          <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-xs text-red-400">
+          <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-none flex items-center gap-2 text-xs text-red-400">
             <XCircle className="w-4 h-4 shrink-0" />
             <span>Connection issue: {status.lastError}</span>
           </div>
@@ -163,7 +163,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
         className={cn(
           "p-5 space-y-5 transition-all",
           isNeobrutalism
-            ? "bg-[#FAF5FF] border-2 border-[#141413] shadow-[4px_4px_0px_#141413] rounded-2xl"
+            ? "bg-[#FAF5FF] border-2 border-[#141413] shadow-[4px_4px_0px_#141413] rounded-none"
             : "bg-[var(--bg-card)] border-[var(--border-color)]"
         )}
       >
@@ -396,7 +396,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
       </Card>
 
       {/* Info notice */}
-      <div className="p-3.5 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] flex items-start gap-3 text-xs text-[var(--text-muted)]">
+      <div className="p-3.5 bg-[var(--bg-card)] rounded-none border border-[var(--border-color)] flex items-start gap-3 text-xs text-[var(--text-muted)]">
         <Info className="w-4 h-4 shrink-0 mt-0.5 text-[var(--text-secondary)]" />
         <div className="space-y-1">
           <p className="font-medium text-[var(--text-primary)]">

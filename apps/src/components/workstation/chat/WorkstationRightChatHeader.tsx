@@ -116,9 +116,6 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
             >
               {displayTitle}
             </span>
-            <span className="hidden sm:inline-block text-[9px] px-1 py-0.2 border border-neutral-800 text-neutral-500 uppercase tracking-widest">
-              AI_DIRECTOR
-            </span>
           </div>
         )}
       </div>
@@ -129,9 +126,9 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
             disabled={isCompacting}
             onClick={onCompactSession}
             className={cn(
-              "h-6 px-1.5 rounded-none border border-neutral-800 text-[10px] font-mono flex items-center gap-1 transition-none cursor-pointer shrink-0 uppercase tracking-wider",
+              "w-7 h-7 rounded-none border border-neutral-800 flex items-center justify-center transition-none cursor-pointer shrink-0",
               isCompacted || isCompacting
-                ? "bg-amber-400 text-black font-bold border-amber-400"
+                ? "bg-amber-400 text-black border-amber-400"
                 : "bg-neutral-950 text-neutral-400 hover:text-white hover:border-neutral-700",
               isCompacting && "opacity-80 cursor-wait"
             )}
@@ -144,31 +141,29 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
             }
           >
             {isCompacting ? (
-              <Loader2 className="w-2.5 h-2.5 text-white animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
             ) : (
-              <Sparkles className="w-2.5 h-2.5" strokeWidth={1.8} />
+              <Sparkles className="w-3.5 h-3.5" strokeWidth={1.8} />
             )}
-            <span className="hidden md:inline">COMPACT</span>
           </button>
         )}
         {onNewChat && (
           <button
             type="button"
             onClick={onNewChat}
-            className="h-6 px-2 rounded-none border border-neutral-800 bg-neutral-950 text-neutral-300 hover:text-white hover:border-neutral-700 text-[10px] font-mono font-bold transition-none cursor-pointer flex items-center gap-1 shrink-0 uppercase tracking-wider"
+            className="w-7 h-7 rounded-none border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white hover:border-neutral-700 transition-none cursor-pointer flex items-center justify-center shrink-0"
             title={t("newChatSession", "New Chat Session")}
           >
-            <Plus className="w-3 h-3" strokeWidth={2} />
-            <span>NEW</span>
+            <Plus className="w-3.5 h-3.5" strokeWidth={2} />
           </button>
         )}
         <button
           type="button"
           onClick={onClose}
-          className="w-6 h-6 rounded-none border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white hover:border-neutral-700 transition-none cursor-pointer flex items-center justify-center shrink-0"
+          className="w-7 h-7 rounded-none border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white hover:border-neutral-700 transition-none cursor-pointer flex items-center justify-center shrink-0"
           title={t("closePanel", "Close Panel")}
         >
-          <PanelRightClose className="w-3 h-3" />
+          <PanelRightClose className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>

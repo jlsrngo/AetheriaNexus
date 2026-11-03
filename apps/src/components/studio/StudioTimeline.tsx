@@ -24,6 +24,8 @@ interface StudioTimelineProps {
   fps: number;
   isPlaying: boolean;
   videoProps?: NexusVideoProps;
+  trackVisibility?: { text: boolean; background: boolean; audio: boolean };
+  onToggleTrackVisibility?: (track: "text" | "background" | "audio") => void;
   onUpdateProps?: (updated: Partial<NexusVideoProps>) => void;
   onPlayPause: () => void;
   onSeek: (frame: number) => void;
@@ -37,17 +39,13 @@ export const StudioTimeline = memo(function StudioTimeline({
   fps,
   isPlaying,
   videoProps,
+  trackVisibility = { text: true, background: true, audio: true },
+  onToggleTrackVisibility,
   onUpdateProps,
   onPlayPause,
   onSeek,
 }: StudioTimelineProps) {
   const [zoom, setZoom] = useState(1);
-  const [trackVisibility, setTrackVisibility] = useState({
-    text: true,
-    background: true,
-    audio: true,
-  });
-  const [isMuted, setIsMuted] = useState(false);
   const [editingTrack, setEditingTrack] = useState<"text" | "background" | "audio" | null>(null);
 
   // Local draft states for modal
@@ -140,18 +138,18 @@ export const StudioTimeline = memo(function StudioTimeline({
   return (
     <div className="h-64 bg-neutral-950 border-t border-neutral-800 flex flex-col select-none font-mono text-xs overflow-hidden relative">
       {/* 1. TOP TIMELINE TOOLBAR (Swiss Brutalism Technical HUD) */}
-      <div className="h-9 bg-neutral-900/90 border-b border-neutral-800 px-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
+      <div className="h-9 bg-neutral-900/90 border-b border-neutral-800 px-3 flex items-center justify-between shrink-0 overflow-x-auto no-scrollbar gap-3">
+        <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
           {/* Current Timecode Badge */}
-          <div className="flex items-center gap-2 bg-black border border-neutral-700 px-2.5 py-1 text-white font-mono text-xs tracking-wider">
-            <span className="w-1.5 h-1.5 bg-rose-500 rounded-none inline-block animate-pulse" />
+          <div className="flex items-center gap-2 bg-black border border-neutral-700 px-2.5 py-1 text-white font-mono text-xs tracking-wider shrink-0 whitespace-nowrap">
+            <span className="w-1.5 h-1.5 bg-rose-500 rounded-none inline-block animate-pulse shrink-0" />
             <span className="font-bold text-neutral-100">{formatTimecode(currentFrame)}</span>
             <span className="text-neutral-500">/</span>
             <span className="text-neutral-400">{formatTimecode(durationInFrames)}</span>
           </div>
 
           {/* Quick Transport Buttons */}
-          <div className="flex items-center gap-0.5 border border-neutral-800 bg-neutral-950 p-0.5">
+          <div className="flex items-center gap-0.5 border border-neutral-800 bg-neutral-950 p-0.5 shrink-0 whitespace-nowrap">
             <button
               type="button"
               onClick={() => onSeek(0)}
@@ -171,20 +169,20 @@ export const StudioTimeline = memo(function StudioTimeline({
             </button>
           </div>
 
-          {/* Frame & FPS Telemetry */}
-          <div className="hidden sm:flex items-center gap-2 text-[10px] text-neutral-400 tracking-wider">
-            <span>FRAME: {currentFrame}</span>
+          {/* Frame & FPS Telemetry (Guaranteed single line, never stacks) */}
+          <div className="hidden sm:flex items-center gap-2 text-[10px] text-neutral-400 tracking-wider shrink-0 whitespace-nowrap">
+            <span className="whitespace-nowrap">FRAME: {currentFrame}</span>
             <span className="text-neutral-700">|</span>
-            <span>FPS: {fps}</span>
+            <span className="whitespace-nowrap">FPS: {fps}</span>
             <span className="text-neutral-700">|</span>
-            <span className="text-emerald-400">SYNCED: LOCAL ENGINE</span>
+            <span className="text-emerald-400 whitespace-nowrap">SYNCED: LOCAL ENGINE</span>
           </div>
         </div>
 
         {/* Zoom Controls */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 text-neutral-400 text-[10px]">
-            <ZoomOut className="w-3 h-3" />
+        <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+          <div className="flex items-center gap-1 text-neutral-400 text-[10px] shrink-0 whitespace-nowrap">
+            <ZoomOut className="w-3 h-3 shrink-0" />
             <input
               type="range"
               min="0.5"
@@ -194,110 +192,86 @@ export const StudioTimeline = memo(function StudioTimeline({
               onChange={(e) => setZoom(parseFloat(e.target.value))}
               className="w-16 h-1 bg-neutral-800 accent-white rounded-none cursor-pointer"
             />
-            <ZoomIn className="w-3 h-3" />
-            <span className="w-7 text-right">{Math.round(zoom * 100)}%</span>
+            <ZoomIn className="w-3 h-3 shrink-0" />
+            <span className="w-7 text-right shrink-0">{Math.round(zoom * 100)}%</span>
           </div>
         </div>
       </div>
 
       {/* 2. TIMELINE MAIN WORKSPACE (Tracks & Ruler) */}
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
-        {/* Left Column: Track Headers (3 Tracks: TEXT, BACKGROUND, AUDIO) */}
-        <div className="w-48 bg-neutral-900/95 border-r border-neutral-800 flex flex-col shrink-0 z-20">
+        {/* Left Column: Track Headers (Icons Only - Swiss Brutalism) */}
+        <div className="w-20 bg-neutral-900/95 border-r border-neutral-800 flex flex-col shrink-0 z-20">
           {/* Header spacer aligned with ruler */}
-          <div className="h-6 border-b border-neutral-800 px-3 flex items-center text-[9px] uppercase tracking-wider text-neutral-500 bg-neutral-950 font-bold">
-            TRACK CHANNELS
+          <div className="h-6 border-b border-neutral-800 px-2 flex items-center justify-center text-[9px] uppercase tracking-wider text-neutral-500 bg-neutral-950 font-bold">
+            TRACKS
           </div>
 
           {/* Track 1: TEXT */}
-          <div className="h-14 border-b border-neutral-800 px-2.5 flex items-center justify-between bg-neutral-900/80">
-            <div className="flex items-center gap-2 truncate">
-              <span className="w-2 h-2 bg-amber-400 shrink-0" />
-              <div className="truncate">
-                <div className="text-[10px] font-bold text-white uppercase tracking-wider truncate flex items-center gap-1">
-                  <Type className="w-3 h-3 text-amber-400" />
-                  <span>TEXT</span>
-                </div>
-                <div className="text-[9px] text-neutral-500 uppercase tracking-wider">Title & Bullets</div>
-              </div>
-            </div>
+          <div className="h-14 border-b border-neutral-800 px-2 flex items-center justify-between bg-neutral-900/80">
+            <Type className="w-4 h-4 text-amber-400 shrink-0" />
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setEditingTrack("text")}
-                className="px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-amber-300 border border-neutral-700 text-[9px] font-bold cursor-pointer transition-none uppercase"
-                title="Edit text content manually"
+                className="p-1 hover:bg-neutral-800 text-amber-300 border border-neutral-700 transition-none cursor-pointer"
+                title="Edit Text Content"
               >
-                EDIT
+                <Edit3 className="w-3 h-3" />
               </button>
               <button
                 type="button"
-                onClick={() => setTrackVisibility((prev) => ({ ...prev, text: !prev.text }))}
-                className="p-1 text-neutral-400 hover:text-white"
+                onClick={() => onToggleTrackVisibility?.("text")}
+                className="p-1 text-neutral-400 hover:text-white cursor-pointer"
+                title={trackVisibility.text ? "Hide text layer" : "Show text layer"}
               >
-                {trackVisibility.text ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 text-neutral-600" />}
+                {trackVisibility.text ? <Eye className="w-3.5 h-3.5 text-white" /> : <EyeOff className="w-3.5 h-3.5 text-neutral-600" />}
               </button>
             </div>
           </div>
 
           {/* Track 2: BACKGROUND */}
-          <div className="h-14 border-b border-neutral-800 px-2.5 flex items-center justify-between bg-neutral-900/80">
-            <div className="flex items-center gap-2 truncate">
-              <span className="w-2 h-2 bg-emerald-400 shrink-0" />
-              <div className="truncate">
-                <div className="text-[10px] font-bold text-white uppercase tracking-wider truncate flex items-center gap-1">
-                  <Layers className="w-3 h-3 text-emerald-400" />
-                  <span>BACKGROUND</span>
-                </div>
-                <div className="text-[9px] text-neutral-500 uppercase tracking-wider">Theme & Gradient</div>
-              </div>
-            </div>
+          <div className="h-14 border-b border-neutral-800 px-2 flex items-center justify-between bg-neutral-900/80">
+            <Layers className="w-4 h-4 text-emerald-400 shrink-0" />
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setEditingTrack("background")}
-                className="px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-emerald-300 border border-neutral-700 text-[9px] font-bold cursor-pointer transition-none uppercase"
-                title="Edit background theme manually"
+                className="p-1 hover:bg-neutral-800 text-emerald-300 border border-neutral-700 transition-none cursor-pointer"
+                title="Edit Background Theme"
               >
-                EDIT
+                <Edit3 className="w-3 h-3" />
               </button>
               <button
                 type="button"
-                onClick={() => setTrackVisibility((prev) => ({ ...prev, background: !prev.background }))}
-                className="p-1 text-neutral-400 hover:text-white"
+                onClick={() => onToggleTrackVisibility?.("background")}
+                className="p-1 text-neutral-400 hover:text-white cursor-pointer"
+                title={trackVisibility.background ? "Hide background layer" : "Show background layer"}
               >
-                {trackVisibility.background ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 text-neutral-600" />}
+                {trackVisibility.background ? <Eye className="w-3.5 h-3.5 text-white" /> : <EyeOff className="w-3.5 h-3.5 text-neutral-600" />}
               </button>
             </div>
           </div>
 
           {/* Track 3: AUDIO */}
-          <div className="h-14 border-b border-neutral-800 px-2.5 flex items-center justify-between bg-neutral-900/80">
-            <div className="flex items-center gap-2 truncate">
-              <span className="w-2 h-2 bg-cyan-400 shrink-0" />
-              <div className="truncate">
-                <div className="text-[10px] font-bold text-white uppercase tracking-wider truncate flex items-center gap-1">
-                  <Music className="w-3 h-3 text-cyan-400" />
-                  <span>AUDIO</span>
-                </div>
-                <div className="text-[9px] text-neutral-500 uppercase tracking-wider">Soundtrack & SFX</div>
-              </div>
-            </div>
+          <div className="h-14 border-b border-neutral-800 px-2 flex items-center justify-between bg-neutral-900/80">
+            <Music className="w-4 h-4 text-cyan-400 shrink-0" />
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setEditingTrack("audio")}
-                className="px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-cyan-300 border border-neutral-700 text-[9px] font-bold cursor-pointer transition-none uppercase"
-                title="Edit audio manually"
+                className="p-1 hover:bg-neutral-800 text-cyan-300 border border-neutral-700 transition-none cursor-pointer"
+                title="Edit Audio Settings"
               >
-                EDIT
+                <Edit3 className="w-3 h-3" />
               </button>
               <button
                 type="button"
-                onClick={() => setIsMuted(!isMuted)}
-                className="p-1 text-neutral-400 hover:text-white"
+                onClick={() => onToggleTrackVisibility?.("audio")}
+                className="p-1 text-neutral-400 hover:text-white cursor-pointer"
+                title={trackVisibility.audio ? "Mute audio" : "Unmute audio"}
               >
-                {isMuted ? <VolumeX className="w-3 h-3 text-rose-500" /> : <Volume2 className="w-3 h-3 text-cyan-400" />}
+                {trackVisibility.audio ? <Volume2 className="w-3.5 h-3.5 text-cyan-400" /> : <VolumeX className="w-3.5 h-3.5 text-rose-500" />}
               </button>
             </div>
           </div>
@@ -413,7 +387,7 @@ export const StudioTimeline = memo(function StudioTimeline({
                   <span className="truncate">SOUNDTRACK: LO-FI FOCUS BEATS (128 BPM)</span>
                 </div>
                 <span className="text-[9px] text-cyan-400 font-mono z-10 shrink-0">
-                  {isMuted ? "MUTED" : `${draftVolume}%`}
+                  {!trackVisibility.audio ? "MUTED" : `${draftVolume}%`}
                 </span>
               </div>
             </div>
@@ -432,9 +406,9 @@ export const StudioTimeline = memo(function StudioTimeline({
         </div>
       </div>
 
-      {/* 3. MANUAL TRACK EDITING MODAL (Swiss Brutalism) */}
+      {/* 3. CENTER SCREEN MANUAL TRACK EDITING MODAL (Swiss Brutalism) */}
       {editingTrack && (
-        <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-neutral-950 border border-neutral-700 shadow-2xl p-4 font-mono text-xs flex flex-col gap-3">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-neutral-800 pb-2">

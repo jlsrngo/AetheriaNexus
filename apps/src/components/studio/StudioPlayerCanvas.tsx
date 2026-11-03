@@ -38,6 +38,11 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
 
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [trackVisibility, setTrackVisibility] = useState({
+    text: true,
+    background: true,
+    audio: true,
+  });
 
   const playerRef = useRef<PlayerRef>(null);
 
@@ -162,7 +167,12 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
           <Player
             ref={playerRef}
             component={NexusVideoComposition}
-            inputProps={videoProps}
+            inputProps={{
+              ...videoProps,
+              showText: trackVisibility.text,
+              showBackground: trackVisibility.background,
+              isMuted: !trackVisibility.audio,
+            }}
             durationInFrames={durationInFrames}
             fps={fps}
             compositionWidth={dim.width}
@@ -180,20 +190,6 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
             autoPlay
           />
         </div>
-
-        {/* Side Telemetry Info (Placed beside the player, not underneath, for maximal canvas height) */}
-        <div className="hidden lg:flex flex-col gap-2 font-mono text-[10px] text-neutral-400 ml-6 p-3 bg-neutral-900/80 border border-neutral-800 shrink-0 w-44">
-          <div className="text-white font-bold tracking-wider uppercase border-b border-neutral-800 pb-1 flex items-center justify-between">
-            <span>TELEMETRY</span>
-            <span className="w-1.5 h-1.5 bg-emerald-400" />
-          </div>
-          <div className="flex justify-between"><span className="text-neutral-500">STAGE</span> <span className="text-neutral-200">{ratio}</span></div>
-          <div className="flex justify-between"><span className="text-neutral-500">RES</span> <span className="text-neutral-200">{dim.width}x{dim.height}</span></div>
-          <div className="flex justify-between"><span className="text-neutral-500">FPS</span> <span className="text-neutral-200">{fps}</span></div>
-          <div className="flex justify-between"><span className="text-neutral-500">FRAMES</span> <span className="text-neutral-200">{durationInFrames}</span></div>
-          <div className="flex justify-between"><span className="text-neutral-500">CODEC</span> <span className="text-neutral-200">H.264 AAC</span></div>
-          <div className="flex justify-between"><span className="text-neutral-500">HW ACCEL</span> <span className="text-emerald-400 font-bold">ACTIVE</span></div>
-        </div>
       </div>
 
       {/* 3. Bottom Multi-Track Timeline HUD (Editable Text, Background, Audio) */}
@@ -203,6 +199,13 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
         fps={fps}
         isPlaying={isPlaying}
         videoProps={videoProps}
+        trackVisibility={trackVisibility}
+        onToggleTrackVisibility={(track) => {
+          setTrackVisibility((prev) => ({
+            ...prev,
+            [track]: !prev[track],
+          }));
+        }}
         onUpdateProps={handleUpdateProps}
         onPlayPause={() => {
           if (playerRef.current) {

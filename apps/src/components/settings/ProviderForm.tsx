@@ -206,7 +206,7 @@ export function ProviderForm({
     <form
       onSubmit={onSubmit}
       className={cn(
-        "p-6 bg-[var(--bg-card)] text-[var(--text-primary)] rounded-2xl space-y-5 border w-full",
+        "p-6 bg-[var(--bg-card)] text-[var(--text-primary)] rounded-none space-y-5 border w-full",
         isEditing ? "border-[var(--border-strong)]" : "border-[var(--border-color)]"
       )}
     >
@@ -232,14 +232,14 @@ export function ProviderForm({
               <button
                 type="button"
                 onClick={() => setIsTypeDropdownOpen(!isTypeDropdownOpen)}
-                className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-strong)] transition-colors flex items-center justify-between cursor-pointer"
+                className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-none px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-strong)] transition-colors flex items-center justify-between cursor-pointer"
               >
                 <span className="truncate">{selectedTypeLabel}</span>
                 <ChevronDown className={cn("w-3.5 h-3.5 text-[var(--text-muted)] transition-transform duration-150 shrink-0 ml-1", isTypeDropdownOpen && "rotate-180")} />
               </button>
 
               {isTypeDropdownOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-full max-h-48 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] p-1.5 space-y-0.5 z-50 animate-in fade-in duration-100">
+                <div className="absolute left-0 top-full mt-1.5 w-full max-h-48 overflow-y-auto rounded-none bg-[var(--bg-card)] border border-[var(--border-strong)] p-1.5 space-y-0.5 z-50 animate-in fade-in duration-100">
                   {providerTypes.map((pt, ptIdx) => {
                     const isSelected = form.type === pt.value;
                     const isOther = pt.value === "openai-compatible";
@@ -255,7 +255,7 @@ export function ProviderForm({
                             setIsTypeDropdownOpen(false);
                           }}
                           className={cn(
-                            "w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors",
+                            "w-full text-left px-3 py-2 rounded-none text-xs flex items-center justify-between cursor-pointer transition-colors",
                             isSelected
                               ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-semibold"
                               : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
@@ -310,7 +310,7 @@ export function ProviderForm({
 
       {/* ACTIVE MODEL ROUTING PRIORITY (DRAGGABLE & RE-ORDERABLE LIST) */}
       {selectedModels.length > 0 && (
-        <div className="p-4 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] space-y-2.5">
+        <div className="p-4 rounded-none bg-[var(--bg-panel)] border border-[var(--border-color)] space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-[var(--text-muted)]" />
@@ -331,7 +331,7 @@ export function ProviderForm({
                 onDrop={(e) => handleDrop(e, idx)}
                 onDragEnd={() => setDraggedIdx(null)}
                 className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--bg-hover)] border border-[var(--border-strong)] rounded-xl text-xs font-mono text-[var(--text-primary)] transition-all select-none cursor-grab active:cursor-grabbing",
+                  "flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--bg-hover)] border border-[var(--border-strong)] rounded-none text-xs font-mono text-[var(--text-primary)] transition-all select-none cursor-grab active:cursor-grabbing",
                   draggedIdx === idx && "opacity-40 border-dashed scale-95"
                 )}
                 title="Drag to reorder model priority"
@@ -395,7 +395,7 @@ export function ProviderForm({
               <button
                 type="button"
                 onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                className="bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg px-2.5 py-1 text-xs text-[var(--text-primary)] font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
+                className="bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-none px-2.5 py-1 text-xs text-[var(--text-primary)] font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
                 title={t("filterModels")}
               >
                 <SlidersHorizontal className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
@@ -409,7 +409,7 @@ export function ProviderForm({
               </button>
 
               {isCategoryDropdownOpen && (
-                <div className="absolute right-0 sm:left-0 top-full mt-1.5 w-56 max-h-64 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] p-1.5 space-y-0.5 z-50 animate-in fade-in duration-100 scrollbar-thin">
+                <div className="absolute right-0 sm:left-0 top-full mt-1.5 w-56 max-h-64 overflow-y-auto rounded-none bg-[var(--bg-card)] border border-[var(--border-strong)] p-1.5 space-y-0.5 z-50 animate-in fade-in duration-100 scrollbar-thin">
                   <div className="px-2 py-1 text-[10px] font-semibold text-[var(--text-muted)] border-b border-[var(--border-color)] mb-1">
                     {t("filterModels")}
                   </div>
@@ -422,7 +422,7 @@ export function ProviderForm({
                       setIsCategoryDropdownOpen(false);
                     }}
                     className={cn(
-                      "w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors",
+                      "w-full text-left px-2.5 py-1.5 rounded-none text-xs flex items-center justify-between cursor-pointer transition-colors",
                       selectedCategory === "all"
                         ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-bold"
                         : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
@@ -443,7 +443,7 @@ export function ProviderForm({
                         setIsCategoryDropdownOpen(false);
                       }}
                       className={cn(
-                        "w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors",
+                        "w-full text-left px-2.5 py-1.5 rounded-none text-xs flex items-center justify-between cursor-pointer transition-colors",
                         selectedCategory === "free"
                           ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-bold"
                           : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
@@ -464,7 +464,7 @@ export function ProviderForm({
                       setIsCategoryDropdownOpen(false);
                     }}
                     className={cn(
-                      "w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors",
+                      "w-full text-left px-2.5 py-1.5 rounded-none text-xs flex items-center justify-between cursor-pointer transition-colors",
                       selectedCategory === "selected"
                         ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-bold"
                         : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
@@ -495,7 +495,7 @@ export function ProviderForm({
                               setIsCategoryDropdownOpen(false);
                             }}
                             className={cn(
-                              "w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors",
+                              "w-full text-left px-2.5 py-1.5 rounded-none text-xs flex items-center justify-between cursor-pointer transition-colors",
                               isSelected
                                 ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-bold"
                                 : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
@@ -519,7 +519,7 @@ export function ProviderForm({
               <button
                 type="button"
                 onClick={handleSelectAllFree}
-                className="px-2.5 py-1 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] border border-[var(--border-strong)] text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 font-medium shrink-0"
+                className="px-2.5 py-1 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] border border-[var(--border-strong)] text-xs rounded-none transition-colors cursor-pointer flex items-center gap-1.5 font-medium shrink-0"
                 title="Add all available free models to routing pool"
               >
                 <CheckCheck className="w-3.5 h-3.5 text-[var(--text-muted)]" />
@@ -535,7 +535,7 @@ export function ProviderForm({
                 placeholder={t("searchModels")}
                 value={modelSearch}
                 onChange={(e) => setModelSearch(e.target.value)}
-                className="w-32 sm:w-40 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg pl-7 pr-6 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
+                className="w-32 sm:w-40 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-none pl-7 pr-6 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
               />
               {modelSearch && (
                 <button
@@ -552,7 +552,7 @@ export function ProviderForm({
               type="button"
               onClick={onFetchModels}
               disabled={isFetchingFormModels}
-              className="px-2.5 py-1 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] border border-[var(--border-strong)] text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 font-medium shrink-0"
+              className="px-2.5 py-1 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] border border-[var(--border-strong)] text-xs rounded-none transition-colors cursor-pointer flex items-center gap-1.5 font-medium shrink-0"
               title="Fetch all available models automatically from API endpoint"
             >
               <RefreshCw className={cn("w-3 h-3 text-[var(--text-muted)]", isFetchingFormModels && "animate-spin")} />
@@ -564,7 +564,7 @@ export function ProviderForm({
         {/* Model Grid */}
         <div className="max-h-[260px] overflow-y-auto pr-1 space-y-2">
           {filteredModels.length === 0 ? (
-            <div className="p-6 text-center text-xs text-[var(--text-muted)] bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)] space-y-3">
+            <div className="p-6 text-center text-xs text-[var(--text-muted)] bg-[var(--bg-input)] rounded-none border border-[var(--border-color)] space-y-3">
               <p>
                 {formAvailableModels.length === 0
                   ? "No models configured for this endpoint yet. Click 'Sync from API' or add your model name below."
@@ -576,7 +576,7 @@ export function ProviderForm({
                   setSelectedCategory("all");
                   setModelSearch("");
                 }}
-                className="px-3 py-1.5 bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs rounded-xl cursor-pointer inline-flex items-center gap-1"
+                className="px-3 py-1.5 bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs rounded-none cursor-pointer inline-flex items-center gap-1"
               >
                 {t("resetFilters")}
               </button>
@@ -595,7 +595,7 @@ export function ProviderForm({
                     type="button"
                     onClick={() => onToggleModelSelection(m)}
                     className={cn(
-                      "p-3 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer group",
+                      "p-3 rounded-none border text-left flex items-center justify-between transition-all cursor-pointer group",
                       isSelected
                         ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-primary)]"
                         : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)]"
@@ -629,7 +629,7 @@ export function ProviderForm({
               })}
 
               {isAddingFormModel ? (
-                <div className="flex items-center gap-1.5 bg-[var(--bg-input)] p-2 rounded-xl border border-[var(--border-strong)]">
+                <div className="flex items-center gap-1.5 bg-[var(--bg-input)] p-2 rounded-none border border-[var(--border-strong)]">
                   <input
                     type="text"
                     value={formNewModelInput}
@@ -641,7 +641,7 @@ export function ProviderForm({
                   <button
                     type="button"
                     onClick={onAddCustomModelSubmit}
-                    className="px-2.5 py-1 bg-[var(--text-primary)] text-[var(--bg-app)] text-xs font-bold rounded-lg cursor-pointer shrink-0"
+                    className="px-2.5 py-1 bg-[var(--text-primary)] text-[var(--bg-app)] text-xs font-bold rounded-none cursor-pointer shrink-0"
                   >
                     {t("add")}
                   </button>
@@ -660,7 +660,7 @@ export function ProviderForm({
                     setIsAddingFormModel(true);
                     setFormNewModelInput("");
                   }}
-                  className="p-3 rounded-xl border border-dashed border-[var(--border-strong)] hover:border-[var(--text-muted)] text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center justify-center gap-1.5 text-xs transition-colors cursor-pointer bg-[var(--bg-input)]/50"
+                  className="p-3 rounded-none border border-dashed border-[var(--border-strong)] hover:border-[var(--text-muted)] text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center justify-center gap-1.5 text-xs transition-colors cursor-pointer bg-[var(--bg-input)]/50"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{t("customModel")}</span>
@@ -692,7 +692,7 @@ export function ProviderForm({
           {testResult && (
             <div
               className={cn(
-                "px-3 py-1.5 rounded-xl border text-xs flex items-center gap-2 font-mono animate-in fade-in duration-100",
+                "px-3 py-1.5 rounded-none border text-xs flex items-center gap-2 font-mono animate-in fade-in duration-100",
                 testResult.success
                   ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
                   : "bg-rose-600 text-white border-rose-600"

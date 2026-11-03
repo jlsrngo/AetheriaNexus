@@ -123,7 +123,7 @@ export function SettingsCliConnectionsTab({
           type="button"
           onClick={fetchStatus}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] transition-all cursor-pointer disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-none text-xs font-medium border border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] transition-all cursor-pointer disabled:opacity-50"
         >
           <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
           <span>{isEn ? "Scan All Agents" : "Pindai Semua Agen"}</span>
@@ -188,7 +188,7 @@ export function SettingsCliConnectionsTab({
         })}
 
         {(data.discovered ?? []).some((x) => x.hasToken) && (
-          <div className="px-4 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-center flex-wrap gap-3">
+          <div className="px-4 py-3 rounded-none border border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-center flex-wrap gap-3">
             <div className="flex items-center justify-center flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
               <Sparkles className="w-4 h-4 text-[var(--text-primary)] shrink-0" />
               <span className="font-semibold text-[var(--text-primary)]">Discovered Local Caches:</span>
@@ -207,7 +207,7 @@ export function SettingsCliConnectionsTab({
               type="button"
               onClick={() => handleRefreshCred("all")}
               disabled={refreshingTarget === "all"}
-              className="px-2.5 py-1 bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shrink-0"
+              className="px-2.5 py-1 bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-none transition-all cursor-pointer font-medium flex items-center gap-1.5 shrink-0"
               title="Refresh all harvested credentials"
             >
               <RefreshCw

@@ -135,18 +135,18 @@ export function ModelProviderSettings({
       {/* Provider List */}
       <div className="space-y-3">
         {loading ? (
-          <div className="flex flex-col items-center justify-center p-12 text-[var(--text-muted)] gap-3 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
-            <Loader2 className="w-6 h-6 animate-spin text-[var(--text-primary)]" />
+          <div className="flex flex-col items-center justify-center p-12 text-neutral-400 gap-3 bg-neutral-900/90 rounded-none border border-neutral-800 font-mono">
+            <Loader2 className="w-6 h-6 animate-spin text-white" />
             <p className="text-sm font-medium">{t("loadingProviders")}</p>
           </div>
         ) : cloudProviders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-12 text-[var(--text-muted)] gap-3 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] text-center">
-            <Terminal className="w-8 h-8 opacity-40 text-[var(--text-muted)]" />
+          <div className="flex flex-col items-center justify-center p-12 text-neutral-400 gap-3 bg-neutral-900/90 rounded-none border border-neutral-800 text-center font-mono">
+            <Terminal className="w-8 h-8 opacity-40 text-neutral-500" />
             <div>
-              <p className="text-sm font-medium text-[var(--text-secondary)]">
+              <p className="text-sm font-medium text-white">
                 {t("noProvidersConfigured")}
               </p>
-              <p className="text-xs text-[var(--text-muted)] mt-1">
+              <p className="text-xs text-neutral-500 mt-1">
                 {t("automaticFallbackDesc")}
               </p>
             </div>
@@ -185,13 +185,13 @@ export function ModelProviderSettings({
       </div>
 
       {/* Cloud Routing Intelligence Notice */}
-      <div className="p-3.5 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] flex items-start gap-3 text-xs text-[var(--text-muted)]">
-        <Info className="w-4 h-4 shrink-0 mt-0.5 text-[var(--text-secondary)]" />
+      <div className="p-3.5 bg-neutral-900/90 rounded-none border border-neutral-800 flex items-start gap-3 text-xs font-mono text-neutral-400">
+        <Info className="w-4 h-4 shrink-0 mt-0.5 text-neutral-300" />
         <div className="space-y-1">
-          <p className="font-medium text-[var(--text-primary)]">
+          <p className="font-bold text-white uppercase tracking-wider">
             {t("automaticFallbackTitle")}
           </p>
-          <p className="leading-relaxed">
+          <p className="leading-relaxed text-neutral-400">
             {t("automaticFallbackDesc")}
           </p>
         </div>

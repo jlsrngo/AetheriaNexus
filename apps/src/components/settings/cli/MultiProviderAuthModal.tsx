@@ -196,7 +196,7 @@ export function MultiProviderAuthModal({
       <DialogContent onClose={onClose} className="max-w-xl p-6 text-left">
         <DialogHeader>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-strong)] flex items-center justify-center text-[var(--text-primary)] font-bold text-sm">
+            <div className="w-8 h-8 rounded-none bg-[var(--bg-panel)] border border-[var(--border-strong)] flex items-center justify-center text-[var(--text-primary)] font-bold text-sm">
               {config.badgeLetter}
             </div>
             <div>
@@ -207,7 +207,7 @@ export function MultiProviderAuthModal({
         </DialogHeader>
 
         {config.accountActiveText && (
-          <div className="px-3.5 py-2.5 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-between text-xs">
+          <div className="px-3.5 py-2.5 rounded-none bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-primary)]" />
               <span className="text-[var(--text-secondary)]">{config.accountActiveText}</span>
@@ -218,11 +218,11 @@ export function MultiProviderAuthModal({
           </div>
         )}
 
-        <div className="flex flex-col justify-between p-4.5 rounded-xl border border-[var(--border-color)] hover:border-[var(--border-strong)] bg-[var(--bg-panel)] transition-all group">
+        <div className="flex flex-col justify-between p-4.5 rounded-none border border-[var(--border-color)] hover:border-[var(--border-strong)] bg-[var(--bg-panel)] transition-all group">
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-[var(--bg-card)] border border-[var(--border-strong)] flex items-center justify-center text-[var(--text-primary)]">
+                <div className="w-7 h-7 rounded-none bg-[var(--bg-card)] border border-[var(--border-strong)] flex items-center justify-center text-[var(--text-primary)]">
                   <Terminal className="w-4 h-4" />
                 </div>
                 <span className="font-semibold text-sm text-[var(--text-primary)]">
@@ -237,7 +237,7 @@ export function MultiProviderAuthModal({
               {config.cliDesc}
             </p>
 
-            <div className="p-3 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)] text-[11px] leading-relaxed mb-4">
+            <div className="p-3 rounded-none bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)] text-[11px] leading-relaxed mb-4">
               <div className="flex items-start gap-1.5 font-medium text-[var(--text-primary)] mb-1">
                 <Scale className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--text-muted)]" />
                 <span>{config.cliTradeoffTitle}</span>
@@ -272,7 +272,7 @@ export function MultiProviderAuthModal({
         </div>
 
         {target !== "nineRouter" && (
-          <div className="p-2.5 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-between text-xs">
+          <div className="p-2.5 rounded-none bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-primary)]" />
               <span className="text-[var(--text-secondary)]">

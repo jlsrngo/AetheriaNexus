@@ -50,7 +50,7 @@ export const CliModelDropdown = memo(function CliModelDropdown({
       <button
         type="button"
         onClick={onToggleDropdown}
-        className="px-2.5 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] hover:border-[var(--border-strong)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 max-w-[140px] sm:max-w-[180px]"
+        className="px-2.5 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] hover:border-[var(--border-strong)] text-[11px] rounded-none transition-all cursor-pointer font-medium flex items-center gap-1.5 max-w-[140px] sm:max-w-[180px]"
         title="Choose model manually"
       >
         <SlidersHorizontal className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
@@ -61,7 +61,7 @@ export const CliModelDropdown = memo(function CliModelDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 z-50 w-72 sm:w-80 p-2.5 bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl space-y-2">
+        <div className="absolute left-0 top-full mt-1.5 z-50 w-72 sm:w-80 p-2.5 bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-none space-y-2">
           <div className="flex items-center justify-between px-1 pb-1.5 border-b border-[var(--border-color)]">
             <span className="text-xs font-semibold text-[var(--text-primary)]">Model</span>
             <span className="text-[10px] text-[var(--text-muted)] font-mono">
@@ -79,7 +79,7 @@ export const CliModelDropdown = memo(function CliModelDropdown({
                   type="button"
                   onClick={() => onSelectModel(targetKey, m, activeId, isActive, friendlyName)}
                   className={cn(
-                    "w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between gap-2 transition-all cursor-pointer",
+                    "w-full text-left px-2.5 py-1.5 rounded-none text-xs flex items-center justify-between gap-2 transition-all cursor-pointer",
                     isSelected
                       ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-medium border border-[var(--border-strong)]"
                       : "text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
@@ -124,7 +124,7 @@ export const CliModelDropdown = memo(function CliModelDropdown({
                   }
                 }}
                 placeholder="Type model name..."
-                className="flex-1 bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] px-2.5 py-1 rounded-lg focus:outline-none focus:border-[var(--border-strong)] font-mono"
+                className="flex-1 bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] px-2.5 py-1 rounded-none focus:outline-none focus:border-[var(--border-strong)] font-mono"
               />
               <button
                 type="button"
@@ -133,7 +133,7 @@ export const CliModelDropdown = memo(function CliModelDropdown({
                     onSelectModel(targetKey, customInputValue.trim(), activeId, isActive, friendlyName);
                   }
                 }}
-                className="px-2.5 py-1 bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-app)] font-semibold text-xs rounded-lg transition-all cursor-pointer"
+                className="px-2.5 py-1 bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-app)] font-semibold text-xs rounded-none transition-all cursor-pointer"
               >
                 Set
               </button>

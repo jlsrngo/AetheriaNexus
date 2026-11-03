@@ -117,7 +117,7 @@ export function SettingsPage() {
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col h-full w-full bg-neutral-950 text-neutral-100 overflow-y-auto select-none p-6 transition-none">
+    <div className="flex-1 flex flex-col h-full w-full bg-neutral-950 bg-[radial-gradient(#1f1f1f_1px,transparent_1px)] [background-size:16px_16px] text-neutral-100 overflow-y-auto overflow-x-hidden select-none p-6 transition-none">
       <div className="max-w-5xl w-full mx-auto flex-1 flex flex-col min-h-0">
         {/* Header Title - Swiss Brutalism Telemetry */}
         <div className="mb-6 border-b border-neutral-800 pb-4">
@@ -133,8 +133,8 @@ export function SettingsPage() {
           </p>
         </div>
 
-        {/* Tab Navigation Sharp Swiss Bar */}
-        <div className="flex items-center gap-1 border-b border-neutral-800 pb-3 mb-6 overflow-x-auto shrink-0">
+        {/* Tab Navigation Sharp Swiss Bar (Full width across container) */}
+        <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-1 border-b border-neutral-800 pb-3 mb-6 shrink-0">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -144,14 +144,14 @@ export function SettingsPage() {
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-none text-[11px] font-mono tracking-wider transition-none cursor-pointer whitespace-nowrap h-9 select-none border",
+                  "w-full flex items-center justify-center gap-2 px-3 py-2 rounded-none text-[11px] font-mono tracking-wider transition-none cursor-pointer whitespace-nowrap h-9 select-none border text-center",
                   isActive
                     ? "bg-white text-black border-white font-bold"
                     : "bg-neutral-900/60 text-neutral-400 border-neutral-800 hover:text-white hover:border-neutral-600"
                 )}
               >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{tab.label}</span>
+                <Icon className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{tab.label}</span>
               </button>
             );
           })}

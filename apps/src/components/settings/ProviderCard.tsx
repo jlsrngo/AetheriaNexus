@@ -2,19 +2,9 @@ import { memo, useState } from "react";
 import { Loader2, Wifi, Trash2, ArrowUp, ArrowDown, Settings2, Info, X, Terminal } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../lib/i18n";
-import { useTheme } from "../../lib/theme";
 import type { Provider } from "./ModelProviderSettings";
 import { formatToastError } from "./constants";
 import { Card, Button, Badge } from "../ui";
-
-const NEO_CARD_TINTS = [
-  "bg-[#EFF6FF]", // Blue
-  "bg-[#FFF7ED]", // Orange
-  "bg-[#FAF5FF]", // Purple
-  "bg-[#FEFCE8]", // Yellow
-  "bg-[#ECFDF5]", // Mint
-  "bg-[#FFF1F2]", // Rose
-];
 
 function getSelectedModels(modelStr: string): string[] {
   if (!modelStr) return [];
@@ -47,21 +37,17 @@ export const ProviderCard = memo(function ProviderCard({
   onDelete,
 }: ProviderCardProps) {
   const { t } = useI18n();
-  const { isNeobrutalism } = useTheme();
-  const [showTestDetails, setShowTestDetails] = useState(false);
+    const [showTestDetails, setShowTestDetails] = useState(false);
 
   const selectedModels = getSelectedModels(p.model);
-  const neoTint = NEO_CARD_TINTS[index % NEO_CARD_TINTS.length];
-
+  
   return (
     <Card
       className={cn(
-        "p-4 rounded-2xl transition-all space-y-3",
-        isNeobrutalism
-          ? `${neoTint} border-2 border-[#141413] shadow-[3px_3px_0px_#141413]`
-          : p.active
-          ? "bg-[var(--bg-panel)] border-[var(--border-strong)]"
-          : "bg-[var(--bg-card)] border-[var(--border-color)] opacity-90 hover:opacity-100"
+        "p-4 rounded-none transition-none space-y-3 font-mono text-xs border border-neutral-800 bg-neutral-900/90",
+        p.active
+          ? "border-neutral-600 bg-neutral-900"
+          : "opacity-90 hover:opacity-100"
       )}
     >
       {/* Top Row: Priority Controls, Primary Status, Info */}
@@ -77,7 +63,7 @@ export const ProviderCard = memo(function ProviderCard({
                   e.stopPropagation();
                   onMovePriority(index, "up");
                 }}
-                className="p-1 rounded bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] active:scale-90 disabled:opacity-20 cursor-pointer transition-transform"
+                className="p-1 rounded-none border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white disabled:opacity-20 cursor-pointer transition-none"
                 title={t("moveProviderUp")}
               >
                 <ArrowUp className="w-3 h-3" />
@@ -89,7 +75,7 @@ export const ProviderCard = memo(function ProviderCard({
                   e.stopPropagation();
                   onMovePriority(index, "down");
                 }}
-                className="p-1 rounded bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] active:scale-90 disabled:opacity-20 cursor-pointer transition-transform"
+                className="p-1 rounded-none border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white disabled:opacity-20 cursor-pointer transition-none"
                 title={t("moveProviderDown")}
               >
                 <ArrowDown className="w-3 h-3" />
@@ -113,34 +99,22 @@ export const ProviderCard = memo(function ProviderCard({
                   : t("clickToTurnOnPrimary", "Click to turn ON as Primary API Provider")
               }
               className={cn(
-                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full items-center p-0.5 transition-colors duration-200 focus:outline-none",
-                isNeobrutalism
-                  ? p.active
-                    ? "bg-[#CCFF00] border-2 border-[#141413] shadow-[2px_2px_0px_#141413]"
-                    : "bg-[#EAE0D7] border-2 border-[#141413]"
-                  : p.active
-                  ? "bg-[var(--text-primary)] border border-[var(--border-strong)]"
-                  : "bg-[var(--bg-panel)] border border-[var(--border-strong)]"
+                "relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-none items-center p-0.5 border transition-none focus:outline-none",
+                p.active
+                  ? "bg-emerald-500 border-emerald-400"
+                  : "bg-neutral-950 border-neutral-700"
               )}
             >
               <span
                 className={cn(
-                  "neo-switch-thumb pointer-events-none inline-block h-5 w-5 transform rounded-full transition duration-200 ease-in-out",
-                  isNeobrutalism
-                    ? "bg-[#141413] border border-[#141413]"
-                    : "bg-white shadow-sm ring-0",
-                  p.active ? "translate-x-5" : "translate-x-0"
+                  "pointer-events-none inline-block h-3.5 w-4 rounded-none transition-transform duration-100 ease-in-out",
+                  p.active ? "bg-black translate-x-4 font-bold" : "bg-neutral-500 translate-x-0"
                 )}
               />
             </button>
             {p.active && (
               <span
-                className={cn(
-                  "text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider",
-                  isNeobrutalism
-                    ? "bg-[#CCFF00] text-[#141413] border-2 border-[#141413] shadow-[1px_1px_0px_#141413]"
-                    : "bg-[var(--text-primary)] text-[var(--bg-app)]"
-                )}
+                className="text-[9px] font-bold px-1.5 py-0.5 rounded-none uppercase tracking-wider bg-white text-black font-mono"
               >
                 Primary
               </span>
@@ -179,7 +153,7 @@ export const ProviderCard = memo(function ProviderCard({
                 {p.baseUrl || t("defaultEndpoint")}
               </p>
               {p.model && (
-                <span className="text-[10px] text-[var(--text-primary)] font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-md">
+                <span className="text-[10px] text-neutral-200 font-mono px-2 py-0.5 bg-neutral-950 border border-neutral-700 rounded-none">
                   {t("modelPool")} ({selectedModels.length}): {p.model}
                 </span>
               )}
@@ -229,7 +203,7 @@ export const ProviderCard = memo(function ProviderCard({
 
       {/* EXPANDABLE TEST RESULT INSPECTION CARD */}
       {result && showTestDetails && (
-        <div className="p-3.5 rounded-xl bg-[var(--bg-app)] border border-[var(--border-strong)] text-xs font-mono space-y-2 animate-in fade-in zoom-in-95 duration-100">
+        <div className="p-3.5 rounded-none bg-neutral-950 border border-neutral-700 text-xs font-mono space-y-2">
           <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-1.5">
             <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
               <Terminal className="w-3.5 h-3.5 text-[var(--text-muted)]" />

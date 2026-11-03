@@ -481,22 +481,22 @@ export const ChatInputBox = memo(function ChatInputBox({
                 <button
                   type="button"
                   onClick={submitPrompt}
-                  className="h-6 px-2 rounded-none flex items-center justify-center transition-none cursor-pointer bg-neutral-950 hover:bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800 text-[10px] font-mono uppercase"
+                  className="w-6 h-6 rounded-none flex items-center justify-center transition-none cursor-pointer bg-neutral-950 hover:bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800"
                   title="Add to queue"
+                  aria-label="Queue"
                 >
-                  <Clock className="w-3 h-3 mr-1" />
-                  <span>QUEUE</span>
+                  <Clock className="w-3.5 h-3.5" />
                 </button>
               )}
 
               <button
                 type="button"
                 onClick={onCancelStream}
-                className="h-6 px-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-none flex items-center justify-center transition-none cursor-pointer shrink-0 font-mono text-[10px] font-bold tracking-wider uppercase gap-1"
+                className="w-6 h-6 bg-rose-600 hover:bg-rose-700 text-white rounded-none flex items-center justify-center transition-none cursor-pointer shrink-0"
                 title="Stop generation"
+                aria-label="Stop generation"
               >
                 <Square className="w-2.5 h-2.5 fill-white" />
-                <span>HALT</span>
               </button>
             </>
           ) : (
@@ -504,11 +504,11 @@ export const ChatInputBox = memo(function ChatInputBox({
               type="button"
               onClick={submitPrompt}
               disabled={!localPrompt.trim() && attachedFiles.length === 0}
-              className="h-6 px-3 rounded-none flex items-center gap-1.5 transition-none cursor-pointer bg-white hover:bg-neutral-200 text-black font-mono font-bold text-[11px] uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
+              className="w-7 h-6 rounded-none flex items-center justify-center transition-none cursor-pointer bg-white hover:bg-neutral-200 text-black disabled:opacity-30 disabled:cursor-not-allowed"
               title="Send message"
+              aria-label="Send message"
             >
-              <span>SEND</span>
-              <Send className="w-3 h-3" strokeWidth={2} />
+              <Send className="w-3.5 h-3.5" strokeWidth={2.2} />
             </button>
           )}
         </div>
