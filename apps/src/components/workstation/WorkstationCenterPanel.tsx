@@ -1,12 +1,10 @@
-import { memo, useCallback } from "react";
+import { memo, useState, useCallback } from "react";
 import { CenterTab } from "./tabs/types";
-import { CenterTabHeader } from "./tabs/CenterTabHeader";
-import { CenterBreadcrumbs } from "./tabs/CenterBreadcrumbs";
-import { CenterStatusBar } from "./tabs/CenterStatusBar";
-import { CenterTabRenderer } from "./tabs/CenterTabRenderer";
 import { StudioPlayerCanvas } from "../studio/StudioPlayerCanvas";
-import { getLanguageMode } from "./tabs/centerUtils";
+import { CenterTabRenderer } from "./tabs/CenterTabRenderer";
 import { useCenterPanelEditor } from "./hooks/useCenterPanelEditor";
+import { Film, FileCode, X } from "lucide-react";
+import { cn } from "../../lib/utils";
 
 export type { CenterTab };
 
@@ -19,8 +17,6 @@ export interface WorkstationCenterPanelProps {
   onUpdateTabContent?: (tabId: string, newContent: string) => void;
   onSaveTabContent?: (tabId: string, content: string) => Promise<void> | void;
   onOpenFolder?: () => void;
-  onRevertDiff?: (filePath: string) => void;
-  onAcceptDiff?: (filePath: string) => void;
   onOpenFileTab?: (filePath: string) => void;
 }
 
@@ -32,34 +28,29 @@ function WorkstationCenterPanelComponent({
   onCloseTab,
   onUpdateTabContent,
   onSaveTabContent,
-  onOpenFolder: _onOpenFolder,
-  onRevertDiff,
-  onAcceptDiff,
   onOpenFileTab,
 }: WorkstationCenterPanelProps) {
+  const [activeView, setActiveView] = useState<"studio" | "script">("studio");
+  const [_unsavedTabs, setUnsavedTabs] = useState<Record<string, boolean>>({});
   const activeTab = tabs.find((t) => t.id === activeTabId);
+
+  const handleDirtyChange = useCallback((tabId: string, dirty: boolean) => {
+    setUnsavedTabs((prev) => ({ ...prev, [tabId]: dirty }));
+  }, []);
 
   const {
     editedContents,
-    setUnsavedTabs,
-    activeDiff,
-    isUnsaved,
-    copied,
     cursorPos,
     textareaRef,
     gutterRef,
     lineCount,
     addedLineNums,
-    handleClearDiff,
-    updateCursorPos,
     handleTextChange,
     handleTextChangeForTab,
-    handleSave,
     handleSaveForTab,
     handleScroll,
     handleKeyDown,
-    handleCopyContent,
-    handleDownloadTxt,
+    updateCursorPos,
   } = useCenterPanelEditor({
     tabs,
     activeTab,
@@ -67,94 +58,103 @@ function WorkstationCenterPanelComponent({
     onSaveTabContent,
   });
 
-  const handleDirtyChange = useCallback((tabId: string, dirty: boolean) => {
-    setUnsavedTabs((prev) => ({ ...prev, [tabId]: dirty }));
-  }, [setUnsavedTabs]);
-
-  const langMode = getLanguageMode(activeTab);
-  const folderName = activeFolder
-    ? activeFolder.split(/[\\/]/).filter(Boolean).pop() || "workspace"
-    : "workspace";
-
   return (
-    <main className="flex-1 flex flex-col min-w-0 bg-[var(--bg-app)] overflow-hidden select-none border-l border-r border-[var(--border-color)] transition-colors duration-150">
-      {/* 1. TOP TABS BAR */}
-      <CenterTabHeader
-        tabs={tabs}
-        activeTabId={activeTabId}
-        activeTab={activeTab}
-        unsavedTabs={{ [activeTab?.id || ""]: isUnsaved }}
-        activeDiff={activeDiff}
-        onClearDiff={handleClearDiff}
-        onSelectTab={onSelectTab}
-        onCloseTab={onCloseTab}
-        onSave={handleSave}
-        onCopyContent={handleCopyContent}
-        onDownloadTxt={handleDownloadTxt}
-        isUnsaved={isUnsaved}
-        copied={copied}
-      />
+    <main className="flex-1 flex flex-col min-w-0 bg-neutral-950 overflow-hidden select-none border-l border-r border-neutral-800 transition-none font-mono">
+      {/* 1. TOP VIEW SELECTOR BAR (Swiss Brutalism) */}
+      <div className="h-9 bg-neutral-900/90 border-b border-neutral-800 px-3 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-1">
+          {/* Remotion Studio Tab */}
+          <button
+            type="button"
+            onClick={() => setActiveView("studio")}
+            className={cn(
+              "px-3 py-1 text-[11px] font-mono uppercase tracking-wider flex items-center gap-1.5 border transition-none cursor-pointer",
+              activeView === "studio"
+                ? "bg-white text-black font-extrabold border-white"
+                : "bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white"
+            )}
+          >
+            <Film className="w-3.5 h-3.5 text-emerald-400" />
+            <span>REMOTION // LIVE STUDIO</span>
+          </button>
 
-      {/* 2. BREADCRUMBS BAR */}
-      {activeTab && (
-        <CenterBreadcrumbs
-          folderName={folderName}
-          tabTitle={activeTab.title}
-          activeFolder={activeFolder}
-          appName={
-            activeTab.fileType === "wordcraft-app"
-              ? "WordCraft"
-              : activeTab.fileType === "gridcraft-app"
-              ? "GridCraft"
-              : activeTab.fileType === "pdfcraft-app"
-              ? "PdfCraft"
-              : activeTab.fileType === "deckcraft-app"
-              ? "DeckCraft"
-              : undefined
-          }
-        />
-      )}
-
-      {/* 3. DYNAMIC CONTENT BODY (KEEP-ALIVE MULTI-TAB ENGINE) */}
-      <div className="flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-[var(--bg-card)]">
-        {tabs.length > 0 ? (
-          tabs.map((tab) => {
-            const isActive = tab.id === activeTabId;
-            const tabContent = editedContents[tab.id] ?? tab.content ?? "";
-
+          {/* Open Script Tabs if any */}
+          {tabs.map((tab) => {
+            const isTabActive = activeView === "script" && activeTabId === tab.id;
             return (
-              <CenterTabRenderer
+              <div
                 key={tab.id}
-                tab={tab}
-                isActive={isActive}
-                tabContent={tabContent}
-                activeFolder={activeFolder}
-                lineCount={lineCount}
-                addedLineNums={addedLineNums}
-                cursorPos={cursorPos}
-                textareaRef={textareaRef}
-                gutterRef={gutterRef}
-                onTextChange={handleTextChange}
-                updateCursorPos={updateCursorPos}
-                onScroll={handleScroll}
-                onKeyDown={handleKeyDown}
-                onTextChangeForTab={handleTextChangeForTab}
-                onSaveForTab={handleSaveForTab}
-                onDirtyChange={handleDirtyChange}
-                onOpenFileTab={onOpenFileTab}
-                onCloseTab={onCloseTab}
-                onRevertDiff={onRevertDiff}
-                onAcceptDiff={onAcceptDiff}
-              />
+                onClick={() => {
+                  onSelectTab(tab.id);
+                  setActiveView("script");
+                }}
+                className={cn(
+                  "px-3 py-1 text-[11px] font-mono uppercase tracking-wider flex items-center gap-1.5 border transition-none cursor-pointer",
+                  isTabActive
+                    ? "bg-white text-black font-extrabold border-white"
+                    : "bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white"
+                )}
+              >
+                <FileCode className="w-3 h-3 text-amber-400" />
+                <span className="truncate max-w-[120px]">{tab.title}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCloseTab(tab.id);
+                    if (tabs.length <= 1) setActiveView("studio");
+                  }}
+                  className="hover:text-rose-500 ml-1 p-0.5"
+                >
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              </div>
             );
-          })
+          })}
+        </div>
+
+        {/* Telemetry Indicator */}
+        <div className="hidden md:flex items-center gap-2 text-[10px] text-neutral-500">
+          <span>COMPO: NEXUS_VERTICAL_9:16</span>
+          <span className="text-neutral-700">|</span>
+          <span className="text-emerald-400 font-bold">HW_ACCEL: ON</span>
+        </div>
+      </div>
+
+      {/* 2. MAIN CENTER CONTENT VIEW */}
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-neutral-950">
+        {activeView === "studio" ? (
+          <StudioPlayerCanvas />
+        ) : activeTab ? (
+          <div className="w-full h-full flex flex-col flex-1 min-h-0">
+            <CenterTabRenderer
+              tab={activeTab}
+              isActive={true}
+              tabContent={editedContents[activeTab.id] ?? activeTab.content ?? ""}
+              activeFolder={activeFolder}
+              lineCount={lineCount}
+              addedLineNums={addedLineNums}
+              cursorPos={cursorPos}
+              textareaRef={textareaRef}
+              gutterRef={gutterRef}
+              onTextChange={handleTextChange}
+              updateCursorPos={updateCursorPos}
+              onScroll={handleScroll}
+              onKeyDown={handleKeyDown}
+              onTextChangeForTab={handleTextChangeForTab}
+              onSaveForTab={handleSaveForTab}
+              onDirtyChange={handleDirtyChange}
+              onOpenFileTab={onOpenFileTab}
+              onCloseTab={(id) => {
+                onCloseTab(id);
+                if (tabs.length <= 1) setActiveView("studio");
+              }}
+            />
+          </div>
         ) : (
           <StudioPlayerCanvas />
         )}
       </div>
-
-      {/* 4. MONOCHROME BOTTOM STATUS BAR */}
-      {activeTab && <CenterStatusBar cursorPos={cursorPos} langMode={langMode} />}
     </main>
   );
 }

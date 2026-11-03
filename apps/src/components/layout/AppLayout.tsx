@@ -7,17 +7,17 @@ import { AppFooter } from "./AppFooter";
 import { useAppNetworkStatus } from "./hooks/useAppNetworkStatus";
 import { useActiveFolderSync } from "./hooks/useActiveFolderSync";
 
-const KnowledgePage = lazy(() =>
-  import("../../pages/KnowledgePage").then((m) => ({ default: m.KnowledgePage }))
+const StockVaultPage = lazy(() =>
+  import("../../pages/StockVaultPage").then((m) => ({ default: m.StockVaultPage }))
 );
-const HistoryPage = lazy(() =>
-  import("../../pages/HistoryPage").then((m) => ({ default: m.HistoryPage }))
+const SchedulePage = lazy(() =>
+  import("../../pages/SchedulePage").then((m) => ({ default: m.SchedulePage }))
+);
+const AnalyticsPage = lazy(() =>
+  import("../../pages/AnalyticsPage").then((m) => ({ default: m.AnalyticsPage }))
 );
 const SettingsPage = lazy(() =>
   import("../../pages/SettingsPage").then((m) => ({ default: m.SettingsPage }))
-);
-const TasksBoardPage = lazy(() =>
-  import("../../pages/TasksBoardPage").then((m) => ({ default: m.TasksBoardPage }))
 );
 
 export function AppLayout() {
@@ -38,11 +38,11 @@ export function AppLayout() {
     return () => cancelAnimationFrame(raf1);
   }, []);
 
-  const isWorkstationRoute =
+  const isStudioRoute =
     location.pathname === "/" || location.pathname.startsWith("/workspace");
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)] select-none">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-neutral-950 text-neutral-100 select-none">
       {/* 1. Header Bar */}
       <AppHeader
         activeFolder={activeFolder}
@@ -51,34 +51,34 @@ export function AppLayout() {
       />
 
       {/* 2. Main Keep-Alive Container */}
-      <main className="flex-1 min-h-0 w-full overflow-hidden flex flex-col relative bg-[var(--bg-app)]">
+      <main className="flex-1 min-h-0 w-full overflow-hidden flex flex-col relative bg-neutral-950">
         <div
           className={cn(
             "w-full h-full flex flex-col flex-1",
-            !isWorkstationRoute && "hidden"
+            !isStudioRoute && "hidden"
           )}
         >
           <UnifiedWorkstationPage />
         </div>
 
-        <Suspense fallback={<div className="w-full h-full flex-1 bg-[var(--bg-app)]" />}>
-          {location.pathname === "/tasks" && (
-            <div className="w-full h-full flex flex-col flex-1 animate-in fade-in duration-100">
-              <TasksBoardPage />
+        <Suspense fallback={<div className="w-full h-full flex-1 bg-neutral-950" />}>
+          {location.pathname === "/stock" && (
+            <div className="w-full h-full flex flex-col flex-1">
+              <StockVaultPage />
             </div>
           )}
-          {location.pathname === "/knowledge" && (
-            <div className="w-full h-full flex flex-col flex-1 animate-in fade-in duration-100">
-              <KnowledgePage />
+          {location.pathname === "/schedule" && (
+            <div className="w-full h-full flex flex-col flex-1">
+              <SchedulePage />
             </div>
           )}
-          {location.pathname === "/history" && (
-            <div className="w-full h-full flex flex-col flex-1 animate-in fade-in duration-100">
-              <HistoryPage />
+          {location.pathname === "/analytics" && (
+            <div className="w-full h-full flex flex-col flex-1">
+              <AnalyticsPage />
             </div>
           )}
           {location.pathname === "/settings" && (
-            <div className="w-full h-full flex flex-col flex-1 animate-in fade-in duration-100">
+            <div className="w-full h-full flex flex-col flex-1">
               <SettingsPage />
             </div>
           )}

@@ -92,7 +92,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = ({
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        padding: "120px 80px",
+        padding: "120px 80px 200px 80px",
         boxSizing: "border-box",
         overflow: "hidden",
       }}

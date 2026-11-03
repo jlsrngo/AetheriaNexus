@@ -94,27 +94,32 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
       : chatTitle;
 
   return (
-    <div className="h-9 px-3 border-b border-[var(--border-color)] flex items-center justify-between bg-[var(--bg-panel)] shrink-0 select-none">
+    <div className="h-9 px-3 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/90 shrink-0 select-none font-mono">
       <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
-        <Bot className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
+        <Bot className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
         {isEditingTitle ? (
           <input
             type="text"
             defaultValue={chatTitle === "Chat" || chatTitle === "New Chat" ? "" : chatTitle}
-            placeholder={t("sessionNamePlaceholder", "Session Name...")}
+            placeholder="SESSION_ID..."
             autoFocus
             onKeyDown={handleTitleSubmit}
             onBlur={handleTitleBlur}
-            className="bg-transparent border-none outline-none text-xs font-semibold text-[var(--text-primary)] w-full focus:ring-1 focus:ring-[var(--border-strong)] rounded px-1 -ml-1 transition-all placeholder-[var(--text-dim)]"
+            className="bg-neutral-950 border border-neutral-700 outline-none text-[11px] font-mono text-white w-full rounded-none px-2 py-0.5 transition-none placeholder-neutral-600 uppercase tracking-wider"
           />
         ) : (
-          <span
-            onClick={() => setIsEditingTitle(true)}
-            className="text-xs font-semibold text-[var(--text-primary)] truncate cursor-pointer hover:bg-[var(--bg-hover)] px-1 py-0.5 -ml-1 rounded transition-colors"
-            title={t("clickToRenameSession", "Click to rename session")}
-          >
-            {displayTitle}
-          </span>
+          <div className="flex items-center gap-2 truncate">
+            <span
+              onClick={() => setIsEditingTitle(true)}
+              className="text-[11px] font-bold text-white truncate cursor-pointer hover:text-emerald-400 transition-none uppercase tracking-wider"
+              title={t("clickToRenameSession", "Click to rename session")}
+            >
+              {displayTitle}
+            </span>
+            <span className="hidden sm:inline-block text-[9px] px-1 py-0.2 border border-neutral-800 text-neutral-500 uppercase tracking-widest">
+              AI_DIRECTOR
+            </span>
+          </div>
         )}
       </div>
       <div className="flex items-center gap-1 shrink-0">
@@ -124,10 +129,10 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
             disabled={isCompacting}
             onClick={onCompactSession}
             className={cn(
-              "w-[18px] h-[18px] rounded flex items-center justify-center transition-colors cursor-pointer shrink-0",
+              "h-6 px-1.5 rounded-none border border-neutral-800 text-[10px] font-mono flex items-center gap-1 transition-none cursor-pointer shrink-0 uppercase tracking-wider",
               isCompacted || isCompacting
-                ? "bg-[#cf6613] hover:bg-[#b8580f] text-white"
-                : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]",
+                ? "bg-amber-400 text-black font-bold border-amber-400"
+                : "bg-neutral-950 text-neutral-400 hover:text-white hover:border-neutral-700",
               isCompacting && "opacity-80 cursor-wait"
             )}
             title={
@@ -143,25 +148,27 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
             ) : (
               <Sparkles className="w-2.5 h-2.5" strokeWidth={1.8} />
             )}
+            <span className="hidden md:inline">COMPACT</span>
           </button>
         )}
         {onNewChat && (
           <button
             type="button"
             onClick={onNewChat}
-            className="w-5 h-5 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer flex items-center justify-center shrink-0"
+            className="h-6 px-2 rounded-none border border-neutral-800 bg-neutral-950 text-neutral-300 hover:text-white hover:border-neutral-700 text-[10px] font-mono font-bold transition-none cursor-pointer flex items-center gap-1 shrink-0 uppercase tracking-wider"
             title={t("newChatSession", "New Chat Session")}
           >
-            <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />
+            <Plus className="w-3 h-3" strokeWidth={2} />
+            <span>NEW</span>
           </button>
         )}
         <button
           type="button"
           onClick={onClose}
-          className="w-5 h-5 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer flex items-center justify-center shrink-0"
+          className="w-6 h-6 rounded-none border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white hover:border-neutral-700 transition-none cursor-pointer flex items-center justify-center shrink-0"
           title={t("closePanel", "Close Panel")}
         >
-          <PanelRightClose className="w-3.5 h-3.5" />
+          <PanelRightClose className="w-3 h-3" />
         </button>
       </div>
     </div>

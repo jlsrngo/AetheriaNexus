@@ -127,10 +127,13 @@ export default function App() {
             <Route element={<AppLayout />}>
               <Route path="/" element={null} />
               <Route path="/workspace" element={<Navigate to="/" replace />} />
-              <Route path="/tasks" element={null} />
-              <Route path="/knowledge" element={null} />
-              <Route path="/history" element={null} />
+              <Route path="/stock" element={null} />
+              <Route path="/schedule" element={null} />
+              <Route path="/analytics" element={null} />
               <Route path="/settings" element={null} />
+              <Route path="/tasks" element={<Navigate to="/stock" replace />} />
+              <Route path="/knowledge" element={<Navigate to="/" replace />} />
+              <Route path="/history" element={<Navigate to="/schedule" replace />} />
             </Route>
           </Routes>
         </RouterComponent>

@@ -2,7 +2,6 @@ import { memo, lazy, Suspense } from "react";
 import { CenterTab } from "./types";
 import { CenterEditorView } from "./CenterEditorView";
 import { SplitDiffViewer } from "./SplitDiffViewer";
-import { SopPlaybookCenterView } from "../sop/SopPlaybookCenterView";
 import { StudioPlayerCanvas } from "../../studio/StudioPlayerCanvas";
 import { cn } from "../../../lib/utils";
 
@@ -37,7 +36,7 @@ export const CenterTabRenderer = memo(function CenterTabRenderer({
   tab,
   isActive,
   tabContent,
-  activeFolder,
+  activeFolder: _activeFolder,
   lineCount,
   addedLineNums,
   cursorPos,
@@ -49,43 +48,19 @@ export const CenterTabRenderer = memo(function CenterTabRenderer({
   onKeyDown,
   onTextChangeForTab,
   onSaveForTab,
-  onOpenFileTab,
+  onOpenFileTab: _onOpenFileTab,
   onCloseTab,
   onRevertDiff,
   onAcceptDiff,
 }: CenterTabRendererProps) {
   const isTabCanvas = tab.type === "canvas";
 
-  const isTabSopPlaybook = Boolean(
-    tab.fileType === "playbook" ||
-      tab.fileType === "playbook-new" ||
-      tab.fileType === "playbook-audit" ||
-      tab.fileType === "playbook-exec"
-  );
-
   return (
     <div
       className={cn("w-full h-full flex flex-col flex-1", !isActive && "hidden")}
       style={{ display: isActive ? "flex" : "none" }}
     >
-      {isTabSopPlaybook ? (
-        <SopPlaybookCenterView
-          mode={
-            tab.fileType === "playbook-new"
-              ? "new-playbook"
-              : tab.fileType === "playbook-audit"
-              ? "reconcile"
-              : tab.fileType === "playbook-exec"
-              ? "executive"
-              : "playbook"
-          }
-          playbookId={tab.path}
-          initialContent={tab.content}
-          activeFolder={activeFolder}
-          onOpenFileTab={onOpenFileTab}
-          onCloseCurrentTab={() => onCloseTab(tab.id)}
-        />
-      ) : isTabCanvas ? (
+      {isTabCanvas ? (
         <Suspense fallback={null}>
           <CanvasView
             content={tabContent}

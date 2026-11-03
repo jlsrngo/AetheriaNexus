@@ -1,9 +1,7 @@
 import { memo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Sun, Moon, Box, Minus, Square, X } from "lucide-react";
+import { User, Minus, Square, X } from "lucide-react";
 import { ArunakiLogo } from "../common/ArunakiLogo";
-import { useTheme } from "../../lib/theme";
-import { useI18n } from "../../lib/i18n";
 import { TopMenuBar } from "./TopMenuBar";
 
 interface AppHeaderProps {
@@ -36,8 +34,6 @@ export const AppHeader = memo(function AppHeader({
   onCloseFolder,
 }: AppHeaderProps) {
   const navigate = useNavigate();
-  const { theme, setTheme, isLight, isNeobrutalism } = useTheme();
-  const { t } = useI18n();
 
   const handleNavigateWorkstation = useCallback(() => {
     const savedFolder = localStorage.getItem("arunaki_active_folder") || "";
@@ -50,16 +46,6 @@ export const AppHeader = memo(function AppHeader({
     const query = params.toString();
     navigate(query ? `/?${query}` : "/");
   }, [navigate]);
-
-  const toggleQuickTheme = useCallback(() => {
-    if (theme === "dark") {
-      setTheme("light");
-    } else if (theme === "light") {
-      setTheme("neobrutalism");
-    } else {
-      setTheme("dark");
-    }
-  }, [theme, setTheme]);
 
   const handleMinimize = useCallback(async () => {
     if ((window as any).arunakiDesktop?.minimize) {
@@ -101,24 +87,36 @@ export const AppHeader = memo(function AppHeader({
       data-tauri-drag-region
       onMouseDown={handleHeaderMouseDown}
       onDoubleClick={handleHeaderDoubleClick}
-      className="h-10 bg-[var(--bg-header)] border-b border-[var(--border-color)] flex items-center justify-between px-3 shrink-0 transition-colors duration-150 select-none z-30"
+      className="h-10 bg-neutral-950 border-b border-neutral-800 flex items-center justify-between px-3 shrink-0 transition-none select-none z-30 font-mono text-xs"
       style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
     >
-      {/* Left side: Brand Logo + Classic File/Edit/View/Help Menus */}
-      <div className="flex items-center gap-4" data-tauri-drag-region="false">
+      {/* Left side: Brand Logo + Remotion-style Breadcrumbs + Dropdown Menus */}
+      <div className="flex items-center gap-3" data-tauri-drag-region="false">
         <div
-          className="flex items-center gap-2 cursor-pointer"
+          className="flex items-center gap-2 cursor-pointer pr-2 border-r border-neutral-800"
           onClick={handleNavigateWorkstation}
           data-tauri-drag-region="false"
           style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
-          <ArunakiLogo size={20} />
-          <span className="font-semibold text-xs tracking-tight text-[var(--text-primary)]">
-            Arunaki
+          <ArunakiLogo size={18} />
+          <span className="font-extrabold text-[11px] tracking-wider text-white uppercase">
+            ARUNAKI // NEXUS
           </span>
         </div>
 
-        {/* Clean Dropdown Menus */}
+        {/* Remotion-style active composition breadcrumb */}
+        <div
+          className="hidden md:flex items-center gap-1.5 px-2 py-0.5 bg-neutral-900 border border-neutral-800 text-[10px] text-neutral-300"
+          data-tauri-drag-region="false"
+          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+        >
+          <span className="w-1.5 h-1.5 bg-emerald-400 rounded-none inline-block animate-pulse" />
+          <span className="text-neutral-500">▶</span>
+          <span className="text-neutral-400 font-mono">compositions /</span>
+          <span className="text-white font-bold font-mono">nexus-vertical</span>
+        </div>
+
+        {/* Dropdown Menus */}
         <div
           className="flex items-center gap-1"
           data-tauri-drag-region="false"
@@ -132,62 +130,39 @@ export const AppHeader = memo(function AppHeader({
         </div>
       </div>
 
-      {/* Right side: Quick Theme Switch, User Avatar & Frameless Window Controls */}
+      {/* Right side: Telemetry + Settings + Technical Window Controls */}
       <div
-        className="flex items-center gap-2"
+        className="flex items-center gap-2 h-full"
         data-tauri-drag-region="false"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
-        <button
-          type="button"
-          onClick={toggleQuickTheme}
-          data-tauri-drag-region="false"
-          className={
-            isNeobrutalism
-              ? "neo-icon-badge w-7 h-7 rounded-full bg-[#B388FF] flex items-center justify-center text-[#141413] border border-[#141413] hover:bg-[#CCFF00] transition-colors cursor-pointer"
-              : "w-7 h-7 rounded-full bg-[var(--bg-hover)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)] transition-colors cursor-pointer"
-          }
-          title={
-            isNeobrutalism
-              ? t("switchToDark", "Switch to Dark Mode")
-              : isLight
-              ? t("switchToNeobrutalism", "Switch to Neo-Brutalism")
-              : t("switchToLight", "Switch to Light Mode")
-          }
-        >
-          {isNeobrutalism ? (
-            <Box className="w-3.5 h-3.5 text-[#141413]" strokeWidth={2.25} />
-          ) : isLight ? (
-            <Sun className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={2.25} />
-          ) : (
-            <Moon className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={2.25} />
-          )}
-        </button>
+        <div className="hidden lg:flex items-center gap-2 text-[10px] text-neutral-500 tracking-wider mr-2">
+          <span>ENGINE: REMOTION_LOCAL</span>
+          <span className="text-neutral-700">|</span>
+          <span className="text-emerald-400 font-bold">COST: RP 0</span>
+        </div>
 
         <button
           type="button"
           onClick={() => navigate("/settings")}
           data-tauri-drag-region="false"
-          className={
-            isNeobrutalism
-              ? "neo-icon-badge w-7 h-7 rounded-full bg-[#FF9F43] flex items-center justify-center text-[#141413] border border-[#141413] hover:bg-[#CCFF00] transition-colors cursor-pointer"
-              : "w-7 h-7 rounded-full bg-[var(--bg-hover)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)] transition-colors cursor-pointer"
-          }
-          title={t("userProfileSettings", "User Profile & Settings")}
+          className="h-7 px-2 bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-700 transition-none cursor-pointer flex items-center gap-1.5 text-[10px] uppercase font-mono rounded-none"
+          title="Settings"
         >
-          <User className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={2.25} />
+          <User className="w-3 h-3 text-neutral-400" />
+          <span>SETTINGS</span>
         </button>
 
-        {/* Seamless Window Controls */}
+        {/* Seamless Technical Window Controls (90° Sharp Edge) */}
         <div
           data-tauri-drag-region="false"
-          className="flex items-center ml-1 border-l border-[var(--border-color)] pl-1.5 gap-0.5"
+          className="flex items-center h-full ml-1 border-l border-neutral-800"
         >
           <button
             type="button"
             onClick={handleMinimize}
             data-tauri-drag-region="false"
-            className="w-7 h-7 rounded flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            className="w-10 h-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-850 transition-none cursor-pointer border-r border-neutral-800 rounded-none"
             title="Minimize"
           >
             <Minus className="w-3.5 h-3.5" />
@@ -196,7 +171,7 @@ export const AppHeader = memo(function AppHeader({
             type="button"
             onClick={handleMaximize}
             data-tauri-drag-region="false"
-            className="w-7 h-7 rounded flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            className="w-10 h-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-850 transition-none cursor-pointer border-r border-neutral-800 rounded-none"
             title="Maximize / Restore"
           >
             <Square className="w-2.5 h-2.5" />
@@ -205,7 +180,7 @@ export const AppHeader = memo(function AppHeader({
             type="button"
             onClick={handleClose}
             data-tauri-drag-region="false"
-            className="w-7 h-7 rounded flex items-center justify-center text-[var(--text-muted)] hover:text-white hover:bg-rose-600 transition-colors cursor-pointer"
+            className="w-10 h-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-rose-600 transition-none cursor-pointer rounded-none"
             title="Close"
           >
             <X className="w-3.5 h-3.5" />

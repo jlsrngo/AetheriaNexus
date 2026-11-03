@@ -6,7 +6,7 @@ import { CanvasItem } from "./types";
 const EMOJI_REGEX = /[\u{1F300}-\u{1FAD6}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu;
 
 export function formatCanvasTitle(title: string): string {
-  if (!title) return "Document Canvas";
+  if (!title) return "Script Draft";
   const clean = title
     .replace(/^#+\s*/, "")
     .replace(EMOJI_REGEX, "")
@@ -19,7 +19,7 @@ export function formatCanvasTitle(title: string): string {
       .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ""))
       .join(" ");
   }
-  return clean || "Document Canvas";
+  return clean || "Script Draft";
 }
 
 function getCanvasIcon(_title: string) {
@@ -59,24 +59,24 @@ export const ExplorerRecentCanvases = memo(function ExplorerRecentCanvases({
               !isOpen && "-rotate-90"
             )}
           />
-          <PanelsTopLeft className="w-3.5 h-3.5 text-[var(--text-muted)]" strokeWidth={1.5} />
-          <span className="font-semibold text-xs tracking-tight text-[var(--text-primary)]">
-            Canvas
+          <PanelsTopLeft className="w-3.5 h-3.5 text-neutral-400" strokeWidth={1.5} />
+          <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-200">
+            Drafts & Hooks
           </span>
           {recentCanvases.length > 0 && (
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[var(--bg-card)] text-[var(--text-dim)] border border-[var(--border-color)] font-mono">
+            <span className="text-[10px] px-1 py-0.2 rounded-none bg-neutral-900 text-neutral-300 border border-neutral-700 font-mono">
               {recentCanvases.length}
             </span>
           )}
         </div>
-        <span className="text-[10px] text-[var(--text-dim)] font-mono">top 5</span>
+        <span className="text-[10px] text-neutral-500 font-mono">recent</span>
       </button>
 
       {isOpen && (
         <div className="p-1 space-y-0.5 max-h-44 overflow-y-auto overflow-x-hidden select-none">
           {recentCanvases.length === 0 ? (
-            <div className="px-3 py-2 text-[11px] text-[var(--text-dim)] italic">
-              No recent canvas
+            <div className="px-3 py-2 text-[10px] text-neutral-500 font-mono uppercase tracking-wider">
+              No saved script drafts
             </div>
           ) : (
             recentCanvases.slice(0, 5).map((item) => {

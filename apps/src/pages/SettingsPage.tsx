@@ -1,34 +1,21 @@
 import { useState, useEffect } from "react";
-import { Cpu, User, Sliders, MessageSquare, Terminal } from "lucide-react";
+import { Cpu, User, MessageSquare, Terminal } from "lucide-react";
 import { cn } from "../lib/utils";
 import { API_BASE, apiFetch, directoryQuery } from "../lib/api";
-import { useI18n } from "../lib/i18n";
-import { useTheme } from "../lib/theme";
 import { ModelProviderSettings, Provider, isCliProvider } from "../components/settings/ModelProviderSettings";
 import { SettingsCliConnectionsTab } from "../components/settings/SettingsCliConnectionsTab";
 import { SettingsAccountTab } from "../components/settings/SettingsAccountTab";
-import { SettingsAutomationTab } from "../components/settings/SettingsAutomationTab";
 import { SettingsMessagingTab } from "../components/settings/SettingsMessagingTab";
-
-const NEO_TAB_COLORS: Record<string, { bg: string; activeBg: string }> = {
-  models: { bg: "bg-[#EFF6FF]", activeBg: "bg-[#93C5FD]" }, // Sky Blue
-  cli: { bg: "bg-[#FAF5FF]", activeBg: "bg-[#D8B4FE]" }, // Lavender
-  integrations: { bg: "bg-[#FFF7ED]", activeBg: "bg-[#FDBA74]" }, // Warm Orange
-  messaging: { bg: "bg-[#F0F9FF]", activeBg: "bg-[#7DD3FC]" }, // Light Cyan
-  account: { bg: "bg-[#FEFCE8]", activeBg: "bg-[#FDE047]" }, // Warm Yellow
-};
+import { CornerCrosses } from "../components/ui/CornerCrosses";
 
 export function SettingsPage() {
-  const { t } = useI18n();
-  const { isNeobrutalism } = useTheme();
   const [activeTab, setActiveTab] = useState("models");
 
   const tabs = [
-    { id: "models", label: t("modelRouting", "Model Providers"), icon: Cpu },
-    { id: "cli", label: t("cliConnections", "Connection CLI"), icon: Terminal },
-    { id: "integrations", label: t("desktopAutomation", "Office Automation"), icon: Sliders },
-    { id: "messaging", label: t("messagingApps", "Messaging Apps"), icon: MessageSquare },
-    { id: "account", label: t("accountLicense", "Account & License"), icon: User },
+    { id: "models", label: "MODEL PROVIDERS", icon: Cpu },
+    { id: "cli", label: "CLI BRIDGES", icon: Terminal },
+    { id: "messaging", label: "MESSAGING BOTS", icon: MessageSquare },
+    { id: "account", label: "ACCOUNT & TELEMETRY", icon: User },
   ];
   const [providers, setProviders] = useState<Provider[]>([]);
   const [availableCatalogModels, setAvailableCatalogModels] = useState<Record<string, string[]>>({});
@@ -36,13 +23,11 @@ export function SettingsPage() {
 
   const fetchProviders = async () => {
     try {
-      // 1. Fetch user-configured providers from /api/providers and catalog models from /api/model
       let [providersRes, modelRes] = await Promise.all([
         apiFetch(`${API_BASE}/providers${directoryQuery()}`),
         apiFetch(`${API_BASE}/model${directoryQuery()}`),
       ]);
 
-      // Fallback to global catalogue if directory-scoped fetch failed
       if (!providersRes.ok && directoryQuery()) {
         const [fallbackP, fallbackM] = await Promise.all([
           apiFetch(`${API_BASE}/providers`),
@@ -57,7 +42,6 @@ export function SettingsPage() {
       const mJson = modelRes.ok ? await modelRes.json() : { data: [] };
       const rawModels: any[] = mJson.data || [];
 
-      // Build a catalog lookup of all discovered models per provider ID
       const catalogMap: Record<string, string[]> = {};
       for (const m of rawModels) {
         if (m.providerID) {
@@ -99,22 +83,18 @@ export function SettingsPage() {
               modelNames = defaults.slice(0, 3).join(", ") || "default";
             }
 
-            const rawKey = p.apiKey || "";
-            const isMasked = rawKey.includes("•") || rawKey.includes("****");
-            const cleanKey = isMasked ? "" : rawKey;
-            const isActive = p.id === activeId;
-
             return {
               id: p.id,
               name: p.name || p.id,
-              type: p.type || "openai-compatible",
-              baseUrl: p.baseUrl || "",
-              apiKey: cleanKey,
+              type: p.type || "openai",
               model: modelNames,
-              active: isActive,
+              baseUrl: p.baseUrl || "",
+              apiKey: p.apiKey || "",
+              active: p.id === activeId,
               priority: p.priority ?? idx + 1,
-              isCli: p.isCli,
-              category: p.category,
+              isCli: typeof p.isCli === "boolean"
+                ? p.isCli
+                : isCliProvider({ id: p.id, baseUrl: p.baseUrl || "", name: p.name || "", apiKey: p.apiKey || "", type: p.type || "", model: "", active: true, priority: 0 }),
             };
           });
 
@@ -137,38 +117,37 @@ export function SettingsPage() {
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-y-auto select-none p-6 transition-colors duration-150">
+    <div className="flex-1 flex flex-col h-full w-full bg-neutral-950 text-neutral-100 overflow-y-auto select-none p-6 transition-none">
       <div className="max-w-5xl w-full mx-auto flex-1 flex flex-col min-h-0">
-        {/* Header Title */}
-        <div className="mb-4">
-          <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">
-            {t("settingsTitle", "Workstation System Settings")}
+        {/* Header Title - Swiss Brutalism Telemetry */}
+        <div className="mb-6 border-b border-neutral-800 pb-4">
+          <div className="flex items-center gap-2 font-mono text-[11px] text-emerald-400 uppercase tracking-widest mb-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
+            NEXUS SYSTEM SETTINGS // CONFIGURATION
+          </div>
+          <h1 className="text-xl font-mono font-extrabold tracking-tight text-white uppercase">
+            SYSTEM TELEMETRY & PROVIDER ROUTING
           </h1>
-          <p className="text-xs text-[var(--text-muted)] mt-0.5">
-            {t("settingsSubtitle", "Configure model routing, desktop office automation behavior, and user account licensing.")}
+          <p className="text-xs font-mono text-neutral-400 mt-1">
+            Manage AI model providers, CLI bridge ports (20288), messaging webhooks, and local hardware execution.
           </p>
         </div>
 
-        {/* Tab Navigation Pill Bar */}
-        <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-3 mb-6 overflow-x-auto shrink-0">
+        {/* Tab Navigation Sharp Swiss Bar */}
+        <div className="flex items-center gap-1 border-b border-neutral-800 pb-3 mb-6 overflow-x-auto shrink-0">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
-            const neoColor = NEO_TAB_COLORS[tab.id] || { bg: "bg-[#FFFDFB]", activeBg: "bg-[#CCFF00]" };
             return (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer whitespace-nowrap h-10 select-none",
-                  isNeobrutalism
-                    ? isActive
-                      ? `${neoColor.activeBg} text-[#141413] border-2 border-[#141413] shadow-[3px_3px_0px_#141413] font-bold`
-                      : `${neoColor.bg} text-[#141413] border-2 border-[#141413] shadow-[1px_1px_0px_#141413] hover:shadow-[2px_2px_0px_#141413] font-semibold hover:brightness-95`
-                    : isActive
-                    ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] font-semibold"
-                    : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border border-transparent"
+                  "flex items-center gap-2 px-4 py-2 rounded-none text-[11px] font-mono tracking-wider transition-none cursor-pointer whitespace-nowrap h-9 select-none border",
+                  isActive
+                    ? "bg-white text-black border-white font-bold"
+                    : "bg-neutral-900/60 text-neutral-400 border-neutral-800 hover:text-white hover:border-neutral-600"
                 )}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -178,15 +157,10 @@ export function SettingsPage() {
           })}
         </div>
 
-        {/* Main Settings Panel Content */}
-        <div
-          className={cn(
-            "flex-1 w-full rounded-2xl p-6 overflow-y-auto min-h-0 transition-colors duration-150",
-            isNeobrutalism
-              ? "bg-[#FFFDFB] border-2 border-[#141413] shadow-[4px_4px_0px_#141413]"
-              : "bg-[var(--bg-panel)] border border-[var(--border-color)]"
-          )}
-        >
+        {/* Main Settings Panel Content with CornerCrosses */}
+        <div className="relative flex-1 w-full rounded-none p-6 overflow-y-auto min-h-0 bg-neutral-900/90 border border-neutral-800 shadow-2xl">
+          <CornerCrosses className="text-neutral-500" size="sm" />
+
           <div className={cn("w-full", activeTab !== "models" && "hidden")}>
             <ModelProviderSettings
               providers={providers}
@@ -202,10 +176,6 @@ export function SettingsPage() {
               providers={providers}
               onRefresh={fetchProviders}
             />
-          </div>
-
-          <div className={cn("w-full", activeTab !== "integrations" && "hidden")}>
-            <SettingsAutomationTab />
           </div>
 
           <div className={cn("w-full", activeTab !== "messaging" && "hidden")}>

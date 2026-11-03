@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { triggerKnowledgeSync, triggerKnowledgeSyncIfStale } from "../../../lib/knowledgeSync";
 import { tauriPickFolder } from "../../../lib/api";
 
 export function useActiveFolderSync() {
@@ -23,36 +22,6 @@ export function useActiveFolderSync() {
       window.removeEventListener("storage", loadActiveFolder);
     };
   }, []);
-
-  // Workspace Switch — auto-sync knowledge sources on folder change (deferred slightly so initial UI paint is never blocked)
-  useEffect(() => {
-    if (!activeFolder) return;
-    const timer = setTimeout(() => {
-      triggerKnowledgeSync(activeFolder);
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, [activeFolder]);
-
-  // Periodic Background Interval & Window Focus sync
-  useEffect(() => {
-    if (!activeFolder) return;
-
-    // Periodic sync every 30 minutes
-    const interval = setInterval(() => {
-      triggerKnowledgeSync(activeFolder);
-    }, 30 * 60 * 1000);
-
-    // Auto-sync on window focus if last sync was > 15 minutes ago
-    const handleFocus = () => {
-      triggerKnowledgeSyncIfStale(15 * 60 * 1000, activeFolder);
-    };
-    window.addEventListener("focus", handleFocus);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, [activeFolder]);
 
   const handleOpenFolder = useCallback(async () => {
     try {

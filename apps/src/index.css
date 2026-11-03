@@ -321,3 +321,19 @@
 [data-sonner-toaster] [data-sonner-toast] [data-icon] {
   color: var(--text-primary) !important;
 }
+
+/* Remotion Player Swiss Brutalism Controls */
+div[data-remotion-player] {
+  border-radius: 0 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+div[data-remotion-player] button {
+  border-radius: 0 !important;
+  transition: none !important;
+}
+
+div[data-remotion-player] input[type="range"] {
+  border-radius: 0 !important;
+}
+

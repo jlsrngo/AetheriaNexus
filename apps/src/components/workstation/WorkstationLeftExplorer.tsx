@@ -215,21 +215,21 @@ function WorkstationLeftExplorerComponent({
         </div>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none">
-          <Folder className="w-9 h-9 text-[var(--text-muted)] opacity-35 mb-3 stroke-[1.5]" />
-          <p className="text-xs font-semibold text-[var(--text-primary)] mb-1">
-            {t("noFolderOpened", "No folder opened")}
+          <Folder className="w-9 h-9 text-neutral-600 mb-3 stroke-[1.5]" />
+          <p className="text-xs font-bold text-neutral-200 uppercase tracking-wider font-mono mb-1">
+            {t("noFolderOpened", "No workspace connected")}
           </p>
-          <p className="text-[11px] text-[var(--text-muted)] max-w-[200px] leading-relaxed mb-4">
-            {t("openFolderDescription", "Open a project folder to inspect documents and start working with Arunaki.")}
+          <p className="text-[11px] text-neutral-400 max-w-[210px] leading-relaxed mb-4 font-mono">
+            Open a workspace folder to store video scripts, media assets, and production drafts.
           </p>
           {onOpenFolderModal && (
             <button
               type="button"
               onClick={onOpenFolderModal}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] hover:bg-[var(--bg-card)] border border-[var(--border-strong)] text-xs font-semibold text-[var(--text-primary)] transition-all cursor-pointer active:scale-95"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-[11px] font-mono uppercase tracking-wider text-neutral-100 transition-none cursor-pointer"
             >
-              <FolderOpen className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={1.5} />
-              <span>{t("openFolder", "Open Folder...")}</span>
+              <FolderOpen className="w-3.5 h-3.5 text-neutral-100" strokeWidth={1.5} />
+              <span>{t("openFolder", "Open Workspace...")}</span>
             </button>
           )}
         </div>

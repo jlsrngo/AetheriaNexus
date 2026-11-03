@@ -1,25 +1,20 @@
 import { useState, useCallback, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { WorkstationLeftExplorer } from "../components/workstation/WorkstationLeftExplorer";
-import { SourceControlPanel } from "../components/workstation/source-control/SourceControlPanel";
-import { SopPlaybookPanel } from "../components/workstation/sop/SopPlaybookPanel";
-import { FolderIngestionBanner } from "../components/workstation/sop/FolderIngestionBanner";
-import { WorkstationActivityBar, SidebarView } from "../components/workstation/activity/WorkstationActivityBar";
+import { StudioAssetsPanel } from "../components/studio/StudioAssetsPanel";
 import { WorkstationCenterPanel } from "../components/workstation/WorkstationCenterPanel";
 import { WorkstationRightChat } from "../components/workstation/WorkstationRightChat";
 import { ConnectFolderModal } from "../components/workstation/ConnectFolderModal";
 import { SearchSectionModal } from "../components/workstation/SearchSectionModal";
-import { WorkspaceSearchPanel } from "../components/workstation/search/WorkspaceSearchPanel";
 import { QuickOpenFileModal } from "../components/workstation/QuickOpenFileModal";
 import { useTabs } from "../components/workstation/tabs/useTabs";
 import { useWorkstationChat } from "../components/workstation/chat/useWorkstationChat";
 import { useWorkstationSession } from "../components/workstation/hooks/useWorkstationSession";
 import { useWorkstationFiles } from "../components/workstation/hooks/useWorkstationFiles";
 import { useWorkstationLayout } from "../components/workstation/hooks/useWorkstationLayout";
-import { useDocumentChanges } from "../components/workstation/hooks/useDocumentChanges";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
 import { tauriPickFolder } from "../lib/api";
+import { PanelLeftOpen } from "lucide-react";
 
 export function UnifiedWorkstationPage() {
   const location = useLocation();
@@ -33,7 +28,7 @@ export function UnifiedWorkstationPage() {
     activeChatId,
     setActiveChatId,
     openFolder,
-    handleCloseFolderAction,
+    handleCloseFolderAction: _handleCloseFolderAction,
     handleSelectSessionAction,
   } = useWorkstationSession({ isWorkstationRoute });
 
@@ -41,22 +36,12 @@ export function UnifiedWorkstationPage() {
   const {
     workspaceFiles,
     refetchFiles,
-    setNativeFileNames,
+    setNativeFileNames: _setNativeFileNames,
     mentionFiles,
   } = useWorkstationFiles({ activeFolder });
 
   // 3. Document Tabs Management
   const tabs = useTabs({ activeFolder, activeChatId, refetchFiles });
-
-  // 3b. Source Control & Working Tree Document Changes Management
-  const docChanges = useDocumentChanges({
-    activeFolder,
-    tabs: tabs.tabs,
-    setTabs: tabs.setTabs,
-    setActiveTabId: tabs.setActiveTabId,
-    onOpenDiffTab: tabs.handleOpenDiffTab,
-    refetchFiles,
-  });
 
   // 4. Workstation Chat Engine
   const chat = useWorkstationChat({
@@ -69,21 +54,6 @@ export function UnifiedWorkstationPage() {
     upsertCanvasTab: tabs.upsertCanvasTab,
     setRecentCanvases: tabs.setRecentCanvases,
   });
-
-  // Connect Playbook "Run" button directly to the real LLM Chat Agent
-  useEffect(() => {
-    const handleRunPlaybookLlm = (e: Event) => {
-      const customEvent = e as CustomEvent<{ prompt?: string }>;
-      const prompt = customEvent.detail?.prompt;
-      if (prompt) {
-        chat.handleSendMessage(prompt);
-      }
-    };
-    window.addEventListener("arunaki:run-playbook-llm", handleRunPlaybookLlm);
-    return () => {
-      window.removeEventListener("arunaki:run-playbook-llm", handleRunPlaybookLlm);
-    };
-  }, [chat]);
 
   // Save active document tab callback for top menubar Ctrl+S / File -> Save
   const handleSaveActiveTab = useCallback(() => {
@@ -108,7 +78,7 @@ export function UnifiedWorkstationPage() {
     leftCollapsed,
     rightCollapsed,
     startDrag,
-    handleCloseLeft,
+    handleCloseLeft: _handleCloseLeft,
     handleToggleLeft,
     handleToggleRight,
     showFolderModal,
@@ -135,119 +105,49 @@ export function UnifiedWorkstationPage() {
     }
   }, [openFolder]);
 
-  // Activity Bar Sidebar View State (Explorer / Source Control / Search)
-  const [activeSidebarView, setActiveSidebarView] = useState<SidebarView>("explorer");
   const [showQuickOpenModal, setShowQuickOpenModal] = useState(false);
 
-  const handleSelectSidebarView = useCallback(
-    (view: SidebarView) => {
-      if (leftCollapsed) {
-        setActiveSidebarView(view);
-        handleToggleLeft();
-      } else if (activeSidebarView === view) {
-        handleToggleLeft();
-      } else {
-        setActiveSidebarView(view);
-      }
-    },
-    [leftCollapsed, activeSidebarView, handleToggleLeft]
-  );
-
-  // Listen for Ctrl+P Quick Open File & Ctrl+Shift+F Workspace Search (driven by useGlobalShortcuts & top menu)
+  // Listen for Ctrl+P Quick Open File
   useEffect(() => {
     const handleQuickOpenEvent = () => setShowQuickOpenModal((prev) => !prev);
-    const handleWorkspaceSearchEvent = () => {
-      setActiveSidebarView("search");
-      if (leftCollapsed) {
-        handleToggleLeft();
-      }
-    };
-
     window.addEventListener("arunaki-quick-open-file", handleQuickOpenEvent);
-    window.addEventListener("arunaki-workspace-search", handleWorkspaceSearchEvent);
     return () => {
       window.removeEventListener("arunaki-quick-open-file", handleQuickOpenEvent);
-      window.removeEventListener("arunaki-workspace-search", handleWorkspaceSearchEvent);
     };
-  }, [leftCollapsed, handleToggleLeft]);
+  }, []);
+
+  const [activeCompositionId, setActiveCompositionId] = useState("nexus-vertical");
 
   return (
-    <div className="flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-hidden select-none transition-colors duration-150">
-      <FolderIngestionBanner activeFolder={activeFolder} onOpenFileTab={(path) => tabs.handleOpenFileTab(path, path.split("/").pop() || path)} refetchFiles={refetchFiles} />
+    <div className="flex flex-col h-full w-full bg-neutral-950 text-neutral-100 overflow-hidden select-none transition-none font-mono">
       <div
         ref={containerRef}
         className="flex-1 flex overflow-hidden relative"
         style={{ "--left-panel-width": "256px", "--right-panel-width": "320px" } as React.CSSProperties}
       >
-        {/* Activity Bar on far left (VS Code Parity) */}
-        <WorkstationActivityBar
-          activeView={activeSidebarView}
-          isCollapsed={leftCollapsed}
-          onSelectView={handleSelectSidebarView}
-          changesCount={docChanges.changes.length}
-        />
-
-        {/* Primary Sidebar Panel */}
-        {!leftCollapsed && (
-          <>
-            {activeSidebarView === "explorer" && (
-              <WorkstationLeftExplorer
-                collapsed={false}
-                onClose={handleCloseLeft}
-                onToggle={handleToggleLeft}
-                activeWorkspace={activeWorkspace}
-                workspaceFiles={workspaceFiles}
-                onOpenFileTab={tabs.handleOpenFileTab}
-                onOpenFolderModal={handleDirectPickFolder}
-                onCloseFolder={handleCloseFolderAction}
-                width="var(--left-panel-width)"
-                onNativeFilesChange={setNativeFileNames}
-                recentCanvases={tabs.recentCanvases}
-                onOpenCanvasTab={tabs.handleOpenCanvasTab}
-              />
-            )}
-
-            {activeSidebarView === "source-control" && (
-              <SourceControlPanel
-                changes={docChanges.changes}
-                onOpenDiffTab={docChanges.handleOpenDiff}
-                onRevertChange={docChanges.handleRevertChange}
-                onAcceptChange={docChanges.handleAcceptChange}
-                onRefresh={docChanges.fetchChanges}
-                onClose={handleCloseLeft}
-                onToggle={handleToggleLeft}
-                width="var(--left-panel-width)"
-              />
-            )}
-
-            {activeSidebarView === "search" && (
-              <WorkspaceSearchPanel
-                activeFolder={activeFolder}
-                workspaceFiles={workspaceFiles}
-                onOpenFileTab={tabs.handleOpenFileTab}
-                onClose={handleCloseLeft}
-                onToggle={handleToggleLeft}
-                width="var(--left-panel-width)"
-              />
-            )}
-
-            {activeSidebarView === "sop" && (
-              <SopPlaybookPanel
-                activeFolder={activeFolder}
-                onOpenFileTab={(path) =>
-                  tabs.handleOpenFileTab(path, path.split("/").pop() || path)
-                }
-                refetchFiles={refetchFiles}
-                onClose={handleCloseLeft}
-                width="var(--left-panel-width)"
-              />
-            )}
-          </>
+        {/* Primary Sidebar Panel: Remotion Compositions & Assets (Direct Parity) */}
+        {!leftCollapsed ? (
+          <StudioAssetsPanel
+            activeCompositionId={activeCompositionId}
+            onSelectComposition={setActiveCompositionId}
+            width="var(--left-panel-width)"
+          />
+        ) : (
+          <div className="w-8 bg-neutral-950 border-r border-neutral-800 flex flex-col items-center py-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleToggleLeft}
+              className="p-1.5 text-neutral-400 hover:text-white bg-neutral-900 border border-neutral-800 cursor-pointer"
+              title="Expand Compositions & Assets (Remotion Sidebar)"
+            >
+              <PanelLeftOpen className="w-3.5 h-3.5" />
+            </button>
+          </div>
         )}
 
         {!leftCollapsed && (
           <div
-            className="w-1 cursor-col-resize bg-transparent shrink-0 hover:bg-[var(--border-strong)] transition-colors"
+            className="w-1 cursor-col-resize bg-neutral-850 hover:bg-white shrink-0 transition-colors"
             onMouseDown={(e) => startDrag("left", e)}
           />
         )}
@@ -261,8 +161,6 @@ export function UnifiedWorkstationPage() {
           onUpdateTabContent={tabs.handleUpdateTabContent}
           onSaveTabContent={tabs.handleSaveFileTab}
           onOpenFolder={handleDirectPickFolder}
-          onRevertDiff={docChanges.handleRevertDiff}
-          onAcceptDiff={docChanges.handleAcceptDiff}
           onOpenFileTab={(path) =>
             tabs.handleOpenFileTab(path, path.split(/[\\/]/).pop() || path)
           }

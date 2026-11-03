@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Player } from "@remotion/player";
+import React, { useState, useRef, useEffect } from "react";
+import { Player, PlayerRef } from "@remotion/player";
 import { NexusVideoComposition } from "../../remotion/NexusVideoComposition";
 import {
   NexusVideoProps,
@@ -11,6 +11,7 @@ import {
   CanvasFps,
   CanvasDuration,
 } from "./StudioPlayerHeader";
+import { StudioTimeline } from "./StudioTimeline";
 import { CornerCrosses } from "../ui/CornerCrosses";
 import { renderNexusVideo } from "../../lib/api";
 import { toast } from "sonner";
@@ -34,8 +35,42 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
   const [internalRendering, setInternalRendering] = useState(false);
   const [internalProgress, setInternalProgress] = useState(0);
 
+  const [currentFrame, setCurrentFrame] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+
+  const playerRef = useRef<PlayerRef>(null);
+
   const activeRendering = isRendering || internalRendering;
   const activeProgress = renderProgress || internalProgress;
+
+  const durationInFrames = duration * fps;
+
+  // Real-time synchronization between Remotion Player and Timeline Scrubber
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player) return;
+
+    const onFrameUpdate = (e: { detail: { frame: number } }) => {
+      setCurrentFrame(e.detail.frame);
+    };
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onSeeked = (e: { detail: { frame: number } }) => {
+      setCurrentFrame(e.detail.frame);
+    };
+
+    player.addEventListener("frameupdate", onFrameUpdate as any);
+    player.addEventListener("play", onPlay);
+    player.addEventListener("pause", onPause);
+    player.addEventListener("seeked", onSeeked as any);
+
+    return () => {
+      player.removeEventListener("frameupdate", onFrameUpdate as any);
+      player.removeEventListener("play", onPlay);
+      player.removeEventListener("pause", onPause);
+      player.removeEventListener("seeked", onSeeked as any);
+    };
+  }, [playerRef.current]);
 
   const handleRender = async () => {
     if (onRender) {
@@ -73,14 +108,14 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
         return {
           width: 1920,
           height: 1080,
-          containerClass: "w-full max-w-[640px] aspect-[16/9]",
+          containerClass: "w-full max-w-[540px] aspect-[16/9]",
           label: "16:9 // 1920x1080 PX",
         };
       case "1:1":
         return {
           width: 1080,
           height: 1080,
-          containerClass: "w-full max-w-[420px] aspect-square",
+          containerClass: "w-full max-w-[360px] aspect-square",
           label: "1:1 // 1080x1080 PX",
         };
       case "9:16":
@@ -88,14 +123,13 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
         return {
           width: 1080,
           height: 1920,
-          containerClass: "w-full max-w-[340px] aspect-[9/16]",
+          containerClass: "w-full max-w-[280px] aspect-[9/16]",
           label: "9:16 // 1080x1920 PX",
         };
     }
   };
 
   const dim = getDimensions();
-  const durationInFrames = duration * fps;
 
   return (
     <div className="flex-1 flex flex-col h-full w-full bg-neutral-950 overflow-hidden select-none">
@@ -113,7 +147,7 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
       />
 
       {/* 2. Main Player Viewport Stage */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 relative overflow-y-auto bg-[radial-gradient(#1f1f1f_1px,transparent_1px)] [background-size:16px_16px]">
+      <div className="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden bg-[radial-gradient(#1f1f1f_1px,transparent_1px)] [background-size:16px_16px]">
         {/* Viewport Frame with Swiss Brutalism Sharp Borders & Corner Crosses */}
         <div
           className={`${dim.containerClass} relative bg-black border border-neutral-700 shadow-2xl flex items-center justify-center overflow-hidden transition-all duration-300 rounded-none`}
@@ -121,6 +155,7 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
           <CornerCrosses className="text-white" size="md" />
 
           <Player
+            ref={playerRef}
             component={NexusVideoComposition}
             inputProps={props}
             durationInFrames={durationInFrames}
@@ -132,13 +167,17 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
               height: "100%",
             }}
             controls
+            alwaysShowControls
+            spaceKeyToPlayOrPause
+            clickToPlay
+            doubleClickToFullscreen
             loop
             autoPlay
           />
         </div>
 
-        {/* 3. Bottom Telemetry Bar */}
-        <div className="mt-4 flex items-center gap-4 font-mono text-[10px] text-neutral-400 tracking-wider">
+        {/* Telemetry Stage Info */}
+        <div className="mt-2 flex items-center gap-4 font-mono text-[10px] text-neutral-400 tracking-wider">
           <span>// STAGE: {dim.label}</span>
           <span className="text-neutral-700">|</span>
           <span>FPS: {fps}</span>
@@ -148,6 +187,25 @@ export const StudioPlayerCanvas: React.FC<StudioPlayerCanvasProps> = ({
           <span>CODEC: H.264 / AAC</span>
         </div>
       </div>
+
+      {/* 3. Bottom Multi-Track Remotion Timeline HUD */}
+      <StudioTimeline
+        currentFrame={currentFrame}
+        durationInFrames={durationInFrames}
+        fps={fps}
+        isPlaying={isPlaying}
+        onPlayPause={() => {
+          if (playerRef.current) {
+            playerRef.current.toggle();
+          }
+        }}
+        onSeek={(frame) => {
+          if (playerRef.current) {
+            playerRef.current.seekTo(frame);
+            setCurrentFrame(frame);
+          }
+        }}
+      />
     </div>
   );
 };

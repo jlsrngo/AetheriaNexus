@@ -2,7 +2,6 @@ import { memo, useState, useEffect, useMemo, type MouseEvent } from "react";
 import { Check, Copy, RotateCcw, FileText, Send } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
-import { useTheme } from "../../../lib/theme";
 import { API_BASE } from "../../../lib/api";
 import { getFileIcon } from "../../workspace/tree-utils";
 import { MessageThoughtBadge, StepItem, LiveActionIndicator, getActiveActionText } from "../LiveExecutionBadge";
@@ -43,7 +42,6 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
   // CRITICAL: React Rules of Hooks - all hooks unconditionally declared at the top before any condition or early return!
   const [copied, setCopied] = useState(false);
   const [liveElapsedSec, setLiveElapsedSec] = useState(0);
-  const { isNeobrutalism } = useTheme();
 
   useEffect(() => {
     if (!isStreaming) return;
@@ -371,27 +369,31 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                 <div
                   key={group.id}
                   className={cn(
-                    "p-3 rounded-2xl text-xs leading-relaxed w-full min-w-0 max-w-full break-words [word-break:break-word] [overflow-wrap:anywhere] overflow-hidden font-sans relative",
-                    "bg-[var(--bg-card)] text-[var(--text-secondary)] rounded-bl-xs border border-[var(--border-color)]"
+                    "p-3 rounded-none text-xs leading-relaxed w-full min-w-0 max-w-full break-words [word-break:break-word] [overflow-wrap:anywhere] overflow-hidden font-mono relative",
+                    "bg-neutral-900/90 text-neutral-200 border border-neutral-800 shadow-none"
                   )}
                 >
+                  <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-neutral-800 text-[9px] font-mono uppercase tracking-widest text-neutral-500">
+                    <span className="w-1.5 h-1.5 bg-emerald-400 shrink-0" />
+                    <span>// ARUNAKI_AI // SCRIPTWRITER</span>
+                  </div>
                   {attachedImages.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-2.5">
                       {attachedImages.map((img, i) => (
                         <div
                           key={i}
-                          className="group/img relative rounded-xl overflow-hidden border border-[var(--border-strong)] bg-black/25 cursor-pointer hover:border-[var(--border-primary)] transition-all p-1"
+                          className="group/img relative rounded-none overflow-hidden border border-neutral-700 bg-black/40 cursor-pointer hover:border-white transition-none p-1"
                           onClick={() => onPreviewImage?.(img.url)}
                           title="Click to view full image"
                         >
                           <img
                             src={img.url}
                             alt={img.name}
-                            className="max-w-[240px] max-h-[170px] rounded-lg object-contain group-hover/img:scale-[1.02] transition-transform duration-150 block"
+                            className="max-w-[240px] max-h-[170px] rounded-none object-contain block"
                             onError={(e) => {
                               const parent = (e.target as HTMLElement).parentElement;
                               if (parent) {
-                                parent.innerHTML = `<div class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-panel)] rounded-lg"><svg class="w-3.5 h-3.5 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><span class="text-[11px] font-medium">${img.name}</span></div>`;
+                                parent.innerHTML = `<div class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-white bg-neutral-950 rounded-none border border-neutral-800"><span class="text-[10px] font-mono">${img.name}</span></div>`;
                               }
                             }}
                           />
@@ -401,7 +403,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                   )}
                   <ChatMessageContent content={group.text} isUser={false} />
                   {isStreaming && group.isLast && (
-                    <span className="inline-block w-1.5 h-3.5 bg-[var(--text-primary)]/80 ml-0.5 animate-pulse align-middle" />
+                    <span className="inline-block w-1.5 h-3.5 bg-emerald-400 ml-0.5 animate-pulse align-middle" />
                   )}
                 </div>
               );
@@ -442,36 +444,38 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
           {hasVisibleContent ? (
             <div
               className={cn(
-                "p-3 rounded-2xl text-xs leading-relaxed w-full min-w-0 max-w-full break-words [word-break:break-word] [overflow-wrap:anywhere] overflow-hidden font-sans relative",
+                "p-3 rounded-none text-xs leading-relaxed w-full min-w-0 max-w-full break-words [word-break:break-word] [overflow-wrap:anywhere] overflow-hidden font-mono relative border",
                 isUser
-                  ? isNeobrutalism
-                    ? "bg-[#CCFF00] text-[#141413] rounded-br-xs border border-[#141413]"
-                    : "bg-[var(--bg-hover)] text-[var(--text-primary)] rounded-br-xs border border-[var(--border-strong)]"
-                  : "bg-[var(--bg-card)] text-[var(--text-secondary)] rounded-bl-xs border border-[var(--border-color)]"
+                  ? "bg-neutral-850 border-neutral-700 text-white"
+                  : "bg-neutral-900/90 border-neutral-800 text-neutral-200"
               )}
             >
+              <div className="flex items-center gap-1.5 mb-2 pb-1 border-b border-neutral-800 text-[9px] font-mono uppercase tracking-widest text-neutral-500">
+                <span className={cn("w-1.5 h-1.5 shrink-0", isUser ? "bg-white" : "bg-emerald-400")} />
+                <span>{isUser ? "// USER_PROMPT" : "// ARUNAKI_AI // SCRIPTWRITER"}</span>
+              </div>
               {attachedImages.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-2.5">
                   {attachedImages.map((img, i) => (
                     <div
                       key={i}
-                      className="group/img relative rounded-xl overflow-hidden border border-[var(--border-strong)] bg-black/25 cursor-pointer hover:border-[var(--border-primary)] transition-all p-1"
+                      className="group/img relative rounded-none overflow-hidden border border-neutral-700 bg-black/40 cursor-pointer hover:border-white transition-none p-1"
                       onClick={() => onPreviewImage?.(img.url)}
                       title="Click to view full image"
                     >
                       <img
                         src={img.url}
                         alt={img.name}
-                        className="max-w-[240px] max-h-[170px] rounded-lg object-contain group-hover/img:scale-[1.02] transition-transform duration-150 block"
+                        className="max-w-[240px] max-h-[170px] rounded-none object-contain block"
                         onError={(e) => {
                           const parent = (e.target as HTMLElement).parentElement;
                           if (parent) {
-                            parent.innerHTML = `<div class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-panel)] rounded-lg"><svg class="w-3.5 h-3.5 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><span class="text-[11px] font-medium">${img.name}</span></div>`;
+                            parent.innerHTML = `<div class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-white bg-neutral-950 border border-neutral-800 rounded-none"><span class="text-[10px] font-mono">${img.name}</span></div>`;
                           }
                         }}
                       />
-                      <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/30 transition-colors flex items-end p-2 pointer-events-none">
-                        <span className="text-[10px] font-medium text-white bg-black/75 backdrop-blur-xs px-2 py-0.5 rounded-md truncate max-w-full opacity-0 group-hover/img:opacity-100 transition-opacity">
+                      <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/30 transition-none flex items-end p-2 pointer-events-none">
+                        <span className="text-[10px] font-mono text-white bg-black/90 px-2 py-0.5 rounded-none border border-neutral-800 truncate max-w-full opacity-0 group-hover/img:opacity-100">
                           {img.name}
                         </span>
                       </div>
@@ -485,12 +489,12 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                   {attachedOtherFiles.map((file, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-panel)]"
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-none border border-neutral-800 bg-neutral-950 font-mono"
                     >
-                      <div className="text-[var(--text-muted)] shrink-0">
+                      <div className="text-neutral-400 shrink-0">
                         {getFileIcon(file.name || "file.txt") || <FileText className="w-4 h-4" />}
                       </div>
-                      <span className="text-[11px] font-medium text-[var(--text-primary)] truncate max-w-[200px]">
+                      <span className="text-[11px] font-mono text-white truncate max-w-[200px]">
                         {file.name || "Attached file"}
                       </span>
                     </div>
@@ -498,17 +502,12 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                 </div>
               )}
               {externalSource && (
-                <div className="flex items-center gap-1.5 pb-1 mb-1.5 border-b border-[var(--border-strong)]/40 text-[10px] select-none">
-                  <Send className="w-3 h-3 text-[var(--text-secondary)] shrink-0" />
-                  <span className="font-semibold text-[var(--text-primary)]">{externalSource.platform}</span>
+                <div className="flex items-center gap-1.5 pb-1 mb-1.5 border-b border-neutral-800 text-[10px] font-mono select-none">
+                  <Send className="w-3 h-3 text-neutral-400 shrink-0" />
+                  <span className="font-bold text-white">{externalSource.platform}</span>
                   {externalSource.sender && (
                     <span
-                      className={cn(
-                        "font-mono text-[9px] px-1.5 py-0.5 rounded border",
-                        isNeobrutalism
-                          ? "bg-[#B388FF] text-[#141413] border-[#141413] font-semibold"
-                          : "bg-[var(--bg-panel)] border-[var(--border-color)] text-[var(--text-secondary)]"
-                      )}
+                      className="font-mono text-[9px] px-1.5 py-0.5 rounded-none border border-neutral-700 bg-neutral-950 text-neutral-300"
                     >
                       {externalSource.sender}
                     </span>

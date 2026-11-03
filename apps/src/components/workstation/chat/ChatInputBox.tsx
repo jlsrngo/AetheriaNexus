@@ -22,8 +22,6 @@ import {
 import { ArunakiLogo } from "../../common/ArunakiLogo";
 import { toast } from "sonner";
 import { useI18n } from "../../../lib/i18n";
-import { useTheme } from "../../../lib/theme";
-import { cn } from "../../../lib/utils";
 import {
   ChatAttachmentChips,
   ChatMentionsPopup,
@@ -83,7 +81,6 @@ export const ChatInputBox = memo(function ChatInputBox({
   onCompactSession,
 }: ChatInputBoxProps) {
   const { t } = useI18n();
-  const { isNeobrutalism } = useTheme();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [localPrompt, setLocalPrompt] = useState("");
 
@@ -379,7 +376,7 @@ export const ChatInputBox = memo(function ChatInputBox({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onPaste={handlePaste}
-      className="relative bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--border-strong)] rounded-2xl p-2.5 transition-[border-color] duration-150"
+      className="relative bg-neutral-900/90 border border-neutral-800 focus-within:border-neutral-600 rounded-none p-2.5 transition-none font-mono"
     >
       {/* File Mentions Popup */}
       <ChatMentionsPopup
@@ -409,7 +406,7 @@ export const ChatInputBox = memo(function ChatInputBox({
         {/* Invisible Ghost Sizer: sizes the grid row purely via browser layout engine with 0 JS */}
         <div
           aria-hidden="true"
-          className="col-start-1 row-start-1 invisible whitespace-pre-wrap break-words text-xs leading-[20px] min-h-[24px] max-h-[160px] pointer-events-none select-none py-0.5 overflow-hidden"
+          className="col-start-1 row-start-1 invisible whitespace-pre-wrap break-words text-xs leading-[20px] min-h-[24px] max-h-[160px] pointer-events-none select-none py-0.5 overflow-hidden font-mono"
         >
           {localPrompt ? localPrompt + "\n" : " "}
         </div>
@@ -425,25 +422,20 @@ export const ChatInputBox = memo(function ChatInputBox({
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"
-          placeholder={t("askPlaceholder", "Ask anything, type @ to mention files, / for commands...")}
+          placeholder="Ask Creative Director, type @ to mention assets, / for actions..."
           rows={1}
           style={{ fieldSizing: "content", maxHeight: "160px" } as React.CSSProperties}
-          className="col-start-1 row-start-1 w-full min-h-[24px] max-h-[160px] bg-transparent text-xs leading-[20px] py-0.5 text-[var(--text-primary)] placeholder-[var(--text-dim)] resize-none overflow-y-auto focus:outline-none no-scrollbar"
+          className="col-start-1 row-start-1 w-full min-h-[24px] max-h-[160px] bg-transparent text-xs leading-[20px] py-0.5 text-white placeholder-neutral-600 resize-none overflow-y-auto focus:outline-none no-scrollbar font-mono"
         />
       </div>
 
-      <div className="flex items-center justify-between pt-1 border-t border-[var(--border-color)] mt-1">
+      <div className="flex items-center justify-between pt-2 border-t border-neutral-800 mt-1">
         <div className="flex items-center gap-1.5 flex-wrap">
           {/* Upload / Attach File Button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className={cn(
-              "w-5 h-5 rounded-md flex items-center justify-center cursor-pointer transition-colors border",
-              isNeobrutalism
-                ? "neo-icon-badge bg-[#B388FF] text-[#141413] border-[#141413] hover:bg-[#CCFF00]"
-                : "bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-color)] hover:border-[var(--border-strong)]"
-            )}
+            className="w-6 h-6 rounded-none flex items-center justify-center cursor-pointer transition-none border bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-700"
             title={t("attachFile", "Attach file or image")}
             aria-label="Attach file"
           >
@@ -482,28 +474,29 @@ export const ChatInputBox = memo(function ChatInputBox({
           />
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 font-mono">
           {isStreaming ? (
             <>
               {(localPrompt.trim() || attachedFiles.length > 0) && (
                 <button
                   type="button"
                   onClick={submitPrompt}
-                  className="w-7 h-7 rounded-full flex items-center justify-center transition-colors cursor-pointer bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)]"
-                  title={t("addToQueue", "Add to queue")}
+                  className="h-6 px-2 rounded-none flex items-center justify-center transition-none cursor-pointer bg-neutral-950 hover:bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800 text-[10px] font-mono uppercase"
+                  title="Add to queue"
                 >
-                  <Clock className="w-3.5 h-3.5" />
+                  <Clock className="w-3 h-3 mr-1" />
+                  <span>QUEUE</span>
                 </button>
               )}
 
               <button
                 type="button"
                 onClick={onCancelStream}
-                className="relative w-7 h-7 bg-red-600 hover:bg-red-700 active:scale-95 text-white rounded-full flex items-center justify-center transition-all cursor-pointer shrink-0 group"
-                title={t("stopGenerating", "Stop generating")}
+                className="h-6 px-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-none flex items-center justify-center transition-none cursor-pointer shrink-0 font-mono text-[10px] font-bold tracking-wider uppercase gap-1"
+                title="Stop generation"
               >
-                <span className="absolute -inset-[1.5px] rounded-full border-2 border-red-400 border-t-transparent animate-spin pointer-events-none" />
-                <Square className="w-2.5 h-2.5 fill-white text-white transition-transform group-hover:scale-110" />
+                <Square className="w-2.5 h-2.5 fill-white" />
+                <span>HALT</span>
               </button>
             </>
           ) : (
@@ -511,15 +504,11 @@ export const ChatInputBox = memo(function ChatInputBox({
               type="button"
               onClick={submitPrompt}
               disabled={!localPrompt.trim() && attachedFiles.length === 0}
-              className={cn(
-                "w-7 h-7 rounded-full flex items-center justify-center transition-colors cursor-pointer disabled:opacity-30",
-                isNeobrutalism
-                  ? "neo-icon-badge bg-[#FF9F43] hover:bg-[#CCFF00] text-[#141413] border border-[#141413]"
-                  : "bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-app)]"
-              )}
+              className="h-6 px-3 rounded-none flex items-center gap-1.5 transition-none cursor-pointer bg-white hover:bg-neutral-200 text-black font-mono font-bold text-[11px] uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
               title="Send message"
             >
-              <Send className="w-3.5 h-3.5" strokeWidth={isNeobrutalism ? 2 : 1.5} />
+              <span>SEND</span>
+              <Send className="w-3 h-3" strokeWidth={2} />
             </button>
           )}
         </div>
