@@ -5,22 +5,6 @@ import { SplitDiffViewer } from "./SplitDiffViewer";
 import { SopPlaybookCenterView } from "../sop/SopPlaybookCenterView";
 import { cn } from "../../../lib/utils";
 
-const SpreadsheetViewer = lazy(() =>
-  import("../canvas/SpreadsheetViewer").then((m) => ({ default: m.SpreadsheetViewer }))
-);
-
-const WordCraft = lazy(() =>
-  import("../canvas/WordCraft").then((m) => ({ default: m.WordCraft }))
-);
-
-const DeckCraft = lazy(() =>
-  import("../canvas/DeckCraft").then((m) => ({ default: m.DeckCraft }))
-);
-
-const PdfCraft = lazy(() =>
-  import("../canvas/PdfCraft").then((m) => ({ default: m.PdfCraft }))
-);
-
 const CanvasView = lazy(() =>
   import("../canvas/CanvasView").then((m) => ({ default: m.CanvasView }))
 );
@@ -64,45 +48,12 @@ export const CenterTabRenderer = memo(function CenterTabRenderer({
   onKeyDown,
   onTextChangeForTab,
   onSaveForTab,
-  onDirtyChange,
   onOpenFileTab,
   onCloseTab,
   onRevertDiff,
   onAcceptDiff,
 }: CenterTabRendererProps) {
   const isTabCanvas = tab.type === "canvas";
-
-  const isTabPdf = Boolean(
-    !isTabCanvas &&
-      (["pdf"].includes(tab.fileType?.toLowerCase() || "") || (/\.pdf$/i).test(tab.title))
-  );
-
-  const isTabSpreadsheet = Boolean(
-    !isTabCanvas &&
-      !isTabPdf &&
-      (tab.fileType === "gridcraft-app" ||
-        ["xlsx", "xls", "xlsm", "xlsb", "csv", "tsv"].includes(tab.fileType?.toLowerCase() || "") ||
-        (/\.(xlsx|xls|xlsm|xlsb|csv|tsv)$/i).test(tab.title))
-  );
-
-  const isTabDeck = Boolean(
-    !isTabCanvas &&
-      !isTabPdf &&
-      !isTabSpreadsheet &&
-      (tab.fileType === "deckcraft-app" ||
-        ["pptx", "ppt", "odp"].includes(tab.fileType?.toLowerCase() || "") ||
-        (/\.(pptx|ppt|odp)$/i).test(tab.title))
-  );
-
-  const isTabWordDoc = Boolean(
-    !isTabCanvas &&
-      !isTabPdf &&
-      !isTabSpreadsheet &&
-      !isTabDeck &&
-      (tab.fileType === "wordcraft-app" ||
-        ["docx", "doc", "odt", "rtf"].includes(tab.fileType?.toLowerCase() || "") ||
-        (/\.(docx|doc|odt|rtf)$/i).test(tab.title))
-  );
 
   const isTabSopPlaybook = Boolean(
     tab.fileType === "playbook" ||
@@ -145,42 +96,6 @@ export const CenterTabRenderer = memo(function CenterTabRenderer({
             onSave={() => onSaveForTab(tab.id)}
           />
         </Suspense>
-      ) : isTabPdf ? (
-        <Suspense fallback={null}>
-          <PdfCraft
-            content={tabContent}
-            filePath={tab.path}
-            title={tab.title}
-            onContentChange={(newContent) => onTextChangeForTab(tab.id, newContent)}
-            onSave={() => onSaveForTab(tab.id)}
-          />
-        </Suspense>
-      ) : isTabSpreadsheet ? (
-        <Suspense fallback={null}>
-          <SpreadsheetViewer
-            content={tabContent}
-            filePath={tab.path}
-            activeFolder={activeFolder}
-            tabId={tab.id}
-            title={tab.title}
-            onContentChange={(newContent) => onTextChangeForTab(tab.id, newContent)}
-            onSave={() => onSaveForTab(tab.id)}
-            onDirtyChange={(dirty) => onDirtyChange(tab.id, dirty)}
-          />
-        </Suspense>
-      ) : isTabDeck ? (
-        <Suspense fallback={null}>
-          <DeckCraft
-            content={tabContent}
-            filePath={tab.path}
-            activeFolder={activeFolder}
-            tabId={tab.id}
-            title={tab.title}
-            onContentChange={(newContent) => onTextChangeForTab(tab.id, newContent)}
-            onSave={() => onSaveForTab(tab.id)}
-            onDirtyChange={(dirty) => onDirtyChange(tab.id, dirty)}
-          />
-        </Suspense>
       ) : tab.type === "diff" ? (
         <SplitDiffViewer
           fileName={tab.title.replace(" (Working Tree)", "")}
@@ -200,19 +115,6 @@ export const CenterTabRenderer = memo(function CenterTabRenderer({
             onCloseTab(tab.id);
           }}
         />
-      ) : isTabWordDoc ? (
-        <Suspense fallback={null}>
-          <WordCraft
-            content={tabContent}
-            filePath={tab.path}
-            activeFolder={activeFolder}
-            tabId={tab.id}
-            title={tab.title}
-            onContentChange={(newContent) => onTextChangeForTab(tab.id, newContent)}
-            onSave={() => onSaveForTab(tab.id)}
-            onDirtyChange={(dirty) => onDirtyChange(tab.id, dirty)}
-          />
-        </Suspense>
       ) : (
         isActive && (
           <CenterEditorView

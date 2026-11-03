@@ -14,7 +14,6 @@ name = "arunaki-engine"
 path = "src/main.rs"
 
 [dependencies]
-arunaki-docs = { path = "../arunaki-docs" }
 axum = { version = "0.7", features = ["multipart"] }
 tokio = { version = "1.40", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }

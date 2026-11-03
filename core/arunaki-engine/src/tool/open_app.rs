@@ -133,20 +133,7 @@ pub fn execute_open_app(session_id: &str, workspace_dir: &str, arguments: &Value
             } else {
                 content.to_string()
             };
-            let ext = target_file_path
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("")
-                .to_lowercase();
-            if ext == "docx" {
-                if let Ok(docx_bytes) = arunaki_docs::create_docx_from_markdown(&initial_text) {
-                    let _ = std::fs::write(&target_file_path, docx_bytes);
-                } else {
-                    let _ = std::fs::write(&target_file_path, &initial_text);
-                }
-            } else {
-                let _ = std::fs::write(&target_file_path, &initial_text);
-            }
+            let _ = std::fs::write(&target_file_path, &initial_text);
             emit_event(
                 workspace_dir,
                 "file.edited",

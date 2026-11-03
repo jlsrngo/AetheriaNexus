@@ -383,40 +383,9 @@ async fn handle_delete_edge(
     Json(json!({ "data": {} })).into_response()
 }
 
-fn extract_text(file_name: &str, bytes: &[u8], tmp_dir: &Path) -> String {
-    let ext = Path::new(file_name)
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-    if ext != "pdf" && ext != "docx" {
-        return String::from_utf8_lossy(bytes).to_string();
-    }
-    let _ = std::fs::create_dir_all(tmp_dir);
-    let tmp = tmp_dir.join(format!("upload-{}.{}", crate::paths::now_ms(), ext));
-    if std::fs::write(&tmp, bytes).is_err() {
-        return String::new();
-    }
-    let p = tmp.to_string_lossy().to_string();
-    let (map, key) = if ext == "pdf" {
-        (arunaki_docs::build_pdf_map(&p, Some(30)), "pages")
-    } else {
-        (arunaki_docs::build_word_map(&p), "paragraphs")
-    };
-    let _ = std::fs::remove_file(&tmp);
-    map.ok()
-        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-        .and_then(|v| {
-            v.get(key).and_then(|a| a.as_array()).map(|arr| {
-                arr.iter()
-                    .filter_map(|x| x.get("text").and_then(|t| t.as_str()))
-                    .collect::<Vec<_>>()
-                    .join("\n\n")
-            })
-        })
-        .unwrap_or_default()
+fn extract_text(_file_name: &str, bytes: &[u8], _tmp_dir: &Path) -> String {
+    String::from_utf8_lossy(bytes).to_string()
 }
-
 async fn handle_upload(
     Query(q): Query<HashMap<String, String>>,
     headers: HeaderMap,

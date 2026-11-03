@@ -47,19 +47,7 @@ pub fn execute_write(session_id: &str, workspace_dir: &str, arguments: &Value) -
                 let _ = std::fs::create_dir_all(parent);
             }
             crate::files::record_document_change(workspace_dir, fp, &before_content, content);
-            let ext = p
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("")
-                .to_lowercase();
-            let write_res = if ext == "docx" && !content.starts_with("PK\x03\x04") {
-                match arunaki_docs::create_docx_from_markdown(content) {
-                    Ok(docx_bytes) => std::fs::write(&p, docx_bytes),
-                    Err(_) => std::fs::write(&p, content),
-                }
-            } else {
-                std::fs::write(&p, content)
-            };
+            let write_res = std::fs::write(&p, content);
             match write_res {
                 Ok(_) => {
                     emit_event(

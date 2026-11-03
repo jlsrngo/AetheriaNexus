@@ -4,14 +4,13 @@ import App from './App'
 import './index.css'
 import { applyTheme, getStoredTheme } from './lib/theme'
 import { initDesktopBridge } from './lib/desktopBridge'
-import { initArtCraftPreloader, disableDefaultWebBehaviors } from './lib/artcraftPreloader'
+import { disableDefaultWebBehaviors } from './lib/webBehaviors'
 
-// Initial desktop bridge, theme, & ArtCraft WASM suite preloader on boot
+// Initial desktop bridge & theme on boot
 initDesktopBridge();
 applyTheme(getStoredTheme());
-initArtCraftPreloader();
 
-// Disable all default web browser behaviors (context menu, Print, Find bar, Reload, DevTools, Zoom, History)
+// Disable default web browser behaviors
 disableDefaultWebBehaviors(window, false);
 
 createRoot(document.getElementById('root')!).render(

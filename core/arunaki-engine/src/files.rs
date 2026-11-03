@@ -211,14 +211,6 @@ async fn handle_content(
         .unwrap_or("")
         .to_lowercase();
 
-    if ext == "docx" && !bytes.starts_with(b"PK\x03\x04") {
-        let text = String::from_utf8_lossy(&bytes).to_string();
-        if let Ok(repaired) = arunaki_docs::create_docx_from_markdown(&text) {
-            let _ = std::fs::write(&target, &repaired);
-            bytes = repaired;
-        }
-    }
-
     let is_binary = matches!(
         ext.as_str(),
         "xlsx" | "xls" | "docx" | "pptx" | "pdf" | "png" | "jpg" | "jpeg" | "gif" | "webp" | "zip"
@@ -390,255 +382,27 @@ pub fn extract_diffable_text_from_bytes(file_path: &Path, bytes: &[u8]) -> Strin
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
-    let path_str = file_path.to_string_lossy().to_string();
 
-    match ext.as_str() {
-        "docx" | "doc" => {
-            if bytes.starts_with(b"PK\x03\x04") {
-                if let Ok(json_str) = arunaki_docs::build_word_map_from_bytes(&path_str, bytes) {
-                    if let Ok(val) = serde_json::from_str::<Value>(&json_str) {
-                        let mut lines = Vec::new();
-                        if let Some(paras) = val.get("paragraphs").and_then(|v| v.as_array()) {
-                            for p in paras {
-                                if let Some(txt) = p.get("text").and_then(|v| v.as_str()) {
-                                    let trimmed = txt.trim();
-                                    if !trimmed.is_empty() {
-                                        lines.push(trimmed.to_string());
-                                    }
-                                }
-                            }
-                        }
-                        if let Some(tables) = val.get("tables").and_then(|v| v.as_array()) {
-                            for (t_idx, tbl) in tables.iter().enumerate() {
-                                if let Some(rows) = tbl.get("rows").and_then(|v| v.as_array()) {
-                                    if !lines.is_empty() {
-                                        lines.push(String::new());
-                                    }
-                                    lines.push(format!("[Table {}]", t_idx + 1));
-                                    for (r_idx, row) in rows.iter().enumerate() {
-                                        if let Some(cols) = row.as_array() {
-                                            let cells: Vec<String> = cols
-                                                .iter()
-                                                .map(|c| {
-                                                    c.as_str()
-                                                        .map(|s| s.to_string())
-                                                        .unwrap_or_else(|| c.to_string())
-                                                })
-                                                .collect();
-                                            lines.push(format!("| {} |", cells.join(" | ")));
-                                            if r_idx == 0 && !cells.is_empty() {
-                                                let sep: Vec<&str> =
-                                                    cells.iter().map(|_| "---").collect();
-                                                lines.push(format!("| {} |", sep.join(" | ")));
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if lines.is_empty() {
-                            return "[Empty Word Document]".to_string();
-                        }
-                        return lines.join("\n");
-                    }
-                }
-            }
-            String::from_utf8_lossy(bytes).replace("\r\n", "\n")
+    let is_opaque_binary = matches!(
+        ext.as_str(),
+        "png" | "jpg" | "jpeg" | "gif" | "webp" | "zip" | "exe" | "dll" | "mp4" | "mov"
+    ) || bytes.iter().take(512).any(|&b| b == 0);
+
+    if is_opaque_binary {
+        let mut hash: u64 = 0xcbf29ce484222325;
+        for &b in bytes {
+            hash ^= b as u64;
+            hash = hash.wrapping_mul(0x100000001b3);
         }
-        "xlsx" | "xls" | "xlsm" | "xlsb" => {
-            if bytes.starts_with(b"PK\x03\x04") {
-                if let Ok(json_str) = arunaki_docs::build_excel_map_from_bytes(&path_str, bytes) {
-                    if let Ok(val) = serde_json::from_str::<Value>(&json_str) {
-                        let mut lines = Vec::new();
-                        if let Some(sheets) = val.get("sheets").and_then(|v| v.as_array()) {
-                            for sh in sheets {
-                                let sname = sh
-                                    .get("name")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("Sheet1");
-                                if !lines.is_empty() {
-                                    lines.push(String::new());
-                                }
-                                lines.push(format!("=== Sheet: {} ===", sname));
-
-                                let mut rows_map: std::collections::BTreeMap<
-                                    usize,
-                                    std::collections::BTreeMap<usize, String>,
-                                > = std::collections::BTreeMap::new();
-
-                                if let Some(cells) = sh.get("cells").and_then(|v| v.as_array()) {
-                                    for cell in cells {
-                                        let Some(cref) = cell.get("ref").and_then(|v| v.as_str())
-                                        else {
-                                            continue;
-                                        };
-                                        let Some((r, c)) = arunaki_docs::parse_cell_ref(cref)
-                                        else {
-                                            continue;
-                                        };
-                                        let txt = cell
-                                            .get("text")
-                                            .and_then(|v| v.as_str())
-                                            .map(|s| s.to_string())
-                                            .or_else(|| {
-                                                cell.get("value").map(|v| {
-                                                    if v.is_null() {
-                                                        String::new()
-                                                    } else if let Some(s) = v.as_str() {
-                                                        s.to_string()
-                                                    } else {
-                                                        v.to_string()
-                                                    }
-                                                })
-                                            })
-                                            .unwrap_or_default();
-                                        let formula = cell
-                                            .get("formula")
-                                            .and_then(|v| v.as_str())
-                                            .filter(|f| !f.is_empty());
-
-                                        let entry_str = if let Some(f) = formula {
-                                            let f_clean = f.trim_start_matches('=');
-                                            if txt.is_empty() {
-                                                format!("{}: ={}", cref, f_clean)
-                                            } else {
-                                                format!("{}: {} [={}]", cref, txt, f_clean)
-                                            }
-                                        } else {
-                                            format!("{}: {}", cref, txt)
-                                        };
-                                        rows_map.entry(r).or_default().insert(c, entry_str);
-                                    }
-                                }
-
-                                if rows_map.is_empty() {
-                                    lines.push("(Empty Sheet)".to_string());
-                                } else {
-                                    for (r, cols) in rows_map {
-                                        let row_cells: Vec<String> =
-                                            cols.into_values().collect();
-                                        lines.push(format!(
-                                            "Row {:>3} | {}",
-                                            r + 1,
-                                            row_cells.join(" | ")
-                                        ));
-                                    }
-                                }
-                            }
-                        }
-                        if lines.is_empty() {
-                            return "[Empty Excel Workbook]".to_string();
-                        }
-                        return lines.join("\n");
-                    }
-                }
-            }
-            String::from_utf8_lossy(bytes).replace("\r\n", "\n")
-        }
-        "pptx" | "ppt" => {
-            if bytes.starts_with(b"PK\x03\x04") {
-                if let Ok(json_str) = arunaki_docs::build_ppt_map_from_bytes(&path_str, bytes) {
-                    if let Ok(val) = serde_json::from_str::<Value>(&json_str) {
-                        let mut lines = Vec::new();
-                        if let Some(slides) = val.get("slides").and_then(|v| v.as_array()) {
-                            for sl in slides {
-                                let num =
-                                    sl.get("number").and_then(|v| v.as_u64()).unwrap_or(1);
-                                if !lines.is_empty() {
-                                    lines.push(String::new());
-                                }
-                                lines.push(format!("=== Slide {} ===", num));
-                                if let Some(shapes) =
-                                    sl.get("shapes").and_then(|v| v.as_array())
-                                {
-                                    for sp in shapes {
-                                        if let Some(txt) =
-                                            sp.get("text").and_then(|v| v.as_str())
-                                        {
-                                            let trimmed = txt.trim();
-                                            if !trimmed.is_empty() {
-                                                let sname = sp
-                                                    .get("name")
-                                                    .and_then(|v| v.as_str())
-                                                    .unwrap_or("Shape");
-                                                lines.push(format!("[{}] {}", sname, trimmed));
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if lines.is_empty() {
-                            return "[Empty PowerPoint Presentation]".to_string();
-                        }
-                        return lines.join("\n");
-                    }
-                }
-            }
-            String::from_utf8_lossy(bytes).replace("\r\n", "\n")
-        }
-        "pdf" => {
-            if bytes.starts_with(b"%PDF") {
-                if let Ok(json_str) =
-                    arunaki_docs::build_pdf_map_from_bytes(&path_str, bytes, Some(50))
-                {
-                    if let Ok(val) = serde_json::from_str::<Value>(&json_str) {
-                        let mut lines = Vec::new();
-                        if let Some(pages) = val.get("pages").and_then(|v| v.as_array()) {
-                            for pg in pages {
-                                let pnum =
-                                    pg.get("page").and_then(|v| v.as_u64()).unwrap_or(1);
-                                let txt = pg
-                                    .get("text")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("")
-                                    .trim();
-                                if !lines.is_empty() {
-                                    lines.push(String::new());
-                                }
-                                lines.push(format!("=== Page {} ===", pnum));
-                                if !txt.is_empty() {
-                                    lines.push(txt.replace("\r\n", "\n"));
-                                }
-                            }
-                        }
-                        if !lines.is_empty() {
-                            return lines.join("\n");
-                        }
-                    }
-                }
-            }
-            String::from_utf8_lossy(bytes).replace("\r\n", "\n")
-        }
-        _ => {
-            let is_opaque_binary = matches!(
-                ext.as_str(),
-                "png" | "jpg" | "jpeg" | "gif" | "webp" | "zip" | "exe" | "dll"
-            ) || bytes.iter().take(512).any(|&b| b == 0);
-
-            if is_opaque_binary {
-                let mut hash: u64 = 0xcbf29ce484222325;
-                for &b in bytes {
-                    hash ^= b as u64;
-                    hash = hash.wrapping_mul(0x100000001b3);
-                }
-                let fname = file_path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("binary");
-                format!(
-                    "[Binary File: {}]\nSize: {} bytes\nChecksum: {:016x}",
-                    fname,
-                    bytes.len(),
-                    hash
-                )
-            } else {
-                String::from_utf8_lossy(bytes).replace("\r\n", "\n")
-            }
-        }
+        let fname = file_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("binary");
+        return format!("[Binary file: {} ({} bytes, fnv1a:{:016x})]", fname, bytes.len(), hash);
     }
-}
 
+    String::from_utf8_lossy(bytes).replace("\r\n", "\n")
+}
 pub fn ensure_workspace_baseline(base_dir: &Path) {
     if !base_dir.exists() {
         return;
@@ -1250,61 +1014,3 @@ async fn handle_find_text(
     Json(Value::Array(results)).into_response()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn extract_diffable_text_handles_docx_binary_and_markdown_tables() {
-        let md_v1 = "# Daily Report\n\nCash balance is 1,000,000.\n\n| Item | Qty |\n| --- | --- |\n| Coffee | 10 |\n";
-        let md_v2 = "# Daily Report\n\nCash balance is 1,500,000.\n\n| Item | Qty |\n| --- | --- |\n| Coffee | 15 |\n";
-
-        let docx_v1 = arunaki_docs::create_docx_from_markdown(md_v1).expect("docx v1");
-        let docx_v2 = arunaki_docs::create_docx_from_markdown(md_v2).expect("docx v2");
-
-        let path = Path::new("report.docx");
-        let text_v1 = extract_diffable_text_from_bytes(path, &docx_v1);
-        let text_v2 = extract_diffable_text_from_bytes(path, &docx_v2);
-
-        assert_ne!(text_v1, text_v2);
-        assert!(text_v1.contains("Cash balance is 1,000,000."));
-        assert!(text_v2.contains("Cash balance is 1,500,000."));
-        assert!(text_v1.contains("| Coffee | 10 |"));
-        assert!(text_v2.contains("| Coffee | 15 |"));
-    }
-
-    #[test]
-    fn workspace_baseline_tracks_markdown_word_and_text_changes_and_reverts_cleanly() {
-        let temp_dir = std::env::temp_dir().join(format!("arunaki_diff_test_{}", crate::paths::now_ms()));
-        let _ = std::fs::remove_dir_all(&temp_dir);
-        std::fs::create_dir_all(&temp_dir).unwrap();
-
-        let md_file = temp_dir.join("notes.md");
-        let docx_file = temp_dir.join("memo.docx");
-
-        std::fs::write(&md_file, "# Initial Notes\nLine 1\n").unwrap();
-        let initial_docx = arunaki_docs::create_docx_from_markdown("# Memo V1\nOriginal paragraph").unwrap();
-        std::fs::write(&docx_file, &initial_docx).unwrap();
-
-        // 1. Seed baseline snapshot
-        ensure_workspace_baseline(&temp_dir);
-        let baseline_md = temp_dir.join(".arunaki").join("baseline").join("notes.md");
-        let baseline_docx = temp_dir.join(".arunaki").join("baseline").join("memo.docx");
-        assert!(baseline_md.exists());
-        assert!(baseline_docx.exists());
-
-        // 2. Modify both .md and .docx
-        std::fs::write(&md_file, "# Initial Notes\nLine 1 Updated\nLine 2 Added\n").unwrap();
-        let updated_docx = arunaki_docs::create_docx_from_markdown("# Memo V2\nUpdated paragraph").unwrap();
-        std::fs::write(&docx_file, &updated_docx).unwrap();
-
-        // Verify diff projection detects both
-        let docx_before = extract_diffable_text(&baseline_docx);
-        let docx_after = extract_diffable_text(&docx_file);
-        assert_ne!(docx_before, docx_after);
-        assert!(docx_before.contains("Original paragraph"));
-        assert!(docx_after.contains("Updated paragraph"));
-
-        let _ = std::fs::remove_dir_all(&temp_dir);
-    }
-}

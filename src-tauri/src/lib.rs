@@ -1,7 +1,6 @@
 pub mod api;
 pub mod dialog;
 pub mod fs;
-pub mod office;
 pub mod system;
 
 use tauri::menu::{Menu, MenuItem};
@@ -39,12 +38,7 @@ pub fn run() {
             dialog::pick_file,
             dialog::show_in_explorer,
             dialog::open_path,
-            // 3. Office COM Companion
-            office::open_excel_native,
-            office::open_word_native,
-            office::open_ppt_native,
-            office::check_office_support,
-            // 4. Safe Project Filesystem
+            // 3. Safe Project Filesystem
             fs::list_project_files,
             fs::read_project_file,
             fs::write_project_file,
