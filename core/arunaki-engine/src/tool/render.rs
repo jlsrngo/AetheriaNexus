@@ -2,7 +2,12 @@
 //! Acts as the programmatic equivalent of clicking the "[↓] RENDER MP4" button in the UI.
 
 use serde_json::{json, Value};
+use std::path::{Path, PathBuf};
 use std::process::Command;
+
+use crate::paths::now_ms;
+
+const DEFAULT_COMPOSITION: &str = "NexusEditorialVideo";
 
 pub fn render_video_tool_definition() -> Value {
     json!({
@@ -15,11 +20,11 @@ pub fn render_video_tool_definition() -> Value {
                 "properties": {
                     "composition_id": {
                         "type": "string",
-                        "description": "Composition identifier to render. Defaults to 'NexusShorts'."
+                        "description": "Composition identifier to render. Defaults to 'NexusEditorialVideo'. Unknown ids fall back to the first registered composition."
                     },
                     "output_path": {
                         "type": "string",
-                        "description": "Optional destination MP4 file path (e.g. 'export/video.mp4'). If omitted, defaults to timestamped output."
+                        "description": "Optional destination MP4 path, resolved against the active project folder (e.g. 'export/video.mp4'). Defaults to 'output/nexus-<timestamp>.mp4'."
                     }
                 }
             }
@@ -27,42 +32,106 @@ pub fn render_video_tool_definition() -> Value {
     })
 }
 
+/// Reads the last `{"type": "..."}` event the render script printed.
+fn last_event<'a>(stdout: &'a str, event_type: &str) -> Option<Value> {
+    stdout
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Value>(line.trim()).ok())
+        .filter(|value| value.get("type").and_then(Value::as_str) == Some(event_type))
+        .last()
+        .map(|value| value.to_owned())
+}
+
 pub fn execute_render_video(
     _session_id: &str,
-    _workspace_dir: &str,
+    workspace_dir: &str,
     arguments: &Value,
 ) -> Value {
-    let output_path = arguments["output_path"].as_str();
+    let composition_id = arguments["composition_id"]
+        .as_str()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .unwrap_or(DEFAULT_COMPOSITION);
+
+    let root = crate::paths::project_root();
+    let workspace = if workspace_dir.trim().is_empty() {
+        root.clone()
+    } else {
+        PathBuf::from(workspace_dir)
+    };
+
+    let output_path = match arguments["output_path"].as_str() {
+        Some(raw) if !raw.trim().is_empty() => {
+            let candidate = Path::new(raw);
+            if candidate.is_absolute() {
+                candidate.to_path_buf()
+            } else {
+                workspace.join(candidate)
+            }
+        }
+        _ => workspace
+            .join("output")
+            .join(format!("nexus-{}.mp4", now_ms())),
+    };
 
     let mut cmd = Command::new("node");
-    cmd.arg("scripts/render.mjs");
-
-    if let Some(out) = output_path {
-        cmd.arg("--output").arg(out);
-    }
+    cmd.current_dir(&root)
+        .arg("scripts/render.mjs")
+        .arg("--composition")
+        .arg(composition_id)
+        .arg("--output")
+        .arg(&output_path);
 
     match cmd.output() {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-            if output.status.success() {
-                json!({
-                    "success": true,
-                    "message": "Video successfully exported to MP4 via local Nexus GPU hardware acceleration ($0 cloud cost).",
-                    "stdout": stdout,
-                    "outputPath": output_path.unwrap_or("export/ folder")
-                })
-            } else {
-                json!({
-                    "error": format!("Nexus render failed with exit code: {:?}\nStdout: {}\nStderr: {}", output.status.code(), stdout, stderr)
-                })
+            if !output.status.success() {
+                let reported = last_event(&stdout, "error")
+                    .and_then(|value| value["error"].as_str().map(str::to_owned))
+                    .unwrap_or_else(|| {
+                        format!("exit code {:?}\nStderr: {}", output.status.code(), stderr.trim())
+                    });
+                return json!({ "error": format!("Nexus render failed: {}", reported) });
             }
-        }
-        Err(e) => {
+
+            let done = last_event(&stdout, "done");
             json!({
-                "error": format!("Failed to launch Nexus video renderer: {}", e)
+                "success": true,
+                "message": "Video exported to MP4 via local Nexus render engine ($0 cloud cost).",
+                "compositionId": done
+                    .as_ref()
+                    .and_then(|value| value["compositionId"].as_str())
+                    .unwrap_or(composition_id),
+                "outputPath": done
+                    .as_ref()
+                    .and_then(|value| value["outputPath"].as_str())
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| output_path.to_string_lossy().to_string()),
             })
         }
+        Err(e) => json!({
+            "error": format!("Failed to launch Nexus video renderer: {}", e)
+        }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::last_event;
+
+    #[test]
+    fn test_last_event_picks_latest_and_ignores_noise() {
+        let stdout = concat!(
+            "not json\n",
+            "{\"type\":\"status\",\"totalFrames\":150}\n",
+            "{\"type\":\"progress\",\"percent\":40}\n",
+            "{\"type\":\"done\",\"compositionId\":\"TikTokVideo\",\"outputPath\":\"out.mp4\"}\n"
+        );
+        let done = last_event(stdout, "done").expect("done event");
+        assert_eq!(done["compositionId"], "TikTokVideo");
+        assert_eq!(done["outputPath"], "out.mp4");
+        assert!(last_event(stdout, "error").is_none());
     }
 }

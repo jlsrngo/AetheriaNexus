@@ -244,15 +244,19 @@ pub async fn handle_ensure_studio_server() -> impl IntoResponse {
     }
 
     tokio::spawn(async move {
+        let root = crate::paths::project_root();
+
         #[cfg(target_os = "windows")]
         let mut cmd = Command::new("cmd");
         #[cfg(target_os = "windows")]
-        cmd.args(["/c", "npx remotion studio apps/src/remotion/entry.ts --port 3333 --no-open"]);
+        cmd.args(["/c", "npx remotion studio apps/src/remotion/entry.ts --port 3333 --no-open"])
+            .current_dir(&root);
 
         #[cfg(not(target_os = "windows"))]
         let mut cmd = Command::new("sh");
         #[cfg(not(target_os = "windows"))]
-        cmd.args(["-c", "npx remotion studio apps/src/remotion/entry.ts --port 3333 --no-open"]);
+        cmd.args(["-c", "npx remotion studio apps/src/remotion/entry.ts --port 3333 --no-open"])
+            .current_dir(&root);
 
         let _ = cmd.spawn();
     });
@@ -527,9 +531,13 @@ pub async fn handle_render_media(
     // Spawn async background worker to stream render progress
     let rid = render_id.clone();
     let out_dest = output_file_str.clone();
+    let comp_for_worker = comp_id.clone();
     tokio::spawn(async move {
         let child = Command::new("node")
+            .current_dir(crate::paths::project_root())
             .arg("scripts/render.mjs")
+            .arg("--composition")
+            .arg(&comp_for_worker)
             .arg("--props")
             .arg(&props_str)
             .arg("--output")
@@ -545,7 +553,14 @@ pub async fn handle_render_media(
                     while let Ok(Some(line)) = reader.next_line().await {
                         if let Ok(parsed) = serde_json::from_str::<Value>(&line) {
                             let msg_type = parsed.get("type").and_then(|v| v.as_str()).unwrap_or("");
-                            if msg_type == "progress" {
+                            if msg_type == "status" {
+                                if let Some(total) = parsed.get("totalFrames").and_then(|v| v.as_u64()) {
+                                    let mut jobs = get_render_jobs_store().write().unwrap();
+                                    if let Some(j) = jobs.get_mut(&rid) {
+                                        j.total_frames = total as u32;
+                                    }
+                                }
+                            } else if msg_type == "progress" {
                                 let percent = parsed.get("percent").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
                                 let rendered = parsed.get("renderedFrames").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
                                 let total = parsed.get("totalFrames").and_then(|v| v.as_u64()).unwrap_or(150) as u32;
@@ -583,6 +598,27 @@ pub async fn handle_render_media(
                                         "outputPath": out_dest
                                     }),
                                 );
+                            } else if msg_type == "error" {
+                                let message = parsed
+                                    .get("error")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("Render engine failed")
+                                    .to_string();
+                                let mut jobs = get_render_jobs_store().write().unwrap();
+                                if let Some(j) = jobs.get_mut(&rid) {
+                                    j.status = "error".to_string();
+                                    j.error = Some(message.clone());
+                                }
+                                drop(jobs);
+                                crate::session::message::emit_event(
+                                    "global",
+                                    "studio.render_error",
+                                    json!({
+                                        "renderId": rid,
+                                        "status": "error",
+                                        "error": message
+                                    }),
+                                );
                             }
                         }
                     }
@@ -596,9 +632,9 @@ pub async fn handle_render_media(
                     if success {
                         j.status = "done".to_string();
                         j.percent = 100;
-                    } else if j.status != "done" {
+                    } else if j.status != "done" && j.status != "error" {
                         j.status = "error".to_string();
-                        j.error = Some("Render process failed with exit error".to_string());
+                        j.error = Some("Render process exited unexpectedly".to_string());
                     }
                 }
             }

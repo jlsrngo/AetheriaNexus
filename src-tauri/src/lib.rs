@@ -99,15 +99,19 @@ pub fn run() {
                         .unwrap_or(false);
 
                     if !is_up {
+                        let root = arunaki_engine::paths::project_root();
+
                         #[cfg(target_os = "windows")]
                         let mut cmd = std::process::Command::new("cmd");
                         #[cfg(target_os = "windows")]
-                        cmd.args(["/c", "npx remotion studio apps/src/remotion/entry.ts --port 3333 --no-open"]);
+                        cmd.args(["/c", "npx remotion studio apps/src/remotion/entry.ts --port 3333 --no-open"])
+                            .current_dir(&root);
 
                         #[cfg(not(target_os = "windows"))]
                         let mut cmd = std::process::Command::new("sh");
                         #[cfg(not(target_os = "windows"))]
-                        cmd.args(["-c", "npx remotion studio apps/src/remotion/entry.ts --port 3333 --no-open"]);
+                        cmd.args(["-c", "npx remotion studio apps/src/remotion/entry.ts --port 3333 --no-open"])
+                            .current_dir(&root);
 
                         let _ = cmd.spawn();
                     }

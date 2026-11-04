@@ -1,8 +1,6 @@
 export { FileMenu } from "./FileMenu";
 export { EditMenu } from "./EditMenu";
 export { ViewMenu } from "./ViewMenu";
-export { CompositionMenu } from "./CompositionMenu";
-export { ToolsMenu } from "./ToolsMenu";
 export { AppsMenu } from "./AppsMenu";
 export { HelpMenu } from "./HelpMenu";
 export { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";

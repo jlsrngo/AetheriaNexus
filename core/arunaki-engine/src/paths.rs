@@ -96,6 +96,47 @@ pub fn arunaki_data_dir() -> PathBuf {
     dir
 }
 
+/// Locates the repo root that owns `scripts/render.mjs`.
+/// Checks ARUNAKI_ROOT, the current dir and its ancestors, then upwards from the executable.
+pub fn project_root() -> PathBuf {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    if let Ok(root) = std::env::var("ARUNAKI_ROOT") {
+        if !root.trim().is_empty() {
+            candidates.push(PathBuf::from(root));
+        }
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+        let mut cur = cwd;
+        loop {
+            candidates.push(cur.clone());
+            match cur.parent() {
+                Some(parent) if parent != cur => cur = parent.to_path_buf(),
+                _ => break,
+            }
+        }
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        let mut cur = exe;
+        for _ in 0..4 {
+            match cur.parent() {
+                Some(parent) => {
+                    cur = parent.to_path_buf();
+                    candidates.push(cur.clone());
+                }
+                None => break,
+            }
+        }
+    }
+
+    candidates
+        .into_iter()
+        .find(|dir| dir.join("scripts").join("render.mjs").is_file())
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+}
+
 pub fn normalize_workspace_path(raw: &str) -> String {
     let trimmed = raw.trim().replace('/', "\\");
     let clean = trimmed.trim_end_matches('\\');
@@ -208,6 +249,16 @@ mod tests {
 
         let win_sys = Path::new("C:\\Windows\\System32\\drivers\\etc\\hosts");
         assert!(!contains_path(&base, win_sys));
+    }
+
+    #[test]
+    fn test_project_root_finds_render_script() {
+        let root = project_root();
+        assert!(
+            root.join("scripts").join("render.mjs").is_file(),
+            "project_root() returned {} which has no scripts/render.mjs",
+            root.display()
+        );
     }
 }
 

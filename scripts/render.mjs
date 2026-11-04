@@ -1,101 +1,92 @@
 import path from "node:path";
 import fs from "node:fs";
 import { bundle } from "@remotion/bundler";
-import { renderMedia, selectComposition } from "@remotion/renderer";
+import { getCompositions, renderMedia } from "@remotion/renderer";
+
+// shortcut: bundle() re-runs on every render (~15s) and this script plus apps/src/remotion
+// are not shipped by tauri.conf.json / prepare-bundle.cjs, so packaged builds cannot render.
+// Upgrade when render latency or installer parity matters: serve a cached bundle and add both as tauri resources.
+const emit = (payload) => console.log(JSON.stringify(payload));
+
+function parseArgs(argv) {
+  const parsed = { props: "{}", output: "", composition: "", entry: "" };
+  for (let i = 0; i < argv.length; i++) {
+    const value = argv[i + 1];
+    if (value === undefined) break;
+    if (argv[i] === "--props") parsed.props = value;
+    else if (argv[i] === "--output") parsed.output = value;
+    else if (argv[i] === "--composition") parsed.composition = value;
+    else if (argv[i] === "--entry") parsed.entry = value;
+    else continue;
+    i++;
+  }
+  return parsed;
+}
 
 async function main() {
-  const args = process.argv.slice(2);
-  let propsJson = "{}";
-  let outputLocation = "";
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--props" && args[i + 1]) {
-      propsJson = args[i + 1];
-      i++;
-    } else if (args[i] === "--output" && args[i + 1]) {
-      outputLocation = args[i + 1];
-      i++;
-    }
-  }
+  const args = parseArgs(process.argv.slice(2));
 
   let inputProps = {};
   try {
-    inputProps = JSON.parse(propsJson);
+    inputProps = JSON.parse(args.props);
   } catch (err) {
-    console.warn("Could not parse props JSON, using empty object:", err);
+    emit({ type: "status", message: `Invalid props JSON (${err.message}), falling back to defaultProps` });
   }
 
+  let outputLocation = args.output;
   if (!outputLocation) {
     const outputDir = path.resolve(process.cwd(), "output");
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
+    fs.mkdirSync(outputDir, { recursive: true });
     outputLocation = path.join(outputDir, `nexus-${Date.now()}.mp4`);
   } else {
-    const parentDir = path.dirname(outputLocation);
-    if (!fs.existsSync(parentDir)) {
-      fs.mkdirSync(parentDir, { recursive: true });
-    }
+    fs.mkdirSync(path.dirname(path.resolve(outputLocation)), { recursive: true });
   }
 
-  console.log(JSON.stringify({ type: "status", message: "Bundling Nexus Editorial composition..." }));
+  const entryPoint = args.entry
+    ? path.resolve(args.entry)
+    : path.resolve(process.cwd(), "apps/src/remotion/entry.ts");
 
-  const entryPoint = path.resolve(process.cwd(), "apps/src/remotion/entry.ts");
-  const bundleLocation = await bundle({
-    entryPoint,
-    webpackOverride: (config) => config,
+  if (!fs.existsSync(entryPoint)) {
+    throw new Error(`Remotion entry point not found: ${entryPoint}`);
+  }
+
+  emit({ type: "status", message: `Bundling ${path.basename(entryPoint)}...` });
+  const serveUrl = await bundle({ entryPoint });
+
+  const compositions = await getCompositions(serveUrl, { inputProps });
+  const composition = args.composition
+    ? compositions.find((c) => c.id === args.composition)
+    : compositions[0];
+
+  if (!composition) {
+    const available = compositions.map((c) => c.id).join(", ") || "(none)";
+    throw new Error(`Composition "${args.composition}" not found. Available: ${available}`);
+  }
+
+  emit({
+    type: "status",
+    message: `Rendering ${composition.id}...`,
+    compositionId: composition.id,
+    totalFrames: composition.durationInFrames,
+    fps: composition.fps,
   });
-
-  console.log(JSON.stringify({ type: "status", message: "Selecting composition..." }));
-
-  let composition;
-  try {
-    composition = await selectComposition({
-      serveUrl: bundleLocation,
-      id: "NexusEditorialVideo",
-      inputProps,
-    });
-  } catch {
-    composition = await selectComposition({
-      serveUrl: bundleLocation,
-      id: "TikTokVideo",
-      inputProps,
-    });
-  }
-
-  console.log(
-    JSON.stringify({
-      type: "status",
-      message: "Starting render...",
-      totalFrames: composition.durationInFrames,
-      fps: composition.fps,
-    })
-  );
 
   await renderMedia({
     composition,
-    serveUrl: bundleLocation,
+    serveUrl,
     codec: "h264",
     outputLocation,
     inputProps,
     onProgress: ({ renderedFrames }) => {
       const percent = Math.min(100, Math.round((renderedFrames / composition.durationInFrames) * 100));
-      console.log(
-        JSON.stringify({
-          type: "progress",
-          percent,
-          renderedFrames,
-          totalFrames: composition.durationInFrames,
-        })
-      );
+      emit({ type: "progress", percent, renderedFrames, totalFrames: composition.durationInFrames });
     },
   });
 
-  console.log(JSON.stringify({ type: "done", outputPath: outputLocation }));
+  emit({ type: "done", compositionId: composition.id, outputPath: outputLocation });
 }
 
 main().catch((err) => {
-  console.error(JSON.stringify({ type: "error", error: err.message || String(err) }));
+  emit({ type: "error", error: err.message || String(err) });
   process.exit(1);
 });
-
