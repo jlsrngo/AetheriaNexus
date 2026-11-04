@@ -4,6 +4,7 @@ import { getSession } from "../../../lib/engine";
 import { API_BASE, apiFetch } from "../../../lib/api";
 import { useI18n } from "../../../lib/i18n";
 import { cn } from "../../../lib/utils";
+import { WindowControls } from "../../common/WindowControls";
 
 interface WorkstationRightChatHeaderProps {
   activeChatId?: string;
@@ -165,6 +166,8 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
         >
           <PanelRightClose className="w-3.5 h-3.5" />
         </button>
+        <div className="w-[1px] h-4 bg-neutral-800 mx-0.5 shrink-0" />
+        <WindowControls />
       </div>
     </div>
   );

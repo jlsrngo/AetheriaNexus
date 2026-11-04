@@ -87,14 +87,12 @@ export function AppLayout() {
         </Suspense>
       </main>
 
-      {/* 3. Footer Bar (Only shown on non-studio views) */}
-      {!isStudioRoute && (
-        <AppFooter
-          activeFolder={activeFolder}
-          isOnline={isOnline}
-          onOpenFolder={handleOpenFolder}
-        />
-      )}
+      {/* 3. Footer Bar (Edge-to-edge status bar matching technical blueprint) */}
+      <AppFooter
+        activeFolder={activeFolder}
+        isOnline={isOnline}
+        onOpenFolder={handleOpenFolder}
+      />
     </div>
   );
 }
