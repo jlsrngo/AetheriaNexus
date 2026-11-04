@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*; object-src 'none'; base-uri 'self';"
+      content="default-src * 'self' 'unsafe-inline' 'unsafe-eval'; script-src * 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' http://localhost:* http://127.0.0.1:*; style-src * 'self' 'unsafe-inline' https://fonts.googleapis.com http://localhost:*; font-src * 'self' https://fonts.gstatic.com data: http://localhost:*; img-src * 'self' data: blob: https: http://localhost:*; media-src * 'self' data: blob: http://localhost:*; frame-src * 'self' http://localhost:* http://127.0.0.1:*; connect-src * 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*; object-src 'none'; base-uri 'self';"
     />
     <link rel="icon" type="image/svg+xml" href="./arunakiLogo.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -16,7 +16,7 @@
       media="print"
       onload="this.media='all'"
     />
-    <title>Arunaki</title>
+    <title>Nexus</title>
     <script>
       (function () {
         try {
@@ -86,7 +86,7 @@
     <div id="root">
       <div class="arunaki-boot-shell">
         <div class="arunaki-boot-spinner"></div>
-        <div class="arunaki-boot-label">Memuat Arunaki Workstation...</div>
+        <div class="arunaki-boot-label">Memuat Nexus Workstation...</div>
       </div>
     </div>
     <script type="module" src="./src/main.tsx"></script>

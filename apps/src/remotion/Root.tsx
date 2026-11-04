@@ -3,7 +3,7 @@ import { Composition } from "remotion";
 import { NexusVideoComposition } from "./NexusVideoComposition";
 import { defaultNexusVideoProps } from "./types";
 
-export const RemotionRoot: React.FC = () => {
+export const NexusVideoRoot: React.FC = () => {
   return (
     <>
       <Composition
@@ -28,3 +28,5 @@ export const RemotionRoot: React.FC = () => {
     </>
   );
 };
+
+export const RemotionRoot = NexusVideoRoot;

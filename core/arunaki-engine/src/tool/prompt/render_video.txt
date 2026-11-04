@@ -1,6 +1,6 @@
 # render_video
 
-Triggers the local Remotion rendering pipeline to export the active video composition to an MP4 file on disk.
+Triggers the local Nexus rendering pipeline to export the active video composition to an MP4 file on disk.
 
 This tool is the programmatic equivalent of clicking the "[↓] RENDER MP4" button on the desktop UI.
 
@@ -9,7 +9,7 @@ This tool is the programmatic equivalent of clicking the "[↓] RENDER MP4" butt
 - Do NOT use this tool to write or edit video scripts or change visual colors. To edit scripts or modify layout props, discuss with the user and edit the composition files using standard `write_file` or `edit_file`.
 
 ### Parameters:
-- `composition_id` (string, optional): The Remotion composition identifier to render (default: "NexusShorts").
+- `composition_id` (string, optional): The Nexus composition identifier to render (default: "NexusShorts").
 - `output_path` (string, optional): Target MP4 file path (e.g. "export/wealth-habits.mp4").
 
 ### Example:

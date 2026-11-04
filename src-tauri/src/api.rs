@@ -266,7 +266,7 @@ pub async fn tauri_cli_status() -> Result<serde_json::Value, String> {
 }
 
 
-/// Invokes the local Remotion render engine sidecar to export an MP4 video locally.
+/// Invokes the local Nexus GPU render engine sidecar to export an MP4 video locally.
 #[tauri::command]
 pub async fn render_nexus_video(
     props_json: Option<String>,
@@ -286,13 +286,13 @@ pub async fn render_nexus_video(
 
     let output = cmd
         .output()
-        .map_err(|e| format!("Failed to execute Remotion renderer: {}", e))?;
+        .map_err(|e| format!("Failed to execute Nexus renderer: {}", e))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
     if !output.status.success() {
-        return Err(format!("Remotion render exited with error: {}\n{}", stdout, stderr));
+        return Err(format!("Nexus render exited with error: {}\n{}", stdout, stderr));
     }
 
     Ok(serde_json::json!({

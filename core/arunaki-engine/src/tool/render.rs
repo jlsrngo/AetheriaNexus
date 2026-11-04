@@ -1,4 +1,4 @@
-//! Trigger Render Tool for Arunaki Nexus AI Agent.
+//! Trigger Render Tool for Nexus AI Agent.
 //! Acts as the programmatic equivalent of clicking the "[↓] RENDER MP4" button in the UI.
 
 use serde_json::{json, Value};
@@ -9,7 +9,7 @@ pub fn render_video_tool_definition() -> Value {
         "type": "function",
         "function": {
             "name": "render_video",
-            "description": "Triggers local Remotion engine to export the active video composition to an MP4 file on disk ($0 local hardware acceleration). Equivalent to pressing the '[↓] RENDER MP4' button in the UI. Use when the user requests to render or export the video to MP4 (e.g., via chat or Telegram bot).",
+            "description": "Triggers local Nexus GPU engine to export the active video composition to an MP4 file on disk ($0 local hardware acceleration). Equivalent to pressing the '[↓] RENDER MP4' button in the UI. Use when the user requests to render or export the video to MP4 (e.g., via chat or Telegram bot).",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -49,19 +49,19 @@ pub fn execute_render_video(
             if output.status.success() {
                 json!({
                     "success": true,
-                    "message": "Video successfully exported to MP4 via local Remotion hardware acceleration ($0 cloud cost).",
+                    "message": "Video successfully exported to MP4 via local Nexus GPU hardware acceleration ($0 cloud cost).",
                     "stdout": stdout,
                     "outputPath": output_path.unwrap_or("export/ folder")
                 })
             } else {
                 json!({
-                    "error": format!("Remotion render failed with exit code: {:?}\nStdout: {}\nStderr: {}", output.status.code(), stdout, stderr)
+                    "error": format!("Nexus render failed with exit code: {:?}\nStdout: {}\nStderr: {}", output.status.code(), stdout, stderr)
                 })
             }
         }
         Err(e) => {
             json!({
-                "error": format!("Failed to launch Node.js Remotion renderer: {}", e)
+                "error": format!("Failed to launch Nexus video renderer: {}", e)
             })
         }
     }

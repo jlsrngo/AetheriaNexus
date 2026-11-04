@@ -1,4 +1,4 @@
-//! Content & Automation Tools module for Arunaki Nexus.
+//! Content & Automation Tools module for Nexus.
 //! All tool execution is strictly isolated to the active workspace folder.
 
 pub mod bash;
@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use crate::paths::contains_path;
 
 pub fn should_attach_document_tools(_prompt_text: &str, _history: &[Value]) -> bool {
-    // In Arunaki Nexus video & creative automation agent, tools are ALWAYS attached
+    // In Nexus video & creative automation agent, tools are ALWAYS attached
     // so user requests can autonomously research trends, edit scripts, and render video.
     true
 }

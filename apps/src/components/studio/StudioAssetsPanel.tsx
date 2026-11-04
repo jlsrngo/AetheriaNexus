@@ -61,7 +61,7 @@ export const StudioAssetsPanel = memo(function StudioAssetsPanel({
           <Film className="w-3.5 h-3.5 text-emerald-400" />
           <span>STUDIO ASSETS</span>
         </div>
-        <span className="text-[9px] text-neutral-500 font-mono">REMOTION</span>
+        <span className="text-[9px] text-neutral-500 font-mono">NEXUS</span>
       </div>
 
       {/* 2. Quick Search Bar */}

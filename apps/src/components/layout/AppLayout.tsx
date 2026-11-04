@@ -43,12 +43,14 @@ export function AppLayout() {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-neutral-950 text-neutral-100 select-none">
-      {/* 1. Header Bar */}
-      <AppHeader
-        activeFolder={activeFolder}
-        onOpenFolder={handleOpenFolder}
-        onCloseFolder={handleCloseFolder}
-      />
+      {/* 1. Header Bar (Only shown on non-studio views to keep studio pure Remotion) */}
+      {!isStudioRoute && (
+        <AppHeader
+          activeFolder={activeFolder}
+          onOpenFolder={handleOpenFolder}
+          onCloseFolder={handleCloseFolder}
+        />
+      )}
 
       {/* 2. Main Keep-Alive Container */}
       <main className="flex-1 min-h-0 w-full overflow-hidden flex flex-col relative bg-neutral-950">
@@ -85,12 +87,14 @@ export function AppLayout() {
         </Suspense>
       </main>
 
-      {/* 3. Footer Bar */}
-      <AppFooter
-        activeFolder={activeFolder}
-        isOnline={isOnline}
-        onOpenFolder={handleOpenFolder}
-      />
+      {/* 3. Footer Bar (Only shown on non-studio views) */}
+      {!isStudioRoute && (
+        <AppFooter
+          activeFolder={activeFolder}
+          isOnline={isOnline}
+          onOpenFolder={handleOpenFolder}
+        />
+      )}
     </div>
   );
 }

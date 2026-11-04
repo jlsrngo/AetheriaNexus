@@ -256,7 +256,7 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
           {/* Right column: Title, Specs, Buttons */}
           <div className="flex-1 min-w-0">
             <h2 className="text-[19px] font-semibold text-[var(--text-primary)] leading-tight mb-4 select-text">
-              Arunaki
+              Nexus
             </h2>
 
             {/* Spec lines */}
@@ -303,7 +303,7 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
                     </span>
                   ) : updateResult?.checked ? (
                     <span className="font-medium">
-                      Arunaki is up to date ({updateResult.currentVersion || "v0.1.0"})
+                      Nexus is up to date ({updateResult.currentVersion || "v0.1.0"})
                     </span>
                   ) : (
                     <span className="text-[var(--text-muted)]">Automatic updates enabled</span>

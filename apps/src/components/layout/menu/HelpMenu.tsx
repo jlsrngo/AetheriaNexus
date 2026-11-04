@@ -55,7 +55,7 @@ export const HelpMenu = memo(function HelpMenu({
             label="Nexus Documentation"
             onClick={() => {
               onClose();
-              window.open("https://github.com/remotion-dev/remotion", "_blank");
+              window.open("https://github.com/juliosiringo/arunaki", "_blank");
             }}
           />
 
@@ -82,7 +82,7 @@ export const HelpMenu = memo(function HelpMenu({
 
           <MenuItem
             icon={Info}
-            label={t("aboutArunaki", "About Arunaki Nexus")}
+            label={t("aboutArunaki", "About Nexus")}
             onClick={() => {
               onClose();
               commands.openAbout?.();

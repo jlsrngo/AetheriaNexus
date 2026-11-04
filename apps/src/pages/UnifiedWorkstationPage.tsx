@@ -1,13 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { RemotionStudioSidebar, CompositionPreset } from "../components/studio/RemotionStudioSidebar";
-import { WorkstationCenterPanel } from "../components/workstation/WorkstationCenterPanel";
+import { Sparkles } from "lucide-react";
+import { NexusStudioSuite } from "../components/studio/NexusStudioSuite";
 import { WorkstationRightChat } from "../components/workstation/WorkstationRightChat";
-import {
-  WorkstationActivityBar,
-  SidebarView,
-} from "../components/workstation/activity/WorkstationActivityBar";
 import { ConnectFolderModal } from "../components/workstation/ConnectFolderModal";
 import { SearchSectionModal } from "../components/workstation/SearchSectionModal";
 import { QuickOpenFileModal } from "../components/workstation/QuickOpenFileModal";
@@ -17,7 +13,6 @@ import { useWorkstationSession } from "../components/workstation/hooks/useWorkst
 import { useWorkstationFiles } from "../components/workstation/hooks/useWorkstationFiles";
 import { useWorkstationLayout } from "../components/workstation/hooks/useWorkstationLayout";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
-import { tauriPickFolder } from "../lib/api";
 
 export function UnifiedWorkstationPage() {
   const location = useLocation();
@@ -58,7 +53,6 @@ export function UnifiedWorkstationPage() {
     setRecentCanvases: tabs.setRecentCanvases,
   });
 
-  // Save active document tab callback for top menubar Ctrl+S / File -> Save
   const handleSaveActiveTab = useCallback(() => {
     const activeTab = tabs.tabs.find((t) => t.id === tabs.activeTabId);
     if (activeTab && (activeTab.type === "file" || activeTab.type === "app")) {
@@ -78,11 +72,8 @@ export function UnifiedWorkstationPage() {
   // 5. Layout Panels & Global Window Event Handlers
   const {
     containerRef,
-    leftCollapsed,
     rightCollapsed,
     startDrag,
-    handleCloseLeft: _handleCloseLeft,
-    handleToggleLeft,
     handleToggleRight,
     showFolderModal,
     handleCloseFolderModal,
@@ -95,22 +86,8 @@ export function UnifiedWorkstationPage() {
     onOpenCanvas: handleOpenCanvas,
   });
 
-  // Directly open native OS folder picker (VS Code / Antigravity IDE parity — NO intermediate popup!)
-  const handleDirectPickFolder = useCallback(async () => {
-    try {
-      const selected = await tauriPickFolder();
-      if (selected) {
-        openFolder(selected);
-        toast.success(`Folder opened: ${selected}`);
-      }
-    } catch (err: any) {
-      toast.error(`Failed to open folder: ${err?.message || err}`);
-    }
-  }, [openFolder]);
-
   const [showQuickOpenModal, setShowQuickOpenModal] = useState(false);
 
-  // Listen for Ctrl+P Quick Open File
   useEffect(() => {
     const handleQuickOpenEvent = () => setShowQuickOpenModal((prev) => !prev);
     window.addEventListener("arunaki-quick-open-file", handleQuickOpenEvent);
@@ -119,128 +96,77 @@ export function UnifiedWorkstationPage() {
     };
   }, []);
 
-  const [activeCompositionId, setActiveCompositionId] = useState("nexus-vertical");
-  const [sidebarView, setSidebarView] = useState<SidebarView>("assets");
-
-  const handleSelectComposition = useCallback((preset: CompositionPreset) => {
-    setActiveCompositionId(preset.id);
-    if (preset.props) {
-      window.dispatchEvent(
-        new CustomEvent("arunaki-load-video-props", { detail: preset.props })
-      );
-    }
-  }, []);
-
-  const handleSelectSidebarView = useCallback(
-    (view: SidebarView) => {
-      if (!leftCollapsed && sidebarView === view) {
-        handleToggleLeft();
-      } else {
-        if (leftCollapsed) {
-          handleToggleLeft();
-        }
-        setSidebarView(view);
-      }
-    },
-    [leftCollapsed, sidebarView, handleToggleLeft]
-  );
-
   return (
-    <div className="flex flex-col h-full w-full bg-neutral-950 text-neutral-100 overflow-hidden select-none transition-none font-mono">
+    <div className="flex flex-col h-full w-full bg-neutral-950 text-neutral-100 overflow-hidden select-none transition-none font-mono relative">
+      {/* Floating AI Copilot toggle button when right panel is collapsed */}
+      {rightCollapsed && (
+        <button
+          type="button"
+          onClick={handleToggleRight}
+          className="absolute top-2 right-2 z-50 px-2.5 py-1 bg-neutral-900/90 hover:bg-neutral-800 text-neutral-200 border border-neutral-700 text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 shadow-lg rounded-none cursor-pointer"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <span>AI COPILOT</span>
+        </button>
+      )}
+
       <div
         ref={containerRef}
         className="flex-1 flex overflow-hidden relative"
-        style={{ "--left-panel-width": "260px", "--right-panel-width": "320px" } as React.CSSProperties}
+        style={{ "--right-panel-width": "340px" } as React.CSSProperties}
       >
-        {/* Far-Left Activity Bar (Remotion Video Studio Architecture) */}
-        <WorkstationActivityBar
-          activeView={sidebarView}
-          isCollapsed={leftCollapsed}
-          onSelectView={handleSelectSidebarView}
-          activeFolderName={activeFolder ? activeFolder.split(/[\\/]/).pop() : undefined}
-          onOpenFolder={handleDirectPickFolder}
-        />
+        {/* Authentic 1,152-file Remotion Studio Engine Suite (Edge-to-Edge) */}
+        <div className="flex-1 min-w-0 h-full overflow-hidden flex flex-col bg-neutral-950">
+          <NexusStudioSuite />
+        </div>
 
-        {/* Secondary Left Sidebar Panel: Remotion Compositions & Assets */}
-        {!leftCollapsed && (
-          <div
-            className="h-full flex flex-col shrink-0 overflow-hidden"
-            style={{ width: "var(--left-panel-width)" }}
-          >
-            <RemotionStudioSidebar
-              activeCompositionId={activeCompositionId}
-              onSelectComposition={handleSelectComposition}
-              activeWorkspace={activeWorkspace}
-              workspaceFiles={workspaceFiles}
-              onOpenFileTab={(path, name, content) =>
-                tabs.handleOpenFileTab(path, name, content)
-              }
-              onOpenFolderModal={handleDirectPickFolder}
-              recentCanvases={tabs.recentCanvases}
-              width="100%"
-            />
-          </div>
-        )}
-
-        {!leftCollapsed && (
-          <div
-            className="w-1 cursor-col-resize bg-neutral-850 hover:bg-white shrink-0 transition-colors"
-            onMouseDown={(e) => startDrag("left", e)}
-          />
-        )}
-
-        <WorkstationCenterPanel
-          tabs={tabs.tabs}
-          activeTabId={tabs.activeTabId}
-          activeFolder={activeFolder}
-          onSelectTab={tabs.setActiveTabId}
-          onCloseTab={tabs.handleCloseTab}
-          onUpdateTabContent={tabs.handleUpdateTabContent}
-          onSaveTabContent={tabs.handleSaveFileTab}
-          onOpenFolder={handleDirectPickFolder}
-          onOpenFileTab={(path) =>
-            tabs.handleOpenFileTab(path, path.split(/[\\/]/).pop() || path)
-          }
-        />
-
+        {/* Resizer when Right Chat is open */}
         {!rightCollapsed && (
           <div
-            className="w-1 cursor-col-resize bg-transparent shrink-0 hover:bg-[var(--border-strong)] transition-colors"
+            className="w-1 cursor-col-resize bg-transparent shrink-0 hover:bg-neutral-600 transition-colors"
             onMouseDown={(e) => startDrag("right", e)}
           />
         )}
 
-        <ErrorBoundary fullScreen={false} fallbackTitle="Chat panel encountered an error">
-          <WorkstationRightChat
-            activeChatId={activeChatId}
-            collapsed={rightCollapsed}
-            onClose={handleToggleRight}
-            chatMessages={chat.chatMessages}
-            optimisticMessages={chat.optimisticMessages}
-            liveStatus={chat.liveStatus}
-            messagesEndRef={chat.messagesEndRef}
-            activeWorkspace={activeWorkspace}
-            isStreaming={chat.isStreaming}
-            onSendMessage={chat.handleSendMessage}
-            width="var(--right-panel-width, 320px)"
-            files={mentionFiles}
-            queuedPrompts={chat.queuedPrompts}
-            onRemoveQueuedPrompt={chat.handleRemoveQueuedPrompt}
-            onSearchSection={handleOpenSearchModal}
-            reasoningEffort={chat.reasoningEffort}
-            setReasoningEffort={chat.setReasoningEffort}
-            effortOptions={chat.effortOptions}
-            activeModel={chat.activeModel}
-            modelOptions={chat.providerModels}
-            onSelectModel={(m) => chat.setActiveModel(chat.activeModel?.providerID ?? "", m.id)}
-            onNewChat={chat.handleNewChat}
-            onCancelStream={chat.handleCancelStream}
-            onAnswerQuestion={chat.handleAnswerQuestion}
-            onCompactSession={chat.handleCompactSession}
-            isCompacting={chat.isCompacting}
-            isCompacted={chat.isCompacted}
-          />
-        </ErrorBoundary>
+        {/* AI Copilot Panel (HALO) */}
+        {!rightCollapsed && (
+          <div
+            className="h-full flex flex-col shrink-0 overflow-hidden bg-neutral-950 border-l border-neutral-800"
+            style={{ width: "var(--right-panel-width, 340px)" }}
+          >
+            <ErrorBoundary fullScreen={false} fallbackTitle="Chat panel encountered an error">
+              <WorkstationRightChat
+                activeChatId={activeChatId}
+                collapsed={false}
+                onClose={handleToggleRight}
+                chatMessages={chat.chatMessages}
+                optimisticMessages={chat.optimisticMessages}
+                liveStatus={chat.liveStatus}
+                messagesEndRef={chat.messagesEndRef}
+                activeWorkspace={activeWorkspace}
+                isStreaming={chat.isStreaming}
+                onSendMessage={chat.handleSendMessage}
+                width="100%"
+                files={mentionFiles}
+                queuedPrompts={chat.queuedPrompts}
+                onRemoveQueuedPrompt={chat.handleRemoveQueuedPrompt}
+                onSearchSection={handleOpenSearchModal}
+                reasoningEffort={chat.reasoningEffort}
+                setReasoningEffort={chat.setReasoningEffort}
+                effortOptions={chat.effortOptions}
+                activeModel={chat.activeModel}
+                modelOptions={chat.providerModels}
+                onSelectModel={(m) => chat.setActiveModel(chat.activeModel?.providerID ?? "", m.id)}
+                onNewChat={chat.handleNewChat}
+                onCancelStream={chat.handleCancelStream}
+                onAnswerQuestion={chat.handleAnswerQuestion}
+                onCompactSession={chat.handleCompactSession}
+                isCompacting={chat.isCompacting}
+                isCompacted={chat.isCompacted}
+              />
+            </ErrorBoundary>
+          </div>
+        )}
       </div>
 
       <ConnectFolderModal

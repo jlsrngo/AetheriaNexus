@@ -303,7 +303,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = ({
                 {authorHandle}
               </div>
               <div style={{ fontSize: "17px", color: "#94a3b8", fontFamily: "'JetBrains Mono', monospace" }}>
-                Arunaki Nexus Studio // Automated Production
+                Nexus Studio // Automated Production
               </div>
             </div>
           </div>

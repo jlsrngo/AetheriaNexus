@@ -1,4 +1,4 @@
-export { RemotionRoot } from "./Root";
+export { NexusVideoRoot, RemotionRoot } from "./Root";
 export { NexusVideoComposition, TikTokVideo } from "./NexusVideoComposition";
 export {
   defaultNexusVideoProps,

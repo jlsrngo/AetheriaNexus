@@ -12,6 +12,7 @@ pub mod permission;
 pub mod provider;
 pub mod question;
 pub mod session;
+pub mod studio;
 pub mod tasks;
 pub mod tool;
 
@@ -58,6 +59,7 @@ pub async fn init_engine_and_bind(
     // 2. Start background Telegram bot polling & active folder ingestion watcher
     messaging::start_telegram_worker();
     session::watcher::start_folder_watcher_daemon();
+    studio::start_scheduler_daemon();
 
     // 3. Write dev-server-password if server password env is provided
     let srv_user = std::env::var("Arunaki_SERVER_USERNAME")
@@ -130,6 +132,7 @@ pub fn build_router() -> Router {
         .merge(tasks::router())
         .merge(question::router())
         .merge(permission::router())
+        .merge(studio::router())
         .fallback(handle_fallback)
         .layer(middleware::from_fn(cors_and_auth_middleware))
 }
@@ -451,5 +454,39 @@ mod origin_tests {
         )
         .await;
         assert_eq!(status, 403);
+    }
+
+    #[tokio::test]
+    async fn test_nexus_studio_heavy_engine_smoke() {
+        // 1. GPU Telemetry
+        let (status, _, body) = super::handle_local_request("GET", "/api/studio/gpu-telemetry", vec![], None).await;
+        assert_eq!(status, 200);
+        let resp: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(resp["success"], true);
+        assert!(resp["encoder"].is_string());
+
+        // 2. Subtitle Generator
+        let (status, _, body) = super::handle_local_request(
+            "POST",
+            "/api/studio/generate-subtitles",
+            vec![("content-type".to_string(), "application/json".to_string())],
+            Some(r#"{"text":"The secret to viral TikTok video retention"}"#.as_bytes().to_vec()),
+        ).await;
+        assert_eq!(status, 200);
+        let resp: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(resp["success"], true);
+        assert!(resp["cues"].as_array().unwrap().len() > 0);
+
+        // 3. AI Script Orchestrator
+        let (status, _, body) = super::handle_local_request(
+            "POST",
+            "/api/studio/generate-script",
+            vec![("content-type".to_string(), "application/json".to_string())],
+            Some(r#"{"topic":"Deep Focus Blueprint","autoRegister":false}"#.as_bytes().to_vec()),
+        ).await;
+        assert_eq!(status, 200);
+        let resp: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(resp["success"], true);
+        assert!(resp["composition"]["id"].is_string());
     }
 }

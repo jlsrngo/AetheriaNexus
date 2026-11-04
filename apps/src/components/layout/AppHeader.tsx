@@ -90,7 +90,7 @@ export const AppHeader = memo(function AppHeader({
       className="h-10 bg-neutral-950 border-b border-neutral-800 flex items-center justify-between px-3 shrink-0 transition-none select-none z-30 font-mono text-xs"
       style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
     >
-      {/* Left side: Brand Logo + Remotion-style Breadcrumbs + Dropdown Menus */}
+      {/* Left side: Brand Logo + Nexus Studio Breadcrumbs + Dropdown Menus */}
       <div className="flex items-center gap-3" data-tauri-drag-region="false">
         <div
           className="flex items-center gap-2 cursor-pointer pr-2 border-r border-neutral-800"
@@ -100,7 +100,7 @@ export const AppHeader = memo(function AppHeader({
         >
           <ArunakiLogo size={18} />
           <span className="font-extrabold text-[11px] tracking-wider text-white uppercase">
-            ARUNAKI NEXUS
+            NEXUS
           </span>
         </div>
 

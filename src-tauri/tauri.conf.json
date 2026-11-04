@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Arunaki Nexus",
+  "productName": "Nexus",
   "version": "0.1.0",
-  "identifier": "com.arunakinexus.desktop",
+  "identifier": "com.nexus.desktop",
   "build": {
     "frontendDist": "../apps/dist",
     "beforeDevCommand": "npm run dev -w apps",
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "Arunaki Nexus",
+        "title": "Nexus",
         "label": "main",
         "width": 1280,
         "height": 820,
@@ -19,7 +19,7 @@
         "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
-        "decorations": false,
+        "decorations": true,
         "shadow": true,
         "theme": "Dark",
         "zoomHotkeysEnabled": false,
