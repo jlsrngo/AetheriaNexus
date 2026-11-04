@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback, memo } from "react";
 import {
   FileMenu,
-  EditMenu,
   ViewMenu,
+  CompositionMenu,
+  ToolsMenu,
   HelpMenu,
   KeyboardShortcutsModal,
   AboutArunakiModal,
@@ -90,20 +91,26 @@ export const TopMenuBar = memo(function TopMenuBar({
           commands={commands}
         />
 
-        <EditMenu
-          isOpen={activeMenu === "edit"}
-          onToggle={() => toggleMenu("edit")}
-          onMouseEnter={() => handleMouseEnter("edit")}
-          onClose={handleClose}
-          commands={commands}
-        />
-
         <ViewMenu
           isOpen={activeMenu === "view"}
           onToggle={() => toggleMenu("view")}
           onMouseEnter={() => handleMouseEnter("view")}
           onClose={handleClose}
           commands={commands}
+        />
+
+        <CompositionMenu
+          isOpen={activeMenu === "composition"}
+          onToggle={() => toggleMenu("composition")}
+          onMouseEnter={() => handleMouseEnter("composition")}
+          onClose={handleClose}
+        />
+
+        <ToolsMenu
+          isOpen={activeMenu === "tools"}
+          onToggle={() => toggleMenu("tools")}
+          onMouseEnter={() => handleMouseEnter("tools")}
+          onClose={handleClose}
         />
 
         <HelpMenu

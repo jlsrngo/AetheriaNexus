@@ -84,6 +84,7 @@ export const StudioRenderModal: React.FC<StudioRenderModalProps> = ({
           if (job) {
             setRenderJob(job);
             setProgressPercent(job.percent);
+            window.dispatchEvent(new CustomEvent("nexus-render-job", { detail: { job } }));
             if (job.status === "done") {
               clearInterval(interval);
               setIsRendering(false);

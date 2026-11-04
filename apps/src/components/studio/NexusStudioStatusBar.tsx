@@ -36,9 +36,8 @@ export const NexusStudioStatusBar: React.FC<NexusStudioStatusBarProps> = ({
       {/* Right Engine Status */}
       <div className="flex items-center gap-2 shrink-0">
         <span
-          className={`w-2 h-2 rounded-full ${
-            isRendering ? "bg-amber-400 animate-ping" : "bg-emerald-400"
-          }`}
+          className={`w-2 h-2 rounded-full ${isRendering ? "bg-amber-400 animate-ping" : "bg-emerald-400"
+            }`}
         />
         <span className="text-neutral-300 font-bold uppercase tracking-wider">
           STATUS: {isRendering ? `RENDERING ${renderPercent}%` : status}
@@ -47,3 +46,4 @@ export const NexusStudioStatusBar: React.FC<NexusStudioStatusBarProps> = ({
     </footer>
   );
 };
+

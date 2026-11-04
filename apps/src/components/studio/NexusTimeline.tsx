@@ -47,7 +47,7 @@ export const NexusTimeline: React.FC<NexusTimelineProps> = ({
         const frame = player.getCurrentFrame?.() ?? 0;
         setCurrentFrame(frame);
         setIsPlaying(player.isPlaying?.() ?? false);
-      } catch {}
+      } catch { }
     };
 
     const interval = setInterval(handleFrameUpdate, 1000 / fps);
@@ -287,3 +287,4 @@ export const NexusTimeline: React.FC<NexusTimelineProps> = ({
     </div>
   );
 };
+
