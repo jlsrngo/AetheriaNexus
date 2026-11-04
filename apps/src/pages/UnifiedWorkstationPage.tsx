@@ -99,9 +99,9 @@ export function UnifiedWorkstationPage() {
 
   return (
     <div className="flex flex-col h-full w-full bg-neutral-950 text-neutral-100 overflow-hidden select-none transition-none font-mono relative">
-      {/* Floating AI Copilot toggle & Window Controls when right panel is collapsed */}
+      {/* Floating AI Copilot toggle when right panel is collapsed */}
       {rightCollapsed && (
-        <div className="absolute top-1 right-2 z-50 flex items-center gap-1.5 bg-neutral-900/90 border border-neutral-800 p-0.5 shadow-lg">
+        <div className="absolute top-2 right-2 z-50 flex items-center bg-neutral-900/90 border border-neutral-800 p-0.5 shadow-lg">
           <button
             type="button"
             onClick={handleToggleRight}
@@ -110,8 +110,6 @@ export function UnifiedWorkstationPage() {
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             <span>AI COPILOT</span>
           </button>
-          <div className="w-[1px] h-4 bg-neutral-800" />
-          <WindowControls />
         </div>
       )}
 

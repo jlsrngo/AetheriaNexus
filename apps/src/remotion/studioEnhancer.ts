@@ -32,8 +32,8 @@ if (typeof window !== "undefined") {
         #nexus-activity-rail {
           width: 44px !important;
           height: 100% !important;
-          background-color: #0b0c10 !important;
-          border-right: 1px solid #22252e !important;
+          background-color: #0a0a0a !important;
+          border-right: 1px solid #262626 !important;
           display: flex !important;
           flex-direction: column !important;
           align-items: center !important;
@@ -117,6 +117,11 @@ if (typeof window !== "undefined") {
 
       const topBar = container.children[0] as HTMLElement;
       const mainArea = (document.getElementById("nexus-center-main-area") || container.children[1]) as HTMLElement;
+
+      // Hide Remotion's internal top bar since AppHeader is now the global window header
+      if (topBar) {
+        topBar.style.display = "none";
+      }
 
       const all = Array.from(document.querySelectorAll("*"));
       const compLeft = all.find(
@@ -284,43 +289,55 @@ if (typeof window !== "undefined") {
         `;
       }
 
-      // 7. Full-Height Layout Architecture
+      // 7. Full-Height Layout Architecture (VS Code / Neo-Brutalist 3-Column Symmetry)
       let bodyRow = document.getElementById("nexus-body-row");
       if (!bodyRow) {
         bodyRow = document.createElement("div");
         bodyRow.id = "nexus-body-row";
         bodyRow.style.cssText =
-          "display: flex; flex-direction: row; flex: 1 1 0%; height: calc(100% - 29px); width: 100%; overflow: hidden;";
+          "display: flex; flex-direction: row; flex: 1 1 0%; height: 100%; width: 100%; overflow: hidden;";
 
         const leftSidebar = document.createElement("div");
         leftSidebar.id = "nexus-left-sidebar-full";
         leftSidebar.style.cssText =
-          "display: flex; flex-direction: row; height: 100%; flex-shrink: 0; border-right: 1px solid #22252e; background: #090a0d;";
+          "display: flex; flex-direction: row; height: 100%; flex-shrink: 0; border-right: 1px solid #262626 !important; background: #0a0a0a !important;";
 
         const panelContainer = document.createElement("div");
         panelContainer.id = "nexus-active-panel-container";
         panelContainer.style.cssText =
-          "display: flex; flex-direction: column; height: 100%; width: 270px; background: #0d0e12; overflow: hidden;";
+          "display: flex; flex-direction: column; height: 100%; width: 270px; background: #0a0a0a !important; border-right: 1px solid #262626 !important; overflow: hidden;";
 
         leftPanel.style.height = "100%";
         leftPanel.style.width = "100%";
+        leftPanel.style.background = "#0a0a0a";
         panelContainer.appendChild(leftPanel);
 
         rightPanel.style.height = "100%";
         rightPanel.style.width = "100%";
+        rightPanel.style.background = "#0a0a0a";
         rightPanel.style.display = "none";
         panelContainer.appendChild(rightPanel);
 
         leftSidebar.appendChild(rail);
         leftSidebar.appendChild(panelContainer);
 
+        // Visual resizer gutter between Left Sidebar and Center Main Area (matching the right side)
+        const leftResizer = document.createElement("div");
+        leftResizer.id = "nexus-left-resizer";
+        leftResizer.style.cssText =
+          "width: 4px; background: transparent; cursor: col-resize; flex-shrink: 0; border-right: 1px solid #262626; transition: background 0.15s ease;";
+        leftResizer.onmouseenter = () => { leftResizer.style.background = "#52525b"; };
+        leftResizer.onmouseleave = () => { leftResizer.style.background = "transparent"; };
+
         mainArea.id = "nexus-center-main-area";
         mainArea.style.flex = "1 1 0%";
         mainArea.style.height = "100%";
         mainArea.style.overflow = "hidden";
+        mainArea.style.background = "#111319";
 
         container.appendChild(bodyRow);
         bodyRow.appendChild(leftSidebar);
+        bodyRow.appendChild(leftResizer);
         bodyRow.appendChild(mainArea);
       }
 
