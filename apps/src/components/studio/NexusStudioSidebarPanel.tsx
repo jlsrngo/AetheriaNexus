@@ -130,7 +130,7 @@ export const NexusStudioSidebarPanel: React.FC<NexusStudioSidebarPanelProps> = (
                   onClick={() => setAssetFilter(filter)}
                   className={`px-2 py-0.5 border uppercase cursor-pointer ${
                     assetFilter === filter
-                      ? "border-emerald-500 text-emerald-400 bg-neutral-900 font-bold"
+                      ? "border-orange-500 text-orange-400 bg-neutral-900 font-bold"
                       : "border-neutral-800 text-neutral-400 hover:text-white"
                   }`}
                 >
@@ -173,12 +173,12 @@ export const NexusStudioSidebarPanel: React.FC<NexusStudioSidebarPanelProps> = (
                         onClick={() => onSelectComposition(comp)}
                         className={`p-2 border flex items-center justify-between cursor-pointer transition-none ${
                           isActive
-                            ? "border-emerald-500 bg-neutral-900 text-white font-bold"
+                            ? "border-orange-500 bg-neutral-900 text-white font-bold"
                             : "border-neutral-800/80 bg-neutral-950 hover:bg-neutral-900/60 text-neutral-300"
                         }`}
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <Film className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-emerald-400" : "text-neutral-500"}`} />
+                          <Film className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-orange-400" : "text-neutral-500"}`} />
                           <div className="truncate">
                             <div className="truncate text-[11px]">{comp.name}</div>
                             <div className="text-[9px] text-neutral-500 font-normal">
@@ -188,7 +188,7 @@ export const NexusStudioSidebarPanel: React.FC<NexusStudioSidebarPanelProps> = (
                         </div>
 
                         {isActive && (
-                          <span className="text-[9px] bg-emerald-500 text-black px-1 font-bold">
+                          <span className="text-[9px] bg-orange-500 text-black px-1 font-bold">
                             ACTIVE
                           </span>
                         )}
@@ -211,7 +211,7 @@ export const NexusStudioSidebarPanel: React.FC<NexusStudioSidebarPanelProps> = (
               <div className="text-[10px] text-neutral-500 uppercase font-bold mb-0.5">
                 Active Template
               </div>
-              <div className="font-bold text-emerald-400 text-xs truncate">
+              <div className="font-bold text-orange-400 text-xs truncate">
                 NexusEditorialVideo (9:16)
               </div>
               <div className="text-[10px] text-neutral-400 mt-1">
@@ -219,7 +219,7 @@ export const NexusStudioSidebarPanel: React.FC<NexusStudioSidebarPanelProps> = (
               </div>
             </div>
 
-            {/* Sliders (Matching user mockup aesthetic) */}
+            {/* Sliders */}
             <div className="space-y-2.5 bg-neutral-900/40 p-2.5 border border-neutral-800">
               <div className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">
                 Video Dynamic Sliders
@@ -228,7 +228,7 @@ export const NexusStudioSidebarPanel: React.FC<NexusStudioSidebarPanelProps> = (
               <div>
                 <div className="flex items-center justify-between text-[10px] mb-1">
                   <span className="text-neutral-400">Scale (Dynamic Prop 1)</span>
-                  <span className="text-emerald-400 font-mono">{textScale}%</span>
+                  <span className="text-orange-400 font-mono">{textScale}%</span>
                 </div>
                 <input
                   type="range"
@@ -236,14 +236,14 @@ export const NexusStudioSidebarPanel: React.FC<NexusStudioSidebarPanelProps> = (
                   max="150"
                   value={textScale}
                   onChange={(e) => setTextScale(Number(e.target.value))}
-                  className="w-full h-1 bg-neutral-800 accent-emerald-500 cursor-pointer"
+                  className="w-full h-1 bg-neutral-800 accent-orange-500 cursor-pointer"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between text-[10px] mb-1">
                   <span className="text-neutral-400">Glow Intensity (Dynamic Prop 2)</span>
-                  <span className="text-emerald-400 font-mono">{glowIntensity}%</span>
+                  <span className="text-orange-400 font-mono">{glowIntensity}%</span>
                 </div>
                 <input
                   type="range"
@@ -251,14 +251,14 @@ export const NexusStudioSidebarPanel: React.FC<NexusStudioSidebarPanelProps> = (
                   max="100"
                   value={glowIntensity}
                   onChange={(e) => setGlowIntensity(Number(e.target.value))}
-                  className="w-full h-1 bg-neutral-800 accent-emerald-500 cursor-pointer"
+                  className="w-full h-1 bg-neutral-800 accent-orange-500 cursor-pointer"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between text-[10px] mb-1">
                   <span className="text-neutral-400">Backdrop Darkness (Dynamic Prop 3)</span>
-                  <span className="text-emerald-400 font-mono">{bgDarkness}%</span>
+                  <span className="text-orange-400 font-mono">{bgDarkness}%</span>
                 </div>
                 <input
                   type="range"
@@ -266,14 +266,14 @@ export const NexusStudioSidebarPanel: React.FC<NexusStudioSidebarPanelProps> = (
                   max="100"
                   value={bgDarkness}
                   onChange={(e) => setBgDarkness(Number(e.target.value))}
-                  className="w-full h-1 bg-neutral-800 accent-emerald-500 cursor-pointer"
+                  className="w-full h-1 bg-neutral-800 accent-orange-500 cursor-pointer"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between text-[10px] mb-1">
                   <span className="text-neutral-400">Audio Volume (Dynamic Prop 4)</span>
-                  <span className="text-emerald-400 font-mono">{audioVolume}%</span>
+                  <span className="text-orange-400 font-mono">{audioVolume}%</span>
                 </div>
                 <input
                   type="range"
@@ -281,7 +281,7 @@ export const NexusStudioSidebarPanel: React.FC<NexusStudioSidebarPanelProps> = (
                   max="100"
                   value={audioVolume}
                   onChange={(e) => setAudioVolume(Number(e.target.value))}
-                  className="w-full h-1 bg-neutral-800 accent-emerald-500 cursor-pointer"
+                  className="w-full h-1 bg-neutral-800 accent-orange-500 cursor-pointer"
                 />
               </div>
             </div>
@@ -295,7 +295,7 @@ export const NexusStudioSidebarPanel: React.FC<NexusStudioSidebarPanelProps> = (
                 rows={2}
                 value={videoProps.hookText}
                 onChange={(e) => onChangeProps({ hookText: e.target.value })}
-                className="w-full bg-neutral-900 border border-neutral-800 p-2 text-xs text-white resize-none focus:outline-none focus:border-emerald-500 rounded-none transition-none"
+                className="w-full bg-neutral-900 border border-neutral-800 p-2 text-xs text-white resize-none focus:outline-none focus:border-orange-500 rounded-none transition-none"
               />
             </div>
 
@@ -308,7 +308,7 @@ export const NexusStudioSidebarPanel: React.FC<NexusStudioSidebarPanelProps> = (
                 rows={4}
                 value={videoProps.bodyText}
                 onChange={(e) => onChangeProps({ bodyText: e.target.value })}
-                className="w-full bg-neutral-900 border border-neutral-800 p-2 text-xs text-white resize-none focus:outline-none focus:border-emerald-500 rounded-none transition-none"
+                className="w-full bg-neutral-900 border border-neutral-800 p-2 text-xs text-white resize-none focus:outline-none focus:border-orange-500 rounded-none transition-none"
               />
             </div>
 
@@ -321,7 +321,7 @@ export const NexusStudioSidebarPanel: React.FC<NexusStudioSidebarPanelProps> = (
                 type="text"
                 value={videoProps.authorHandle}
                 onChange={(e) => onChangeProps({ authorHandle: e.target.value })}
-                className="w-full bg-neutral-900 border border-neutral-800 px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 rounded-none transition-none"
+                className="w-full bg-neutral-900 border border-neutral-800 px-2 py-1 text-xs text-white focus:outline-none focus:border-orange-500 rounded-none transition-none"
               />
             </div>
 
@@ -376,7 +376,7 @@ export const NexusStudioSidebarPanel: React.FC<NexusStudioSidebarPanelProps> = (
                     className="p-2 bg-neutral-950 border border-neutral-800 hover:border-neutral-600 hover:bg-neutral-900 flex items-center justify-between cursor-pointer transition-none group"
                   >
                     <div className="flex items-center gap-2 truncate">
-                      {file.type === "audio" && <Music className="w-4 h-4 text-emerald-400 shrink-0" />}
+                      {file.type === "audio" && <Music className="w-4 h-4 text-orange-400 shrink-0" />}
                       {file.type === "video" && <Video className="w-4 h-4 text-cyan-400 shrink-0" />}
                       {file.type === "image" && <ImageIcon className="w-4 h-4 text-purple-400 shrink-0" />}
                       {file.type === "data" && <FileText className="w-4 h-4 text-amber-400 shrink-0" />}

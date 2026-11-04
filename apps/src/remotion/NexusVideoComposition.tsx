@@ -12,6 +12,12 @@ const THEME_GRADIENTS: Record<
   NexusVideoProps["themeColor"],
   { bg: string; accent: string; glow: string; border: string }
 > = {
+  orange: {
+    bg: "radial-gradient(circle at 50% 20%, #7c2d12 0%, #431407 45%, #050b14 100%)",
+    accent: "#f97316",
+    glow: "rgba(249, 115, 22, 0.4)",
+    border: "rgba(249, 115, 22, 0.6)",
+  },
   emerald: {
     bg: "radial-gradient(circle at 50% 20%, #064e3b 0%, #022c22 45%, #050b14 100%)",
     accent: "#10b981",
@@ -90,13 +96,13 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = ({
       style={{
         background: showBackground ? currentTheme.bg : "#050b14",
         fontFamily: "Inter, 'Segoe UI', Roboto, sans-serif",
-        color: "#ffffff",
+        color: "#f30000",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
         padding: "120px 80px 200px 80px",
         boxSizing: "border-box",
-        overflow: "hidden",
+        overflow: "hidden"
       }}
     >
       {/* Background ambient lighting orb & Blueprint Grid */}

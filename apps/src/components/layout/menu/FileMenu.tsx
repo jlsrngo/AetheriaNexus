@@ -40,8 +40,8 @@ export const FileMenu = memo(function FileMenu({
         onMouseEnter={onMouseEnter}
         {...menuTriggerProps(isOpen)}
         className={cn(
-          "text-neutral-400 hover:text-white hover:bg-neutral-900 text-xs font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-none border border-transparent hover:border-neutral-800 transition-none cursor-pointer",
-          isOpen && "bg-neutral-900 text-white border-neutral-700"
+          "text-neutral-300 hover:text-white hover:bg-neutral-800/80 text-xs font-mono font-medium px-2 py-1 transition-none cursor-pointer",
+          isOpen && "bg-neutral-800 text-white"
         )}
       >
         {t("file", "File")}

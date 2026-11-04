@@ -54,7 +54,7 @@ export const NexusMainStage: React.FC<NexusMainStageProps> = ({
       <div className="h-8 px-3 border-b border-neutral-800 bg-neutral-950 flex items-center justify-between text-xs z-10 shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 font-extrabold text-[11px] tracking-wider text-white uppercase">
-            <span className="w-2 h-2 bg-emerald-500 rounded-none inline-block" />
+            <span className="w-2 h-2 bg-orange-500 rounded-none inline-block" />
             <span>PREVIEW MONITOR</span>
           </div>
 
@@ -95,7 +95,7 @@ export const NexusMainStage: React.FC<NexusMainStageProps> = ({
                 onClick={() => setZoom(z)}
                 className={`px-1.5 py-0.5 border transition-none cursor-pointer uppercase ${
                   zoom === z
-                    ? "border-emerald-500 text-emerald-400 bg-neutral-900 font-bold"
+                    ? "border-orange-500 text-orange-400 bg-neutral-900 font-bold"
                     : "border-neutral-800 text-neutral-400 hover:text-white"
                 }`}
               >
@@ -105,8 +105,8 @@ export const NexusMainStage: React.FC<NexusMainStageProps> = ({
           </div>
 
           <span className="text-neutral-700">|</span>
-          <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-[10px]">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <div className="flex items-center gap-1.5 text-orange-400 font-bold text-[10px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
             <span>LIVE PREVIEW</span>
           </div>
         </div>

@@ -43,7 +43,7 @@ export function AppLayout() {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-neutral-950 text-neutral-100 select-none">
-      {/* 1. Header Bar (Only shown on non-studio views to keep studio pure Remotion) */}
+      {/* 1. Header Bar (Only shown on non-studio views because Remotion Studio has its own native top menu bar) */}
       {!isStudioRoute && (
         <AppHeader
           activeFolder={activeFolder}

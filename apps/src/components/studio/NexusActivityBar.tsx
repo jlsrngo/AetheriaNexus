@@ -58,7 +58,7 @@ export const NexusActivityBar: React.FC<NexusActivityBarProps> = ({
           title="Compositions (Templates)"
           className={`w-10 h-10 flex items-center justify-center border-l-2 transition-none cursor-pointer relative ${
             isOpen && activeTab === "compositions"
-              ? "text-emerald-400 border-emerald-400 bg-neutral-900"
+              ? "text-orange-400 border-orange-500 bg-neutral-900"
               : "text-neutral-400 border-transparent hover:text-white hover:bg-neutral-900/60"
           }`}
         >
@@ -72,7 +72,7 @@ export const NexusActivityBar: React.FC<NexusActivityBarProps> = ({
           title="Dynamic Props & Inspector"
           className={`w-10 h-10 flex items-center justify-center border-l-2 transition-none cursor-pointer relative ${
             isOpen && activeTab === "props"
-              ? "text-emerald-400 border-emerald-400 bg-neutral-900"
+              ? "text-orange-400 border-orange-500 bg-neutral-900"
               : "text-neutral-400 border-transparent hover:text-white hover:bg-neutral-900/60"
           }`}
         >
@@ -86,7 +86,7 @@ export const NexusActivityBar: React.FC<NexusActivityBarProps> = ({
           title="Media Assets & Vault"
           className={`w-10 h-10 flex items-center justify-center border-l-2 transition-none cursor-pointer relative ${
             isOpen && activeTab === "assets"
-              ? "text-emerald-400 border-emerald-400 bg-neutral-900"
+              ? "text-orange-400 border-orange-500 bg-neutral-900"
               : "text-neutral-400 border-transparent hover:text-white hover:bg-neutral-900/60"
           }`}
         >
@@ -100,13 +100,13 @@ export const NexusActivityBar: React.FC<NexusActivityBarProps> = ({
           title="Jobs & Render Queue"
           className={`w-10 h-10 flex items-center justify-center border-l-2 transition-none cursor-pointer relative ${
             isOpen && activeTab === "jobs"
-              ? "text-emerald-400 border-emerald-400 bg-neutral-900"
+              ? "text-orange-400 border-orange-500 bg-neutral-900"
               : "text-neutral-400 border-transparent hover:text-white hover:bg-neutral-900/60"
           }`}
         >
           <Clock className="w-4 h-4" />
           {activeJobCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-400 rounded-full" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-400 rounded-full" />
           )}
         </button>
       </div>

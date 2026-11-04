@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Play,
   Pause,
-  Square,
-  SkipBack,
-  SkipForward,
+  Repeat,
   Volume2,
   VolumeX,
-  Plus,
+  SkipBack,
+  SkipForward,
+  ChevronLeft,
+  ChevronRight,
   Zap,
-  ZoomIn,
-  ZoomOut,
+  Eye,
 } from "lucide-react";
 import { PlayerRef } from "@remotion/player";
 
@@ -26,31 +26,30 @@ export const NexusTimeline: React.FC<NexusTimelineProps> = ({
   playerRef,
   durationInSeconds = 5,
   fps = 30,
-  hookText = "3 Morning Habits of High Performers",
   onOpenExportModal,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const trackContainerRef = useRef<HTMLDivElement>(null);
+  const [isLooping, setIsLooping] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
+  const timelineRef = useRef<HTMLDivElement>(null);
 
   const totalFrames = Math.max(30, Math.round(durationInSeconds * fps));
 
-  // Sync player time updates
+  // Sync with player current frame
   useEffect(() => {
     const player = playerRef.current;
     if (!player) return;
 
-    const handleFrameUpdate = () => {
+    const interval = setInterval(() => {
       try {
         const frame = player.getCurrentFrame?.() ?? 0;
         setCurrentFrame(frame);
         setIsPlaying(player.isPlaying?.() ?? false);
       } catch { }
-    };
+    }, 1000 / fps);
 
-    const interval = setInterval(handleFrameUpdate, 1000 / fps);
     return () => clearInterval(interval);
   }, [playerRef, fps]);
 
@@ -66,24 +65,17 @@ export const NexusTimeline: React.FC<NexusTimelineProps> = ({
     }
   };
 
-  const handleStop = () => {
-    const player = playerRef.current;
-    if (!player) return;
-    player.pause();
-    player.seekTo(0);
-    setIsPlaying(false);
-    setCurrentFrame(0);
-  };
+  const seekToFrame = useCallback(
+    (frame: number) => {
+      const clamped = Math.max(0, Math.min(totalFrames, Math.round(frame)));
+      playerRef.current?.seekTo(clamped);
+      setCurrentFrame(clamped);
+    },
+    [playerRef, totalFrames]
+  );
 
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    const container = trackContainerRef.current;
-    if (!container || !playerRef.current) return;
-    const rect = container.getBoundingClientRect();
-    const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-    const targetPercent = clickX / rect.width;
-    const targetFrame = Math.round(targetPercent * totalFrames);
-    playerRef.current.seekTo(targetFrame);
-    setCurrentFrame(targetFrame);
+  const stepFrame = (delta: number) => {
+    seekToFrame(currentFrame + delta);
   };
 
   const toggleMute = () => {
@@ -98,188 +90,234 @@ export const NexusTimeline: React.FC<NexusTimelineProps> = ({
     }
   };
 
-  // Format timecode: 00:00:SS:FF
-  const formatTimecode = (frame: number) => {
-    const currentSec = Math.floor(frame / fps);
+  // Timeline dragging / scrubbing handler
+  const handleTimelineInteraction = useCallback(
+    (clientX: number) => {
+      const el = timelineRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const clickX = Math.max(0, Math.min(clientX - rect.left, rect.width));
+      const ratio = clickX / rect.width;
+      seekToFrame(ratio * totalFrames);
+    },
+    [seekToFrame, totalFrames]
+  );
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    handleTimelineInteraction(e.clientX);
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        handleTimelineInteraction(e.clientX);
+      }
+    };
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging, handleTimelineInteraction]);
+
+  // Format timecode: 00:02.13 (Seconds.Frames like Remotion)
+  const formatRemotionTimecode = (frame: number) => {
+    const sec = Math.floor(frame / fps);
     const subFrames = frame % fps;
-    const mins = Math.floor(currentSec / 60);
-    const secs = currentSec % 60;
-    return `00:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}:${String(subFrames).padStart(2, "0")}`;
+    const mins = Math.floor(sec / 60);
+    const remainingSec = sec % 60;
+    return `${String(mins).padStart(2, "0")}:${String(remainingSec).padStart(2, "0")}.${String(subFrames).padStart(2, "0")}`;
   };
 
   const progressPercent = (currentFrame / totalFrames) * 100;
 
+  // Generate ruler timestamps: 00:01.00, 00:02.00, etc.
+  const rulerMarks = [];
+  for (let s = 1; s <= durationInSeconds; s++) {
+    rulerMarks.push({
+      sec: s,
+      percent: (s / durationInSeconds) * 100,
+      label: `00:0${s}.00`,
+    });
+  }
+
   return (
-    <div className="h-44 bg-neutral-950 border-t border-neutral-800 flex flex-col shrink-0 select-none font-mono text-xs z-10">
-      {/* 1. TIMELINE TOP CONTROL BAR */}
-      <div className="h-9 px-3 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/80">
-        {/* Left: Title + New track */}
-        <div className="flex items-center gap-2">
-          <span className="font-extrabold text-[11px] tracking-wider text-white uppercase">
-            TIMELINE
-          </span>
+    <div className="h-40 bg-[#0e1017] border-t border-neutral-800 flex flex-col shrink-0 select-none font-mono text-xs z-10">
+      {/* =================================================================== */}
+      {/* 1. TOP TRANSPORT CONTROLS BAR (Identical to Remotion Studio) */}
+      {/* =================================================================== */}
+      <div className="h-9 px-3 border-b border-neutral-800/80 flex items-center justify-between bg-[#12141c]">
+        {/* Left: Quick options */}
+        <div className="flex items-center gap-1.5 text-neutral-400">
           <button
             type="button"
-            title="Add track"
-            className="p-1 text-neutral-400 hover:text-white cursor-pointer"
+            onClick={() => setIsLooping(!isLooping)}
+            title={isLooping ? "Loop On" : "Loop Off"}
+            className={`p-1.5 hover:text-white transition-none cursor-pointer ${
+              isLooping ? "text-orange-400" : "text-neutral-500"
+            }`}
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Repeat className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={toggleMute}
+            title={isMuted ? "Unmute" : "Mute"}
+            className="p-1.5 hover:text-white text-neutral-400 cursor-pointer"
+          >
+            {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-500" /> : <Volume2 className="w-3.5 h-3.5" />}
           </button>
         </div>
 
-        {/* Center: Timecode & Transport Buttons */}
-        <div className="flex items-center gap-4">
-          <div className="font-mono text-emerald-400 text-xs font-bold tracking-wider">
-            {formatTimecode(currentFrame)}{" "}
-            <span className="text-neutral-500 font-normal">/ {formatTimecode(totalFrames)}</span>
-          </div>
+        {/* Center: Authentic Transport Buttons */}
+        <div className="flex items-center gap-1">
+          {/* First frame */}
+          <button
+            type="button"
+            onClick={() => seekToFrame(0)}
+            title="First frame (Home)"
+            className="p-1.5 text-neutral-400 hover:text-white cursor-pointer"
+          >
+            <SkipBack className="w-3.5 h-3.5" />
+          </button>
 
-          {/* Transport Controls */}
-          <div className="flex items-center gap-1 bg-neutral-950 px-2 py-0.5 border border-neutral-800">
-            <button
-              type="button"
-              onClick={() => playerRef.current?.seekTo(0)}
-              title="First Frame"
-              className="p-1 text-neutral-400 hover:text-white cursor-pointer"
-            >
-              <SkipBack className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
-              onClick={handleStop}
-              title="Stop"
-              className="p-1 text-neutral-400 hover:text-white cursor-pointer"
-            >
-              <Square className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
-              onClick={togglePlay}
-              title={isPlaying ? "Pause" : "Play"}
-              className="px-2 py-0.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold cursor-pointer transition-none"
-            >
-              {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => playerRef.current?.seekTo(totalFrames)}
-              title="Last Frame"
-              className="p-1 text-neutral-400 hover:text-white cursor-pointer"
-            >
-              <SkipForward className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
-              onClick={toggleMute}
-              title={isMuted ? "Unmute" : "Mute"}
-              className="p-1 text-neutral-400 hover:text-white cursor-pointer ml-1"
-            >
-              {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5" />}
-            </button>
-          </div>
+          {/* Previous frame */}
+          <button
+            type="button"
+            onClick={() => stepFrame(-1)}
+            title="Previous frame (Left arrow)"
+            className="p-1.5 text-neutral-400 hover:text-white cursor-pointer"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
 
-          {/* Zoom Slider */}
-          <div className="hidden md:flex items-center gap-1.5 text-neutral-500">
-            <ZoomOut className="w-3 h-3" />
-            <input
-              type="range"
-              min="1"
-              max="2"
-              step="0.1"
-              value={zoomLevel}
-              onChange={(e) => setZoomLevel(Number(e.target.value))}
-              className="w-16 h-1 bg-neutral-800 accent-emerald-500 cursor-pointer"
-            />
-            <ZoomIn className="w-3 h-3" />
-          </div>
+          {/* Play / Pause Toggle (Clean, compact, no giant clutter) */}
+          <button
+            type="button"
+            onClick={togglePlay}
+            title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+            className="w-7 h-7 mx-1 flex items-center justify-center bg-orange-500 hover:bg-orange-400 text-black font-bold transition-none cursor-pointer rounded-none shadow-[0_0_10px_rgba(249,115,22,0.4)]"
+          >
+            {isPlaying ? <Pause className="w-4 h-4 fill-black" /> : <Play className="w-4 h-4 fill-black ml-0.5" />}
+          </button>
+
+          {/* Next frame */}
+          <button
+            type="button"
+            onClick={() => stepFrame(1)}
+            title="Next frame (Right arrow)"
+            className="p-1.5 text-neutral-400 hover:text-white cursor-pointer"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+
+          {/* Last frame */}
+          <button
+            type="button"
+            onClick={() => seekToFrame(totalFrames)}
+            title="Last frame (End)"
+            className="p-1.5 text-neutral-400 hover:text-white cursor-pointer"
+          >
+            <SkipForward className="w-3.5 h-3.5" />
+          </button>
         </div>
 
-        {/* Right: EXPORT MP4 BUTTON (Placed in Timeline as requested!) */}
-        <div className="flex items-center gap-2">
+        {/* Right: FPS & Sleek Render MP4 Button */}
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-neutral-400 font-mono">
+            {fps}.0 FPS
+          </span>
+
           <button
             type="button"
             onClick={onOpenExportModal}
-            className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs flex items-center gap-1.5 uppercase tracking-wider rounded-none cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-none"
+            className="px-2.5 py-1 bg-orange-500 hover:bg-orange-400 text-black font-bold text-xs flex items-center gap-1.5 uppercase tracking-wider rounded-none cursor-pointer transition-none shadow-[0_0_10px_rgba(249,115,22,0.3)]"
           >
-            <Zap className="w-3.5 h-3.5 fill-black" />
-            <span>EXPORT MP4</span>
+            <Zap className="w-3 h-3 fill-black" />
+            <span>Render</span>
           </button>
         </div>
       </div>
 
-      {/* 2. TIMELINE TRACKS AREA */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Track Headers Column */}
-        <div className="w-36 bg-neutral-900/60 border-r border-neutral-800 flex flex-col divide-y divide-neutral-800/80 text-[10px] text-neutral-400 font-mono shrink-0">
-          <div className="h-8 px-2 flex items-center justify-between text-neutral-500">
-            <span>TRACK / FPS</span>
-            <span>{fps}F</span>
+      {/* =================================================================== */}
+      {/* 2. TIMELINE RULER & SCRUBBER AREA (Simple, Authentic Remotion) */}
+      {/* =================================================================== */}
+      <div className="flex-1 flex flex-col overflow-hidden bg-[#0a0c12]">
+        {/* Ruler Row */}
+        <div className="h-7 border-b border-neutral-800/80 flex shrink-0">
+          {/* Left Timecode Box: clean, single line, no overlap */}
+          <div className="w-36 px-2.5 border-r border-neutral-800/80 flex items-center justify-between text-[11px] text-orange-400 font-mono bg-[#0e1017] shrink-0">
+            <span>{formatRemotionTimecode(currentFrame)}</span>
+            <span className="text-neutral-500 text-[10px]">{currentFrame}</span>
           </div>
-          <div className="h-8 px-2 flex items-center gap-1.5 text-white font-bold bg-neutral-950/60">
-            <span className="w-2 h-2 bg-emerald-400" />
-            <span>V1: HOOK TEXT</span>
-          </div>
-          <div className="h-8 px-2 flex items-center gap-1.5 text-cyan-300 font-bold bg-neutral-950/60">
-            <span className="w-2 h-2 bg-cyan-400" />
-            <span>V2: B-ROLL BG</span>
-          </div>
-          <div className="h-8 px-2 flex items-center gap-1.5 text-purple-300 font-bold bg-neutral-950/60">
-            <span className="w-2 h-2 bg-purple-400" />
-            <span>A1: AUDIO BGM</span>
+
+          {/* Ruler Canvas */}
+          <div
+            ref={timelineRef}
+            onMouseDown={handleMouseDown}
+            className="flex-1 relative cursor-pointer overflow-hidden bg-[#0d0f17]"
+          >
+            {/* Timestamp Ticks */}
+            {rulerMarks.map((mark) => (
+              <div
+                key={mark.sec}
+                style={{ left: `${mark.percent}%` }}
+                className="absolute top-0 bottom-0 pointer-events-none flex flex-col items-start -translate-x-1/2"
+              >
+                <span className="text-[9px] text-neutral-500 mt-1 pl-1">
+                  {mark.label}
+                </span>
+                <div className="w-px flex-1 bg-neutral-800/60" />
+              </div>
+            ))}
+
+            {/* Scrubber Playhead (Orange Line + Pointer Head) */}
+            <div
+              style={{ left: `${progressPercent}%` }}
+              className="absolute top-0 bottom-0 z-30 pointer-events-none -translate-x-1/2 flex flex-col items-center"
+            >
+              {/* Pointer handle at top of ruler */}
+              <div className="w-2.5 h-2.5 bg-orange-500 rotate-45 -mt-1 shadow-md" />
+              {/* Red/Orange vertical playhead line */}
+              <div className="w-[1.5px] flex-1 bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)]" />
+            </div>
           </div>
         </div>
 
-        {/* Multi-Track Scrubbing Grid */}
-        <div
-          ref={trackContainerRef}
-          onClick={handleSeek}
-          className="flex-1 flex flex-col relative overflow-hidden cursor-pointer divide-y divide-neutral-900 bg-neutral-950"
-        >
-          {/* Time Ruler */}
-          <div className="h-8 bg-neutral-900/40 relative flex items-center px-2 text-[9px] text-neutral-500 border-b border-neutral-800/80 pointer-events-none">
-            <div className="absolute left-[0%] font-mono">00:00:00</div>
-            <div className="absolute left-[25%] font-mono">00:00:03</div>
-            <div className="absolute left-[50%] font-mono">00:00:07</div>
-            <div className="absolute left-[75%] font-mono">00:00:11</div>
-            <div className="absolute left-[92%] font-mono">00:00:15</div>
+        {/* =================================================================== */}
+        {/* 3. SEQUENCE TRACK AREA (Clean single horizontal bar like Remotion) */}
+        {/* =================================================================== */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Track Header */}
+          <div className="w-36 px-2.5 border-r border-neutral-800/80 flex items-center gap-2 text-[11px] text-neutral-300 font-mono bg-[#0c0e15] shrink-0">
+            <Eye className="w-3.5 h-3.5 text-neutral-500" />
+            <span className="truncate font-semibold">&lt;AbsoluteFill&gt;</span>
           </div>
 
-          {/* Track 1: V1 Hook Text */}
-          <div className="h-8 relative flex items-center px-1">
-            <div className="h-6 w-full bg-emerald-950/40 border border-emerald-500/50 flex items-center px-2 text-[10px] text-emerald-300 truncate font-mono">
-              <span className="font-bold mr-1.5">[HOOK]:</span>
-              <span className="truncate">{hookText}</span>
-            </div>
-          </div>
-
-          {/* Track 2: V2 B-Roll BG Blocks */}
-          <div className="h-8 relative flex items-center gap-1 px-1">
-            <div className="h-6 w-[45%] bg-cyan-950/40 border border-cyan-500/40 flex items-center px-2 text-[10px] text-cyan-300 font-mono truncate">
-              cyber_grid_loop.mp4
-            </div>
-            <div className="h-6 w-[55%] bg-cyan-950/40 border border-cyan-500/40 flex items-center px-2 text-[10px] text-cyan-300 font-mono truncate">
-              matrix_particles.mp4
-            </div>
-          </div>
-
-          {/* Track 3: A1 Background Audio with Waveform SVG */}
-          <div className="h-8 relative flex items-center px-1">
-            <div className="h-6 w-full bg-purple-950/40 border border-purple-500/40 relative overflow-hidden flex items-center px-2">
-              <span className="text-[10px] text-purple-300 font-mono z-10">lofi_focus_beat.mp3 (120 BPM)</span>
-              {/* Synthetic Audio Waveform Graphic */}
-              <svg className="absolute inset-0 w-full h-full opacity-30 text-purple-400" preserveAspectRatio="none" viewBox="0 0 200 24">
-                <path d="M0,12 Q10,2 20,12 T40,12 T60,4 T80,18 T100,2 T120,20 T140,8 T160,16 T180,6 T200,12 L200,24 L0,24 Z" fill="currentColor" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Active Playhead Scrubber Line */}
+          {/* Sequence Track Bar (Remotion Blue/Indigo) */}
           <div
-            className="absolute top-0 bottom-0 pointer-events-none z-20"
-            style={{ left: `${progressPercent}%` }}
+            onMouseDown={handleMouseDown}
+            className="flex-1 relative cursor-pointer p-1.5 flex items-center bg-[#07090e]"
           >
-            <div className="w-0.5 h-full bg-rose-500 relative">
-              <div className="w-2.5 h-3 bg-rose-500 -ml-1 -top-0.5 absolute shadow-md border border-white" />
+            {/* Solid Sequence Bar spanning full composition duration */}
+            <div className="w-full h-7 bg-[#0b84f3] hover:bg-[#1a8df7] border border-blue-400/40 text-white text-[11px] font-bold flex items-center px-3 shadow-sm select-none transition-none">
+              <span className="truncate">&lt;NexusEditorialVideo /&gt;</span>
+            </div>
+
+            {/* Vertical Playhead across track */}
+            <div
+              style={{ left: `${progressPercent}%` }}
+              className="absolute top-0 bottom-0 pointer-events-none -translate-x-1/2"
+            >
+              <div className="w-[1.5px] h-full bg-orange-500" />
             </div>
           </div>
         </div>
@@ -287,4 +325,3 @@ export const NexusTimeline: React.FC<NexusTimelineProps> = ({
     </div>
   );
 };
-
