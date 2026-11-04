@@ -55,29 +55,29 @@ export const WindowControls: React.FC<{ className?: string }> = memo(function Wi
       <button
         type="button"
         onClick={handleMinimize}
-        className="w-7 h-7 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 transition-none cursor-pointer rounded-none"
+        className="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 transition-none cursor-pointer rounded-none"
         title="Minimize"
         aria-label="Minimize"
       >
-        <Minus className="w-3.5 h-3.5" />
+        <Minus className="w-3 h-3" />
       </button>
       <button
         type="button"
         onClick={handleMaximize}
-        className="w-7 h-7 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 transition-none cursor-pointer rounded-none"
+        className="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 transition-none cursor-pointer rounded-none"
         title="Maximize / Restore"
         aria-label="Maximize"
       >
-        <Square className="w-3 h-3" />
+        <Square className="w-2.5 h-2.5" />
       </button>
       <button
         type="button"
         onClick={handleClose}
-        className="w-7 h-7 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-rose-600 transition-none cursor-pointer rounded-none"
+        className="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-rose-600 transition-none cursor-pointer rounded-none"
         title="Close"
         aria-label="Close"
       >
-        <X className="w-3.5 h-3.5" />
+        <X className="w-3 h-3" />
       </button>
     </div>
   );

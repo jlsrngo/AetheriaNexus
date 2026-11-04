@@ -43,12 +43,14 @@ export function AppLayout() {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-neutral-950 text-neutral-100 select-none">
-      {/* 1. Global Header Bar (Always shown edge-to-edge matching VS Code / Neo-Brutalist HUD architecture) */}
-      <AppHeader
-        activeFolder={activeFolder}
-        onOpenFolder={handleOpenFolder}
-        onCloseFolder={handleCloseFolder}
-      />
+      {/* 1. Header Bar (Only shown on non-studio views because Remotion Studio has its own native top menu bar) */}
+      {!isStudioRoute && (
+        <AppHeader
+          activeFolder={activeFolder}
+          onOpenFolder={handleOpenFolder}
+          onCloseFolder={handleCloseFolder}
+        />
+      )}
 
       {/* 2. Main Keep-Alive Container */}
       <main className="flex-1 min-h-0 w-full overflow-hidden flex flex-col relative bg-neutral-950">
