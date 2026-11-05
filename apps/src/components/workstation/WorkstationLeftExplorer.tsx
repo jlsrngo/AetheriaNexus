@@ -4,6 +4,7 @@ import FileTree from "../workspace/FileTree";
 import { CanvasItem, WorkspaceFile, Workspace } from "./explorer/types";
 import { useNativeFileTree } from "./explorer/useNativeFileTree";
 import { ExplorerRecentCanvases } from "./explorer/ExplorerRecentCanvases";
+import { ExplorerMediaAssets } from "./explorer/ExplorerMediaAssets";
 import { useI18n } from "../../lib/i18n";
 import { Dialog, DialogContent, DialogFooter, Button } from "../ui";
 
@@ -234,6 +235,9 @@ function WorkstationLeftExplorerComponent({
           )}
         </div>
       )}
+
+      {/* Remotion Static Media Assets (public/) */}
+      <ExplorerMediaAssets />
 
       {/* Outline / Recent Canvases Section */}
       <ExplorerRecentCanvases
