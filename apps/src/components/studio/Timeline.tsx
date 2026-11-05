@@ -26,6 +26,7 @@ import { apiFetch, API_BASE } from "../../lib/api";
 import { useStudioStore } from "../../hooks/useStudioStore";
 import { buildCompositionLayers, type VideoLayerSpec } from "../../remotion/types";
 import type { StudioRenderJob } from "../../types/studio";
+import { ClipEditModal } from "./ClipEditModal";
 
 interface TimelineProps {
   compositionId: string;
@@ -58,8 +59,7 @@ export const Timeline: React.FC<TimelineProps> = ({
   const [timelineHeight, setTimelineHeight] = useState<number>(280);
   const [timelineZoom, setTimelineZoom] = useState<number>(1);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>("text-hook");
-  const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
-  const [editingDraft, setEditingDraft] = useState<string>("");
+  const [modalLayer, setModalLayer] = useState<VideoLayerSpec | null>(null);
   const [dragOverride, setDragOverride] = useState<DragOverride | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
@@ -311,22 +311,6 @@ export const Timeline: React.FC<TimelineProps> = ({
         [layer.id]: safeDur,
       },
     });
-  };
-
-  const startInlineEdit = (layer: VideoLayerSpec) => {
-    setSelectedLayerId(layer.id);
-    setEditingLayerId(layer.id);
-    setEditingDraft(layer.content ?? layer.label);
-  };
-
-  const commitInlineEdit = (layer: VideoLayerSpec) => {
-    if (editingLayerId === layer.id) {
-      const trimmed = editingDraft.trim();
-      if (trimmed.length > 0) {
-        handleUpdateLayerContent(layer, trimmed);
-      }
-      setEditingLayerId(null);
-    }
   };
 
   // 60fps Zero-Lag Clip Dragging (commits to store only on mouseup)
@@ -607,13 +591,13 @@ export const Timeline: React.FC<TimelineProps> = ({
 
       {/* 1. Three-Column Solid Header (Never Overlaps When Resized Narrow) */}
       <div className="bg-[var(--bg-panel)] border-b border-[var(--border-color)] px-3 py-1.5 grid grid-cols-[1fr_auto_1fr] items-center gap-2 shrink-0">
-        {/* Left Column: Row 1 (Timeline Zoom, [I, O], Reset) | Row 2 (Tracks Count + Inline Selected Clip Editor) */}
+        {/* Left Column: Row 1 (Timeline Zoom Slider Bar, [I, O], Reset) | Row 2 (Tracks Count + Selected Clip Info) */}
         <div className="flex flex-col gap-1.5 min-w-0 items-start">
           <div className="flex items-center gap-1.5 max-w-full overflow-x-auto no-scrollbar">
-            {/* Timeline Horizontal Zoom Control (Replaces Redundant Start Button) */}
+            {/* Timeline Horizontal Zoom Slider Bar */}
             <div
-              className="h-6 px-1.5 flex items-center gap-1 border border-[var(--border-strong)] bg-[var(--bg-card)] rounded-md text-[10px] font-mono shrink-0"
-              title="Zoom Timeline Horizontally (Stretch Frames)"
+              className="h-6 px-2 flex items-center gap-1.5 border border-[var(--border-strong)] bg-[var(--bg-card)] rounded-md text-[10px] font-mono shrink-0"
+              title="Drag slider to zoom Timeline frames horizontally"
             >
               <button
                 type="button"
@@ -625,14 +609,16 @@ export const Timeline: React.FC<TimelineProps> = ({
               >
                 <ZoomOut className="w-3 h-3" />
               </button>
-              <button
-                type="button"
-                onClick={() => setTimelineZoom(1)}
-                className="text-amber-400 font-semibold px-0.5 cursor-pointer"
-                title="Click to reset Timeline Zoom to 100%"
-              >
-                {Math.round(timelineZoom * 100)}%
-              </button>
+              <input
+                type="range"
+                min={1}
+                max={8}
+                step={0.1}
+                value={timelineZoom}
+                onChange={(e) => setTimelineZoom(Number(e.target.value))}
+                className="w-16 sm:w-20 h-1 accent-[#cf6613] bg-[var(--bg-input)] rounded-lg cursor-ew-resize outline-none"
+                title={`Timeline Zoom: ${Math.round(timelineZoom * 100)}%`}
+              />
               <button
                 type="button"
                 onClick={() =>
@@ -642,6 +628,14 @@ export const Timeline: React.FC<TimelineProps> = ({
                 title="Zoom In Timeline (Stretch Frames)"
               >
                 <ZoomIn className="w-3 h-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setTimelineZoom(1)}
+                className="text-amber-400 font-semibold px-0.5 hover:underline cursor-pointer"
+                title="Click to reset Timeline Zoom to 100%"
+              >
+                {Math.round(timelineZoom * 100)}%
               </button>
             </div>
 
@@ -696,52 +690,23 @@ export const Timeline: React.FC<TimelineProps> = ({
               {layers.length} TRACKS
             </span>
             {selectedLayer && (
-              <div className="h-6 px-1.5 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] flex items-center gap-1.5 min-w-0">
-                <span className="text-[var(--text-primary)] font-semibold shrink-0">
+              <button
+                type="button"
+                onClick={() => setModalLayer(selectedLayer)}
+                className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] hover:border-amber-400/80 text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1.5 cursor-pointer truncate max-w-[280px] transition-colors"
+                title="Click to open clip edit popup (or double-click clip directly)"
+              >
+                <span className="text-amber-400 font-semibold shrink-0">
                   {selectedLayer.trackCode}:
                 </span>
-                <input
-                  type="text"
-                  value={selectedLayer.content ?? selectedLayer.label}
-                  onChange={(e) =>
-                    handleUpdateLayerContent(selectedLayer, e.target.value)
-                  }
-                  placeholder="Edit clip text..."
-                  className="w-28 sm:w-40 h-4 px-1 rounded bg-[var(--bg-input)] border border-[var(--border-color)] text-[10px] font-sans text-[var(--text-primary)] outline-none focus:border-amber-400"
-                  title="Edit selected clip content directly"
-                />
-                <input
-                  type="number"
-                  min={0}
-                  max={durationInFrames - 5}
-                  value={selectedLayer.from}
-                  onChange={(e) =>
-                    handleUpdateLayerTiming(
-                      selectedLayer,
-                      Number(e.target.value) || 0,
-                      selectedLayer.from + selectedLayer.durationInFrames
-                    )
-                  }
-                  className="w-9 h-4 text-center rounded bg-[var(--bg-input)] border border-[var(--border-color)] text-[9px] text-amber-400 outline-none"
-                  title="Clip Start Frame"
-                />
-                <span className="text-[var(--text-muted)]">–</span>
-                <input
-                  type="number"
-                  min={selectedLayer.from + 5}
-                  max={durationInFrames}
-                  value={selectedLayer.from + selectedLayer.durationInFrames}
-                  onChange={(e) =>
-                    handleUpdateLayerTiming(
-                      selectedLayer,
-                      selectedLayer.from,
-                      Number(e.target.value) || durationInFrames
-                    )
-                  }
-                  className="w-9 h-4 text-center rounded bg-[var(--bg-input)] border border-[var(--border-color)] text-[9px] text-amber-400 outline-none"
-                  title="Clip End Frame"
-                />
-              </div>
+                <span className="truncate text-[var(--text-primary)] font-medium">
+                  {selectedLayer.content ?? selectedLayer.label}
+                </span>
+                <span className="text-[var(--text-muted)] text-[9px] font-mono shrink-0 ml-1">
+                  ({selectedLayer.from}f–{selectedLayer.from + selectedLayer.durationInFrames}f)
+                </span>
+                <Pencil className="w-2.5 h-2.5 text-amber-400 shrink-0 ml-0.5" />
+              </button>
             )}
           </div>
         </div>
@@ -889,7 +854,10 @@ export const Timeline: React.FC<TimelineProps> = ({
                     setSelectedLayerId(layer.id);
                     onSeek(layer.from);
                   }}
-                  onDoubleClick={() => startInlineEdit(layer)}
+                  onDoubleClick={() => {
+                    setSelectedLayerId(layer.id);
+                    setModalLayer(layer);
+                  }}
                   className={cn(
                     "h-7 px-2 flex items-center justify-between gap-1.5 transition-colors cursor-pointer",
                     isSelected
@@ -928,10 +896,11 @@ export const Timeline: React.FC<TimelineProps> = ({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        startInlineEdit(layer);
+                        setSelectedLayerId(layer.id);
+                        setModalLayer(layer);
                       }}
                       className="p-1 rounded text-[var(--text-muted)] hover:text-amber-400 hover:bg-[var(--bg-card)] transition-colors cursor-pointer"
-                      title="Edit clip content manually"
+                      title="Open clip edit modal"
                     >
                       <Pencil className="w-2.5 h-2.5" />
                     </button>
@@ -1094,7 +1063,6 @@ export const Timeline: React.FC<TimelineProps> = ({
                   (layer.durationInFrames / Math.max(1, durationInFrames)) * 100
                 );
                 const isSelected = layer.id === selectedLayerId;
-                const isEditing = layer.id === editingLayerId;
                 const palette = getLayerPalette(layer, idx);
 
                 return (
@@ -1107,26 +1075,26 @@ export const Timeline: React.FC<TimelineProps> = ({
                     }}
                     className="h-7 relative flex items-center"
                   >
-                    {/* Draggable, Trimmable & Double-Click Editable Premiere Clip Bar */}
+                    {/* Draggable, Trimmable & Double-Click Modal Editable Premiere Clip Bar */}
                     <div
                       style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                       onMouseDown={(e) => {
-                        if (!isEditing) startClipDrag(e, layer, "move");
+                        startClipDrag(e, layer, "move");
                       }}
                       onDoubleClick={(e) => {
                         e.stopPropagation();
-                        startInlineEdit(layer);
+                        setSelectedLayerId(layer.id);
+                        setModalLayer(layer);
                       }}
                       className={cn(
-                        "group absolute top-1 bottom-1 rounded border flex items-center justify-between overflow-hidden select-none transition-colors",
-                        isEditing ? "cursor-text" : "cursor-grab active:cursor-grabbing",
+                        "group absolute top-1 bottom-1 rounded border flex items-center justify-between overflow-hidden select-none transition-colors cursor-grab active:cursor-grabbing",
                         !layer.visible
                           ? "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)] opacity-50"
                           : cn(palette.clip, isSelected && palette.selected)
                       )}
                       title={`${layer.trackCode} ${layer.label} (${layer.from}f – ${
                         layer.from + layer.durationInFrames
-                      }f) • Double-click clip to edit text manually, drag center to move, drag edges to trim`}
+                      }f) • Double-click clip to open editor popup, drag center to move, drag edges to trim`}
                     >
                       {/* Left Trim Handle */}
                       <div
@@ -1139,31 +1107,15 @@ export const Timeline: React.FC<TimelineProps> = ({
                       />
 
                       <div className="px-1.5 flex items-center justify-between gap-2 min-w-0 flex-1">
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            autoFocus
-                            value={editingDraft}
-                            onChange={(e) => setEditingDraft(e.target.value)}
-                            onBlur={() => commitInlineEdit(layer)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") commitInlineEdit(layer);
-                              if (e.key === "Escape") setEditingLayerId(null);
-                            }}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            className="w-full h-4 px-1 rounded bg-black/60 border border-amber-400 text-[10px] text-white outline-none"
+                        <span className="text-[10px] font-medium truncate flex items-center gap-1.5">
+                          <span
+                            className={cn(
+                              "w-1.5 h-1.5 rounded-full shrink-0",
+                              layer.visible ? palette.dot : "bg-[var(--text-muted)]"
+                            )}
                           />
-                        ) : (
-                          <span className="text-[10px] font-medium truncate flex items-center gap-1.5">
-                            <span
-                              className={cn(
-                                "w-1.5 h-1.5 rounded-full shrink-0",
-                                layer.visible ? palette.dot : "bg-[var(--text-muted)]"
-                              )}
-                            />
-                            {layer.label}
-                          </span>
-                        )}
+                          {layer.content ?? layer.label}
+                        </span>
                         <span className="text-[9px] font-mono opacity-80 shrink-0">
                           {layer.from}f–{layer.from + layer.durationInFrames}f
                         </span>
@@ -1223,6 +1175,21 @@ export const Timeline: React.FC<TimelineProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Floating Clip Edit Modal (Triggered on Double-Click or Pencil Click) */}
+      {modalLayer && (
+        <ClipEditModal
+          isOpen={Boolean(modalLayer)}
+          layer={modalLayer}
+          onClose={() => setModalLayer(null)}
+          onSaveContent={handleUpdateLayerContent}
+          onSaveTiming={handleUpdateLayerTiming}
+          onToggleVisibility={handleToggleLayerVisibility}
+          onDeleteCustom={handleRemoveCustomLayer}
+          durationInFrames={durationInFrames}
+          fps={fps}
+        />
+      )}
     </section>
   );
 };

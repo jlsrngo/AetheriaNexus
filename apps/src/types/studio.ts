@@ -59,7 +59,10 @@ export interface StudioGpuTelemetry {
 }
 
 export interface StudioCanvasSettings {
-  zoom: "fit" | 0.5 | 0.75 | 1 | 1.5;
+  zoom: "fit" | number;
+  panX?: number;
+  panY?: number;
+  showMinimap?: boolean;
   showGuides: boolean;
   showRulers: boolean;
   showGrid: boolean;

@@ -176,6 +176,9 @@ let state: StudioStoreState = {
   isPlaying: false,
   canvas: {
     zoom: "fit",
+    panX: 0,
+    panY: 0,
+    showMinimap: true,
     showGuides: false,
     showRulers: true,
     showGrid: false,
