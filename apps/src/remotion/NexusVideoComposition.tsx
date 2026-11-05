@@ -370,6 +370,23 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
               </Sequence>
             );
           })}
+
+          {layers
+            .filter((l) => l.isCustom && l.visible)
+            .map((customLayer) => (
+              <Sequence
+                key={customLayer.id}
+                layout="none"
+                from={customLayer.from}
+                durationInFrames={customLayer.durationInFrames}
+                name={customLayer.label}
+              >
+                <BulletCardAnimated
+                  line={customLayer.content || customLayer.label}
+                  accent={currentTheme.accent}
+                />
+              </Sequence>
+            ))}
         </div>
       </div>
 

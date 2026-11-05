@@ -13,6 +13,8 @@ import {
   Award,
   Captions,
   RotateCcw,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useStudioStore } from "../../hooks/useStudioStore";
@@ -109,6 +111,40 @@ export const Timeline: React.FC<TimelineProps> = ({
       layerStartFrame: {},
       layerDuration: {},
       layerVisibility: {},
+    });
+  };
+
+  const handleAddCustomLayer = () => {
+    const currentCustom = Array.isArray(activeComposition.props.customLayers)
+      ? activeComposition.props.customLayers
+      : [];
+    const nextIdx = currentCustom.length + 1;
+    const newId = `custom-layer-${Date.now().toString(36)}`;
+    const colorKey = PALETTE_CYCLE[(layers.length + nextIdx) % PALETTE_CYCLE.length];
+    const startFrame = Math.min(lastFrame - 15, Math.max(0, currentFrame));
+    const nextCustom = [
+      ...currentCustom,
+      {
+        id: newId,
+        label: `Layer Dinamis #${nextIdx}: Komponen Baru`,
+        kind: "text" as const,
+        content: `Komponen Layer Dinamis #${nextIdx}`,
+        color: colorKey,
+        from: startFrame,
+        durationInFrames: Math.max(30, durationInFrames - startFrame),
+        visible: true,
+      },
+    ];
+    actions.updateActiveProps({ customLayers: nextCustom });
+    setSelectedLayerId(newId);
+  };
+
+  const handleRemoveCustomLayer = (layerId: string) => {
+    const currentCustom = Array.isArray(activeComposition.props.customLayers)
+      ? activeComposition.props.customLayers
+      : [];
+    actions.updateActiveProps({
+      customLayers: currentCustom.filter((c) => c.id !== layerId),
     });
   };
 
@@ -339,6 +375,9 @@ export const Timeline: React.FC<TimelineProps> = ({
   ] as const;
 
   const getLayerPalette = (layer: VideoLayerSpec, idx: number): PremiereClipPalette => {
+    if (layer.color && PREMIERE_PALETTES[layer.color]) {
+      return PREMIERE_PALETTES[layer.color];
+    }
     const byId: Record<string, keyof typeof PREMIERE_PALETTES> = {
       "hud-category": "violet",
       "hud-subcategory": "cyan",
@@ -362,10 +401,13 @@ export const Timeline: React.FC<TimelineProps> = ({
       case "background":
         return <Layers className={cn("w-3 h-3 shrink-0", iconClass)} />;
       case "pattern":
+      case "media":
         return <Sparkles className={cn("w-3 h-3 shrink-0", iconClass)} />;
       case "icon":
+      case "badge":
         return <Award className={cn("w-3 h-3 shrink-0", iconClass)} />;
       case "text":
+      default:
         return <Type className={cn("w-3 h-3 shrink-0", iconClass)} />;
     }
   };
@@ -439,6 +481,15 @@ export const Timeline: React.FC<TimelineProps> = ({
             >
               <RotateCcw className="w-2.5 h-2.5" />
               <span>Reset</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleAddCustomLayer}
+              title="Tambah Layer Dinamis Baru (V1..Vn Tanpa Batas)"
+              className="px-1.5 h-5 rounded bg-amber-500/15 border border-amber-500/40 text-[10px] text-amber-400 hover:bg-amber-500/25 flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <Plus className="w-2.5 h-2.5" />
+              <span>Layer</span>
             </button>
           </div>
 
@@ -597,24 +648,39 @@ export const Timeline: React.FC<TimelineProps> = ({
                       {layer.label}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleLayerVisibility(layer);
-                    }}
-                    className={cn(
-                      "p-1 rounded hover:bg-[var(--bg-card)] transition-colors cursor-pointer shrink-0",
-                      layer.visible ? palette.icon : "text-[var(--text-muted)]"
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    {layer.isCustom && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveCustomLayer(layer.id);
+                        }}
+                        className="p-1 rounded text-[var(--text-muted)] hover:text-rose-400 hover:bg-[var(--bg-card)] transition-colors cursor-pointer"
+                        title="Hapus Layer Dinamis"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     )}
-                    title={layer.visible ? "Sembunyikan Layer" : "Tampilkan Layer"}
-                  >
-                    {layer.visible ? (
-                      <Eye className="w-3 h-3" />
-                    ) : (
-                      <EyeOff className="w-3 h-3" />
-                    )}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleLayerVisibility(layer);
+                      }}
+                      className={cn(
+                        "p-1 rounded hover:bg-[var(--bg-card)] transition-colors cursor-pointer shrink-0",
+                        layer.visible ? palette.icon : "text-[var(--text-muted)]"
+                      )}
+                      title={layer.visible ? "Sembunyikan Layer" : "Tampilkan Layer"}
+                    >
+                      {layer.visible ? (
+                        <Eye className="w-3 h-3" />
+                      ) : (
+                        <EyeOff className="w-3 h-3" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               );
             })}
