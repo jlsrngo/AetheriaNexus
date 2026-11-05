@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
 import { WorkstationLeftExplorer } from "../components/workstation/WorkstationLeftExplorer";
-import { WorkstationActivityBar } from "../components/workstation/activity/WorkstationActivityBar";
+import { WorkstationActivityBar, type SidebarView } from "../components/workstation/activity/WorkstationActivityBar";
+import { WorkspaceSearchPanel } from "../components/workstation/search/WorkspaceSearchPanel";
 import { WorkstationCenterPanel } from "../components/workstation/WorkstationCenterPanel";
 import { WorkstationRightChat } from "../components/workstation/WorkstationRightChat";
 import { ConnectFolderModal } from "../components/workstation/ConnectFolderModal";
@@ -93,71 +93,86 @@ export function UnifiedWorkstationPage() {
   });
 
   const [showQuickOpenModal, setShowQuickOpenModal] = useState(false);
+  const [activeSidebarView, setActiveSidebarView] = useState<SidebarView>("explorer");
+
+  const handleSelectSidebarView = useCallback(
+    (view: SidebarView) => {
+      if (leftCollapsed) {
+        setActiveSidebarView(view);
+        handleToggleLeft();
+      } else if (activeSidebarView === view) {
+        handleToggleLeft();
+      } else {
+        setActiveSidebarView(view);
+      }
+    },
+    [leftCollapsed, activeSidebarView, handleToggleLeft]
+  );
 
   useEffect(() => {
     const handleQuickOpenEvent = () => setShowQuickOpenModal((prev) => !prev);
+    const handleWorkspaceSearchEvent = () => {
+      setActiveSidebarView("search");
+      if (leftCollapsed) handleToggleLeft();
+    };
     window.addEventListener("arunaki-quick-open-file", handleQuickOpenEvent);
+    window.addEventListener("arunaki-workspace-search", handleWorkspaceSearchEvent);
     return () => {
       window.removeEventListener("arunaki-quick-open-file", handleQuickOpenEvent);
+      window.removeEventListener("arunaki-workspace-search", handleWorkspaceSearchEvent);
     };
-  }, []);
+  }, [leftCollapsed, handleToggleLeft]);
 
   return (
-    <div className="flex flex-col h-full w-full bg-neutral-950 text-neutral-100 overflow-hidden select-none transition-none font-mono relative">
-      {/* Floating AI Copilot toggle when right panel is collapsed */}
-      {rightCollapsed && (
-        <div className="absolute top-1 right-2 z-50 flex items-center gap-1.5 bg-neutral-900/90 border border-neutral-800 p-0.5 shadow-lg">
-          <button
-            type="button"
-            onClick={handleToggleRight}
-            className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-700 text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 rounded-none cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>AI COPILOT</span>
-          </button>
-        </div>
-      )}
-
+    <div className="flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-hidden select-none transition-colors duration-150">
       <div
         ref={containerRef}
         className="flex-1 flex overflow-hidden relative"
-        style={
-          {
-            "--left-panel-width": "264px",
-            "--right-panel-width": "340px",
-          } as React.CSSProperties
-        }
+        style={{ "--left-panel-width": "256px", "--right-panel-width": "320px" } as React.CSSProperties}
       >
-        {/* 0. Persistent icon rail — stays put when the explorer is closed */}
+        {/* Activity Bar on far left (VS Code parity) */}
         <WorkstationActivityBar
-          explorerOpen={!leftCollapsed}
-          onToggleExplorer={handleToggleLeft}
+          activeView={activeSidebarView}
+          isCollapsed={leftCollapsed}
+          onSelectView={handleSelectSidebarView}
         />
 
-        {/* 1. Left: workspace explorer */}
-        <WorkstationLeftExplorer
-          collapsed={leftCollapsed}
-          onClose={handleCloseLeft}
-          onToggle={handleToggleLeft}
-          activeWorkspace={activeWorkspace}
-          workspaceFiles={workspaceFiles}
-          onOpenFileTab={tabs.handleOpenFileTab}
-          onOpenFolderModal={handleOpenFolderModal}
-          onCloseFolder={handleCloseFolderAction}
-          width="var(--left-panel-width, 264px)"
-          onNativeFilesChange={setNativeFileNames}
-          recentCanvases={tabs.recentCanvases}
-          onOpenCanvasTab={tabs.handleOpenCanvasTab}
-        />
+        {!leftCollapsed && activeSidebarView === "explorer" && (
+          <WorkstationLeftExplorer
+            collapsed={false}
+            onClose={handleCloseLeft}
+            onToggle={handleToggleLeft}
+            activeWorkspace={activeWorkspace}
+            workspaceFiles={workspaceFiles}
+            onOpenFileTab={tabs.handleOpenFileTab}
+            onOpenFolderModal={handleOpenFolderModal}
+            onCloseFolder={handleCloseFolderAction}
+            width="var(--left-panel-width)"
+            onNativeFilesChange={setNativeFileNames}
+            recentCanvases={tabs.recentCanvases}
+            onOpenCanvasTab={tabs.handleOpenCanvasTab}
+          />
+        )}
+
+        {!leftCollapsed && activeSidebarView === "search" && (
+          <WorkspaceSearchPanel
+            activeFolder={activeFolder}
+            workspaceFiles={workspaceFiles}
+            onOpenFileTab={tabs.handleOpenFileTab}
+            onClose={handleCloseLeft}
+            onToggle={handleToggleLeft}
+            width="var(--left-panel-width)"
+          />
+        )}
 
         {!leftCollapsed && (
           <div
-            className="w-1 cursor-col-resize bg-transparent shrink-0 hover:bg-neutral-600 transition-colors"
+            className="w-1 cursor-col-resize bg-transparent shrink-0 hover:bg-[var(--border-strong)] transition-colors"
             onMouseDown={(e) => startDrag("left", e)}
           />
         )}
 
-        {/* 2. Center: tabs + video preview + timeline */}
+        {/* Center: tabs + video preview + timeline */}
         <WorkstationCenterPanel
           tabs={tabs.tabs}
           activeTabId={tabs.activeTabId}
@@ -168,53 +183,44 @@ export function UnifiedWorkstationPage() {
           onSaveTabContent={tabs.handleSaveFileTab}
         />
 
-        {/* Resizer when Right Chat is open */}
         {!rightCollapsed && (
           <div
-            className="w-1 cursor-col-resize bg-transparent shrink-0 hover:bg-neutral-600 transition-colors"
+            className="w-1 cursor-col-resize bg-transparent shrink-0 hover:bg-[var(--border-strong)] transition-colors"
             onMouseDown={(e) => startDrag("right", e)}
           />
         )}
 
-        {/* AI Copilot Panel (HALO) */}
-        {!rightCollapsed && (
-          <div
-            className="h-full flex flex-col shrink-0 overflow-hidden bg-neutral-950 border-l border-neutral-800"
-            style={{ width: "var(--right-panel-width, 340px)" }}
-          >
-            <ErrorBoundary fullScreen={false} fallbackTitle="Chat panel encountered an error">
-              <WorkstationRightChat
-                activeChatId={activeChatId}
-                collapsed={false}
-                onClose={handleToggleRight}
-                chatMessages={chat.chatMessages}
-                optimisticMessages={chat.optimisticMessages}
-                liveStatus={chat.liveStatus}
-                messagesEndRef={chat.messagesEndRef}
-                activeWorkspace={activeWorkspace}
-                isStreaming={chat.isStreaming}
-                onSendMessage={chat.handleSendMessage}
-                width="100%"
-                files={mentionFiles}
-                queuedPrompts={chat.queuedPrompts}
-                onRemoveQueuedPrompt={chat.handleRemoveQueuedPrompt}
-                onSearchSection={handleOpenSearchModal}
-                reasoningEffort={chat.reasoningEffort}
-                setReasoningEffort={chat.setReasoningEffort}
-                effortOptions={chat.effortOptions}
-                activeModel={chat.activeModel}
-                modelOptions={chat.providerModels}
-                onSelectModel={(m) => chat.setActiveModel(chat.activeModel?.providerID ?? "", m.id)}
-                onNewChat={chat.handleNewChat}
-                onCancelStream={chat.handleCancelStream}
-                onAnswerQuestion={chat.handleAnswerQuestion}
-                onCompactSession={chat.handleCompactSession}
-                isCompacting={chat.isCompacting}
-                isCompacted={chat.isCompacted}
-              />
-            </ErrorBoundary>
-          </div>
-        )}
+        <ErrorBoundary fullScreen={false} fallbackTitle="Chat panel encountered an error">
+          <WorkstationRightChat
+            activeChatId={activeChatId}
+            collapsed={rightCollapsed}
+            onClose={handleToggleRight}
+            chatMessages={chat.chatMessages}
+            optimisticMessages={chat.optimisticMessages}
+            liveStatus={chat.liveStatus}
+            messagesEndRef={chat.messagesEndRef}
+            activeWorkspace={activeWorkspace}
+            isStreaming={chat.isStreaming}
+            onSendMessage={chat.handleSendMessage}
+            width="var(--right-panel-width, 320px)"
+            files={mentionFiles}
+            queuedPrompts={chat.queuedPrompts}
+            onRemoveQueuedPrompt={chat.handleRemoveQueuedPrompt}
+            onSearchSection={handleOpenSearchModal}
+            reasoningEffort={chat.reasoningEffort}
+            setReasoningEffort={chat.setReasoningEffort}
+            effortOptions={chat.effortOptions}
+            activeModel={chat.activeModel}
+            modelOptions={chat.providerModels}
+            onSelectModel={(m) => chat.setActiveModel(chat.activeModel?.providerID ?? "", m.id)}
+            onNewChat={chat.handleNewChat}
+            onCancelStream={chat.handleCancelStream}
+            onAnswerQuestion={chat.handleAnswerQuestion}
+            onCompactSession={chat.handleCompactSession}
+            isCompacting={chat.isCompacting}
+            isCompacted={chat.isCompacted}
+          />
+        </ErrorBoundary>
       </div>
 
       <ConnectFolderModal

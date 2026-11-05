@@ -44,16 +44,16 @@ export const Timeline: React.FC<TimelineProps> = ({
   const step = (delta: number) => onSeek(Math.min(lastFrame, Math.max(0, currentFrame + delta)));
 
   return (
-    <section className="shrink-0 border-t border-neutral-800/80 bg-neutral-950 select-none">
+    <section className="shrink-0 border-t border-[var(--border-color)] bg-[var(--bg-app)] select-none">
       {/* 1. Transport + telemetry */}
-      <div className="h-8 px-3 flex items-center justify-between border-b border-neutral-800/80">
+      <div className="h-8 px-3 flex items-center justify-between border-b border-[var(--border-color)]">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-semibold text-neutral-300 mr-2 tracking-tight">Timeline</span>
+          <span className="text-xs font-semibold text-[var(--text-secondary)] mr-2 tracking-tight">Timeline</span>
           <button
             type="button"
             onClick={() => onSeek(0)}
             title="Go to start"
-            className="w-6 h-6 flex items-center justify-center border border-neutral-800 bg-neutral-900/80 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"
+            className="w-6 h-6 flex items-center justify-center border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md transition-colors cursor-pointer"
           >
             <SkipBack className="w-3 h-3" />
           </button>
@@ -61,7 +61,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             type="button"
             onClick={() => step(-1)}
             title="Previous frame"
-            className="w-6 h-6 flex items-center justify-center border border-neutral-800 bg-neutral-900/80 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"
+            className="w-6 h-6 flex items-center justify-center border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md transition-colors cursor-pointer"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
           </button>
@@ -73,7 +73,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               "w-6 h-6 flex items-center justify-center border rounded-md transition-colors cursor-pointer",
               isPlaying
                 ? "bg-rose-500/20 border-rose-500/40 text-rose-400 hover:bg-rose-500/30"
-                : "bg-neutral-900/80 border-neutral-800 text-emerald-400 hover:bg-neutral-800"
+                : "bg-[var(--bg-card)] border-[var(--border-color)] text-emerald-400 hover:bg-[var(--bg-hover)]"
             )}
           >
             {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
@@ -82,15 +82,15 @@ export const Timeline: React.FC<TimelineProps> = ({
             type="button"
             onClick={() => step(1)}
             title="Next frame"
-            className="w-6 h-6 flex items-center justify-center border border-neutral-800 bg-neutral-900/80 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"
+            className="w-6 h-6 flex items-center justify-center border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md transition-colors cursor-pointer"
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div className="flex items-center gap-2 text-[11px] font-mono text-neutral-400">
+        <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--text-muted)]">
           <span>
-            FRAME <span className="text-white font-semibold">{String(currentFrame).padStart(3, "0")}</span> / {durationInFrames}
+            FRAME <span className="text-[var(--text-primary)] font-semibold">{String(currentFrame).padStart(3, "0")}</span> / {durationInFrames}
           </span>
           <span className="text-neutral-700">|</span>
           <span>{(currentFrame / fps).toFixed(2)}s</span>
@@ -119,7 +119,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               <div
                 key={second}
                 className={cn(
-                  "absolute top-0 h-4 border-l border-neutral-800 font-mono text-[9px] leading-4 text-neutral-500",
+                  "absolute top-0 h-4 border-l border-[var(--border-color)] font-mono text-[9px] leading-4 text-[var(--text-muted)]",
                   left >= 100 ? "-translate-x-full pr-1 text-right" : "pl-1"
                 )}
                 style={{ left: `${left}%` }}
@@ -130,10 +130,10 @@ export const Timeline: React.FC<TimelineProps> = ({
           })}
         </div>
 
-        <div className="absolute inset-x-0 top-5 h-9 flex items-center gap-2 border border-neutral-800/80 bg-neutral-900/90 rounded-md px-2.5 shadow-sm">
+        <div className="absolute inset-x-0 top-5 h-9 flex items-center gap-2 border border-[var(--border-color)] bg-[var(--bg-card)] rounded-md px-2.5 shadow-sm">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-          <span className="text-xs text-neutral-200 font-medium truncate">{compositionId}</span>
-          <span className="text-[10px] text-neutral-500 truncate">NexusVideoComposition</span>
+          <span className="text-xs text-[var(--text-primary)] font-medium truncate">{compositionId}</span>
+          <span className="text-[10px] text-[var(--text-muted)] truncate">NexusVideoComposition</span>
         </div>
 
         <div

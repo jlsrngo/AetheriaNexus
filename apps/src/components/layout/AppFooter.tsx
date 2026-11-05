@@ -1,10 +1,10 @@
 import { memo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  MessageSquare,
-  Kanban,
-  BookOpen,
-  History,
+  Video,
+  Film,
+  Calendar,
+  BarChart3,
   Settings,
   Folder,
   Wifi,
@@ -31,10 +31,10 @@ export const AppFooter = memo(function AppFooter({
   const { isNeobrutalism } = useTheme();
 
   const navItems = [
-    { label: t("navWorkstation", "Workstation"), path: "/", icon: MessageSquare, neoColor: "bg-[#CCFF00]", neoInactive: "bg-[#F0FDF4]", neoHover: "hover:bg-[#CCFF00]" },
-    { label: t("navTasks", "Tasks"), path: "/tasks", icon: Kanban, neoColor: "bg-[#FF9F43]", neoInactive: "bg-[#FFF7ED]", neoHover: "hover:bg-[#FF9F43]" },
-    { label: t("navKnowledge", "Knowledge"), path: "/knowledge", icon: BookOpen, neoColor: "bg-[#B388FF]", neoInactive: "bg-[#FAF5FF]", neoHover: "hover:bg-[#B388FF]" },
-    { label: t("navHistory", "History"), path: "/history", icon: History, neoColor: "bg-[#A3E635]", neoInactive: "bg-[#F7FEE7]", neoHover: "hover:bg-[#A3E635]" },
+    { label: "Studio", path: "/", icon: Video, neoColor: "bg-[#CCFF00]", neoInactive: "bg-[#F0FDF4]", neoHover: "hover:bg-[#CCFF00]" },
+    { label: "Stock", path: "/stock", icon: Film, neoColor: "bg-[#FF9F43]", neoInactive: "bg-[#FFF7ED]", neoHover: "hover:bg-[#FF9F43]" },
+    { label: "Schedule", path: "/schedule", icon: Calendar, neoColor: "bg-[#B388FF]", neoInactive: "bg-[#FAF5FF]", neoHover: "hover:bg-[#B388FF]" },
+    { label: "Analytics", path: "/analytics", icon: BarChart3, neoColor: "bg-[#A3E635]", neoInactive: "bg-[#F7FEE7]", neoHover: "hover:bg-[#A3E635]" },
     { label: t("navSettings", "Settings"), path: "/settings", icon: Settings, neoColor: "bg-[#FFD166]", neoInactive: "bg-[#FEFCE8]", neoHover: "hover:bg-[#FFD166]" },
   ];
 

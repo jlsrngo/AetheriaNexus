@@ -43,7 +43,7 @@ export const StudioPreview: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-neutral-950">
+    <div className="flex-1 flex flex-col min-h-0 bg-[var(--bg-app)]">
       <div className="flex-1 min-h-0 flex items-center justify-center p-3">
         {/* Boundary is around the Player only, so a renderer crash never takes the shell or timeline with it.
             onReset is a no-op because the default one reloads the whole window. */}
