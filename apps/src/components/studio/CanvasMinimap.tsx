@@ -9,6 +9,9 @@ interface CanvasMinimapProps {
   zoom: "fit" | number;
   panX: number;
   panY: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  effectiveScale: number;
   onPanChange: (panX: number, panY: number) => void;
   onResetZoom: () => void;
   onClose: () => void;
@@ -21,6 +24,9 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
   zoom,
   panX,
   panY,
+  viewportWidth,
+  viewportHeight,
+  effectiveScale,
   onPanChange,
   onResetZoom,
   onClose,
@@ -30,7 +36,7 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
   const numericZoom = zoom === "fit" ? 1 : Math.max(0.25, zoom);
   const isZoomed = zoom !== "fit" && numericZoom > 1.05;
 
-  // Compute minimap thumbnail dimensions based on aspect ratio
+  // Aspect-ratio aware thumbnail sizing
   const maxW = 110;
   const maxH = 130;
   const aspect = compositionWidth / Math.max(1, compositionHeight);
@@ -42,24 +48,26 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
     thumbW = Math.round(maxH * aspect);
   }
 
-  // Viewport box dimensions in percent
-  const boxWidthPct = Math.min(100, Math.max(15, (1 / numericZoom) * 100));
-  const boxHeightPct = Math.min(100, Math.max(15, (1 / numericZoom) * 100));
+  // Exact rendered dimensions of the composition in viewport space
+  const renderedW = Math.max(1, compositionWidth * effectiveScale);
+  const renderedH = Math.max(1, compositionHeight * effectiveScale);
 
-  // Calculate pan offset in thumbnail percent
-  const maxPanRange = 600 * numericZoom;
-  const panRatioX = Math.max(-1, Math.min(1, panX / Math.max(1, maxPanRange)));
-  const panRatioY = Math.max(-1, Math.min(1, panY / Math.max(1, maxPanRange)));
+  // Viewport box dimensions in percent of the thumbnail
+  const boxWidthPct = Math.min(100, Math.max(12, (viewportWidth / renderedW) * 100));
+  const boxHeightPct = Math.min(100, Math.max(12, (viewportHeight / renderedH) * 100));
 
-  const centerLeftPct = (100 - boxWidthPct) / 2;
-  const centerTopPct = (100 - boxHeightPct) / 2;
+  // Viewport center relative to composition center
+  // panX shifts composition to the right, meaning the viewport looks at the left of the composition (-panX)
+  const normCenterX = 0.5 - panX / renderedW;
+  const normCenterY = 0.5 - panY / renderedH;
+
   const boxLeftPct = Math.max(
     0,
-    Math.min(100 - boxWidthPct, centerLeftPct - panRatioX * centerLeftPct)
+    Math.min(100 - boxWidthPct, normCenterX * 100 - boxWidthPct / 2)
   );
   const boxTopPct = Math.max(
     0,
-    Math.min(100 - boxHeightPct, centerTopPct - panRatioY * centerTopPct)
+    Math.min(100 - boxHeightPct, normCenterY * 100 - boxHeightPct / 2)
   );
 
   const handlePointerSeek = useCallback(
@@ -70,15 +78,16 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
       const clickXPct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
       const clickYPct = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
 
-      // Desired pan to center click point
-      const deltaRatioX = (clickXPct - 0.5) * 2;
-      const deltaRatioY = (clickYPct - 0.5) * 2;
-      const newPanX = -deltaRatioX * maxPanRange;
-      const newPanY = -deltaRatioY * maxPanRange;
+      // Click location in composition normalized space (0..1), center is 0.5
+      const targetNormCenterX = clickXPct;
+      const targetNormCenterY = clickYPct;
 
-      onPanChange(Math.round(newPanX), Math.round(newPanY));
+      const newPanX = -Math.round((targetNormCenterX - 0.5) * renderedW);
+      const newPanY = -Math.round((targetNormCenterY - 0.5) * renderedH);
+
+      onPanChange(newPanX, newPanY);
     },
-    [isZoomed, maxPanRange, onPanChange]
+    [isZoomed, onPanChange, renderedH, renderedW]
   );
 
   return (
@@ -125,7 +134,13 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
           onPointerMove={(e) => {
             if (e.buttons === 1) handlePointerSeek(e.clientX, e.clientY);
           }}
-          onPointerUp={(e) => e.currentTarget.releasePointerCapture(e.pointerId)}
+          onPointerUp={(e) => {
+            try {
+              e.currentTarget.releasePointerCapture(e.pointerId);
+            } catch {
+              // Ignore if already released
+            }
+          }}
           className={cn(
             "relative rounded border border-[var(--border-strong)] bg-[#0A0A0C] overflow-hidden flex flex-col items-center justify-between p-1.5 shadow-inner",
             isZoomed ? "cursor-crosshair" : "cursor-default"
@@ -181,4 +196,3 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
     </div>
   );
 };
-

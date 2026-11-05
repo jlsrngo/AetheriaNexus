@@ -9,14 +9,20 @@ import {
   RotateCcw,
   Ruler,
   ShieldAlert,
+  X,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
 import { useStudioStore } from "../../hooks/useStudioStore";
 import { cn } from "../../lib/utils";
 import { NexusVideoComposition } from "../../remotion/NexusVideoComposition";
+import {
+  buildCompositionLayers,
+  type VideoLayerSpec,
+} from "../../remotion/types";
 import { ErrorBoundary } from "../common/ErrorBoundary";
 import { CanvasMinimap } from "./CanvasMinimap";
+import { ClipEditModal } from "./ClipEditModal";
 import { Timeline } from "./Timeline";
 
 const GRID_PRESETS = [
@@ -35,11 +41,17 @@ const GRID_PRESETS = [
 export const StudioPreview: React.FC = () => {
   const playerRef = useRef<PlayerRef>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
-  const [viewportDim, setViewportDim] = useState<{ w: number; h: number }>({ w: 800, h: 600 });
-  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
+  const [viewportDim, setViewportDim] = useState<{ w: number; h: number }>({
+    w: 800,
+    h: 600,
+  });
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(
+    null
+  );
 
-  // Canvas Viewport Pan State
+  // Canvas Viewport Pan & Hand Tool State
   const [isPanning, setIsPanning] = useState(false);
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
 
   // Selected Layer & Interactive Canvas Drag State (Corel / Photoshop style)
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
@@ -50,6 +62,9 @@ export const StudioPreview: React.FC = () => {
     height: number;
     layerName: string;
   } | null>(null);
+
+  // Double-Click Popup Layer Edit Modal
+  const [modalLayer, setModalLayer] = useState<VideoLayerSpec | null>(null);
 
   const {
     activeComposition,
@@ -81,6 +96,35 @@ export const StudioPreview: React.FC = () => {
     return () => ro.disconnect();
   }, []);
 
+  // Global Spacebar Hand Tool (Universal Photoshop/Figma/Illustrator shortcut)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+      if (e.code === "Space" && !e.repeat) {
+        e.preventDefault();
+        setIsSpacePressed(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        setIsSpacePressed(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
   useEffect(() => {
     const player = playerRef.current;
     if (!player) return;
@@ -104,7 +148,8 @@ export const StudioPreview: React.FC = () => {
   useEffect(() => {
     const onToggleTimeline = () =>
       actions.updateCanvas({ showTimeline: !canvas.showTimeline });
-    const onResetZoom = () => actions.updateCanvas({ zoom: "fit", panX: 0, panY: 0 });
+    const onResetZoom = () =>
+      actions.updateCanvas({ zoom: "fit", panX: 0, panY: 0 });
 
     window.addEventListener("arunaki-toggle-timeline", onToggleTimeline);
     window.addEventListener("arunaki-reset-zoom", onResetZoom);
@@ -139,22 +184,45 @@ export const StudioPreview: React.FC = () => {
     Math.max(1, viewportDim.w - 32) / compW,
     Math.max(1, viewportDim.h - 32) / compH
   );
-  const effectiveScale = canvas.zoom === "fit" ? fitRatio : fitRatio * numericZoom;
+  const effectiveScale =
+    canvas.zoom === "fit" ? fitRatio : fitRatio * numericZoom;
   const renderedW = compW * effectiveScale;
   const renderedH = compH * effectiveScale;
-  const canvasOriginX = (viewportDim.w - renderedW) / 2 + (canvas.zoom === "fit" ? 0 : panX);
-  const canvasOriginY = (viewportDim.h - renderedH) / 2 + (canvas.zoom === "fit" ? 0 : panY);
+  const canvasOriginX =
+    (viewportDim.w - renderedW) / 2 + (canvas.zoom === "fit" ? 0 : panX);
+  const canvasOriginY =
+    (viewportDim.h - renderedH) / 2 + (canvas.zoom === "fit" ? 0 : panY);
 
-  // Direct Mouse Wheel Zoom (Photoshop/Corel/Figma style, no Ctrl/Alt key required)
+  // Zoom to Mouse Cursor (Smooth anchored zoom like Figma / Photoshop)
   const handleCanvasWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.15 : 0.87;
+    const rect = viewportRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    // Mouse coordinate relative to the center of viewport
+    const mouseRelX = e.clientX - rect.left - rect.width / 2;
+    const mouseRelY = e.clientY - rect.top - rect.height / 2;
+
     const currentZoomVal = canvas.zoom === "fit" ? 1 : canvas.zoom;
+    const factor = e.deltaY < 0 ? 1.15 : 0.87;
     const nextZoom = Math.max(
       0.25,
       Math.min(10.0, Number((currentZoomVal * factor).toFixed(2)))
     );
-    actions.updateCanvas({ zoom: nextZoom });
+
+    const curPanX = canvas.zoom === "fit" ? 0 : panX;
+    const curPanY = canvas.zoom === "fit" ? 0 : panY;
+
+    // Shift pan offset so the point directly beneath cursor remains pinned
+    const zoomRatio = nextZoom / currentZoomVal;
+    const newPanX = Math.round(mouseRelX - (mouseRelX - curPanX) * zoomRatio);
+    const newPanY = Math.round(mouseRelY - (mouseRelY - curPanY) * zoomRatio);
+
+    actions.updateCanvas({
+      zoom: nextZoom,
+      panX: newPanX,
+      panY: newPanY,
+    });
   };
 
   // Synchronize Bounding Box with selected layer's DOM element
@@ -185,12 +253,17 @@ export const StudioPreview: React.FC = () => {
     updateBoundingBox();
     const frameId = requestAnimationFrame(updateBoundingBox);
     return () => cancelAnimationFrame(frameId);
-  }, [updateBoundingBox, numericZoom, panX, panY, currentFrame, activeComposition.props]);
+  }, [
+    updateBoundingBox,
+    numericZoom,
+    panX,
+    panY,
+    currentFrame,
+    activeComposition.props,
+  ]);
 
-  // Keyboard Nudge (Pixel-by-pixel micro alignment with arrow keys)
+  // Keyboard Nudge (Pixel-by-pixel micro alignment with arrow keys, Esc to deselect)
   useEffect(() => {
-    if (!selectedLayerId) return;
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
         e.target instanceof HTMLInputElement ||
@@ -203,6 +276,8 @@ export const StudioPreview: React.FC = () => {
         setSelectedLayerId(null);
         return;
       }
+
+      if (!selectedLayerId) return;
 
       const step = e.shiftKey ? 10 : 1;
       let dx = 0;
@@ -232,98 +307,148 @@ export const StudioPreview: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [actions, activeComposition.props.layerOffsets, selectedLayerId]);
 
-  // Interactive Layer Dragging or Viewport Panning on Canvas
-  const handleCanvasMouseDown = (e: React.MouseEvent) => {
-    const isMiddle = e.button === 1;
-    const clickedLayerEl = (e.target as HTMLElement).closest(
-      "[data-nexus-layer-id]"
-    ) as HTMLElement | null;
+  // Start smooth viewport panning with pointer tracking
+  const startViewportPan = (startClientX: number, startClientY: number) => {
+    setIsPanning(true);
+    const origPanX = canvas.panX ?? 0;
+    const origPanY = canvas.panY ?? 0;
 
-    // A. User clicked an interactive component layer on the canvas -> Start layer translation
-    if (clickedLayerEl && e.button === 0 && !e.altKey && !isMiddle) {
+    const onMove = (moveEvent: PointerEvent) => {
+      const dx = moveEvent.clientX - startClientX;
+      const dy = moveEvent.clientY - startClientY;
+      actions.updateCanvas({
+        panX: Math.round(origPanX + dx),
+        panY: Math.round(origPanY + dy),
+      });
+    };
+
+    const onUp = () => {
+      setIsPanning(false);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  };
+
+  // Start interactive layer drag with precision scaling
+  const startLayerDrag = (
+    layerId: string,
+    startClientX: number,
+    startClientY: number
+  ) => {
+    setSelectedLayerId(layerId);
+    const currentOffsets = activeComposition.props.layerOffsets || {};
+    const orig = currentOffsets[layerId] || { x: 0, y: 0 };
+    const startOffX = orig.x;
+    const startOffY = orig.y;
+
+    let rafId: number | null = null;
+    let latestX = startOffX;
+    let latestY = startOffY;
+
+    const onMove = (moveEvent: PointerEvent) => {
+      const dx = (moveEvent.clientX - startClientX) / effectiveScale;
+      const dy = (moveEvent.clientY - startClientY) / effectiveScale;
+      latestX = Math.round(startOffX + dx);
+      latestY = Math.round(startOffY + dy);
+
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          actions.updateActiveProps({
+            layerOffsets: {
+              ...activeComposition.props.layerOffsets,
+              [layerId]: { x: latestX, y: latestY },
+            },
+          });
+        });
+      }
+    };
+
+    const onUp = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      actions.updateActiveProps({
+        layerOffsets: {
+          ...activeComposition.props.layerOffsets,
+          [layerId]: { x: latestX, y: latestY },
+        },
+      });
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  };
+
+  // Unified Canvas Pointer Interaction
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    // 1. Hand tool active (Spacebar) OR Middle mouse button OR Alt key -> Viewport Pan
+    if (e.button === 1 || isSpacePressed || e.altKey) {
       e.preventDefault();
       e.stopPropagation();
-      const layerId = clickedLayerEl.getAttribute("data-nexus-layer-id");
-      if (!layerId) return;
-
-      setSelectedLayerId(layerId);
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const currentOffsets = activeComposition.props.layerOffsets || {};
-      const orig = currentOffsets[layerId] || { x: 0, y: 0 };
-      const startOffX = orig.x;
-      const startOffY = orig.y;
-
-      let rafId: number | null = null;
-      let latestX = startOffX;
-      let latestY = startOffY;
-
-      const onMove = (moveEvent: MouseEvent) => {
-        const dx = (moveEvent.clientX - startX) / effectiveScale;
-        const dy = (moveEvent.clientY - startY) / effectiveScale;
-        latestX = Math.round(startOffX + dx);
-        latestY = Math.round(startOffY + dy);
-
-        if (rafId === null) {
-          rafId = requestAnimationFrame(() => {
-            rafId = null;
-            actions.updateActiveProps({
-              layerOffsets: {
-                ...activeComposition.props.layerOffsets,
-                [layerId]: { x: latestX, y: latestY },
-              },
-            });
-          });
-        }
-      };
-
-      const onUp = () => {
-        if (rafId !== null) cancelAnimationFrame(rafId);
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-        actions.updateActiveProps({
-          layerOffsets: {
-            ...activeComposition.props.layerOffsets,
-            [layerId]: { x: latestX, y: latestY },
-          },
-        });
-      };
-
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
+      startViewportPan(e.clientX, e.clientY);
       return;
     }
 
-    // B. User clicked outside components -> Deselect or Pan Canvas Viewport
-    if (e.target === e.currentTarget || isMiddle || e.altKey) {
-      if (!isMiddle && !e.altKey) {
-        setSelectedLayerId(null);
+    if (e.button !== 0) return; // Only left-click below
+
+    // 2. Clicked on an interactive layer element
+    const clickedLayerEl = (e.target as HTMLElement).closest(
+      "[data-nexus-layer-id]"
+    ) as HTMLElement | null;
+    if (clickedLayerEl) {
+      const layerId = clickedLayerEl.getAttribute("data-nexus-layer-id");
+      if (layerId) {
+        e.preventDefault();
+        e.stopPropagation();
+        startLayerDrag(layerId, e.clientX, e.clientY);
+        return;
       }
+    }
 
+    // 3. Clicked on the active Bounding Box overlay or its position pill
+    const clickedBoundingBox = (e.target as HTMLElement).closest(
+      "[data-nexus-bounding-box]"
+    ) as HTMLElement | null;
+    if (clickedBoundingBox && selectedLayerId) {
       e.preventDefault();
-      setIsPanning(true);
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const origPanX = panX;
-      const origPanY = panY;
+      e.stopPropagation();
+      startLayerDrag(selectedLayerId, e.clientX, e.clientY);
+      return;
+    }
 
-      const onMove = (moveEvent: MouseEvent) => {
-        const dx = moveEvent.clientX - startX;
-        const dy = moveEvent.clientY - startY;
-        actions.updateCanvas({
-          panX: Math.round(origPanX + dx),
-          panY: Math.round(origPanY + dy),
-        });
-      };
+    // 4. Clicked on canvas background / empty area:
+    // A) Immediately deselect the active layer!
+    setSelectedLayerId(null);
 
-      const onUp = () => {
-        setIsPanning(false);
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-      };
+    // B) Smoothly start panning the canvas viewport
+    e.preventDefault();
+    startViewportPan(e.clientX, e.clientY);
+  };
 
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
+  // Double click anywhere on canvas to open popup editor
+  const handleCanvasDoubleClick = (e: React.MouseEvent) => {
+    const clickedLayerEl = (e.target as HTMLElement).closest(
+      "[data-nexus-layer-id]"
+    ) as HTMLElement | null;
+    const layerId =
+      clickedLayerEl?.getAttribute("data-nexus-layer-id") || selectedLayerId;
+    if (layerId) {
+      const layers = buildCompositionLayers(
+        activeComposition.props,
+        durationInFrames
+      );
+      const target = layers.find((l) => l.id === layerId);
+      if (target) {
+        setModalLayer(target);
+      }
     }
   };
 
@@ -333,27 +458,190 @@ export const StudioPreview: React.FC = () => {
     actions.updateActiveProps({ layerOffsets: currentOffsets });
   };
 
+  const handleUpdateLayerContent = (
+    layer: VideoLayerSpec,
+    nextValue: string
+  ) => {
+    const props = activeComposition.props;
+    if (layer.id === "text-hook") {
+      actions.updateActiveProps({ hookText: nextValue });
+      return;
+    }
+    if (layer.id === "hud-category") {
+      actions.updateActiveProps({ category: nextValue });
+      return;
+    }
+    if (layer.id === "hud-subcategory") {
+      actions.updateActiveProps({ subCategory: nextValue });
+      return;
+    }
+    if (layer.id === "footer-author") {
+      actions.updateActiveProps({ authorHandle: nextValue });
+      return;
+    }
+    if (layer.id === "footer-tag") {
+      actions.updateActiveProps({ editorialTag: nextValue });
+      return;
+    }
+    if (layer.id.startsWith("text-bullet-")) {
+      const bulletIdx = Number(layer.id.replace("text-bullet-", ""));
+      const lines = (props.bodyText || "")
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (
+        !Number.isNaN(bulletIdx) &&
+        bulletIdx >= 0 &&
+        bulletIdx < lines.length
+      ) {
+        lines[bulletIdx] = nextValue;
+        actions.updateActiveProps({ bodyText: lines.join("\n") });
+      }
+      return;
+    }
+    if (layer.isCustom) {
+      const currentCustom = Array.isArray(props.customLayers)
+        ? props.customLayers
+        : [];
+      actions.updateActiveProps({
+        customLayers: currentCustom.map((item) =>
+          item.id === layer.id
+            ? { ...item, content: nextValue, label: nextValue }
+            : item
+        ),
+      });
+      return;
+    }
+    actions.updateActiveProps({
+      layerLabels: {
+        ...(props.layerLabels || {}),
+        [layer.id]: nextValue,
+      },
+    });
+  };
+
+  const handleUpdateLayerTiming = (
+    layer: VideoLayerSpec,
+    nextFrom: number,
+    nextDur: number
+  ) => {
+    const props = activeComposition.props;
+    if (layer.isCustom) {
+      const currentCustom = Array.isArray(props.customLayers)
+        ? props.customLayers
+        : [];
+      actions.updateActiveProps({
+        customLayers: currentCustom.map((item) =>
+          item.id === layer.id
+            ? { ...item, from: nextFrom, durationInFrames: nextDur }
+            : item
+        ),
+      });
+      return;
+    }
+    actions.updateActiveProps({
+      layerTimings: {
+        ...(props.layerTimings || {}),
+        [layer.id]: { from: nextFrom, durationInFrames: nextDur },
+      },
+    });
+  };
+
   const scaleStyle: React.CSSProperties =
     canvas.zoom === "fit"
       ? { width: "100%", height: "100%" }
       : {
           width: "100%",
           height: "100%",
-          transform: `scale(${numericZoom}) translate(${panX}px, ${panY}px)`,
+          transform: `translate(${panX}px, ${panY}px) scale(${numericZoom})`,
           transformOrigin: "center center",
-          transition: isPanning ? "none" : "transform 0.08s ease-out",
+          transition: isPanning ? "none" : "transform 0.05s ease-out",
         };
 
   const gridCols = Math.max(1, Math.min(64, canvas.gridCols || 3));
   const gridRows = Math.max(1, Math.min(64, canvas.gridRows || 3));
 
-  // Dynamic Photoshop / CorelDRAW Style Horizontal Ruler (Follows Pan & Zoom Precision)
+  // Full-Canvas Custom Grid Lines across the entire viewport (including black area)
+  const renderFullViewportGrid = () => {
+    if (!canvas.showGrid || viewportDim.w <= 0 || viewportDim.h <= 0) return null;
+
+    const stepX = Math.max(8, renderedW / gridCols);
+    const stepY = Math.max(8, renderedH / gridRows);
+
+    // Calculate start positions so lines align with composition edges
+    let startX = canvasOriginX % stepX;
+    while (startX > 0) startX -= stepX;
+
+    let startY = canvasOriginY % stepY;
+    while (startY > 0) startY -= stepY;
+
+    const vLines: Array<{ x: number; isCompositionEdge: boolean }> = [];
+    const maxLines = 150;
+    let countX = 0;
+    for (
+      let x = startX;
+      x <= viewportDim.w && countX < maxLines;
+      x += stepX, countX++
+    ) {
+      const roundedX = Math.round(x);
+      const isCompositionEdge =
+        Math.abs(roundedX - Math.round(canvasOriginX)) <= 1 ||
+        Math.abs(roundedX - Math.round(canvasOriginX + renderedW)) <= 1;
+      vLines.push({ x: roundedX, isCompositionEdge });
+    }
+
+    const hLines: Array<{ y: number; isCompositionEdge: boolean }> = [];
+    let countY = 0;
+    for (
+      let y = startY;
+      y <= viewportDim.h && countY < maxLines;
+      y += stepY, countY++
+    ) {
+      const roundedY = Math.round(y);
+      const isCompositionEdge =
+        Math.abs(roundedY - Math.round(canvasOriginY)) <= 1 ||
+        Math.abs(roundedY - Math.round(canvasOriginY + renderedH)) <= 1;
+      hLines.push({ y: roundedY, isCompositionEdge });
+    }
+
+    return (
+      <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden select-none">
+        {vLines.map(({ x, isCompositionEdge }) => (
+          <div
+            key={`v-${x}`}
+            className={cn(
+              "absolute top-0 bottom-0 w-px",
+              isCompositionEdge ? "bg-amber-400/70 z-10" : "bg-amber-400/35"
+            )}
+            style={{ left: `${x}px` }}
+          />
+        ))}
+        {hLines.map(({ y, isCompositionEdge }) => (
+          <div
+            key={`h-${y}`}
+            className={cn(
+              "absolute left-0 right-0 h-px",
+              isCompositionEdge ? "bg-amber-400/70 z-10" : "bg-amber-400/35"
+            )}
+            style={{ top: `${y}px` }}
+          />
+        ))}
+        <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-[var(--bg-panel)]/90 border border-[var(--border-strong)] font-mono text-[9px] text-amber-400 shadow">
+          GRID {gridCols}×{gridRows}
+        </span>
+      </div>
+    );
+  };
+
+  // Dynamic Photoshop / CorelDRAW Style Horizontal Ruler
   const renderHorizontalRuler = (position: "top" | "bottom") => {
     const width = viewportDim.w;
     if (width <= 0) return null;
 
     const minStepDocUnits = 65 / Math.max(0.001, effectiveScale);
-    const CANDIDATE_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
+    const CANDIDATE_STEPS = [
+      1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000,
+    ];
     const step = CANDIDATE_STEPS.find((s) => s >= minStepDocUnits) || 1000;
     const minorStep = step <= 5 ? 1 : step / 5;
 
@@ -376,7 +664,8 @@ export const StudioPreview: React.FC = () => {
     ) {
       const screenX = Math.round(canvasOriginX + docX * effectiveScale);
       if (screenX >= 0 && screenX <= width) {
-        const isMajor = Math.abs(docX % step) < 0.001 || Math.abs(docX) < 0.001;
+        const isMajor =
+          Math.abs(docX % step) < 0.001 || Math.abs(docX) < 0.001;
         const isOrigin = Math.abs(docX) < 0.001;
         ticks.push({ val: Math.round(docX), screenX, isMajor, isOrigin });
       }
@@ -437,18 +726,21 @@ export const StudioPreview: React.FC = () => {
     );
   };
 
-  // Dynamic Photoshop / CorelDRAW Style Vertical Ruler (Follows Pan & Zoom Precision)
+  // Dynamic Photoshop / CorelDRAW Style Vertical Ruler
   const renderVerticalRuler = (position: "left" | "right") => {
     const height = viewportDim.h;
     if (height <= 0) return null;
 
     const minStepDocUnits = 65 / Math.max(0.001, effectiveScale);
-    const CANDIDATE_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
+    const CANDIDATE_STEPS = [
+      1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000,
+    ];
     const step = CANDIDATE_STEPS.find((s) => s >= minStepDocUnits) || 1000;
     const minorStep = step <= 5 ? 1 : step / 5;
 
     const startDocY = Math.floor((0 - canvasOriginY) / (step / 5)) * (step / 5);
-    const endDocY = Math.ceil((height - canvasOriginY) / (step / 5)) * (step / 5);
+    const endDocY =
+      Math.ceil((height - canvasOriginY) / (step / 5)) * (step / 5);
 
     const ticks: Array<{
       val: number;
@@ -466,7 +758,8 @@ export const StudioPreview: React.FC = () => {
     ) {
       const screenY = Math.round(canvasOriginY + docY * effectiveScale);
       if (screenY >= 0 && screenY <= height) {
-        const isMajor = Math.abs(docY % step) < 0.001 || Math.abs(docY) < 0.001;
+        const isMajor =
+          Math.abs(docY % step) < 0.001 || Math.abs(docY) < 0.001;
         const isOrigin = Math.abs(docY) < 0.001;
         ticks.push({ val: Math.round(docY), screenY, isMajor, isOrigin });
       }
@@ -541,12 +834,13 @@ export const StudioPreview: React.FC = () => {
             {activeComposition.name}
           </span>
           <span className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] font-mono text-[10px] text-[var(--text-muted)] shrink-0 whitespace-nowrap">
-            {activeComposition.width}×{activeComposition.height} ({activeComposition.ratio})
+            {activeComposition.width}×{activeComposition.height} (
+            {activeComposition.ratio})
           </span>
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Canvas Zoom Slider Bar (From 0.25x up to 10.0x for Ultra-Deep Precision) */}
+          {/* Canvas Zoom Slider Bar */}
           <div className="flex items-center gap-1 px-1.5 h-6 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)]">
             <button
               type="button"
@@ -571,7 +865,10 @@ export const StudioPreview: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                const next = Math.max(0.25, Number((numericZoom * 0.8).toFixed(2)));
+                const next = Math.max(
+                  0.25,
+                  Number((numericZoom * 0.8).toFixed(2))
+                );
                 actions.updateCanvas({ zoom: next });
               }}
               className="text-[var(--text-muted)] hover:text-amber-400 cursor-pointer p-0.5"
@@ -590,13 +887,18 @@ export const StudioPreview: React.FC = () => {
                 actions.updateCanvas({ zoom: Number(e.target.value) })
               }
               className="w-16 sm:w-24 h-1 accent-[#cf6613] bg-[var(--bg-input)] rounded-lg cursor-ew-resize outline-none"
-              title={`Canvas Zoom: ${Math.round(numericZoom * 100)}% (Up to 1000% Zoom)`}
+              title={`Canvas Zoom: ${Math.round(
+                numericZoom * 100
+              )}% (Scroll canvas to zoom freely)`}
             />
 
             <button
               type="button"
               onClick={() => {
-                const next = Math.min(10.0, Number((numericZoom * 1.25).toFixed(2)));
+                const next = Math.min(
+                  10.0,
+                  Number((numericZoom * 1.25).toFixed(2))
+                );
                 actions.updateCanvas({ zoom: next });
               }}
               className="text-[var(--text-muted)] hover:text-amber-400 cursor-pointer p-0.5"
@@ -606,18 +908,24 @@ export const StudioPreview: React.FC = () => {
             </button>
 
             <span
-              onClick={() => actions.updateCanvas({ zoom: "fit", panX: 0, panY: 0 })}
+              onClick={() =>
+                actions.updateCanvas({ zoom: "fit", panX: 0, panY: 0 })
+              }
               className="font-mono text-[9px] text-amber-400 font-semibold cursor-pointer shrink-0 pl-0.5"
               title="Click to reset to Fit"
             >
-              {canvas.zoom === "fit" ? "Fit" : `${Math.round(numericZoom * 100)}%`}
+              {canvas.zoom === "fit"
+                ? "Fit"
+                : `${Math.round(numericZoom * 100)}%`}
             </span>
           </div>
 
           {/* Canvas Minimap Toggle (Icon-only) */}
           <button
             type="button"
-            onClick={() => actions.updateCanvas({ showMinimap: !canvas.showMinimap })}
+            onClick={() =>
+              actions.updateCanvas({ showMinimap: !canvas.showMinimap })
+            }
             title="Toggle Canvas Viewport Minimap"
             className={cn(
               "h-6 px-1.5 rounded-md border flex items-center justify-center cursor-pointer transition-colors",
@@ -632,7 +940,9 @@ export const StudioPreview: React.FC = () => {
           {/* 4-Sided Rulers Toggle (Icon-only) */}
           <button
             type="button"
-            onClick={() => actions.updateCanvas({ showRulers: !canvas.showRulers })}
+            onClick={() =>
+              actions.updateCanvas({ showRulers: !canvas.showRulers })
+            }
             title="Toggle Dynamic Photoshop/Corel Style Rulers"
             className={cn(
               "h-6 px-1.5 rounded-md border flex items-center justify-center cursor-pointer transition-colors",
@@ -647,7 +957,9 @@ export const StudioPreview: React.FC = () => {
           {/* Safe Zone Guides Toggle (Icon-only) */}
           <button
             type="button"
-            onClick={() => actions.updateCanvas({ showGuides: !canvas.showGuides })}
+            onClick={() =>
+              actions.updateCanvas({ showGuides: !canvas.showGuides })
+            }
             title="Toggle TikTok Safe Zone Guides"
             className={cn(
               "h-6 px-1.5 rounded-md border flex items-center justify-center cursor-pointer transition-colors",
@@ -663,7 +975,9 @@ export const StudioPreview: React.FC = () => {
           <div className="flex items-center rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] overflow-hidden">
             <button
               type="button"
-              onClick={() => actions.updateCanvas({ showGrid: !canvas.showGrid })}
+              onClick={() =>
+                actions.updateCanvas({ showGrid: !canvas.showGrid })
+              }
               title="Toggle Custom Grid Lines"
               className={cn(
                 "h-6 px-1.5 flex items-center justify-center cursor-pointer transition-colors",
@@ -683,7 +997,10 @@ export const StudioPreview: React.FC = () => {
                 max={64}
                 value={gridCols}
                 onChange={(e) => {
-                  const val = Math.max(1, Math.min(64, Number(e.target.value) || 1));
+                  const val = Math.max(
+                    1,
+                    Math.min(64, Number(e.target.value) || 1)
+                  );
                   actions.updateCanvas({ showGrid: true, gridCols: val });
                 }}
                 className="w-6 text-center bg-[var(--bg-card)] border border-[var(--border-color)] rounded text-[9px] text-[var(--text-primary)] outline-none focus:border-amber-400"
@@ -696,7 +1013,10 @@ export const StudioPreview: React.FC = () => {
                 max={64}
                 value={gridRows}
                 onChange={(e) => {
-                  const val = Math.max(1, Math.min(64, Number(e.target.value) || 1));
+                  const val = Math.max(
+                    1,
+                    Math.min(64, Number(e.target.value) || 1)
+                  );
                   actions.updateCanvas({ showGrid: true, gridRows: val });
                 }}
                 className="w-6 text-center bg-[var(--bg-card)] border border-[var(--border-color)] rounded text-[9px] text-[var(--text-primary)] outline-none focus:border-amber-400"
@@ -767,52 +1087,28 @@ export const StudioPreview: React.FC = () => {
           ref={viewportRef}
           onWheel={handleCanvasWheel}
           onMouseDown={handleCanvasMouseDown}
+          onDoubleClick={handleCanvasDoubleClick}
           onMouseMove={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
-            setCursorPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+            setCursorPos({
+              x: e.clientX - rect.left,
+              y: e.clientY - rect.top,
+            });
           }}
           onMouseLeave={() => setCursorPos(null)}
           className={cn(
             "flex-1 min-h-0 flex items-center justify-center p-3 relative overflow-hidden bg-[#0A0A0C]",
-            isPanning ? "cursor-grabbing" : isZoomed ? "cursor-grab" : "cursor-default"
+            isPanning
+              ? "cursor-grabbing"
+              : isSpacePressed
+              ? "cursor-grab"
+              : isZoomed
+              ? "cursor-grab"
+              : "cursor-default"
           )}
         >
-          {/* Full-Canvas Custom N×M Grid Overlay across the entire composition */}
-          {canvas.showGrid && (
-            <div
-              className="pointer-events-none absolute z-20"
-              style={{
-                left: `${canvasOriginX}px`,
-                top: `${canvasOriginY}px`,
-                width: `${renderedW}px`,
-                height: `${renderedH}px`,
-              }}
-            >
-              {Array.from({ length: gridCols - 1 }, (_, i) => {
-                const leftPct = ((i + 1) / gridCols) * 100;
-                return (
-                  <div
-                    key={`v-${i}`}
-                    className="absolute top-0 bottom-0 w-px bg-amber-400/40"
-                    style={{ left: `${leftPct}%` }}
-                  />
-                );
-              })}
-              {Array.from({ length: gridRows - 1 }, (_, i) => {
-                const topPct = ((i + 1) / gridRows) * 100;
-                return (
-                  <div
-                    key={`h-${i}`}
-                    className="absolute left-0 right-0 h-px bg-amber-400/40"
-                    style={{ top: `${topPct}%` }}
-                  />
-                );
-              })}
-              <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-[var(--bg-panel)] border border-[var(--border-strong)] font-mono text-[9px] text-amber-400">
-                GRID {gridCols}×{gridRows}
-              </span>
-            </div>
-          )}
+          {/* Full-Canvas Custom N×M Grid Lines across the entire viewport (including black area) */}
+          {renderFullViewportGrid()}
 
           <ErrorBoundary
             fullScreen={false}
@@ -834,7 +1130,7 @@ export const StudioPreview: React.FC = () => {
                 outFrame={canvas.outFrame}
                 controls={false}
                 loop={canvas.loop}
-                doubleClickToFullscreen
+                doubleClickToFullscreen={false}
                 acknowledgeRemotionLicense
                 style={scaleStyle}
               />
@@ -871,43 +1167,70 @@ export const StudioPreview: React.FC = () => {
             </div>
           </ErrorBoundary>
 
-          {/* CorelDRAW / Photoshop 8-Handle Bounding Box Overlay on Selected Element */}
+          {/* Refined Bounding Box Overlay on Selected Element */}
           {selectedLayerBox && selectedLayerId && (
             <div
+              data-nexus-bounding-box="true"
               style={{
                 left: `${selectedLayerBox.left}px`,
                 top: `${selectedLayerBox.top}px`,
                 width: `${selectedLayerBox.width}px`,
                 height: `${selectedLayerBox.height}px`,
               }}
-              onMouseDown={(e) => handleCanvasMouseDown(e)}
-              className="absolute pointer-events-auto border-2 border-amber-400 select-none z-30 cursor-move"
-              title="Click and drag to reposition, or use keyboard arrow keys to nudge by 1px"
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                const layers = buildCompositionLayers(
+                  activeComposition.props,
+                  durationInFrames
+                );
+                const target = layers.find((l) => l.id === selectedLayerId);
+                if (target) setModalLayer(target);
+              }}
+              className="absolute pointer-events-auto border border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.35)] select-none z-30 cursor-move"
+              title="Drag to move, double-click to edit, arrow keys to nudge, Esc to deselect"
             >
-              {/* 8 Corel / Photoshop Square Handles (Black square with crisp white outline) */}
-              <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
-              <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
-              <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
-              <div className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
-              <div className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
-              <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
-              <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
-              <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
+              {/* Corner Handles (Sleek 8px squares with dark center and crisp white outline) */}
+              <div className="absolute -top-1 -left-1 w-2 h-2 bg-black border border-white rounded-[1px] pointer-events-none shadow" />
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-black border border-white rounded-[1px] pointer-events-none shadow" />
+              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-black border border-white rounded-[1px] pointer-events-none shadow" />
+              <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-black border border-white rounded-[1px] pointer-events-none shadow" />
 
-              {/* Center Crosshair × */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/90 text-xs font-mono font-bold pointer-events-none">
-                ×
+              {/* Edge Midpoint Handles: Only shown when element has enough space (width >= 70 && height >= 36) */}
+              {selectedLayerBox.width >= 70 &&
+                selectedLayerBox.height >= 36 && (
+                  <>
+                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-black border border-white rounded-[1px] pointer-events-none shadow" />
+                    <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-black border border-white rounded-[1px] pointer-events-none shadow" />
+                    <div className="absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-2 bg-black border border-white rounded-[1px] pointer-events-none shadow" />
+                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-black border border-white rounded-[1px] pointer-events-none shadow" />
+                  </>
+                )}
+
+              {/* Center Crosshair + */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/70 text-[10px] font-mono pointer-events-none leading-none">
+                +
               </div>
 
-              {/* Floating Position Pill */}
-              <div className="absolute -top-8 left-0 flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/95 border border-amber-400 text-[10px] font-mono text-white shadow-xl whitespace-nowrap z-40">
-                <span className="text-amber-400 font-bold">{selectedLayerBox.layerName}</span>
+              {/* Floating Position & Action Pill */}
+              <div
+                className="absolute -top-7 left-0 flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#0A0A0C]/95 border border-amber-400 text-[10px] font-mono text-white shadow-xl whitespace-nowrap z-40 select-none cursor-move"
+                title="Drag to reposition layer"
+              >
+                <span className="text-amber-400 font-bold">
+                  {selectedLayerBox.layerName}
+                </span>
                 <span className="text-[var(--text-muted)]">•</span>
                 <span>
-                  X: {activeComposition.props.layerOffsets?.[selectedLayerId]?.x ?? 0}px
+                  X:{" "}
+                  {activeComposition.props.layerOffsets?.[selectedLayerId]?.x ??
+                    0}
+                  px
                 </span>
                 <span>
-                  Y: {activeComposition.props.layerOffsets?.[selectedLayerId]?.y ?? 0}px
+                  Y:{" "}
+                  {activeComposition.props.layerOffsets?.[selectedLayerId]?.y ??
+                    0}
+                  px
                 </span>
                 <button
                   type="button"
@@ -915,10 +1238,21 @@ export const StudioPreview: React.FC = () => {
                     e.stopPropagation();
                     handleResetLayerOffset(selectedLayerId);
                   }}
-                  className="ml-1 p-0.5 text-amber-400 hover:text-white cursor-pointer"
+                  className="ml-0.5 p-0.5 text-amber-400 hover:text-white cursor-pointer transition-colors"
                   title="Reset Position (0, 0)"
                 >
                   <RotateCcw className="w-2.5 h-2.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedLayerId(null);
+                  }}
+                  className="p-0.5 text-[var(--text-muted)] hover:text-rose-400 cursor-pointer transition-colors"
+                  title="Deselect (Esc)"
+                >
+                  <X className="w-2.5 h-2.5" />
                 </button>
               </div>
             </div>
@@ -933,8 +1267,15 @@ export const StudioPreview: React.FC = () => {
               zoom={canvas.zoom}
               panX={panX}
               panY={panY}
-              onPanChange={(px, py) => actions.updateCanvas({ panX: px, panY: py })}
-              onResetZoom={() => actions.updateCanvas({ zoom: "fit", panX: 0, panY: 0 })}
+              viewportWidth={viewportDim.w}
+              viewportHeight={viewportDim.h}
+              effectiveScale={effectiveScale}
+              onPanChange={(px, py) =>
+                actions.updateCanvas({ panX: px, panY: py })
+              }
+              onResetZoom={() =>
+                actions.updateCanvas({ zoom: "fit", panX: 0, panY: 0 })
+              }
               onClose={() => actions.updateCanvas({ showMinimap: false })}
             />
           )}
@@ -955,6 +1296,19 @@ export const StudioPreview: React.FC = () => {
           isPlaying={isPlaying}
           onSeek={handleSeek}
           onTogglePlay={handleTogglePlay}
+        />
+      )}
+
+      {/* Floating Clip Edit Modal (Triggered on Double-Click on Canvas Element) */}
+      {modalLayer && (
+        <ClipEditModal
+          isOpen={Boolean(modalLayer)}
+          layer={modalLayer}
+          onClose={() => setModalLayer(null)}
+          onSaveContent={handleUpdateLayerContent}
+          onSaveTiming={handleUpdateLayerTiming}
+          durationInFrames={durationInFrames}
+          fps={activeComposition.fps}
         />
       )}
     </div>

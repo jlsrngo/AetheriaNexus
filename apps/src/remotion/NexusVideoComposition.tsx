@@ -117,6 +117,7 @@ const HookTitleAnimated: React.FC<{
       data-nexus-layer-name="Hook Headline"
       style={{
         display: "inline-block",
+        cursor: "pointer",
         transform: `translate3d(${offX}px, ${offY}px, 0)`,
       }}
     >
@@ -179,6 +180,7 @@ const BulletCardAnimated: React.FC<{
         borderRadius: "0px",
         backdropFilter: "blur(16px)",
         opacity,
+        cursor: "pointer",
         transform: `translate3d(${offX}px, ${translateY + offY}px, 0)`,
       }}
     >
@@ -353,6 +355,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                   borderRadius: "0px",
                   backdropFilter: "blur(20px)",
                   boxShadow: `0 0 25px ${currentTheme.glow}`,
+                  cursor: "pointer",
                   ...getOffsetStyle("hud-category"),
                 }}
               >
@@ -398,6 +401,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                   fontFamily: "'JetBrains Mono', monospace",
                   letterSpacing: "2px",
                   textTransform: "uppercase",
+                  cursor: "pointer",
                   ...getOffsetStyle("hud-subcategory"),
                 }}
               >
@@ -513,6 +517,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                   fontSize: "26px",
                   fontWeight: 900,
                   borderRadius: "0px",
+                  cursor: "pointer",
                   ...getOffsetStyle("footer-icon"),
                 }}
               >
@@ -532,6 +537,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                 data-nexus-layer-id="footer-author"
                 data-nexus-layer-name="Author Handle"
                 style={{
+                  cursor: "pointer",
                   ...getOffsetStyle("footer-author"),
                 }}
               >
@@ -580,6 +586,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                   fontFamily: "'JetBrains Mono', monospace",
                   letterSpacing: "2px",
                   borderRadius: "0px",
+                  cursor: "pointer",
                   ...getOffsetStyle("footer-tag"),
                 }}
               >
