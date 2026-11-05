@@ -2,14 +2,13 @@ import { memo } from "react";
 import {
   Undo2,
   Redo2,
-  Type,
-  ListOrdered,
+  SlidersHorizontal,
+  Captions,
   Palette,
-  Volume2,
-  Scissors,
   Copy,
-  Clipboard,
+  RotateCcw,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
 import { useI18n } from "../../../lib/i18n";
 import { BaseMenuProps } from "./types";
@@ -18,19 +17,37 @@ import { menuAutoFocus, menuKeyDown, menuTriggerProps } from "./menuA11y";
 import { MenuItem } from "./items/MenuItem";
 import { MenuSeparator } from "./items/MenuSeparator";
 import { AppCommands } from "./hooks/useAppCommands";
+import { useStudioStore } from "../../../hooks/useStudioStore";
+import type { NexusVideoProps } from "../../../remotion/types";
 
 interface EditMenuProps extends BaseMenuProps {
   commands: AppCommands;
 }
+
+const THEME_ORDER: Array<NexusVideoProps["themeColor"]> = [
+  "orange",
+  "emerald",
+  "violet",
+  "rose",
+  "amber",
+  "cyan",
+];
 
 export const EditMenu = memo(function EditMenu({
   isOpen,
   onToggle,
   onMouseEnter,
   onClose,
-  commands,
 }: EditMenuProps) {
   const { t } = useI18n();
+  const { activeComposition, undoStack, redoStack, actions } = useStudioStore();
+
+  const handleCycleTheme = () => {
+    const idx = THEME_ORDER.indexOf(activeComposition.props.themeColor);
+    const next = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
+    actions.updateActiveProps({ themeColor: next });
+    toast.success(`Switched theme accent to ${next}`);
+  };
 
   return (
     <div className="relative">
@@ -40,8 +57,8 @@ export const EditMenu = memo(function EditMenu({
         onMouseEnter={onMouseEnter}
         {...menuTriggerProps(isOpen)}
         className={cn(
-          "text-neutral-400 hover:text-white hover:bg-neutral-900 text-xs font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-none border border-transparent hover:border-neutral-800 transition-none cursor-pointer",
-          isOpen && "bg-neutral-900 text-white border-neutral-700"
+          "text-[var(--text-muted)] hover:text-[var(--text-primary)] text-[13px] font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer",
+          isOpen && "bg-[var(--bg-hover)] text-[var(--text-primary)]"
         )}
       >
         {t("edit", "Edit")}
@@ -53,24 +70,26 @@ export const EditMenu = memo(function EditMenu({
           aria-label={t("edit", "Edit")}
           onKeyDown={menuKeyDown}
           ref={menuAutoFocus}
-          className="absolute top-full left-0 mt-1 min-w-[260px] bg-neutral-950 border border-neutral-800 rounded-none py-1 z-50 shadow-2xl font-mono text-xs animate-in fade-in zoom-in-95 duration-100"
+          className="absolute top-full left-0 mt-1 min-w-[255px] max-w-[300px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-1.5 z-50 max-h-[70vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-100"
         >
           <MenuItem
             icon={Undo2}
-            label={t("undo", "Undo")}
+            label="Undo Prop Change"
             shortcut={getEffectiveShortcut("undo") || "Ctrl+Z"}
+            disabled={undoStack.length === 0}
             onClick={() => {
-              commands.undo();
+              actions.undoProps();
               onClose();
             }}
           />
 
           <MenuItem
             icon={Redo2}
-            label={t("redo", "Redo")}
+            label="Redo Prop Change"
             shortcut={getEffectiveShortcut("redo") || "Ctrl+Y"}
+            disabled={redoStack.length === 0}
             onClick={() => {
-              commands.redo();
+              actions.redoProps();
               onClose();
             }}
           />
@@ -78,69 +97,57 @@ export const EditMenu = memo(function EditMenu({
           <MenuSeparator />
 
           <MenuItem
-            icon={Type}
-            label="Edit Hook Title"
+            icon={SlidersHorizontal}
+            label="Edit Default Props (Inspector)"
             onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent("arunaki-open-sidebar-view", { detail: "inspector" })
+              );
               onClose();
-              window.dispatchEvent(new CustomEvent("arunaki-edit-track", { detail: "hook" }));
             }}
           />
 
           <MenuItem
-            icon={ListOrdered}
-            label="Edit Body Bullets"
+            icon={Captions}
+            label="Elements & Auto-Captions"
             onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent("arunaki-open-sidebar-view", { detail: "elements" })
+              );
               onClose();
-              window.dispatchEvent(new CustomEvent("arunaki-edit-track", { detail: "bullets" }));
             }}
           />
 
           <MenuItem
             icon={Palette}
-            label="Select Color Theme"
+            label={`Cycle Theme Accent (${activeComposition.props.themeColor})`}
             onClick={() => {
+              handleCycleTheme();
               onClose();
-              window.dispatchEvent(new CustomEvent("arunaki-edit-track", { detail: "background" }));
-            }}
-          />
-
-          <MenuItem
-            icon={Volume2}
-            label="Soundtrack & Audio"
-            onClick={() => {
-              onClose();
-              window.dispatchEvent(new CustomEvent("arunaki-edit-track", { detail: "audio" }));
             }}
           />
 
           <MenuSeparator />
 
           <MenuItem
-            icon={Scissors}
-            label={t("cut", "Cut")}
-            shortcut="Ctrl+X"
-            onClick={() => {
-              commands.cut();
-              onClose();
-            }}
-          />
-
-          <MenuItem
             icon={Copy}
-            label={t("copy", "Copy")}
-            shortcut="Ctrl+C"
+            label="Copy Default Props JSON"
+            shortcut="Ctrl+Shift+C"
             onClick={() => {
-              commands.copy();
+              void navigator.clipboard?.writeText(
+                JSON.stringify(activeComposition.props, null, 2)
+              );
+              toast.success("Copied defaultProps JSON to clipboard");
               onClose();
             }}
           />
 
           <MenuItem
-            icon={Clipboard}
-            label={t("paste", "Paste")}
-            shortcut="Ctrl+V"
+            icon={RotateCcw}
+            label="Reset Props to Default"
             onClick={() => {
-              void commands.paste();
+              actions.resetActiveProps();
+              toast.info("Reset composition props to defaults");
               onClose();
             }}
           />

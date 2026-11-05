@@ -35,8 +35,8 @@ export const HelpMenu = memo(function HelpMenu({
         onMouseEnter={onMouseEnter}
         {...menuTriggerProps(isOpen)}
         className={cn(
-          "text-neutral-300 hover:text-white hover:bg-neutral-800/80 text-xs font-mono font-medium px-2 py-1 transition-none cursor-pointer",
-          isOpen && "bg-neutral-800 text-white"
+          "text-[var(--text-muted)] hover:text-[var(--text-primary)] text-[13px] font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer",
+          isOpen && "bg-[var(--bg-hover)] text-[var(--text-primary)]"
         )}
       >
         {t("help", "Help")}
@@ -48,14 +48,14 @@ export const HelpMenu = memo(function HelpMenu({
           aria-label={t("help", "Help")}
           onKeyDown={menuKeyDown}
           ref={menuAutoFocus}
-          className="absolute top-full left-0 mt-1 min-w-[260px] bg-neutral-950 border border-neutral-800 rounded-none py-1 z-50 shadow-2xl font-mono text-xs animate-in fade-in zoom-in-95 duration-100"
+          className="absolute top-full left-0 mt-1 min-w-[250px] max-w-[300px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-1.5 z-50 max-h-[70vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-100"
         >
           <MenuItem
             icon={BookOpen}
-            label="Nexus Documentation"
+            label="Remotion Studio Documentation"
             onClick={() => {
               onClose();
-              window.open("https://github.com/juliosiringo/arunaki", "_blank");
+              window.open("https://www.remotion.dev/docs", "_blank");
             }}
           />
 
@@ -71,10 +71,12 @@ export const HelpMenu = memo(function HelpMenu({
 
           <MenuItem
             icon={Cpu}
-            label="System Telemetry & Engine Status"
+            label="GPU & Render Engine Telemetry"
             onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent("arunaki-open-sidebar-view", { detail: "renders" })
+              );
               onClose();
-              commands.openSettings();
             }}
           />
 
@@ -82,7 +84,7 @@ export const HelpMenu = memo(function HelpMenu({
 
           <MenuItem
             icon={Info}
-            label={t("aboutArunaki", "About Nexus")}
+            label={t("aboutArunaki", "About Arunaki")}
             onClick={() => {
               onClose();
               commands.openAbout?.();

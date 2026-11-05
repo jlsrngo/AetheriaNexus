@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, useCallback, memo } from "react";
 import {
   FileMenu,
+  EditMenu,
   ViewMenu,
+  CompositionMenu,
   HelpMenu,
   KeyboardShortcutsModal,
   AboutArunakiModal,
@@ -77,7 +79,7 @@ export const TopMenuBar = memo(function TopMenuBar({
     <>
       <nav
         ref={menuBarRef}
-        className="flex items-center gap-1 relative select-none"
+        className="flex items-center gap-0.5 relative select-none"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
         <FileMenu
@@ -89,12 +91,27 @@ export const TopMenuBar = memo(function TopMenuBar({
           commands={commands}
         />
 
+        <EditMenu
+          isOpen={activeMenu === "edit"}
+          onToggle={() => toggleMenu("edit")}
+          onMouseEnter={() => handleMouseEnter("edit")}
+          onClose={handleClose}
+          commands={commands}
+        />
+
         <ViewMenu
           isOpen={activeMenu === "view"}
           onToggle={() => toggleMenu("view")}
           onMouseEnter={() => handleMouseEnter("view")}
           onClose={handleClose}
           commands={commands}
+        />
+
+        <CompositionMenu
+          isOpen={activeMenu === "composition"}
+          onToggle={() => toggleMenu("composition")}
+          onMouseEnter={() => handleMouseEnter("composition")}
+          onClose={handleClose}
         />
 
         <HelpMenu
