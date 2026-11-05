@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import { NexusVideoComposition } from "../../remotion/NexusVideoComposition";
 import { defaultNexusVideoProps, nexusVideoSpec } from "../../remotion/types";
+import { ErrorBoundary } from "../common/ErrorBoundary";
 import { Timeline } from "./Timeline";
 
 /**
@@ -44,21 +45,25 @@ export const StudioPreview: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-neutral-950">
       <div className="flex-1 min-h-0 flex items-center justify-center p-3">
-        <Player
-          ref={playerRef}
-          component={NexusVideoComposition}
-          inputProps={defaultNexusVideoProps}
-          durationInFrames={nexusVideoSpec.durationInFrames}
-          fps={nexusVideoSpec.fps}
-          compositionWidth={nexusVideoSpec.width}
-          compositionHeight={nexusVideoSpec.height}
-          controls={false}
-          loop
-          clickToPlay
-          doubleClickToFullscreen
-          acknowledgeRemotionLicense
-          style={{ width: "100%", height: "100%" }}
-        />
+        {/* Boundary is around the Player only, so a renderer crash never takes the shell or timeline with it.
+            onReset is a no-op because the default one reloads the whole window. */}
+        <ErrorBoundary fullScreen={false} fallbackTitle="Preview renderer failed" onReset={() => {}}>
+          <Player
+            ref={playerRef}
+            component={NexusVideoComposition}
+            inputProps={defaultNexusVideoProps}
+            durationInFrames={nexusVideoSpec.durationInFrames}
+            fps={nexusVideoSpec.fps}
+            compositionWidth={nexusVideoSpec.width}
+            compositionHeight={nexusVideoSpec.height}
+            controls={false}
+            loop
+            clickToPlay
+            doubleClickToFullscreen
+            acknowledgeRemotionLicense
+            style={{ width: "100%", height: "100%" }}
+          />
+        </ErrorBoundary>
       </div>
 
       <Timeline
