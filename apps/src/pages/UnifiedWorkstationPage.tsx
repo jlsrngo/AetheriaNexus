@@ -6,6 +6,8 @@ import { WorkstationActivityBar, type SidebarView } from "../components/workstat
 import { WorkspaceSearchPanel } from "../components/workstation/search/WorkspaceSearchPanel";
 import { CompositionsPanel } from "../components/studio/panels/CompositionsPanel";
 import { InspectorPanel } from "../components/studio/panels/InspectorPanel";
+import { ElementsCaptionsPanel } from "../components/studio/panels/ElementsCaptionsPanel";
+import { RenderQueuePanel } from "../components/studio/panels/RenderQueuePanel";
 import { WorkstationCenterPanel } from "../components/workstation/WorkstationCenterPanel";
 import { WorkstationRightChat } from "../components/workstation/WorkstationRightChat";
 import { ConnectFolderModal } from "../components/workstation/ConnectFolderModal";
@@ -163,6 +165,20 @@ export function UnifiedWorkstationPage() {
 
         {!leftCollapsed && activeSidebarView === "inspector" && (
           <InspectorPanel
+            width="var(--left-panel-width)"
+            onClose={handleCloseLeft}
+          />
+        )}
+
+        {!leftCollapsed && activeSidebarView === "elements" && (
+          <ElementsCaptionsPanel
+            width="var(--left-panel-width)"
+            onClose={handleCloseLeft}
+          />
+        )}
+
+        {!leftCollapsed && activeSidebarView === "renders" && (
+          <RenderQueuePanel
             width="var(--left-panel-width)"
             onClose={handleCloseLeft}
           />
