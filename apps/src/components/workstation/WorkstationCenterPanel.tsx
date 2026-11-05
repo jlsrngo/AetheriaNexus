@@ -60,7 +60,7 @@ function WorkstationCenterPanelComponent({
 
   return (
     <main className="flex-1 flex flex-col min-w-0 bg-neutral-950 overflow-hidden select-none border-l border-r border-neutral-800 transition-none font-mono">
-      {/* 1. TOP VIEW SELECTOR BAR (Clean, Boxy, Sharp) */}
+      {/* 1. TOP VIEW SELECTOR BAR */}
       <div className="h-9 bg-neutral-900 border-b border-neutral-800 px-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             <button

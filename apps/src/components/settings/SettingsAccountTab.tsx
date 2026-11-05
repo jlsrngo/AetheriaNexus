@@ -234,7 +234,7 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
           </div>
         </div>
       ) : (
-        /* Full Width Clean Login Form (Swiss Brutalist HUD) */
+        /* Full Width Clean Login Form */
         <Card
           className="w-full p-8 space-y-6 rounded-none border border-neutral-800 bg-neutral-900/90 text-neutral-100 font-mono"
         >

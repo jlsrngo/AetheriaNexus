@@ -119,7 +119,7 @@ export function SettingsPage() {
   return (
     <div className="flex-1 flex flex-col h-full w-full bg-neutral-950 bg-[radial-gradient(#1f1f1f_1px,transparent_1px)] [background-size:16px_16px] text-neutral-100 overflow-y-auto overflow-x-hidden select-none p-6 transition-none">
       <div className="max-w-5xl w-full mx-auto flex-1 flex flex-col min-h-0">
-        {/* Header Title - Swiss Brutalism Telemetry */}
+        {/* Header Title */}
         <div className="mb-6 border-b border-neutral-800 pb-4">
           <div className="flex items-center gap-2 font-mono text-[11px] text-emerald-400 uppercase tracking-widest mb-1">
             <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
@@ -133,7 +133,7 @@ export function SettingsPage() {
           </p>
         </div>
 
-        {/* Tab Navigation Sharp Swiss Bar (Full width across container) */}
+        {/* Tab Navigation (Full width across container) */}
         <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-1 border-b border-neutral-800 pb-3 mb-6 shrink-0">
           {tabs.map((tab) => {
             const Icon = tab.icon;

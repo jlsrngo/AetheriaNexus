@@ -136,7 +136,7 @@ export const AppHeader = memo(function AppHeader({
           <span>SETTINGS</span>
         </button>
 
-        {/* Seamless Technical Window Controls (90° Sharp Edge) */}
+        {/* Window Controls */}
         <div
           data-tauri-drag-region="false"
           className="flex items-center h-full ml-1 border-l border-neutral-800"

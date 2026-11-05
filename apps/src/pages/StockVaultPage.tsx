@@ -67,7 +67,7 @@ export const StockVaultPage = memo(function StockVaultPage() {
   return (
     <div className="flex-1 flex flex-col h-full w-full bg-neutral-950 text-neutral-100 overflow-y-auto select-none p-6">
       <div className="max-w-6xl w-full mx-auto flex-1 flex flex-col min-h-0 space-y-6">
-        {/* Header - Swiss Brutalism Telemetry */}
+        {/* Header */}
         <div className="border-b border-neutral-800 pb-4 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 font-mono text-[10px] text-emerald-400 uppercase tracking-widest mb-1">

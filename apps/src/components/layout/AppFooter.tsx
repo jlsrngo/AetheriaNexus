@@ -48,7 +48,7 @@ export const AppFooter = memo(function AppFooter({
 
   return (
     <footer className="h-11 bg-neutral-950 px-3 flex items-center justify-between shrink-0 border-t border-neutral-800 transition-none select-none text-xs font-mono">
-      {/* Left: Active Folder Display (Swiss Technical HUD) */}
+      {/* Left: Active Folder Display */}
       <div className="flex items-center gap-2 min-w-0 max-w-[280px] sm:max-w-[340px]">
         <button
           type="button"
@@ -69,7 +69,7 @@ export const AppFooter = memo(function AppFooter({
         </button>
       </div>
 
-      {/* Center: Swiss Brutalism Navigation Hub (Zero Border Radius) */}
+      {/* Center: Navigation Hub */}
       <div className="flex items-center gap-1 p-0.5 bg-neutral-900 border border-neutral-800 rounded-none">
         {navItems.map((item) => {
           const Icon = item.icon;

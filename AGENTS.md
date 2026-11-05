@@ -97,29 +97,34 @@ These guidelines are functioning effectively when:
 
 ---
 
-## 5. UI Design System: Swiss Brutalism + Technical HUD
+## 5. UI Design System: Rounded Workstation (Arunaki Agent parity)
 
-**Inspirasi & Rujukan:** [`https://juliosiringoringo.space/`](https://juliosiringoringo.space/)
+**Rujukan visual:** aplikasi Arunaki Agent. Rencana migrasi dan selisih per area ada di
+[`UI_PARITY_PLAN.md`](UI_PARITY_PLAN.md).
 
-Semua komponen UI aplikasi desktop ini **WAJIB** mengikuti estetika **Swiss Brutalism / Neo-Brutalist Technical HUD**:
+Semua komponen UI aplikasi desktop ini **WAJIB** mengikuti aturan berikut:
 
 ### A. Aturan Visual Arsitektur
-1. **Zero Border Radius (`rounded-none`):**
-   * Dilarang keras menggunakan sudut melengkung (`rounded-md`, `rounded-xl`, `rounded-full`, dll.) kecuali elemen lingkaran murni untuk status dot.
-   * Semua tombol, panel, modal, input, dan container bertepi siku tajam 90°.
-2. **Crisp High-Contrast Borders (`border-line`):**
-   * Setiap modul dibatasi garis border 1px yang tegas (`border border-neutral-800` atau `border-white/20`).
-3. **Corner Crosses (`+`):**
-   * Kartu, panel, dan kontainer utama memiliki tanda bidik sudut berupa simbol plus (`+` atau `CornerCrosses`) di sudut-sudutnya ala blueprint teknis.
-4. **Tipografi Presisi & Telemetri:**
-   * **Monospace Teknis:** `font-mono` (menggunakan *JetBrains Mono*) untuk semua data metrik, angka, koordinat, label status, kode, dan frame timing.
-   * **Sans Tegas:** *Archivo* / *Inter* dengan `font-black` / `font-extrabold` untuk judul utama dan heading.
-   * **Micro HUD Labels:** Huruf kapital penuh (*all-caps*), ukuran kecil (`text-[10px]` atau `text-[11px]`), `tracking-widest`, dan warna kontras teredam (*muted telemetry*).
-5. **Palet Monokrom Minimalis Fungsional:**
-   * Background: Hitam pekat teknikal (`bg-neutral-950` / `bg-black`), panel `bg-neutral-900/90`.
-   * Teks: Putih murni (`text-neutral-100`) dan teks teknis abu-abu baja (`text-neutral-400`).
-   * Aksen Sinyal: Hanya digunakan fungsional (sinyal hijau `text-emerald-400` untuk status aktif, merah `text-rose-500` untuk rekam/render, kuning `text-amber-400` untuk peringatan).
-   * Efek Grid: Garis latar halus blueprint grid (`blueprint-grid`).
+1. **Rounded Corners:**
+   * Panel/kontainer: `--radius-panel` (12px). Kartu, bubble, baris file: `--radius-card` (10px).
+   * Tombol, input, ikon: `--radius-control` (8px). Nav, chip, badge: `--radius-pill` (999px).
+   * Sudut 0° hanya untuk elemen yang memang menempel penuh ke tepi jendela.
+2. **Borders Halus:**
+   * Pemisah modul memakai 1px `--border` (`#26262C`), bukan garis putih kontras.
+   * Shadow hanya untuk elemen mengambang (nav pill, dropdown, modal).
+3. **Tipografi:**
+   * **Inter** untuk label, judul, isi, dan tombol.
+   * **Monospace** hanya untuk angka dan telemetri: ukuran file, frame, FPS, timestamp, kode.
+   * Label kecil boleh all-caps + `tracking-wide`, tetapi tidak wajib.
+4. **Palet Netral Gelap:**
+   * App `#0A0A0C`, panel `#121215`, kartu `#1A1A1F`, border `#26262C`.
+   * Teks utama `#FAFAFA`, teks sekunder `#8E8E98`.
+   * Aksen hanya fungsional: emerald = aktif, rose = rekam/render, amber = peringatan.
+5. **Layout 4 Panel:**
+   * Activity rail (selalu terlihat) | Explorer | Stage + Timeline | Chat.
+   * Navigasi bawah berupa pill mengambang, bukan footer full-width.
+6. **Ketahanan UI:**
+   * Kegagalan preview hanya boleh meremount area player; dilarang reload seluruh window.
 
 ---
 
@@ -130,7 +135,7 @@ Kode React harus dirancang **modular, bersih, dan mudah dirawat (*maintainable*)
 1. **Komponen Terpecah & Berfokus (Single Responsibility):**
    * Dilarang membuat satu file raksasa (monolith > 300 baris).
    * Pecah UI ke folder modular:
-     * `src/components/ui/` : Primitives Swiss Brutalist (`Button`, `Card`, `CornerCross`, `Badge`, `Input`).
+     * `src/components/ui/` : Primitives UI (`Button`, `Card`, `Badge`, `Input`).
      * `src/components/layout/` : Layout struktural (`Sidebar`, `Header`, `StatusBar`).
      * `src/components/studio/` : Komponen editor & preview Remotion.
      * `src/components/stock/` : Komponen manajemen stok video.

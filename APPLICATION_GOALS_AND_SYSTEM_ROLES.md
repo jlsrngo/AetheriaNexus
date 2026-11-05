@@ -2,7 +2,7 @@
 
 **Version:** 1.0.0  
 **Status:** Canonical Architecture Specification  
-**Design Language:** Swiss Brutalism / Neo-Brutalist Technical HUD  
+**Design Language:** Rounded Workstation UI (Arunaki Agent parity)  
 
 ---
 
