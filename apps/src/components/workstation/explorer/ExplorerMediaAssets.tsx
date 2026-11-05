@@ -88,7 +88,7 @@ export function ExplorerMediaAssets() {
       case "audio":
         return <Music className="w-3.5 h-3.5 text-amber-400 shrink-0" />;
       case "image":
-        return <ImageIcon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
+        return <ImageIcon className="w-3.5 h-3.5 text-amber-400 shrink-0" />;
       default:
         return <FileText className="w-3.5 h-3.5 text-cyan-400 shrink-0" />;
     }
@@ -125,7 +125,7 @@ export function ExplorerMediaAssets() {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="text-[var(--text-muted)] hover:text-emerald-400 p-1 rounded hover:bg-[var(--bg-card)] transition-colors cursor-pointer"
+          className="text-[var(--text-muted)] hover:text-amber-400 p-1 rounded hover:bg-[var(--bg-card)] transition-colors cursor-pointer"
           title="Import Media Asset into public/ (staticFile)"
         >
           <Upload className="w-3 h-3" />

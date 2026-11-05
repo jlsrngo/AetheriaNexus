@@ -99,7 +99,7 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
       {/* Panel Header */}
       <div className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0">
         <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2">
-          <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-400" strokeWidth={2} />
+          <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" strokeWidth={2} />
           Inspector & Props
         </span>
         <div className="flex items-center gap-0.5">
@@ -140,7 +140,7 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
             <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
               Composition Metadata
             </span>
-            <span className="text-[10px] font-mono text-emerald-400 truncate max-w-[110px]">
+            <span className="text-[10px] font-mono text-amber-400 truncate max-w-[110px]">
               {activeComposition.id}
             </span>
           </div>
@@ -155,7 +155,7 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
                 className={cn(
                   "h-6 rounded-md text-[10px] font-mono border transition-colors cursor-pointer",
                   activeComposition.ratio === r
-                    ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400 font-semibold"
+                    ? "bg-amber-500/15 border-amber-500/40 text-amber-400 font-semibold"
                     : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                 )}
               >
@@ -243,7 +243,7 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
             {/* Hook Text */}
             <div>
               <label className="text-[11px] font-medium text-[var(--text-secondary)] block mb-1">
-                Hook Title (<code className="text-[10px] text-emerald-400">hookText</code>)
+                Hook Title (<code className="text-[10px] text-amber-400">hookText</code>)
               </label>
               <textarea
                 rows={2}
@@ -256,7 +256,7 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
             {/* Body Bullets */}
             <div>
               <label className="text-[11px] font-medium text-[var(--text-secondary)] block mb-1">
-                Body Bullets (<code className="text-[10px] text-emerald-400">bodyText</code>)
+                Body Bullets (<code className="text-[10px] text-amber-400">bodyText</code>)
               </label>
               <textarea
                 rows={4}
@@ -342,7 +342,7 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
                     onChange={(e) =>
                       actions.updateActiveProps({ [item.key]: e.target.checked })
                     }
-                    className="accent-emerald-500 rounded cursor-pointer"
+                    className="accent-amber-500 rounded cursor-pointer"
                   />
                 </label>
               ))}
@@ -359,7 +359,7 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
             <button
               type="button"
               onClick={handleApplyJson}
-              className="w-full h-7 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              className="w-full h-7 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
             >
               <Check className="w-3.5 h-3.5" />
               Apply JSON Props
@@ -374,7 +374,7 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
           type="button"
           onClick={handleSavePropsToDisk}
           disabled={isSaving}
-          className="flex-1 h-7 px-2.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+          className="flex-1 h-7 px-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
           title="Save Default Props to project (Ctrl+S)"
         >
           <Save className="w-3.5 h-3.5" />

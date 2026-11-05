@@ -208,7 +208,7 @@ export const CompositionsPanel = memo(function CompositionsPanel({
           <button
             type="button"
             onClick={handleCreate}
-            className="w-full py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-medium cursor-pointer transition-colors"
+            className="w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-medium cursor-pointer transition-colors"
           >
             Create Composition
           </button>
@@ -256,7 +256,7 @@ export const CompositionsPanel = memo(function CompositionsPanel({
                           <Film
                             className={cn(
                               "w-3.5 h-3.5 shrink-0",
-                              isSelected ? "text-emerald-400" : "text-[var(--text-muted)]"
+                              isSelected ? "text-amber-400" : "text-[var(--text-muted)]"
                             )}
                           />
                           <div className="min-w-0 flex-1">

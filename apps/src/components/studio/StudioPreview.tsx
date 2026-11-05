@@ -157,7 +157,7 @@ export const StudioPreview: React.FC = () => {
             className={cn(
               "h-6 px-2 rounded-md border flex items-center gap-1 text-[10px] cursor-pointer transition-colors",
               canvas.loop
-                ? "bg-[var(--bg-hover)] text-emerald-400 border-[var(--border-strong)]"
+                ? "bg-[var(--bg-hover)] text-amber-400 border-[var(--border-strong)]"
                 : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)] hover:text-[var(--text-primary)]"
             )}
           >

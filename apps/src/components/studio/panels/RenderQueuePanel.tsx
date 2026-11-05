@@ -186,14 +186,14 @@ export function RenderQueuePanel({
         <div className="p-2.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
-              <Cpu className="w-3.5 h-3.5 text-emerald-400" />
+              <Cpu className="w-3.5 h-3.5 text-amber-400" />
               Render Engine
             </span>
             <span
               className={cn(
                 "px-1.5 py-0.5 rounded-full text-[9px] font-mono border",
                 gpuTelemetry?.hardwareAccelerated
-                  ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
+                  ? "bg-amber-500/15 border-amber-500/40 text-amber-400"
                   : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)]"
               )}
             >

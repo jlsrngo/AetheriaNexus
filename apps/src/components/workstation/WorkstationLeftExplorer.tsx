@@ -1,9 +1,8 @@
-import { useState, useMemo, useEffect, memo } from "react";
+import { useMemo, useEffect, memo } from "react";
 import { Folder, FolderOpen, FolderX, PanelLeftClose, PanelLeftOpen, RotateCw, Trash2 } from "lucide-react";
 import FileTree from "../workspace/FileTree";
 import { CanvasItem, WorkspaceFile, Workspace } from "./explorer/types";
 import { useNativeFileTree } from "./explorer/useNativeFileTree";
-import { ExplorerRecentCanvases } from "./explorer/ExplorerRecentCanvases";
 import { ExplorerMediaAssets } from "./explorer/ExplorerMediaAssets";
 import { useI18n } from "../../lib/i18n";
 import { Dialog, DialogContent, DialogFooter, Button } from "../ui";
@@ -35,12 +34,9 @@ function WorkstationLeftExplorerComponent({
   onOpenFolderModal,
   width = 256,
   onNativeFilesChange,
-  recentCanvases = [],
-  onOpenCanvasTab,
   onCloseFolder,
 }: WorkstationLeftExplorerProps) {
   const { t } = useI18n();
-  const [isCanvasSectionOpen, setIsCanvasSectionOpen] = useState(true);
 
   const {
     nativeTree,
@@ -238,14 +234,6 @@ function WorkstationLeftExplorerComponent({
 
       {/* Remotion Static Media Assets (public/) */}
       <ExplorerMediaAssets />
-
-      {/* Outline / Recent Canvases Section */}
-      <ExplorerRecentCanvases
-        recentCanvases={recentCanvases}
-        isOpen={isCanvasSectionOpen}
-        onToggle={() => setIsCanvasSectionOpen(!isCanvasSectionOpen)}
-        onOpenCanvasTab={onOpenCanvasTab}
-      />
 
       {/* Custom Confirmation Modal replacing native browser confirm */}
       <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
