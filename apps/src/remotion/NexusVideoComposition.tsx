@@ -19,6 +19,12 @@ const THEME_GRADIENTS: Record<
     glow: "rgba(249, 115, 22, 0.4)",
     border: "rgba(249, 115, 22, 0.6)",
   },
+  indigo: {
+    bg: "radial-gradient(circle at 50% 20%, #312e81 0%, #1e1b4b 45%, #050b14 100%)",
+    accent: "#6366f1",
+    glow: "rgba(99, 102, 241, 0.4)",
+    border: "rgba(99, 102, 241, 0.6)",
+  },
   emerald: {
     bg: "radial-gradient(circle at 50% 20%, #064e3b 0%, #022c22 45%, #050b14 100%)",
     accent: "#10b981",

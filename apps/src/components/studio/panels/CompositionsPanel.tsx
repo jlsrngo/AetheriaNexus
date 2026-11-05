@@ -62,7 +62,7 @@ export const CompositionsPanel = memo(function CompositionsPanel({
 
   const handleCreate = () => {
     if (!newName.trim()) {
-      toast.error("Masukkan nama komposisi terlebih dahulu");
+      toast.error("Please enter a composition name first");
       return;
     }
     const created = actions.createComposition({
@@ -73,14 +73,14 @@ export const CompositionsPanel = memo(function CompositionsPanel({
     });
     setNewName("");
     setShowNewForm(false);
-    toast.success(`Komposisi "${created.name}" dibuat`);
+    toast.success(`Created composition "${created.name}"`);
   };
 
   const handleSync = async () => {
     setIsSyncing(true);
     await actions.syncFromBackend();
     setIsSyncing(false);
-    toast.success("Daftar komposisi disinkronkan");
+    toast.success("Compositions synced with engine");
   };
 
   return (
@@ -144,7 +144,7 @@ export const CompositionsPanel = memo(function CompositionsPanel({
 
       {/* Inline New Composition Form */}
       {showNewForm && (
-        <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)]/60 space-y-2.5 shrink-0">
+        <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] space-y-2.5 shrink-0">
           <div className="text-[11px] font-semibold text-[var(--text-primary)] flex items-center justify-between">
             <span>New Remotion Composition</span>
             <button
@@ -208,7 +208,7 @@ export const CompositionsPanel = memo(function CompositionsPanel({
           <button
             type="button"
             onClick={handleCreate}
-            className="w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-medium cursor-pointer transition-colors"
+            className="w-full py-1.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold cursor-pointer transition-colors"
           >
             Create Composition
           </button>
@@ -310,7 +310,7 @@ export const CompositionsPanel = memo(function CompositionsPanel({
       </div>
 
       {/* Bottom Active Composition Summary Footer */}
-      <div className="p-2.5 border-t border-[var(--border-color)] bg-[var(--bg-card)]/40 flex items-center justify-between text-[11px] shrink-0">
+      <div className="p-2.5 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between text-[11px] shrink-0">
         <span className="text-[var(--text-muted)] truncate">Active:</span>
         <span className="font-mono text-[var(--text-primary)] font-medium truncate max-w-[160px]">
           {activeComposition.width}×{activeComposition.height} · {Math.round(activeComposition.duration * activeComposition.fps)}f

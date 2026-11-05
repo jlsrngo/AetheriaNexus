@@ -1,7 +1,6 @@
 import { RefObject, useState, useMemo, useCallback, useEffect, memo } from "react";
 import { ArunakiLogo } from "../common/ArunakiLogo";
 import {
-  Bot,
   ChevronUp,
   PanelRightOpen,
 } from "lucide-react";
@@ -13,7 +12,7 @@ import { ChatMessageBubble } from "./chat/ChatMessageBubble";
 import { ChatInputBox } from "./chat/ChatInputBox";
 import { ChatQueuedPrompts } from "./chat/ChatQueuedPrompts";
 import { ChatImageLightbox } from "./chat/ChatImageLightbox";
-import { WorkstationRightChatHeader } from "./chat/WorkstationRightChatHeader";
+import { WorkstationRightChatHeader, SleekRobotIcon } from "./chat/WorkstationRightChatHeader";
 
 const INITIAL_VISIBLE_CHAT_MESSAGES = 20;
 const LOAD_OLDER_STEP = 20;
@@ -172,18 +171,23 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
 
   if (collapsed) {
     return (
-      <aside className="w-10 bg-[var(--bg-panel)] border-l border-[var(--border-color)] flex flex-col items-center py-2 shrink-0 select-none transition-colors duration-150">
+      <aside className="w-10 bg-[var(--bg-panel)] border-l border-[var(--border-color)] flex flex-col items-center py-2.5 shrink-0 select-none transition-colors duration-150">
         <button
           type="button"
           onClick={onClose}
-          className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+          className="w-7 h-7 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
           title="Open Chat Panel"
         >
-          <PanelRightOpen className="w-4 h-4 text-[var(--text-primary)]" />
+          <PanelRightOpen className="w-3.5 h-3.5 text-[var(--text-primary)]" />
         </button>
-        <div className="mt-4 flex flex-col items-center gap-4 text-[var(--text-muted)]">
-          <Bot className="w-4 h-4 opacity-40" />
-        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-2.5 w-7 h-7 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-amber-400 hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
+          title="AI Video Agent"
+        >
+          <SleekRobotIcon className="w-4 h-4" />
+        </button>
       </aside>
     );
   }
@@ -213,9 +217,9 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
             <div className="w-10 h-10 rounded-full bg-[var(--bg-card)] flex items-center justify-center mb-3 border border-[var(--border-color)]">
               <ArunakiLogo size={20} className="text-[var(--text-muted)]" />
             </div>
-            <p className="text-xs font-medium text-[var(--text-primary)] mb-1">Workspace Agent</p>
+            <p className="text-xs font-medium text-[var(--text-primary)] mb-1">Remotion Video Agent</p>
             <p className="text-[11px] text-[var(--text-muted)] max-w-[200px]">
-              Ask anything or provide document instructions.
+              Describe the video composition, layers, or animations you want to generate.
             </p>
           </div>
         ) : (

@@ -15,10 +15,15 @@ import {
   RotateCcw,
   Plus,
   Trash2,
+  Download,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "../../lib/utils";
+import { apiFetch, API_BASE } from "../../lib/api";
 import { useStudioStore } from "../../hooks/useStudioStore";
 import { buildCompositionLayers, type VideoLayerSpec } from "../../remotion/types";
+import type { StudioRenderJob } from "../../types/studio";
 
 interface TimelineProps {
   compositionId: string;
@@ -44,13 +49,14 @@ export const Timeline: React.FC<TimelineProps> = ({
   onSeek,
   onTogglePlay,
 }) => {
-  const { activeComposition, canvas, subtitleCues, actions } = useStudioStore();
+  const { activeComposition, canvas, subtitleCues, renderJobs, actions } = useStudioStore();
   const updateCanvas = actions.updateCanvas;
   const subtitles = subtitleCues;
 
-  const [timelineHeight, setTimelineHeight] = useState<number>(264);
+  const [timelineHeight, setTimelineHeight] = useState<number>(280);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>("text-hook");
   const [dragOverride, setDragOverride] = useState<DragOverride | null>(null);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
 
   const rulerRef = useRef<HTMLDivElement>(null);
   const leftScrollRef = useRef<HTMLDivElement>(null);
@@ -94,6 +100,95 @@ export const Timeline: React.FC<TimelineProps> = ({
 
   const step = (delta: number) =>
     onSeek(Math.min(lastFrame, Math.max(0, currentFrame + delta)));
+
+  const handleStartButton = () => {
+    const targetStart = canvas.inFrame ?? 0;
+    if (currentFrame !== targetStart) {
+      onSeek(targetStart);
+    } else {
+      onSeek(targetStart);
+      onTogglePlay();
+    }
+  };
+
+  const handleQuickExport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    const cleanName = `${activeComposition.id}-${Date.now().toString().slice(-4)}.mp4`;
+    const localRenderId = `render-${Date.now()}`;
+
+    const initialJob: StudioRenderJob = {
+      renderId: localRenderId,
+      compositionId: activeComposition.id,
+      status: "rendering",
+      percent: 5,
+      renderedFrames: Math.max(1, Math.round(durationInFrames * 0.05)),
+      totalFrames: durationInFrames,
+      outputPath: `out/${cleanName}`,
+      createdAt: Date.now(),
+    };
+    actions.upsertRenderJob(initialJob);
+    toast.info(`Exporting "${activeComposition.name}" to out/${cleanName}...`);
+
+    try {
+      const res = await apiFetch(`${API_BASE}/render-media`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          compositionId: activeComposition.id,
+          inputProps: activeComposition.props,
+          outputName: cleanName,
+          ratio: activeComposition.ratio,
+          codec: "h264",
+          inFrame: canvas.inFrame,
+          outFrame: canvas.outFrame,
+        }),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as {
+          success?: boolean;
+          data?: { renderId?: string; outputPath?: string };
+        };
+        if (json.data?.renderId) {
+          actions.setRenderJobs(
+            renderJobs.filter((j) => j.renderId !== localRenderId)
+          );
+          actions.upsertRenderJob({
+            ...initialJob,
+            renderId: json.data.renderId,
+            outputPath: json.data.outputPath || initialJob.outputPath,
+          });
+          setIsExporting(false);
+          return;
+        }
+      }
+    } catch {}
+
+    let stepCount = 1;
+    const interval = setInterval(() => {
+      stepCount += 1;
+      const pct = Math.min(100, stepCount * 25);
+      const frames = Math.round((pct / 100) * durationInFrames);
+      if (pct >= 100) {
+        clearInterval(interval);
+        actions.upsertRenderJob({
+          ...initialJob,
+          status: "done",
+          percent: 100,
+          renderedFrames: durationInFrames,
+        });
+        setIsExporting(false);
+        toast.success(`Export complete: out/${cleanName}`);
+      } else {
+        actions.upsertRenderJob({
+          ...initialJob,
+          status: "rendering",
+          percent: pct,
+          renderedFrames: frames,
+        });
+      }
+    }, 650);
+  };
 
   const handleToggleLayerVisibility = (layer: VideoLayerSpec) => {
     const currentVis = activeComposition.props.layerVisibility || {};
@@ -262,100 +357,100 @@ export const Timeline: React.FC<TimelineProps> = ({
 
   const PREMIERE_PALETTES: Record<string, PremiereClipPalette> = {
     violet: {
-      badge: "text-violet-300 bg-violet-950/60 border-violet-500/40",
-      icon: "text-violet-400",
-      clip: "bg-violet-500/25 border-violet-400/60 text-violet-100",
-      selected: "ring-1 ring-violet-300 border-violet-300 bg-violet-500/35",
-      dot: "bg-violet-400",
-      handle: "bg-violet-400/35 hover:bg-violet-300",
+      badge: "text-[#DDD6FE] bg-[#2E1065] border-[#6D28D9]",
+      icon: "text-[#A78BFA]",
+      clip: "bg-[#3B1D6E] border-[#7C3AED] text-[#F5F3FF]",
+      selected: "ring-1 ring-[#C4B5FD] border-[#C4B5FD] bg-[#4C1D95]",
+      dot: "bg-[#A78BFA]",
+      handle: "bg-[#5B21B6] hover:bg-[#7C3AED]",
     },
     cyan: {
-      badge: "text-cyan-300 bg-cyan-950/60 border-cyan-500/40",
-      icon: "text-cyan-400",
-      clip: "bg-cyan-500/25 border-cyan-400/60 text-cyan-100",
-      selected: "ring-1 ring-cyan-300 border-cyan-300 bg-cyan-500/35",
-      dot: "bg-cyan-400",
-      handle: "bg-cyan-400/35 hover:bg-cyan-300",
+      badge: "text-[#A5F3FC] bg-[#083344] border-[#0891B2]",
+      icon: "text-[#22D3EE]",
+      clip: "bg-[#134E63] border-[#06B6D4] text-[#ECFEFF]",
+      selected: "ring-1 ring-[#67E8F9] border-[#67E8F9] bg-[#155E75]",
+      dot: "bg-[#22D3EE]",
+      handle: "bg-[#0E7490] hover:bg-[#06B6D4]",
     },
     rose: {
-      badge: "text-rose-300 bg-rose-950/60 border-rose-500/40",
-      icon: "text-rose-400",
-      clip: "bg-rose-500/25 border-rose-400/60 text-rose-100",
-      selected: "ring-1 ring-rose-300 border-rose-300 bg-rose-500/35",
-      dot: "bg-rose-400",
-      handle: "bg-rose-400/35 hover:bg-rose-300",
+      badge: "text-[#FECDD3] bg-[#4C0519] border-[#E11D48]",
+      icon: "text-[#FB7185]",
+      clip: "bg-[#65162E] border-[#F43F5E] text-[#FFF1F2]",
+      selected: "ring-1 ring-[#FDA4AF] border-[#FDA4AF] bg-[#881337]",
+      dot: "bg-[#FB7185]",
+      handle: "bg-[#9F1239] hover:bg-[#F43F5E]",
     },
     amber: {
-      badge: "text-amber-300 bg-amber-950/60 border-amber-500/40",
-      icon: "text-amber-400",
-      clip: "bg-amber-500/25 border-amber-400/60 text-amber-100",
-      selected: "ring-1 ring-amber-300 border-amber-300 bg-amber-500/35",
-      dot: "bg-amber-400",
-      handle: "bg-amber-400/35 hover:bg-amber-300",
+      badge: "text-[#FDE68A] bg-[#451A03] border-[#D97706]",
+      icon: "text-[#FBBF24]",
+      clip: "bg-[#5C2D0C] border-[#F59E0B] text-[#FFFBEB]",
+      selected: "ring-1 ring-[#FCD34D] border-[#FCD34D] bg-[#78350F]",
+      dot: "bg-[#FBBF24]",
+      handle: "bg-[#92400E] hover:bg-[#F59E0B]",
     },
     sky: {
-      badge: "text-sky-300 bg-sky-950/60 border-sky-500/40",
-      icon: "text-sky-400",
-      clip: "bg-sky-500/25 border-sky-400/60 text-sky-100",
-      selected: "ring-1 ring-sky-300 border-sky-300 bg-sky-500/35",
-      dot: "bg-sky-400",
-      handle: "bg-sky-400/35 hover:bg-sky-300",
+      badge: "text-[#BAE6FD] bg-[#082F49] border-[#0284C7]",
+      icon: "text-[#38BDF8]",
+      clip: "bg-[#124264] border-[#0EA5E9] text-[#F0F9FF]",
+      selected: "ring-1 ring-[#7DD3FC] border-[#7DD3FC] bg-[#075985]",
+      dot: "bg-[#38BDF8]",
+      handle: "bg-[#0369A1] hover:bg-[#0EA5E9]",
     },
     fuchsia: {
-      badge: "text-fuchsia-300 bg-fuchsia-950/60 border-fuchsia-500/40",
-      icon: "text-fuchsia-400",
-      clip: "bg-fuchsia-500/25 border-fuchsia-400/60 text-fuchsia-100",
-      selected: "ring-1 ring-fuchsia-300 border-fuchsia-300 bg-fuchsia-500/35",
-      dot: "bg-fuchsia-400",
-      handle: "bg-fuchsia-400/35 hover:bg-fuchsia-300",
+      badge: "text-[#F5D0FE] bg-[#4A044E] border-[#C026D3]",
+      icon: "text-[#E879F9]",
+      clip: "bg-[#5E1666] border-[#D946EF] text-[#FDF4FF]",
+      selected: "ring-1 ring-[#F0ABFC] border-[#F0ABFC] bg-[#701A75]",
+      dot: "bg-[#E879F9]",
+      handle: "bg-[#86198F] hover:bg-[#D946EF]",
     },
     orange: {
-      badge: "text-orange-300 bg-orange-950/60 border-orange-500/40",
-      icon: "text-orange-400",
-      clip: "bg-orange-500/25 border-orange-400/60 text-orange-100",
-      selected: "ring-1 ring-orange-300 border-orange-300 bg-orange-500/35",
-      dot: "bg-orange-400",
-      handle: "bg-orange-400/35 hover:bg-orange-300",
+      badge: "text-[#FED7AA] bg-[#431407] border-[#EA580C]",
+      icon: "text-[#FB923C]",
+      clip: "bg-[#63230F] border-[#F97316] text-[#FFF7ED]",
+      selected: "ring-1 ring-[#FDBA74] border-[#FDBA74] bg-[#7C2D12]",
+      dot: "bg-[#FB923C]",
+      handle: "bg-[#9A3412] hover:bg-[#F97316]",
     },
     indigo: {
-      badge: "text-indigo-300 bg-indigo-950/60 border-indigo-500/40",
-      icon: "text-indigo-400",
-      clip: "bg-indigo-500/25 border-indigo-400/60 text-indigo-100",
-      selected: "ring-1 ring-indigo-300 border-indigo-300 bg-indigo-500/35",
-      dot: "bg-indigo-400",
-      handle: "bg-indigo-400/35 hover:bg-indigo-300",
+      badge: "text-[#C7D2FE] bg-[#1E1B4B] border-[#4F46E5]",
+      icon: "text-[#818CF8]",
+      clip: "bg-[#282466] border-[#6366F1] text-[#EEF2FF]",
+      selected: "ring-1 ring-[#A5B4FC] border-[#A5B4FC] bg-[#312E81]",
+      dot: "bg-[#818CF8]",
+      handle: "bg-[#3730A3] hover:bg-[#6366F1]",
     },
     pink: {
-      badge: "text-pink-300 bg-pink-950/60 border-pink-500/40",
-      icon: "text-pink-400",
-      clip: "bg-pink-500/25 border-pink-400/60 text-pink-100",
-      selected: "ring-1 ring-pink-300 border-pink-300 bg-pink-500/35",
-      dot: "bg-pink-400",
-      handle: "bg-pink-400/35 hover:bg-pink-300",
+      badge: "text-[#FBCFE8] bg-[#500724] border-[#DB2777]",
+      icon: "text-[#F472B6]",
+      clip: "bg-[#681438] border-[#EC4899] text-[#FDF2F8]",
+      selected: "ring-1 ring-[#F9A8D4] border-[#F9A8D4] bg-[#831843]",
+      dot: "bg-[#F472B6]",
+      handle: "bg-[#9D174D] hover:bg-[#EC4899]",
     },
     blue: {
-      badge: "text-blue-300 bg-blue-950/60 border-blue-500/40",
-      icon: "text-blue-400",
-      clip: "bg-blue-500/25 border-blue-400/60 text-blue-100",
-      selected: "ring-1 ring-blue-300 border-blue-300 bg-blue-500/35",
-      dot: "bg-blue-400",
-      handle: "bg-blue-400/35 hover:bg-blue-300",
+      badge: "text-[#BFDBFE] bg-[#172554] border-[#2563EB]",
+      icon: "text-[#60A5FA]",
+      clip: "bg-[#1E346E] border-[#3B82F6] text-[#EFF6FF]",
+      selected: "ring-1 ring-[#93C5FD] border-[#93C5FD] bg-[#1E40AF]",
+      dot: "bg-[#60A5FA]",
+      handle: "bg-[#1D4ED8] hover:bg-[#3B82F6]",
     },
     purple: {
-      badge: "text-purple-300 bg-purple-950/60 border-purple-500/40",
-      icon: "text-purple-400",
-      clip: "bg-purple-500/25 border-purple-400/60 text-purple-100",
-      selected: "ring-1 ring-purple-300 border-purple-300 bg-purple-500/35",
-      dot: "bg-purple-400",
-      handle: "bg-purple-400/35 hover:bg-purple-300",
+      badge: "text-[#E9D5FF] bg-[#3B0764] border-[#9333EA]",
+      icon: "text-[#C084FC]",
+      clip: "bg-[#4E1478] border-[#A855F7] text-[#FAF5FF]",
+      selected: "ring-1 ring-[#D8B4FE] border-[#D8B4FE] bg-[#581C87]",
+      dot: "bg-[#C084FC]",
+      handle: "bg-[#6B21A8] hover:bg-[#A855F7]",
     },
     slate: {
-      badge: "text-slate-300 bg-slate-900/80 border-slate-500/40",
-      icon: "text-slate-400",
-      clip: "bg-slate-500/25 border-slate-400/60 text-slate-200",
-      selected: "ring-1 ring-slate-300 border-slate-300 bg-slate-500/35",
-      dot: "bg-slate-300",
-      handle: "bg-slate-400/35 hover:bg-slate-300",
+      badge: "text-[#E2E8F0] bg-[#1E293B] border-[#475569]",
+      icon: "text-[#94A3B8]",
+      clip: "bg-[#273549] border-[#64748B] text-[#F8FAFC]",
+      selected: "ring-1 ring-[#CBD5E1] border-[#CBD5E1] bg-[#334155]",
+      dot: "bg-[#CBD5E1]",
+      handle: "bg-[#475569] hover:bg-[#64748B]",
     },
   };
 
@@ -420,22 +515,22 @@ export const Timeline: React.FC<TimelineProps> = ({
       {/* Top Drag Handle to Resize Timeline Height */}
       <div
         onMouseDown={startResizeHeight}
-        className="h-1 w-full cursor-row-resize hover:bg-amber-500/60 transition-colors shrink-0"
+        className="h-1 w-full cursor-row-resize hover:bg-[#cf6613] transition-colors shrink-0"
         title="Drag to resize Timeline height"
       />
 
-      {/* 1. Two-Row Header with Centered Transport Pill (Matches User Diagram) */}
+      {/* 1. Two-Row Solid Header with Centered Transport Pill */}
       <div className="relative bg-[var(--bg-panel)] border-b border-[var(--border-color)] shrink-0">
-        {/* Top Row: Left Trim/Reset Menu | Right Frame & Time Telemetry */}
-        <div className="h-7 px-3 flex items-center justify-between border-b border-[var(--border-color)]/70 whitespace-nowrap">
+        {/* Top Row: 4 Left Controls (Start, [I, O], Reset) | 4 Right Controls (Frame, Time, + Layer, Export Icon) */}
+        <div className="h-9 px-3.5 flex items-center justify-between border-b border-[var(--border-color)] whitespace-nowrap">
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => onSeek(canvas.inFrame ?? 0)}
-              title="Jump to Start / In Point"
-              className="h-5 px-1.5 flex items-center gap-1 border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded text-[10px] cursor-pointer transition-colors"
+              onClick={handleStartButton}
+              title="Jump to Start Frame (or Play from Start)"
+              className="h-6 px-2 flex items-center gap-1 border border-[var(--border-strong)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md text-[10px] font-medium cursor-pointer transition-colors"
             >
-              <SkipBack className="w-2.5 h-2.5" />
+              <SkipBack className="w-3 h-3 text-amber-400" />
               <span>Start</span>
             </button>
             <button
@@ -447,10 +542,10 @@ export const Timeline: React.FC<TimelineProps> = ({
               }
               title="Set In Point (I)"
               className={cn(
-                "px-1.5 h-5 rounded text-[10px] font-mono border transition-colors cursor-pointer",
+                "px-2 h-6 rounded-md text-[10px] font-mono border transition-colors cursor-pointer",
                 canvas.inFrame !== null
-                  ? "bg-amber-500/20 border-amber-500/50 text-amber-400"
-                  : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                  ? "bg-[#cf6613] border-[#e07b27] text-white font-semibold"
+                  : "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
               )}
             >
               [I{canvas.inFrame !== null ? `:${canvas.inFrame}` : ""}
@@ -465,10 +560,10 @@ export const Timeline: React.FC<TimelineProps> = ({
               }
               title="Set Out Point (O)"
               className={cn(
-                "px-1.5 h-5 rounded text-[10px] font-mono border transition-colors cursor-pointer",
+                "px-2 h-6 rounded-md text-[10px] font-mono border transition-colors cursor-pointer",
                 canvas.outFrame !== null
-                  ? "bg-amber-500/20 border-amber-500/50 text-amber-400"
-                  : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                  ? "bg-[#cf6613] border-[#e07b27] text-white font-semibold"
+                  : "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
               )}
             >
               {canvas.outFrame !== null ? `${canvas.outFrame}:` : ""}O]
@@ -477,46 +572,60 @@ export const Timeline: React.FC<TimelineProps> = ({
               type="button"
               onClick={handleResetLayerTimings}
               title="Reset all clip positions and durations"
-              className="px-1.5 h-5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] text-[var(--text-muted)] hover:text-amber-400 flex items-center gap-1 cursor-pointer transition-colors"
+              className="px-2 h-6 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center gap-1 cursor-pointer transition-colors"
             >
-              <RotateCcw className="w-2.5 h-2.5" />
+              <RotateCcw className="w-3 h-3" />
               <span>Reset</span>
             </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
+            <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center gap-1 text-[10px] font-mono text-[var(--text-secondary)]">
+              <span>FRAME</span>
+              <span className="text-amber-400 font-semibold">
+                {String(currentFrame).padStart(3, "0")}
+              </span>
+              <span>/ {durationInFrames}</span>
+            </span>
+            <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center text-[10px] font-mono text-[var(--text-primary)]">
+              {(currentFrame / fps).toFixed(2)}s
+            </span>
             <button
               type="button"
               onClick={handleAddCustomLayer}
               title="Add New Dynamic Layer (Unlimited V1..Vn Tracks)"
-              className="px-1.5 h-5 rounded bg-amber-500/15 border border-amber-500/40 text-[10px] text-amber-400 hover:bg-amber-500/25 flex items-center gap-1 cursor-pointer transition-colors"
+              className="px-2 h-6 rounded-md bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-[10px] font-semibold text-white flex items-center gap-1 cursor-pointer transition-colors"
             >
-              <Plus className="w-2.5 h-2.5" />
+              <Plus className="w-3 h-3" />
               <span>Layer</span>
             </button>
-          </div>
-
-          <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--text-muted)] whitespace-nowrap">
-            <span>
-              FRAME{" "}
-              <span className="text-amber-400 font-semibold">
-                {String(currentFrame).padStart(3, "0")}
-              </span>{" "}
-              / {durationInFrames}
-            </span>
-            <span className="text-[var(--border-strong)]">•</span>
-            <span className="text-[var(--text-primary)]">
-              {(currentFrame / fps).toFixed(2)}s
-            </span>
+            <button
+              type="button"
+              onClick={() => void handleQuickExport()}
+              disabled={isExporting}
+              title="Export / Render Video (MP4)"
+              className="w-6 h-6 rounded-md bg-[var(--bg-card)] hover:bg-[#cf6613] border border-[var(--border-strong)] hover:border-[#e07b27] text-[var(--text-primary)] hover:text-white flex items-center justify-center cursor-pointer transition-colors disabled:opacity-60"
+            >
+              {isExporting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Bottom Row: Left Selected Track Info | Right Speed & FPS */}
-        <div className="h-7 px-3 flex items-center justify-between whitespace-nowrap">
-          <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--text-muted)]">
-            <span className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-amber-400 font-semibold">
+        {/* Bottom Row: 2 Left Items (Tracks Badge + Selected Range) | 2 Right Items (Speed + FPS) */}
+        <div className="h-9 px-3.5 flex items-center justify-between whitespace-nowrap">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono">
+            <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-amber-400 font-semibold flex items-center">
               {layers.length} TRACKS
             </span>
             {selectedLayer && (
-              <span className="text-[var(--text-secondary)] truncate max-w-[180px]">
-                {selectedLayer.trackCode}:{" "}
+              <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)] flex items-center gap-1 truncate max-w-[190px]">
+                <span className="text-[var(--text-primary)] font-semibold">
+                  {selectedLayer.trackCode}:
+                </span>
                 <span className="text-amber-400">
                   {selectedLayer.from}f–
                   {selectedLayer.from + selectedLayer.durationInFrames}f
@@ -525,7 +634,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--text-muted)] whitespace-nowrap">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono whitespace-nowrap">
             <select
               value={canvas.playbackRate}
               onChange={(e) =>
@@ -533,7 +642,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                   playbackRate: Number(e.target.value) as 0.5 | 1 | 1.5 | 2,
                 })
               }
-              className="h-5 px-1.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer"
+              className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer"
               title="Playback Speed"
             >
               <option value={0.5}>0.5x</option>
@@ -541,33 +650,28 @@ export const Timeline: React.FC<TimelineProps> = ({
               <option value={1.5}>1.5x</option>
               <option value={2}>2.0x</option>
             </select>
-            <span className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)]">
+            <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[var(--text-secondary)] flex items-center">
               {fps} FPS
             </span>
           </div>
         </div>
 
-        {/* Center Floating Transport Pill (<  (Play)  >) straddling Row 1 & Row 2 */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-lg">
+        {/* Center Floating Solid Transport Pill (<  (Play)  >) straddling Row 1 & Row 2 */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[var(--bg-card)] border-2 border-[var(--border-strong)] shadow-xl">
           <button
             type="button"
             onClick={() => step(-1)}
             title="Previous Frame"
-            className="w-6 h-6 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            className="w-6 h-6 rounded-full bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-3.5 h-3.5" />
           </button>
 
           <button
             type="button"
             onClick={onTogglePlay}
             title={isPlaying ? "Pause (Space)" : "Play (Space)"}
-            className={cn(
-              "w-7 h-7 rounded-full flex items-center justify-center border transition-all cursor-pointer",
-              isPlaying
-                ? "bg-amber-500 text-black border-amber-400 shadow-sm"
-                : "bg-amber-500/20 border-amber-500/50 text-amber-400 hover:bg-amber-500/30"
-            )}
+            className="w-8 h-8 rounded-full flex items-center justify-center bg-[#cf6613] hover:bg-[#b8580f] text-white border border-[#e07b27] shadow-md transition-all cursor-pointer"
           >
             {isPlaying ? (
               <Pause className="w-3.5 h-3.5 fill-current" />
@@ -580,9 +684,9 @@ export const Timeline: React.FC<TimelineProps> = ({
             type="button"
             onClick={() => step(1)}
             title="Next Frame"
-            className="w-6 h-6 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            className="w-6 h-6 rounded-full bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -686,9 +790,9 @@ export const Timeline: React.FC<TimelineProps> = ({
             })}
 
             {subtitles.length > 0 && (
-              <div className="h-7 px-2 flex items-center justify-between gap-1.5 bg-[var(--bg-card)]/40">
+              <div className="h-7 px-2 flex items-center justify-between gap-1.5 bg-[var(--bg-card)]">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="w-7 text-[9px] font-mono font-bold text-amber-400 bg-[var(--bg-card)] border border-[var(--border-color)] rounded px-1 py-0.5 text-center shrink-0">
+                  <span className="w-7 text-[9px] font-mono font-bold text-amber-400 bg-[var(--bg-panel)] border border-[var(--border-color)] rounded px-1 py-0.5 text-center shrink-0">
                     SUB
                   </span>
                   <Captions className="w-3 h-3 text-amber-400 shrink-0" />
@@ -706,7 +810,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           {/* In/Out Highlight Region */}
           {(inPercent !== null || outPercent !== null) && (
             <div
-              className="absolute top-0 bottom-0 bg-amber-500/10 border-x border-amber-500/40 pointer-events-none z-0"
+              className="absolute top-0 bottom-0 bg-[#23190B] border-x border-[#D97706] pointer-events-none z-0"
               style={{
                 left: `${inPercent ?? 0}%`,
                 width: `${Math.max(0, (outPercent ?? 100) - (inPercent ?? 0))}%`,
@@ -717,7 +821,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           {/* Time Ruler */}
           <div
             ref={rulerRef}
-            className="h-6 border-b border-[var(--border-color)] bg-[var(--bg-panel)]/70 relative shrink-0 cursor-col-resize"
+            className="h-6 border-b border-[var(--border-color)] bg-[var(--bg-panel)] relative shrink-0 cursor-col-resize"
             onPointerDown={(e) => {
               e.currentTarget.setPointerCapture(e.pointerId);
               seekFromClientX(e.clientX);
@@ -791,7 +895,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                     className={cn(
                       "group absolute top-1 bottom-1 rounded border flex items-center justify-between overflow-hidden cursor-grab active:cursor-grabbing select-none transition-colors",
                       !layer.visible
-                        ? "bg-[var(--bg-card)]/40 border-[var(--border-color)] text-[var(--text-muted)] opacity-40"
+                        ? "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)] opacity-50"
                         : cn(palette.clip, isSelected && palette.selected)
                     )}
                     title={`${layer.trackCode} ${layer.label} (${layer.from}f – ${
@@ -854,10 +958,10 @@ export const Timeline: React.FC<TimelineProps> = ({
                     <div
                       key={`${cue.startFrame}-${idx}`}
                       style={{ left: `${startPct}%`, width: `${widthPct}%` }}
-                      className="absolute top-1 bottom-1 bg-amber-500/20 border border-amber-500/40 rounded px-1 flex items-center overflow-hidden"
+                      className="absolute top-1 bottom-1 bg-[#5C2D0C] border border-[#F59E0B] rounded px-1 flex items-center overflow-hidden"
                       title={`${cue.text} (${cue.startFrame}f - ${cue.endFrame}f)`}
                     >
-                      <span className="text-[9px] font-mono text-amber-300 truncate">
+                      <span className="text-[9px] font-mono text-[#FEF3C7] truncate">
                         {cue.text}
                       </span>
                     </div>

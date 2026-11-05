@@ -331,7 +331,7 @@ export function ElementsCaptionsPanel({
             type="button"
             onClick={() => void handleGenerateSubtitles()}
             disabled={isGenerating}
-            className="w-full h-7 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+            className="w-full h-7 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
           >
             <Wand2 className="w-3.5 h-3.5" />
             <span>

@@ -99,6 +99,11 @@ export function UnifiedWorkstationPage() {
 
   const [showQuickOpenModal, setShowQuickOpenModal] = useState(false);
   const [activeSidebarView, setActiveSidebarView] = useState<SidebarView>("compositions");
+  const [isInspectorFloating, setIsInspectorFloating] = useState(false);
+  const [inspectorFloatPos, setInspectorFloatPos] = useState<{ x: number; y: number }>({
+    x: 84,
+    y: 68,
+  });
   const { renderJobs } = useStudioStore();
   const activeRenderCount =
     renderJobs.filter((j) => j.status === "rendering" || j.status === "pending").length ||
@@ -106,6 +111,12 @@ export function UnifiedWorkstationPage() {
 
   const handleSelectSidebarView = useCallback(
     (view: SidebarView) => {
+      if (view === "inspector" && isInspectorFloating) {
+        setIsInspectorFloating(false);
+        setActiveSidebarView("inspector");
+        if (leftCollapsed) handleToggleLeft();
+        return;
+      }
       if (leftCollapsed) {
         setActiveSidebarView(view);
         handleToggleLeft();
@@ -115,7 +126,7 @@ export function UnifiedWorkstationPage() {
         setActiveSidebarView(view);
       }
     },
-    [leftCollapsed, activeSidebarView, handleToggleLeft]
+    [leftCollapsed, activeSidebarView, handleToggleLeft, isInspectorFloating]
   );
 
   useEffect(() => {
@@ -163,10 +174,28 @@ export function UnifiedWorkstationPage() {
           />
         )}
 
-        {!leftCollapsed && activeSidebarView === "inspector" && (
+        {!leftCollapsed && activeSidebarView === "inspector" && !isInspectorFloating && (
           <InspectorPanel
             width="var(--left-panel-width)"
             onClose={handleCloseLeft}
+            onFloat={(pos) => {
+              if (pos) setInspectorFloatPos(pos);
+              setIsInspectorFloating(true);
+              handleCloseLeft();
+            }}
+          />
+        )}
+
+        {isInspectorFloating && (
+          <InspectorPanel
+            isFloating
+            initialFloatPos={inspectorFloatPos}
+            onDock={() => {
+              setIsInspectorFloating(false);
+              setActiveSidebarView("inspector");
+              if (leftCollapsed) handleToggleLeft();
+            }}
+            onClose={() => setIsInspectorFloating(false)}
           />
         )}
 

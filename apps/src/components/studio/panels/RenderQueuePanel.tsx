@@ -197,7 +197,7 @@ export function RenderQueuePanel({
               className={cn(
                 "px-1.5 py-0.5 rounded-full text-[9px] font-mono border",
                 gpuTelemetry?.hardwareAccelerated
-                  ? "bg-amber-500/15 border-amber-500/40 text-amber-400"
+                  ? "bg-[#451A03] border-[#D97706] text-[#FDE68A]"
                   : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)]"
               )}
             >
@@ -253,7 +253,7 @@ export function RenderQueuePanel({
                   className={cn(
                     "h-6 rounded-md text-[10px] font-mono border transition-colors cursor-pointer",
                     codec === item.id
-                      ? "bg-rose-500/20 border-rose-500/40 text-rose-300 font-semibold"
+                      ? "bg-[#be123c] border-[#e11d48] text-white font-semibold"
                       : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                   )}
                 >
@@ -266,7 +266,7 @@ export function RenderQueuePanel({
           <button
             type="button"
             onClick={() => void handleStartRender()}
-            className="w-full h-8 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+            className="w-full h-8 rounded-lg bg-[#be123c] hover:bg-[#9f1239] border border-[#e11d48] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
           >
             <Play className="w-3.5 h-3.5 fill-current" />
             <span>Render Video ({codec.toUpperCase()})</span>
@@ -312,12 +312,12 @@ export function RenderQueuePanel({
                     </span>
                     <span
                       className={cn(
-                        "px-1.5 py-0.5 rounded-full text-[9px] font-mono flex items-center gap-1 shrink-0",
+                        "px-1.5 py-0.5 rounded-full text-[9px] font-mono flex items-center gap-1 shrink-0 border",
                         job.status === "done"
-                          ? "bg-emerald-500/15 text-emerald-400"
+                          ? "bg-[#083344] border-[#0891B2] text-[#67E8F9]"
                           : job.status === "error"
-                          ? "bg-rose-500/15 text-rose-400"
-                          : "bg-amber-500/15 text-amber-300"
+                          ? "bg-[#4C0519] border-[#E11D48] text-[#FDA4AF]"
+                          : "bg-[#451A03] border-[#D97706] text-[#FDE68A]"
                       )}
                     >
                       {job.status === "done" ? (
@@ -337,10 +337,10 @@ export function RenderQueuePanel({
                       className={cn(
                         "h-full transition-all duration-300",
                         job.status === "done"
-                          ? "bg-emerald-500"
+                          ? "bg-[#06B6D4]"
                           : job.status === "error"
-                          ? "bg-rose-500"
-                          : "bg-rose-400"
+                          ? "bg-[#E11D48]"
+                          : "bg-[#F59E0B]"
                       )}
                       style={{ width: `${Math.min(100, Math.max(0, job.percent))}%` }}
                     />

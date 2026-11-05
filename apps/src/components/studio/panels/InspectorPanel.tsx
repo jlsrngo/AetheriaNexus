@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   SlidersHorizontal,
   PanelLeftClose,
+  PanelLeftOpen,
+  PictureInPicture2,
+  GripHorizontal,
+  X,
   RotateCcw,
   Save,
   Undo2,
@@ -19,6 +23,10 @@ import type { NexusVideoProps } from "../../../remotion/types";
 interface InspectorPanelProps {
   width?: number | string;
   onClose: () => void;
+  isFloating?: boolean;
+  initialFloatPos?: { x: number; y: number };
+  onFloat?: (initialPos?: { x: number; y: number }) => void;
+  onDock?: () => void;
 }
 
 const THEME_COLORS: Array<{
@@ -27,21 +35,103 @@ const THEME_COLORS: Array<{
   dot: string;
 }> = [
   { id: "orange", label: "Orange", dot: "bg-orange-500" },
-  { id: "emerald", label: "Emerald", dot: "bg-emerald-500" },
+  { id: "indigo", label: "Indigo", dot: "bg-indigo-500" },
   { id: "violet", label: "Violet", dot: "bg-violet-500" },
   { id: "rose", label: "Rose", dot: "bg-rose-500" },
   { id: "amber", label: "Amber", dot: "bg-amber-400" },
   { id: "cyan", label: "Cyan", dot: "bg-cyan-400" },
 ];
 
-export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
+export function InspectorPanel({
+  width = 256,
+  onClose,
+  isFloating = false,
+  initialFloatPos,
+  onFloat,
+  onDock,
+}: InspectorPanelProps) {
   const { activeComposition, durationInFrames, undoStack, redoStack, actions } =
     useStudioStore();
   const [editorMode, setEditorMode] = useState<"schema" | "json">("schema");
   const [jsonDraft, setJsonDraft] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
+  const [floatPos, setFloatPos] = useState<{ x: number; y: number }>(
+    initialFloatPos ?? { x: 84, y: 68 }
+  );
+
+  useEffect(() => {
+    if (initialFloatPos) {
+      setFloatPos(initialFloatPos);
+    }
+  }, [initialFloatPos]);
 
   const props = activeComposition.props;
+
+  const handleHeaderMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest("button")) return;
+    e.preventDefault();
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+
+    if (isFloating) {
+      const origX = floatPos.x;
+      const origY = floatPos.y;
+      const onMove = (moveEvent: MouseEvent) => {
+        const nextX = Math.max(
+          12,
+          Math.min(window.innerWidth - 312, origX + (moveEvent.clientX - startX))
+        );
+        const nextY = Math.max(
+          36,
+          Math.min(window.innerHeight - 120, origY + (moveEvent.clientY - startY))
+        );
+        setFloatPos({ x: nextX, y: nextY });
+      };
+      const onUp = () => {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    } else if (onFloat) {
+      let detached = false;
+      const onMove = (moveEvent: MouseEvent) => {
+        const dist = Math.hypot(
+          moveEvent.clientX - startX,
+          moveEvent.clientY - startY
+        );
+        if (!detached && dist > 8) {
+          detached = true;
+          const nextX = Math.max(
+            12,
+            Math.min(window.innerWidth - 312, moveEvent.clientX - 140)
+          );
+          const nextY = Math.max(
+            36,
+            Math.min(window.innerHeight - 120, moveEvent.clientY - 18)
+          );
+          onFloat({ x: nextX, y: nextY });
+        } else if (detached) {
+          const nextX = Math.max(
+            12,
+            Math.min(window.innerWidth - 312, moveEvent.clientX - 140)
+          );
+          const nextY = Math.max(
+            36,
+            Math.min(window.innerHeight - 120, moveEvent.clientY - 18)
+          );
+          setFloatPos({ x: nextX, y: nextY });
+        }
+      };
+      const onUp = () => {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    }
+  };
 
   const handleRatioSelect = (ratio: "9:16" | "1:1" | "16:9") => {
     const dims =
@@ -93,42 +183,91 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
 
   return (
     <aside
-      className="bg-[var(--bg-panel)] text-[var(--text-primary)] border-r border-[var(--border-color)] flex flex-col shrink-0 select-none transition-colors duration-150"
-      style={{ width }}
+      className={cn(
+        "bg-[var(--bg-panel)] text-[var(--text-primary)] flex flex-col select-none",
+        isFloating
+          ? "fixed z-50 w-[300px] max-h-[82vh] rounded-xl border-2 border-[var(--border-strong)] shadow-2xl overflow-hidden"
+          : "border-r border-[var(--border-color)] shrink-0 transition-colors duration-150"
+      )}
+      style={
+        isFloating
+          ? { left: floatPos.x, top: floatPos.y }
+          : { width }
+      }
     >
-      {/* Panel Header */}
-      <div className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0">
-        <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2">
-          <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" strokeWidth={2} />
-          Inspector & Props
+      {/* Panel Header (Draggable to detach or move Floating Popup) */}
+      <div
+        onMouseDown={handleHeaderMouseDown}
+        className="h-9 px-3 box-border border-b border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between shrink-0 cursor-grab active:cursor-grabbing"
+        title="Drag header to detach Inspector into a floating popup window"
+      >
+        <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
+          <GripHorizontal className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+          <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400 shrink-0" strokeWidth={2} />
+          <span className="truncate">Inspector & Props</span>
         </span>
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => actions.undoProps()}
             disabled={undoStack.length === 0}
-            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-30 p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 flex items-center justify-center hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
             title="Undo Prop Change (Ctrl+Z)"
           >
-            <Undo2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <Undo2 className="w-3 h-3" strokeWidth={1.75} />
           </button>
           <button
             type="button"
             onClick={() => actions.redoProps()}
             disabled={redoStack.length === 0}
-            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-30 p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 flex items-center justify-center hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
             title="Redo Prop Change (Ctrl+Y)"
           >
-            <Redo2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <Redo2 className="w-3 h-3" strokeWidth={1.75} />
           </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-            title="Close Panel (Ctrl+B)"
-          >
-            <PanelLeftClose className="w-4 h-4" strokeWidth={1.5} />
-          </button>
+          {isFloating ? (
+            <>
+              {onDock && (
+                <button
+                  type="button"
+                  onClick={onDock}
+                  className="w-6 h-6 rounded-md bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white flex items-center justify-center transition-colors cursor-pointer"
+                  title="Dock back to Left Sidebar"
+                >
+                  <PanelLeftOpen className="w-3 h-3" strokeWidth={1.75} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
+                title="Close Floating Inspector"
+              >
+                <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+              </button>
+            </>
+          ) : (
+            <>
+              {onFloat && (
+                <button
+                  type="button"
+                  onClick={() => onFloat({ x: 84, y: 68 })}
+                  className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-amber-400 hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
+                  title="Pop out Inspector as a floating draggable window"
+                >
+                  <PictureInPicture2 className="w-3 h-3" strokeWidth={1.75} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
+                title="Close Panel (Ctrl+B)"
+              >
+                <PanelLeftClose className="w-3.5 h-3.5" strokeWidth={1.75} />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -145,7 +284,7 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
             </span>
           </div>
 
-          {/* Aspect Ratio Presets */}
+          {/* Aspect Ratio Presets (100% Solid Background) */}
           <div className="grid grid-cols-3 gap-1">
             {(["9:16", "1:1", "16:9"] as const).map((r) => (
               <button
@@ -155,8 +294,8 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
                 className={cn(
                   "h-6 rounded-md text-[10px] font-mono border transition-colors cursor-pointer",
                   activeComposition.ratio === r
-                    ? "bg-amber-500/15 border-amber-500/40 text-amber-400 font-semibold"
-                    : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                    ? "bg-[#cf6613] border-[#e07b27] text-white font-semibold"
+                    : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
                 )}
               >
                 {r}
@@ -359,7 +498,7 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
             <button
               type="button"
               onClick={handleApplyJson}
-              className="w-full h-7 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              className="w-full h-7 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
             >
               <Check className="w-3.5 h-3.5" />
               Apply JSON Props
@@ -368,13 +507,13 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
         )}
       </div>
 
-      {/* Footer Actions */}
+      {/* Footer Actions (100% Solid Buttons) */}
       <div className="p-2.5 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex items-center gap-1.5 shrink-0">
         <button
           type="button"
           onClick={handleSavePropsToDisk}
           disabled={isSaving}
-          className="flex-1 h-7 px-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+          className="flex-1 h-7 px-2.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
           title="Save Default Props to project (Ctrl+S)"
         >
           <Save className="w-3.5 h-3.5" />
@@ -386,7 +525,7 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
             actions.resetActiveProps();
             toast.info("Reset composition props to defaults");
           }}
-          className="h-7 px-2 rounded-lg bg-[var(--bg-hover)] hover:bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xs flex items-center justify-center cursor-pointer transition-colors"
+          className="h-7 px-2.5 rounded-lg bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs flex items-center justify-center cursor-pointer transition-colors"
           title="Reset to defaultProps"
         >
           <RotateCcw className="w-3.5 h-3.5" />

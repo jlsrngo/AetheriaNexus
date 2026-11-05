@@ -86,7 +86,7 @@ export const StudioPreview: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[var(--bg-app)]">
       {/* Stage Canvas Toolbar (Remotion PreviewToolbar parity) */}
-      <div className="h-8 px-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)]/60 flex items-center justify-between text-[11px] shrink-0">
+      <div className="h-9 px-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between text-[11px] shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <span className="font-medium text-[var(--text-primary)] truncate">
             {activeComposition.name}
