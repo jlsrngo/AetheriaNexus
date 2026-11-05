@@ -4,20 +4,20 @@ import { cn } from "../../lib/utils";
 import { useTheme } from "../../lib/theme";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-none text-xs font-mono font-bold transition-none cursor-pointer select-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white disabled:pointer-events-none disabled:opacity-45 shrink-0 uppercase tracking-wider",
+  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg text-xs font-medium transition-colors cursor-pointer select-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white disabled:pointer-events-none disabled:opacity-45 shrink-0 tracking-normal",
   {
     variants: {
       variant: {
         default:
-          "bg-white text-black border border-white hover:bg-neutral-200 font-bold",
+          "bg-white text-black border border-white hover:bg-neutral-200 font-semibold shadow-sm",
         brand:
-          "bg-emerald-500 text-black border border-emerald-500 hover:bg-emerald-400 font-bold",
+          "bg-emerald-500 text-black border border-emerald-500 hover:bg-emerald-400 font-semibold shadow-sm",
         destructive:
-          "bg-rose-600 text-white border border-rose-600 hover:bg-rose-500 font-bold",
+          "bg-rose-600 text-white border border-rose-600 hover:bg-rose-500 font-semibold shadow-sm",
         outline:
-          "border border-neutral-700 bg-neutral-900 text-neutral-200 hover:text-white hover:border-white",
+          "border border-neutral-700 bg-neutral-900/90 text-neutral-200 hover:text-white hover:border-neutral-500 shadow-sm",
         secondary:
-          "bg-neutral-800 text-neutral-200 border border-neutral-700 hover:bg-neutral-700 hover:text-white hover:border-neutral-500",
+          "bg-neutral-800 text-neutral-200 border border-neutral-700 hover:bg-neutral-700 hover:text-white hover:border-neutral-500 shadow-sm",
         ghost:
           "text-neutral-400 hover:text-white hover:bg-neutral-800 border border-transparent",
         "ghost-destructive":
@@ -26,11 +26,11 @@ const buttonVariants = cva(
       },
       size: {
         default: "h-8 px-3.5 py-1.5 text-xs",
-        sm: "h-7 rounded-none px-2.5 py-1 text-[11px]",
-        lg: "h-9 rounded-none px-4 py-2 text-xs",
-        icon: "h-8 w-8 rounded-none p-0",
-        "icon-sm": "h-7 w-7 rounded-none p-0",
-        "icon-xs": "h-6 w-6 rounded-none p-0",
+        sm: "h-7 rounded-md px-2.5 py-1 text-[11px]",
+        lg: "h-9 rounded-lg px-4 py-2 text-xs",
+        icon: "h-8 w-8 rounded-lg p-0",
+        "icon-sm": "h-7 w-7 rounded-md p-0",
+        "icon-xs": "h-6 w-6 rounded-md p-0",
       },
     },
     defaultVariants: {

@@ -44,16 +44,16 @@ export const Timeline: React.FC<TimelineProps> = ({
   const step = (delta: number) => onSeek(Math.min(lastFrame, Math.max(0, currentFrame + delta)));
 
   return (
-    <section className="shrink-0 border-t border-neutral-800 bg-neutral-950 font-mono select-none">
+    <section className="shrink-0 border-t border-neutral-800/80 bg-neutral-950 select-none">
       {/* 1. Transport + telemetry */}
-      <div className="h-8 px-2 flex items-center justify-between border-b border-neutral-800">
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] uppercase tracking-widest text-neutral-500 mr-2">Timeline</span>
+      <div className="h-8 px-3 flex items-center justify-between border-b border-neutral-800/80">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-neutral-300 mr-2 tracking-tight">Timeline</span>
           <button
             type="button"
             onClick={() => onSeek(0)}
             title="Go to start"
-            className="w-6 h-6 flex items-center justify-center border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white hover:border-neutral-600 rounded-none cursor-pointer"
+            className="w-6 h-6 flex items-center justify-center border border-neutral-800 bg-neutral-900/80 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"
           >
             <SkipBack className="w-3 h-3" />
           </button>
@@ -61,7 +61,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             type="button"
             onClick={() => step(-1)}
             title="Previous frame"
-            className="w-6 h-6 flex items-center justify-center border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white hover:border-neutral-600 rounded-none cursor-pointer"
+            className="w-6 h-6 flex items-center justify-center border border-neutral-800 bg-neutral-900/80 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
           </button>
@@ -70,10 +70,10 @@ export const Timeline: React.FC<TimelineProps> = ({
             onClick={onTogglePlay}
             title={isPlaying ? "Pause" : "Play"}
             className={cn(
-              "w-6 h-6 flex items-center justify-center border rounded-none cursor-pointer",
+              "w-6 h-6 flex items-center justify-center border rounded-md transition-colors cursor-pointer",
               isPlaying
-                ? "bg-rose-500 border-rose-500 text-black"
-                : "bg-neutral-950 border-neutral-800 text-emerald-400 hover:border-neutral-600"
+                ? "bg-rose-500/20 border-rose-500/40 text-rose-400 hover:bg-rose-500/30"
+                : "bg-neutral-900/80 border-neutral-800 text-emerald-400 hover:bg-neutral-800"
             )}
           >
             {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
@@ -82,15 +82,15 @@ export const Timeline: React.FC<TimelineProps> = ({
             type="button"
             onClick={() => step(1)}
             title="Next frame"
-            className="w-6 h-6 flex items-center justify-center border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white hover:border-neutral-600 rounded-none cursor-pointer"
+            className="w-6 h-6 flex items-center justify-center border border-neutral-800 bg-neutral-900/80 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-neutral-500">
+        <div className="flex items-center gap-2 text-[11px] font-mono text-neutral-400">
           <span>
-            FRAME <span className="text-white font-bold">{String(currentFrame).padStart(3, "0")}</span> / {durationInFrames}
+            FRAME <span className="text-white font-semibold">{String(currentFrame).padStart(3, "0")}</span> / {durationInFrames}
           </span>
           <span className="text-neutral-700">|</span>
           <span>{(currentFrame / fps).toFixed(2)}s</span>
@@ -102,7 +102,7 @@ export const Timeline: React.FC<TimelineProps> = ({
       {/* 2. Ruler + track + playhead */}
       <div
         ref={trackRef}
-        className="relative mx-2 my-2 h-[74px] cursor-col-resize"
+        className="relative mx-3 my-2 h-[74px] cursor-col-resize"
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
           seekFromPointer(e.clientX);
@@ -119,7 +119,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               <div
                 key={second}
                 className={cn(
-                  "absolute top-0 h-4 border-l border-neutral-800 text-[9px] leading-4 text-neutral-600",
+                  "absolute top-0 h-4 border-l border-neutral-800 font-mono text-[9px] leading-4 text-neutral-500",
                   left >= 100 ? "-translate-x-full pr-1 text-right" : "pl-1"
                 )}
                 style={{ left: `${left}%` }}
@@ -130,17 +130,17 @@ export const Timeline: React.FC<TimelineProps> = ({
           })}
         </div>
 
-        <div className="absolute inset-x-0 top-5 h-9 flex items-center gap-2 border border-neutral-800 bg-neutral-900 px-2">
+        <div className="absolute inset-x-0 top-5 h-9 flex items-center gap-2 border border-neutral-800/80 bg-neutral-900/90 rounded-md px-2.5 shadow-sm">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-          <span className="text-[10px] text-neutral-300 truncate">{compositionId}</span>
-          <span className="text-[9px] text-neutral-600 truncate">NexusVideoComposition</span>
+          <span className="text-xs text-neutral-200 font-medium truncate">{compositionId}</span>
+          <span className="text-[10px] text-neutral-500 truncate">NexusVideoComposition</span>
         </div>
 
         <div
           className="absolute top-0 bottom-0 w-px bg-rose-500 pointer-events-none"
           style={{ left: `${progress * 100}%` }}
         >
-          <div className="absolute -top-0.5 -left-[3px] w-[7px] h-[7px] bg-rose-500" />
+          <div className="absolute -top-1 -left-[3.5px] w-2 h-2 rounded-full bg-rose-500 ring-2 ring-rose-950" />
         </div>
       </div>
     </section>

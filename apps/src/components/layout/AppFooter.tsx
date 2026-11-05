@@ -1,16 +1,18 @@
 import { memo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Video,
-  Film,
-  Calendar,
-  BarChart3,
+  MessageSquare,
+  Kanban,
+  BookOpen,
+  History,
   Settings,
   Folder,
   Wifi,
   WifiOff,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useI18n } from "../../lib/i18n";
+import { useTheme } from "../../lib/theme";
 
 interface AppFooterProps {
   activeFolder: string;
@@ -25,16 +27,18 @@ export const AppFooter = memo(function AppFooter({
 }: AppFooterProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useI18n();
+  const { isNeobrutalism } = useTheme();
 
   const navItems = [
-    { label: "STUDIO", path: "/", icon: Video },
-    { label: "STOCK", path: "/stock", icon: Film },
-    { label: "SCHEDULE", path: "/schedule", icon: Calendar },
-    { label: "ANALYTICS", path: "/analytics", icon: BarChart3 },
-    { label: "SETTINGS", path: "/settings", icon: Settings },
+    { label: t("navWorkstation", "Workstation"), path: "/", icon: MessageSquare, neoColor: "bg-[#CCFF00]", neoInactive: "bg-[#F0FDF4]", neoHover: "hover:bg-[#CCFF00]" },
+    { label: t("navTasks", "Tasks"), path: "/tasks", icon: Kanban, neoColor: "bg-[#FF9F43]", neoInactive: "bg-[#FFF7ED]", neoHover: "hover:bg-[#FF9F43]" },
+    { label: t("navKnowledge", "Knowledge"), path: "/knowledge", icon: BookOpen, neoColor: "bg-[#B388FF]", neoInactive: "bg-[#FAF5FF]", neoHover: "hover:bg-[#B388FF]" },
+    { label: t("navHistory", "History"), path: "/history", icon: History, neoColor: "bg-[#A3E635]", neoInactive: "bg-[#F7FEE7]", neoHover: "hover:bg-[#A3E635]" },
+    { label: t("navSettings", "Settings"), path: "/settings", icon: Settings, neoColor: "bg-[#FFD166]", neoInactive: "bg-[#FEFCE8]", neoHover: "hover:bg-[#FFD166]" },
   ];
 
-  const handleNavigateStudio = useCallback(() => {
+  const handleNavigateWorkstation = useCallback(() => {
     const savedFolder = localStorage.getItem("arunaki_active_folder") || "";
     const savedChatId = savedFolder
       ? localStorage.getItem(`arunaki_active_chat_id_${savedFolder}`) || ""
@@ -47,30 +51,52 @@ export const AppFooter = memo(function AppFooter({
   }, [navigate]);
 
   return (
-    <footer className="h-11 bg-neutral-950 px-3 flex items-center justify-between shrink-0 border-t border-neutral-800 transition-none select-none text-xs font-mono">
-      {/* Left: Active Folder Display */}
-      <div className="flex items-center gap-2 min-w-0 max-w-[280px] sm:max-w-[340px]">
+    <footer className="h-12 bg-[var(--bg-header)] px-4 flex items-center justify-between shrink-0 border-t border-[var(--border-color)] transition-colors duration-150 text-xs">
+      {/* Left: Active Folder Display (Click to open/switch folder) */}
+      <div className="flex items-center gap-2 min-w-0 max-w-[280px] sm:max-w-[380px]">
         <button
           type="button"
           onClick={onOpenFolder}
           title={
             activeFolder
-              ? `Active Workspace: ${activeFolder} (Click to switch)`
-              : "No workspace connected (Click to open)"
+              ? `Active Folder: ${activeFolder} (Click to switch)`
+              : `${t("noFolderOpened", "No folder opened")} (${t("openFolder", "Open Folder...")})`
           }
-          className="flex items-center gap-2 px-2.5 py-1 rounded-none bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-neutral-700 text-neutral-300 hover:text-white transition-none cursor-pointer truncate max-w-full"
+          className={cn(
+            "flex items-center gap-2 px-2.5 py-1 rounded-xl truncate max-w-full transition-all cursor-pointer",
+            isNeobrutalism
+              ? "bg-[#FEF08A] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] hover:bg-[#FDE047] font-semibold"
+              : "bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+          )}
         >
-          <Folder className="w-3.5 h-3.5 shrink-0 text-neutral-400" />
-          <span className="text-[11px] font-mono uppercase tracking-wider truncate">
+          <Folder
+            className={cn(
+              "w-3.5 h-3.5 shrink-0",
+              isNeobrutalism ? "text-[#141413]" : "text-[var(--text-muted)]"
+            )}
+          />
+          <span
+            className={cn(
+              "text-[11px] truncate",
+              isNeobrutalism ? "text-[#141413] font-bold" : "text-[var(--text-primary)]"
+            )}
+          >
             {activeFolder
               ? activeFolder.split(/[\\/]/).filter(Boolean).pop() || activeFolder
-              : "NO WORKSPACE CONNECTED"}
+              : t("noFolderOpened", "No folder opened")}
           </span>
         </button>
       </div>
 
-      {/* Center: Navigation Hub */}
-      <div className="flex items-center gap-1 p-0.5 bg-neutral-900 border border-neutral-800 rounded-none">
+      {/* Center: Main Navigation Floating Capsule (Spacious & Modern) */}
+      <div
+        className={cn(
+          "flex items-center gap-1.5 p-1 rounded-full",
+          isNeobrutalism
+            ? "bg-[#FFFDFB] border-2 border-[#141413] shadow-[3px_3px_0px_#141413]"
+            : "bg-[var(--bg-card)] border border-[var(--border-strong)]"
+        )}
+      >
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive =
@@ -83,53 +109,65 @@ export const AppFooter = memo(function AppFooter({
               type="button"
               onClick={() => {
                 if (item.path === "/") {
-                  handleNavigateStudio();
+                  handleNavigateWorkstation();
                 } else {
                   navigate(item.path);
                 }
               }}
               title={item.label}
               className={cn(
-                "flex items-center gap-2 px-3 py-1 rounded-none text-[11px] font-mono tracking-wider transition-none cursor-pointer border",
+                "flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs transition-all cursor-pointer",
                 isActive
-                  ? "bg-white text-black font-extrabold border-white shadow-sm"
-                  : "bg-transparent text-neutral-400 border-transparent hover:text-white hover:bg-neutral-800/80"
+                  ? isNeobrutalism
+                    ? `${item.neoColor} text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] font-bold`
+                    : "bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] font-medium"
+                  : isNeobrutalism
+                  ? `${item.neoInactive} text-[#141413] border border-[#141413]/35 ${item.neoHover} font-semibold`
+                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] font-medium"
               )}
             >
-              <Icon className="w-3.5 h-3.5 shrink-0" strokeWidth={isActive ? 2.2 : 1.75} />
+              <Icon
+                className={cn("w-3.5 h-3.5", isNeobrutalism && "neo-icon-drop")}
+                strokeWidth={isNeobrutalism ? 2 : 1.75}
+              />
               <span className="leading-none">{item.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Right: Technical Telemetry Status (Bridge & Engine Port 20288/4196) */}
+      {/* Right: Status Indicator (Network Online/Offline - Strict Monochrome) */}
       <div className="flex items-center gap-2 min-w-0 max-w-[280px] sm:max-w-[340px] justify-end">
         <div
           className={cn(
-            "flex items-center gap-1.5 px-2.5 py-1 rounded-none text-[10px] font-mono uppercase tracking-wider border select-none",
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] transition-all select-none",
             isOnline
-              ? "bg-neutral-900 border-neutral-800 text-neutral-300"
-              : "bg-rose-950 border-rose-800 text-rose-300 font-bold"
+              ? isNeobrutalism
+                ? "bg-[#CCFF00] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] font-bold"
+                : "bg-[var(--bg-card)] border border-[var(--border-strong)] text-[var(--text-primary)]"
+              : isNeobrutalism
+              ? "bg-[#FF6B6B] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] font-bold"
+              : "bg-rose-600 border border-rose-600 text-white font-medium"
           )}
           title={
             isOnline
-              ? "Local CLI Bridge connected on Port 20288 | Engine Port 4196"
-              : "Local CLI Bridge Offline"
+              ? t("networkConnected", "Computer is connected to the network")
+              : t("networkOffline", "Computer is offline")
           }
         >
           {isOnline ? (
-            <>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
-              <Wifi className="w-3 h-3 shrink-0 text-emerald-400" />
-              <span>ONLINE 20288</span>
-            </>
+            <Wifi className={cn("w-3.5 h-3.5 shrink-0", isNeobrutalism ? "text-[#141413] stroke-[2.2]" : "text-[var(--text-primary)]")} />
           ) : (
-            <>
-              <WifiOff className="w-3 h-3 text-rose-400 shrink-0" />
-              <span>OFFLINE</span>
-            </>
+            <WifiOff className="w-3.5 h-3.5 text-white shrink-0" />
           )}
+          <span
+            className={cn(
+              "text-[11px]",
+              isNeobrutalism ? "text-[#141413] font-bold" : isOnline ? "text-[var(--text-primary)]" : "text-white"
+            )}
+          >
+            {isOnline ? t("online", "Online") : t("offline", "Offline")}
+          </span>
         </div>
       </div>
     </footer>

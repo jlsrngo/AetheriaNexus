@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
 import { WorkstationLeftExplorer } from "../components/workstation/WorkstationLeftExplorer";
+import { WorkstationActivityBar } from "../components/workstation/activity/WorkstationActivityBar";
 import { WorkstationCenterPanel } from "../components/workstation/WorkstationCenterPanel";
 import { WorkstationRightChat } from "../components/workstation/WorkstationRightChat";
 import { ConnectFolderModal } from "../components/workstation/ConnectFolderModal";
@@ -122,11 +123,17 @@ export function UnifiedWorkstationPage() {
         className="flex-1 flex overflow-hidden relative"
         style={
           {
-            "--left-panel-width": "256px",
+            "--left-panel-width": "264px",
             "--right-panel-width": "340px",
           } as React.CSSProperties
         }
       >
+        {/* 0. Persistent icon rail — stays put when the explorer is closed */}
+        <WorkstationActivityBar
+          explorerOpen={!leftCollapsed}
+          onToggleExplorer={handleToggleLeft}
+        />
+
         {/* 1. Left: workspace explorer */}
         <WorkstationLeftExplorer
           collapsed={leftCollapsed}
@@ -137,7 +144,7 @@ export function UnifiedWorkstationPage() {
           onOpenFileTab={tabs.handleOpenFileTab}
           onOpenFolderModal={handleOpenFolderModal}
           onCloseFolder={handleCloseFolderAction}
-          width="var(--left-panel-width, 256px)"
+          width="var(--left-panel-width, 264px)"
           onNativeFilesChange={setNativeFileNames}
           recentCanvases={tabs.recentCanvases}
           onOpenCanvasTab={tabs.handleOpenCanvasTab}

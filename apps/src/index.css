@@ -7,6 +7,11 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
+/* Rounded is the house style now; old rounded-none call sites inherit this value. */
+.rounded-none {
+  border-radius: var(--radius-control) !important;
+}
+
 @layer base {
   *, ::before, ::after {
     box-sizing: border-box;
@@ -14,6 +19,13 @@
     padding: 0;
     text-transform: none;
     box-shadow: none !important;
+  }
+
+  :root {
+    --radius-panel: 12px;
+    --radius-card: 10px;
+    --radius-control: 8px;
+    --radius-pill: 999px;
   }
 
   :root, [data-theme="dark"], .dark {
