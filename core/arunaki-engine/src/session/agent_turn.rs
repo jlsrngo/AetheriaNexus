@@ -696,7 +696,7 @@ pub async fn run_agent_turn(
     if final_text.trim().is_empty() {
         chat_messages.push(json!({
             "role": "user",
-            "content": "All requested document operations and tools have completed execution. Provide a clear, concise final summary and answer to the user."
+            "content": "All requested Remotion video studio and code operations have completed execution. Provide a clear, concise final summary and answer to the user."
         }));
 
         let req_body = json!({
@@ -723,7 +723,7 @@ pub async fn run_agent_turn(
         }
 
         if final_text.trim().is_empty() {
-            final_text = "All requested document operations have been completed successfully.".to_string();
+            final_text = "All requested Remotion video studio operations have been completed successfully.".to_string();
         }
     }
 

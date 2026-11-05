@@ -1,7 +1,5 @@
-//! Fallback Script Execution Tool — Level-2 fallback for document & calculation tasks.
-//! Native tools (excel_com, word_com, etc.) remain top priority.
-//! When native tools fail or cannot fulfill a complex calculation, this tool serves as a Level-2 fallback.
-//! Execution and script storage are strictly bound to `.arunaki/scratch/` inside the active workspace.
+//! Workspace Shell Execution Tool — runs Remotion/TypeScript checks, media tools, or scratch scripts.
+//! Native tools (`read`, `edit`, `write`, `render_video`) remain top priority.
 
 use serde_json::{json, Value};
 use std::path::Path;
@@ -21,7 +19,7 @@ pub fn bash_tool_definition() -> Value {
                 "properties": {
                     "command": {
                         "type": "string",
-                        "description": "Shell command to execute. For document fallback, execute python scripts located in .arunaki/scratch/*.py (e.g. 'python .arunaki/scratch/recap.py')."
+                        "description": "Shell command to execute inside the Remotion video workspace (e.g. TypeScript check or media utility)."
                     },
                     "workdir": {
                         "type": "string",

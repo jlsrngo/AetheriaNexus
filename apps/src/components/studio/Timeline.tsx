@@ -126,9 +126,9 @@ export const Timeline: React.FC<TimelineProps> = ({
       ...currentCustom,
       {
         id: newId,
-        label: `Layer Dinamis #${nextIdx}: Komponen Baru`,
+        label: `Dynamic Layer #${nextIdx}: New Component`,
         kind: "text" as const,
-        content: `Komponen Layer Dinamis #${nextIdx}`,
+        content: `Dynamic Component Layer #${nextIdx}`,
         color: colorKey,
         from: startFrame,
         durationInFrames: Math.max(30, durationInFrames - startFrame),
@@ -421,7 +421,7 @@ export const Timeline: React.FC<TimelineProps> = ({
       <div
         onMouseDown={startResizeHeight}
         className="h-1 w-full cursor-row-resize hover:bg-amber-500/60 transition-colors shrink-0"
-        title="Tarik untuk mengubah tinggi Timeline"
+        title="Drag to resize Timeline height"
       />
 
       {/* 1. Two-Row Header with Centered Transport Pill (Matches User Diagram) */}
@@ -432,7 +432,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             <button
               type="button"
               onClick={() => onSeek(canvas.inFrame ?? 0)}
-              title="Ke Awal / In Point"
+              title="Jump to Start / In Point"
               className="h-5 px-1.5 flex items-center gap-1 border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded text-[10px] cursor-pointer transition-colors"
             >
               <SkipBack className="w-2.5 h-2.5" />
@@ -476,7 +476,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             <button
               type="button"
               onClick={handleResetLayerTimings}
-              title="Reset posisi & durasi semua clip"
+              title="Reset all clip positions and durations"
               className="px-1.5 h-5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] text-[var(--text-muted)] hover:text-amber-400 flex items-center gap-1 cursor-pointer transition-colors"
             >
               <RotateCcw className="w-2.5 h-2.5" />
@@ -485,7 +485,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             <button
               type="button"
               onClick={handleAddCustomLayer}
-              title="Tambah Layer Dinamis Baru (V1..Vn Tanpa Batas)"
+              title="Add New Dynamic Layer (Unlimited V1..Vn Tracks)"
               className="px-1.5 h-5 rounded bg-amber-500/15 border border-amber-500/40 text-[10px] text-amber-400 hover:bg-amber-500/25 flex items-center gap-1 cursor-pointer transition-colors"
             >
               <Plus className="w-2.5 h-2.5" />
@@ -534,7 +534,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                 })
               }
               className="h-5 px-1.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer"
-              title="Kecepatan Putar"
+              title="Playback Speed"
             >
               <option value={0.5}>0.5x</option>
               <option value={1}>1.0x</option>
@@ -552,7 +552,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           <button
             type="button"
             onClick={() => step(-1)}
-            title="Frame Sebelumnya"
+            title="Previous Frame"
             className="w-6 h-6 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -579,7 +579,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           <button
             type="button"
             onClick={() => step(1)}
-            title="Frame Berikutnya"
+            title="Next Frame"
             className="w-6 h-6 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
           >
             <ChevronRight className="w-4 h-4" />
@@ -592,8 +592,8 @@ export const Timeline: React.FC<TimelineProps> = ({
         {/* Left Column: Track Code (V12..V1) + Component Name + Eye Visibility */}
         <div className="w-[245px] shrink-0 border-r border-[var(--border-color)] bg-[var(--bg-panel)] flex flex-col min-h-0">
           <div className="h-6 px-2.5 border-b border-[var(--border-color)] flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] shrink-0">
-            <span>Track / Komponen Layer</span>
-            <span>Mata</span>
+            <span>Track / Component Layer</span>
+            <span>View</span>
           </div>
 
           <div
@@ -657,7 +657,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                           handleRemoveCustomLayer(layer.id);
                         }}
                         className="p-1 rounded text-[var(--text-muted)] hover:text-rose-400 hover:bg-[var(--bg-card)] transition-colors cursor-pointer"
-                        title="Hapus Layer Dinamis"
+                        title="Delete Dynamic Layer"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -672,7 +672,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         "p-1 rounded hover:bg-[var(--bg-card)] transition-colors cursor-pointer shrink-0",
                         layer.visible ? palette.icon : "text-[var(--text-muted)]"
                       )}
-                      title={layer.visible ? "Sembunyikan Layer" : "Tampilkan Layer"}
+                      title={layer.visible ? "Hide Layer" : "Show Layer"}
                     >
                       {layer.visible ? (
                         <Eye className="w-3 h-3" />
@@ -796,7 +796,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                     )}
                     title={`${layer.trackCode} ${layer.label} (${layer.from}f – ${
                       layer.from + layer.durationInFrames
-                    }f) • Geser tengah untuk pindah waktu, tarik ujung kiri/kanan untuk trim`}
+                    }f) • Drag center to move clip, drag left/right edges to trim`}
                   >
                     {/* Left Trim Handle */}
                     <div

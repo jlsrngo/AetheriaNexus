@@ -135,7 +135,7 @@ export function buildCompositionLayers(
     const defaultStart = Math.min(totalFrames - 15, custom.from ?? 12 + idx * 10);
     rawLayers.push({
       id,
-      label: custom.label || `Layer Kustom #${idx + 1}`,
+      label: custom.label || `Custom Layer #${idx + 1}`,
       kind: custom.kind || "text",
       content: custom.content ?? custom.label,
       color: custom.color,
@@ -149,7 +149,7 @@ export function buildCompositionLayers(
   if ((props.category ?? "").trim().length > 0) {
     rawLayers.push({
       id: "hud-category",
-      label: `Badge Kiri: // ${props.category}`,
+      label: `Left Badge: // ${props.category}`,
       kind: "icon",
       ...resolveTiming("hud-category", 0),
       visible: isLayerVisible("hud-category", showTxt),
@@ -160,7 +160,7 @@ export function buildCompositionLayers(
   if ((props.subCategory ?? "").trim().length > 0) {
     rawLayers.push({
       id: "hud-subcategory",
-      label: `Label Kanan: [ ${props.subCategory} ]`,
+      label: `Right Label: [ ${props.subCategory} ]`,
       kind: "text",
       ...resolveTiming("hud-subcategory", 4),
       visible: isLayerVisible("hud-subcategory", showTxt),
@@ -171,7 +171,7 @@ export function buildCompositionLayers(
   if ((props.hookText ?? "").trim().length > 0) {
     rawLayers.push({
       id: "text-hook",
-      label: `Judul Hook: "${props.hookText.slice(0, 24)}..."`,
+      label: `Hook Title: "${props.hookText.slice(0, 24)}..."`,
       kind: "text",
       ...resolveTiming("text-hook", 8),
       visible: isLayerVisible("text-hook", showTxt),
@@ -184,7 +184,7 @@ export function buildCompositionLayers(
     const defaultStart = Math.min(totalFrames - 15, 20 + idx * 14);
     rawLayers.push({
       id,
-      label: `Poin #${idx + 1}: ${line.slice(0, 26)}`,
+      label: `Point #${idx + 1}: ${line.slice(0, 26)}`,
       kind: "text",
       content: line,
       ...resolveTiming(id, defaultStart),
@@ -196,7 +196,7 @@ export function buildCompositionLayers(
   if ((props.authorHandle ?? "").trim().length > 0) {
     rawLayers.push({
       id: "footer-icon",
-      label: "Ikon Petir: [⚡] Avatar Box",
+      label: "Avatar Icon: [⚡] Box",
       kind: "icon",
       ...resolveTiming("footer-icon", 32),
       visible: isLayerVisible("footer-icon", showTxt),
@@ -214,7 +214,7 @@ export function buildCompositionLayers(
   if ((props.editorialTag ?? "").trim().length > 0) {
     rawLayers.push({
       id: "footer-tag",
-      label: `Badge Kanan Bawah: ${props.editorialTag}`,
+      label: `Footer Badge: ${props.editorialTag}`,
       kind: "icon",
       ...resolveTiming("footer-tag", 40),
       visible: isLayerVisible("footer-tag", showTxt),
@@ -225,14 +225,14 @@ export function buildCompositionLayers(
   rawLayers.push(
     {
       id: "bg-grid-pattern",
-      label: "Corak: Blueprint Grid",
+      label: "Pattern: Blueprint Grid",
       kind: "pattern",
       ...resolveTiming("bg-grid-pattern", 0),
       visible: isLayerVisible("bg-grid-pattern", showBg),
     },
     {
       id: "bg-orb-pattern",
-      label: "Corak: Ambient Glow Orb",
+      label: "Pattern: Ambient Glow Orb",
       kind: "pattern",
       ...resolveTiming("bg-orb-pattern", 0),
       visible: isLayerVisible("bg-orb-pattern", showBg),

@@ -62,20 +62,20 @@ mod tests {
     #[test]
     fn test_derive_session_title() {
         assert_eq!(
-            derive_session_title("✨ Rekap laporan keuangan bulan Oktober"),
-            "Rekap laporan keuangan bulan Oktober"
+            derive_session_title("✨ Build 5-second Remotion explainer video"),
+            "Build 5-second Remotion explainer video"
         );
         assert_eq!(
-            derive_session_title("### Analisis Cash Flow Q3 2026"),
-            "Analisis Cash Flow Q3 2026"
+            derive_session_title("### Kinetic Typography Intro Q3 2026"),
+            "Kinetic Typography Intro Q3 2026"
         );
         assert_eq!(
-            derive_session_title("Tolong periksa semua transaksi invoice yang belum lunas dalam folder"),
-            "Tolong periksa semua transaksi invoic..."
+            derive_session_title("Please update all Sequence layer start frames inside the active composition"),
+            "Please update all Sequence layer star..."
         );
         assert_eq!(
-            derive_session_title("Execute Playbook: **Sync LAPORAN-HARIAN.txt to REKAP 10-2026.xlsx**"),
-            "Sync LAPORAN-HARIAN.txt to REKAP 10-2..."
+            derive_session_title("Execute Playbook: **Render NexusVideoComposition.tsx to export/short.mp4**"),
+            "Render NexusVideoComposition.tsx to e..."
         );
         assert_eq!(derive_session_title("   "), "New Session");
     }

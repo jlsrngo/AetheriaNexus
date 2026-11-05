@@ -1410,7 +1410,7 @@ pub fn build_composition_layers_rust(props: &Value, total_frames: u32) -> Vec<Ru
                 .get("label")
                 .and_then(Value::as_str)
                 .map(str::to_string)
-                .unwrap_or_else(|| format!("Layer Kustom #{}", idx + 1));
+                .unwrap_or_else(|| format!("Custom Layer #{}", idx + 1));
             let kind = item
                 .get("kind")
                 .and_then(Value::as_str)
@@ -1430,7 +1430,7 @@ pub fn build_composition_layers_rust(props: &Value, total_frames: u32) -> Vec<Ru
         let (f, d) = resolve_timing("hud-category", 0);
         raw.push((
             "hud-category".to_string(),
-            format!("Badge Kiri: // {}", category),
+            format!("Left Badge: // {}", category),
             "icon".to_string(),
             f,
             d,
@@ -1442,7 +1442,7 @@ pub fn build_composition_layers_rust(props: &Value, total_frames: u32) -> Vec<Ru
         let (f, d) = resolve_timing("hud-subcategory", 4);
         raw.push((
             "hud-subcategory".to_string(),
-            format!("Label Kanan: [ {} ]", sub_category),
+            format!("Right Label: [ {} ]", sub_category),
             "text".to_string(),
             f,
             d,
@@ -1455,7 +1455,7 @@ pub fn build_composition_layers_rust(props: &Value, total_frames: u32) -> Vec<Ru
         let (f, d) = resolve_timing("text-hook", 8);
         raw.push((
             "text-hook".to_string(),
-            format!("Judul Hook: \"{}...\"", hook_short),
+            format!("Hook Title: \"{}...\"", hook_short),
             "text".to_string(),
             f,
             d,
@@ -1470,7 +1470,7 @@ pub fn build_composition_layers_rust(props: &Value, total_frames: u32) -> Vec<Ru
         let short_line: String = line.chars().take(26).collect();
         raw.push((
             id.clone(),
-            format!("Poin #{}: {}", idx + 1, short_line),
+            format!("Point #{}: {}", idx + 1, short_line),
             "text".to_string(),
             f,
             d,
@@ -1482,7 +1482,7 @@ pub fn build_composition_layers_rust(props: &Value, total_frames: u32) -> Vec<Ru
         let (f, d) = resolve_timing("footer-icon", 32);
         raw.push((
             "footer-icon".to_string(),
-            "Ikon Petir: [⚡] Avatar Box".to_string(),
+            "Avatar Icon: [⚡] Box".to_string(),
             "icon".to_string(),
             f,
             d,
@@ -1504,7 +1504,7 @@ pub fn build_composition_layers_rust(props: &Value, total_frames: u32) -> Vec<Ru
         let (f, d) = resolve_timing("footer-tag", 40);
         raw.push((
             "footer-tag".to_string(),
-            format!("Badge Kanan Bawah: {}", editorial_tag),
+            format!("Footer Badge: {}", editorial_tag),
             "icon".to_string(),
             f,
             d,
@@ -1515,7 +1515,7 @@ pub fn build_composition_layers_rust(props: &Value, total_frames: u32) -> Vec<Ru
     let (f, d) = resolve_timing("bg-grid-pattern", 0);
     raw.push((
         "bg-grid-pattern".to_string(),
-        "Corak: Blueprint Grid".to_string(),
+        "Pattern: Blueprint Grid".to_string(),
         "pattern".to_string(),
         f,
         d,
@@ -1525,7 +1525,7 @@ pub fn build_composition_layers_rust(props: &Value, total_frames: u32) -> Vec<Ru
     let (f, d) = resolve_timing("bg-orb-pattern", 0);
     raw.push((
         "bg-orb-pattern".to_string(),
-        "Corak: Ambient Glow Orb".to_string(),
+        "Pattern: Ambient Glow Orb".to_string(),
         "pattern".to_string(),
         f,
         d,

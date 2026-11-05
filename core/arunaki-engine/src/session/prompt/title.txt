@@ -31,14 +31,10 @@ Your output must be:
 </rules>
 
 <examples>
-"summarize the sales figures for August" → August sales summary
-"update the VAT rate to 11% on the invoice template" → Invoice VAT rate update
-"check the total expenses in report.xlsx" → report.xlsx expense check
-"create a new receipt template" → New receipt template
-"why don't the Q2 numbers match the bank statement" → Q2 reconciliation issue
-"compare client data between Q1 and Q2" → Q1 vs Q2 client comparison
-"@ledger.xlsx enter this expense receipt into the cash sheet" → Ledger expense entry
-"@invoice.docx the date format looks wrong" → Invoice date format fix
-"summarize this week's employee attendance" → Weekly attendance summary
-"draft a price quotation letter" → Price quotation draft
+"build a 5-second stock market explainer video with 3 points" → 5s stock market explainer video
+"update the hook title and add a neon badge layer" → Hook title & neon badge layer
+"change the text-hook sequence duration to 120 frames" → text-hook sequence duration update
+"create a new Remotion composition for YouTube Shorts" → New YouTube Shorts composition
+"render the active video to export/tiktok-intro.mp4" → Render export/tiktok-intro.mp4
+"add 2 spring animation layers in NexusVideoComposition.tsx" → Add 2 spring animation layers
 </examples>

@@ -150,7 +150,7 @@ pub async fn handle_agent_list() -> Response {
     let agents = vec![
         json!({
             "id": "default",
-            "description": "Arunaki Desktop Document Agent",
+            "description": "ArunakiNexus Remotion React Video Studio Agent",
             "request": { "headers": {}, "body": {} },
             "mode": "primary",
             "hidden": false,
@@ -158,7 +158,7 @@ pub async fn handle_agent_list() -> Response {
         }),
         json!({
             "id": "build",
-            "description": "Arunaki Document Execution Agent",
+            "description": "ArunakiNexus Remotion Video Execution Agent",
             "request": { "headers": {}, "body": {} },
             "mode": "primary",
             "hidden": false,
@@ -172,7 +172,7 @@ pub async fn handle_agent_get(AxumPath(id): AxumPath<String>) -> Response {
     Json(json!({
         "data": {
             "id": id,
-            "description": "Arunaki Desktop Document Agent",
+            "description": "ArunakiNexus Remotion React Video Studio Agent",
             "request": { "headers": {}, "body": {} },
             "mode": "primary",
             "hidden": false,

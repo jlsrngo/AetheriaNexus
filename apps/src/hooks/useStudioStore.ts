@@ -11,6 +11,7 @@ import type {
 } from "../types/studio";
 
 const STORAGE_KEY = "arunaki_nexus_studio_compositions_v1";
+const DEFAULT_PROPS_SIG_KEY = "arunaki_nexus_default_props_sig_v1";
 
 const DEFAULT_COMPOSITIONS: StudioComposition[] = [
   {
@@ -38,7 +39,7 @@ const DEFAULT_COMPOSITIONS: StudioComposition[] = [
       bodyText:
         "1. Confusing high income with building real wealth\n2. Financing depreciating lifestyle assets on credit\n3. Never automating monthly index fund investments",
       authorHandle: "@nexus.creative",
-      themeColor: "emerald",
+      themeColor: "amber",
       category: "FINANCE",
       subCategory: "WEALTH ARCHITECTURE",
       showText: true,
@@ -140,10 +141,29 @@ interface StudioStoreState {
 function loadInitialCompositions(): StudioComposition[] {
   if (typeof localStorage === "undefined") return DEFAULT_COMPOSITIONS;
   try {
+    const currentCodeSig = JSON.stringify(defaultNexusVideoProps);
+    const savedCodeSig = localStorage.getItem(DEFAULT_PROPS_SIG_KEY);
+    const codeChangedByLlm = savedCodeSig !== currentCodeSig;
+
+    if (codeChangedByLlm) {
+      localStorage.setItem(DEFAULT_PROPS_SIG_KEY, currentCodeSig);
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as StudioComposition[];
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        if (codeChangedByLlm) {
+          const updated = parsed.map((comp) =>
+            comp.id === nexusVideoSpec.id
+              ? { ...comp, props: { ...defaultNexusVideoProps } }
+              : comp
+          );
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          return updated;
+        }
+        return parsed;
+      }
     }
   } catch {}
   return DEFAULT_COMPOSITIONS;

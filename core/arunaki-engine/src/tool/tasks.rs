@@ -160,9 +160,9 @@ pub fn execute_manage_tasks(
             let now_iso = now.to_rfc3339();
 
             // Build standard Google Calendar URL with Asia/Jakarta timezone
-            let gcal_title = format!("[Arunaki] {}", new_title);
+            let gcal_title = format!("[ArunakiNexus] {}", new_title);
             let gcal_details = format!(
-                "Instruksi / Catatan Kerja:\n{}\n\nTingkat Prioritas: {}\nDikelola oleh Arunaki Autonomous Document Assistant",
+                "Production Notes / Instructions:\n{}\n\nPriority Level: {}\nManaged by ArunakiNexus Remotion Video Studio",
                 if notes.is_empty() { "-" } else { notes },
                 priority.to_uppercase()
             );

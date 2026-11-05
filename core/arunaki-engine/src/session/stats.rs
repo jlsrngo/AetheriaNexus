@@ -154,26 +154,26 @@ mod tests {
         assert!(!is_conversational_message(&json!({ "type": "compaction", "text": "compact" })));
         assert!(!is_conversational_message(&json!({ "agent": "compaction", "text": "compact" })));
         assert!(!is_conversational_message(&json!({ "summary": true, "text": "sum" })));
-        assert!(is_conversational_message(&json!({ "role": "user", "text": "Halo Arunaki" })));
+        assert!(is_conversational_message(&json!({ "role": "user", "text": "Hello ArunakiNexus" })));
     }
 
     #[test]
     fn computes_stats_and_normalizes_preview() {
         let msgs = vec![
             json!({ "type": "system", "text": "System prompt" }),
-            json!({ "role": "user", "content": "  Rekap   laporan\n\nharian   ke excel  " }),
+            json!({ "role": "user", "content": "  Build   Remotion\n\nvideo   composition  " }),
             json!({
                 "role": "assistant",
                 "content": [
                     { "type": "tool_use", "name": "read_file" },
-                    { "type": "text", "text": "Baik,   saya sudah\nmembuka file laporan.xlsx" }
+                    { "type": "text", "text": "Updated   the\nSequence layers in NexusVideoComposition.tsx" }
                 ]
             }),
         ];
 
         let (count, preview) = compute_session_stats(Some(&msgs));
         assert_eq!(count, 2);
-        assert_eq!(preview, "Baik, saya sudah membuka file laporan.xlsx");
+        assert_eq!(preview, "Updated the Sequence layers in NexusVideoComposition.tsx");
     }
 
     #[test]

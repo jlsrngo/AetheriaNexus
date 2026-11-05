@@ -234,7 +234,7 @@ pub async fn handle_telegram_message(client: &reqwest::Client, token: &str, msg:
 
     let reply_text = match text.as_str() {
         "/start" | "/help" => format!(
-            "Arunaki Desktop Document Agent\nActive Folder: {}\n\nCommands:\n/files - List files in folder\n/status - Engine & folder status\nOr send any instruction to process documents.",
+            "ArunakiNexus Remotion Video Studio Agent\nActive Folder: {}\n\nCommands:\n/files - List files in folder\n/status - Engine & folder status\nOr send any instruction to generate/edit Remotion React videos.",
             target_dir
         ),
         "/status" => format!(
