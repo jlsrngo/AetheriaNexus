@@ -12,6 +12,7 @@ import {
   Type,
   Award,
   Captions,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useStudioStore } from "../../hooks/useStudioStore";
@@ -39,18 +40,23 @@ export const Timeline: React.FC<TimelineProps> = ({
   const updateCanvas = actions.updateCanvas;
   const subtitles = subtitleCues;
 
-  const [timelineHeight, setTimelineHeight] = useState<number>(236);
-  const trackAreaRef = useRef<HTMLDivElement>(null);
+  const [timelineHeight, setTimelineHeight] = useState<number>(256);
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>("text-hook");
+
+  const rulerRef = useRef<HTMLDivElement>(null);
+  const leftScrollRef = useRef<HTMLDivElement>(null);
+  const rightScrollRef = useRef<HTMLDivElement>(null);
 
   const lastFrame = Math.max(0, durationInFrames - 1);
   const progress = lastFrame === 0 ? 0 : currentFrame / lastFrame;
   const totalSeconds = Math.ceil(durationInFrames / fps);
 
   const layers = buildCompositionLayers(activeComposition.props, durationInFrames);
+  const selectedLayer = layers.find((l) => l.id === selectedLayerId) ?? layers[0];
 
-  const seekFromPointer = useCallback(
+  const seekFromClientX = useCallback(
     (clientX: number) => {
-      const el = trackAreaRef.current;
+      const el = rulerRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
       const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
@@ -72,6 +78,77 @@ export const Timeline: React.FC<TimelineProps> = ({
     });
   };
 
+  const handleResetLayerTimings = () => {
+    actions.updateActiveProps({
+      layerStartFrame: {},
+      layerDuration: {},
+      layerVisibility: {},
+    });
+  };
+
+  // Dragging or trimming a clip bar like Adobe Premiere Pro
+  const startClipDrag = (
+    e: React.MouseEvent,
+    layer: VideoLayerSpec,
+    mode: "move" | "trim-start" | "trim-end"
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setSelectedLayerId(layer.id);
+
+    const trackEl = rulerRef.current;
+    if (!trackEl) return;
+    const trackWidth = Math.max(1, trackEl.getBoundingClientRect().width);
+    const startX = e.clientX;
+    const origFrom = layer.from;
+    const origDur = layer.durationInFrames;
+    const origEnd = origFrom + origDur;
+
+    const onMove = (moveEvent: MouseEvent) => {
+      const deltaPx = moveEvent.clientX - startX;
+      const deltaFrames = Math.round((deltaPx / trackWidth) * durationInFrames);
+
+      const nextStarts = { ...(activeComposition.props.layerStartFrame || {}) };
+      const nextDurs = { ...(activeComposition.props.layerDuration || {}) };
+
+      if (mode === "move") {
+        const clampedFrom = Math.max(
+          0,
+          Math.min(durationInFrames - origDur, origFrom + deltaFrames)
+        );
+        nextStarts[layer.id] = clampedFrom;
+        nextDurs[layer.id] = origDur;
+      } else if (mode === "trim-start") {
+        const clampedFrom = Math.max(
+          0,
+          Math.min(origEnd - 5, origFrom + deltaFrames)
+        );
+        nextStarts[layer.id] = clampedFrom;
+        nextDurs[layer.id] = origEnd - clampedFrom;
+      } else if (mode === "trim-end") {
+        const clampedDur = Math.max(
+          5,
+          Math.min(durationInFrames - origFrom, origDur + deltaFrames)
+        );
+        nextStarts[layer.id] = origFrom;
+        nextDurs[layer.id] = clampedDur;
+      }
+
+      actions.updateActiveProps({
+        layerStartFrame: nextStarts,
+        layerDuration: nextDurs,
+      });
+    };
+
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
   const startResizeHeight = (e: React.MouseEvent) => {
     e.preventDefault();
     const startY = e.clientY;
@@ -79,7 +156,7 @@ export const Timeline: React.FC<TimelineProps> = ({
 
     const onMove = (moveEvent: MouseEvent) => {
       const delta = startY - moveEvent.clientY;
-      setTimelineHeight(Math.max(150, Math.min(420, startH + delta)));
+      setTimelineHeight(Math.max(170, Math.min(440, startH + delta)));
     };
     const onUp = () => {
       window.removeEventListener("mousemove", onMove);
@@ -101,30 +178,34 @@ export const Timeline: React.FC<TimelineProps> = ({
   const renderLayerIcon = (kind: VideoLayerSpec["kind"]) => {
     switch (kind) {
       case "background":
-        return <Layers className="w-3 h-3 text-amber-400 shrink-0" />;
+        return <Layers className="w-3 h-3 text-amber-500 shrink-0" />;
       case "pattern":
         return <Sparkles className="w-3 h-3 text-orange-400 shrink-0" />;
       case "icon":
         return <Award className="w-3 h-3 text-amber-300 shrink-0" />;
       case "text":
-        return <Type className="w-3 h-3 text-amber-500 shrink-0" />;
+        return <Type className="w-3 h-3 text-amber-400 shrink-0" />;
     }
   };
 
-  const getTrackBarStyle = (kind: VideoLayerSpec["kind"], visible: boolean) => {
+  const getTrackBarStyle = (
+    kind: VideoLayerSpec["kind"],
+    visible: boolean,
+    isSelected: boolean
+  ) => {
     if (!visible) {
-      return "bg-[var(--bg-card)]/40 border-[var(--border-color)] text-[var(--text-muted)] opacity-45";
+      return "bg-[var(--bg-card)]/40 border-[var(--border-color)] text-[var(--text-muted)] opacity-40";
     }
-    switch (kind) {
-      case "background":
-        return "bg-amber-500/15 border-amber-500/40 text-amber-200";
-      case "pattern":
-        return "bg-orange-500/15 border-orange-500/40 text-orange-200";
-      case "icon":
-        return "bg-amber-400/20 border-amber-400/50 text-amber-100";
-      case "text":
-        return "bg-[#f59e0b]/20 border-[#f59e0b]/50 text-[var(--text-primary)]";
-    }
+    const base =
+      kind === "background"
+        ? "bg-amber-950/50 border-amber-600/40 text-amber-200"
+        : kind === "pattern"
+        ? "bg-orange-950/50 border-orange-500/40 text-orange-200"
+        : kind === "icon"
+        ? "bg-amber-500/20 border-amber-400/50 text-amber-100"
+        : "bg-[#f59e0b]/25 border-[#f59e0b]/60 text-[var(--text-primary)]";
+
+    return cn(base, isSelected && "ring-1 ring-amber-400 border-amber-400");
   };
 
   return (
@@ -135,11 +216,11 @@ export const Timeline: React.FC<TimelineProps> = ({
       {/* Top Drag Handle to Resize Timeline Height */}
       <div
         onMouseDown={startResizeHeight}
-        className="h-1 w-full cursor-row-resize hover:bg-amber-500/50 transition-colors shrink-0"
-        title="Drag to resize timeline height"
+        className="h-1 w-full cursor-row-resize hover:bg-amber-500/60 transition-colors shrink-0"
+        title="Tarik untuk mengubah tinggi Timeline"
       />
 
-      {/* 1. Transport Header Bar (Left-aligned controls + Right telemetry, Orange/Amber theme) */}
+      {/* 1. Transport Header Bar (Play on far left, Orange/Amber theme) */}
       <div className="h-8 px-3 flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-panel)] shrink-0">
         <div className="flex items-center gap-1.5">
           <button
@@ -187,7 +268,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           </button>
 
           {/* In / Out Point Markers */}
-          <div className="flex items-center gap-1 ml-1.5 pl-1.5 border-l border-[var(--border-color)]">
+          <div className="flex items-center gap-1 ml-1 pl-1.5 border-l border-[var(--border-color)]">
             <button
               type="button"
               onClick={() =>
@@ -223,24 +304,28 @@ export const Timeline: React.FC<TimelineProps> = ({
             >
               {canvas.outFrame !== null ? `${canvas.outFrame}:` : ""}O]
             </button>
-            {(canvas.inFrame !== null || canvas.outFrame !== null) && (
-              <button
-                type="button"
-                onClick={() => updateCanvas({ inFrame: null, outFrame: null })}
-                title="Clear In/Out Points"
-                className="px-1 h-5 rounded text-[10px] text-[var(--text-muted)] hover:text-amber-400 transition-colors cursor-pointer"
-              >
-                ×
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleResetLayerTimings}
+              title="Reset semua posisi & durasi clip layer"
+              className="ml-1 px-1.5 h-5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] text-[var(--text-muted)] hover:text-amber-400 flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <RotateCcw className="w-2.5 h-2.5" />
+              <span>Reset Clips</span>
+            </button>
           </div>
         </div>
 
         <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--text-muted)]">
-          <span className="text-[10px] text-amber-400 font-semibold">
-            {layers.length} LAYERS
-          </span>
-          <span className="text-[var(--border-strong)]">|</span>
+          {selectedLayer && (
+            <>
+              <span className="text-[10px] text-amber-400 truncate max-w-[180px]">
+                {selectedLayer.trackCode}: {selectedLayer.from}f–
+                {selectedLayer.from + selectedLayer.durationInFrames}f
+              </span>
+              <span className="text-[var(--border-strong)]">|</span>
+            </>
+          )}
           <select
             value={canvas.playbackRate}
             onChange={(e) =>
@@ -271,60 +356,84 @@ export const Timeline: React.FC<TimelineProps> = ({
         </div>
       </div>
 
-      {/* 2. Multi-Layer NLE Body (Left Layer Tree + Right Sequence Tracks) */}
+      {/* 2. Premiere-Style Multi-Track Body */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
-        {/* Left Column: Layer Headers */}
-        <div className="w-[220px] shrink-0 border-r border-[var(--border-color)] bg-[var(--bg-panel)] flex flex-col min-h-0">
+        {/* Left Column: Track Code (V12..V1) + Component Name + Eye Visibility */}
+        <div className="w-[250px] shrink-0 border-r border-[var(--border-color)] bg-[var(--bg-panel)] flex flex-col min-h-0">
           <div className="h-6 px-2.5 border-b border-[var(--border-color)] flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] shrink-0">
-            <span>Video Layers (<code className="text-amber-400">Sequence</code>)</span>
-            <span>Vis</span>
+            <span>Track / Komponen Layer ({layers.length})</span>
+            <span>Mata</span>
           </div>
 
-          <div className="flex-1 overflow-y-auto divide-y divide-[var(--border-color)]/50">
-            {layers.map((layer) => (
-              <div
-                key={layer.id}
-                className="h-7 px-2.5 flex items-center justify-between gap-1.5 hover:bg-[var(--bg-hover)] transition-colors"
-              >
-                <button
-                  type="button"
-                  onClick={() => onSeek(layer.from)}
-                  className="flex items-center gap-1.5 min-w-0 flex-1 text-left cursor-pointer"
-                  title={`Jump to ${layer.label} (start: ${layer.from}f)`}
-                >
-                  {renderLayerIcon(layer.kind)}
-                  <span
-                    className={cn(
-                      "text-[11px] truncate",
-                      layer.visible
-                        ? "text-[var(--text-primary)] font-medium"
-                        : "text-[var(--text-muted)] line-through"
-                    )}
-                  >
-                    {layer.label}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleToggleLayerVisibility(layer)}
+          <div
+            ref={leftScrollRef}
+            onScroll={(e) => {
+              if (rightScrollRef.current) {
+                rightScrollRef.current.scrollTop = e.currentTarget.scrollTop;
+              }
+            }}
+            className="flex-1 overflow-y-auto divide-y divide-[var(--border-color)]/50"
+          >
+            {layers.map((layer) => {
+              const isSelected = layer.id === selectedLayerId;
+              return (
+                <div
+                  key={layer.id}
+                  onClick={() => {
+                    setSelectedLayerId(layer.id);
+                    onSeek(layer.from);
+                  }}
                   className={cn(
-                    "p-1 rounded hover:bg-[var(--bg-card)] transition-colors cursor-pointer shrink-0",
-                    layer.visible ? "text-amber-400" : "text-[var(--text-muted)]"
+                    "h-7 px-2 flex items-center justify-between gap-1.5 transition-colors cursor-pointer",
+                    isSelected
+                      ? "bg-[var(--bg-hover)]"
+                      : "hover:bg-[var(--bg-hover)]/60"
                   )}
-                  title={layer.visible ? "Hide Layer" : "Show Layer"}
                 >
-                  {layer.visible ? (
-                    <Eye className="w-3 h-3" />
-                  ) : (
-                    <EyeOff className="w-3 h-3" />
-                  )}
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <span className="w-7 text-[9px] font-mono font-bold text-amber-400/90 bg-[var(--bg-card)] border border-[var(--border-color)] rounded px-1 py-0.5 text-center shrink-0">
+                      {layer.trackCode}
+                    </span>
+                    {renderLayerIcon(layer.kind)}
+                    <span
+                      className={cn(
+                        "text-[11px] truncate",
+                        layer.visible
+                          ? "text-[var(--text-primary)] font-medium"
+                          : "text-[var(--text-muted)] line-through"
+                      )}
+                    >
+                      {layer.label}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleLayerVisibility(layer);
+                    }}
+                    className={cn(
+                      "p-1 rounded hover:bg-[var(--bg-card)] transition-colors cursor-pointer shrink-0",
+                      layer.visible ? "text-amber-400" : "text-[var(--text-muted)]"
+                    )}
+                    title={layer.visible ? "Sembunyikan Layer" : "Tampilkan Layer"}
+                  >
+                    {layer.visible ? (
+                      <Eye className="w-3 h-3" />
+                    ) : (
+                      <EyeOff className="w-3 h-3" />
+                    )}
+                  </button>
+                </div>
+              );
+            })}
 
             {subtitles.length > 0 && (
-              <div className="h-7 px-2.5 flex items-center justify-between gap-1.5 bg-[var(--bg-card)]/40">
+              <div className="h-7 px-2 flex items-center justify-between gap-1.5 bg-[var(--bg-card)]/40">
                 <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-7 text-[9px] font-mono font-bold text-amber-400 bg-[var(--bg-card)] border border-[var(--border-color)] rounded px-1 py-0.5 text-center shrink-0">
+                    SUB
+                  </span>
                   <Captions className="w-3 h-3 text-amber-400 shrink-0" />
                   <span className="text-[11px] text-[var(--text-primary)] font-medium truncate">
                     Auto-Captions ({subtitles.length} cues)
@@ -335,19 +444,8 @@ export const Timeline: React.FC<TimelineProps> = ({
           </div>
         </div>
 
-        {/* Right Column: Time Ruler + Multi-Layer Sequence Bars */}
-        <div
-          ref={trackAreaRef}
-          className="flex-1 relative flex flex-col min-h-0 cursor-col-resize overflow-hidden"
-          onPointerDown={(e) => {
-            e.currentTarget.setPointerCapture(e.pointerId);
-            seekFromPointer(e.clientX);
-          }}
-          onPointerMove={(e) => {
-            if (e.buttons === 1) seekFromPointer(e.clientX);
-          }}
-          onPointerUp={(e) => e.currentTarget.releasePointerCapture(e.pointerId)}
-        >
+        {/* Right Column: Time Ruler + Draggable/Trimmable Clip Lanes */}
+        <div className="flex-1 relative flex flex-col min-h-0 overflow-hidden">
           {/* In/Out Highlight Region */}
           {(inPercent !== null || outPercent !== null) && (
             <div
@@ -359,8 +457,19 @@ export const Timeline: React.FC<TimelineProps> = ({
             />
           )}
 
-          {/* Time Ruler */}
-          <div className="h-6 border-b border-[var(--border-color)] bg-[var(--bg-panel)]/60 relative shrink-0">
+          {/* Time Ruler (Click/drag here to scrub playhead) */}
+          <div
+            ref={rulerRef}
+            className="h-6 border-b border-[var(--border-color)] bg-[var(--bg-panel)]/70 relative shrink-0 cursor-col-resize"
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              seekFromClientX(e.clientX);
+            }}
+            onPointerMove={(e) => {
+              if (e.buttons === 1) seekFromClientX(e.clientX);
+            }}
+            onPointerUp={(e) => e.currentTarget.releasePointerCapture(e.pointerId)}
+          >
             {Array.from({ length: totalSeconds + 1 }, (_, second) => {
               const left = Math.min(
                 100,
@@ -381,34 +490,77 @@ export const Timeline: React.FC<TimelineProps> = ({
             })}
           </div>
 
-          {/* Scrollable Layer Track Lanes */}
-          <div className="flex-1 overflow-y-auto divide-y divide-[var(--border-color)]/40 relative">
+          {/* Scrollable Clip Track Lanes */}
+          <div
+            ref={rightScrollRef}
+            onScroll={(e) => {
+              if (leftScrollRef.current) {
+                leftScrollRef.current.scrollTop = e.currentTarget.scrollTop;
+              }
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) {
+                seekFromClientX(e.clientX);
+              }
+            }}
+            className="flex-1 overflow-y-auto divide-y divide-[var(--border-color)]/40 relative"
+          >
             {layers.map((layer) => {
               const leftPct = Math.min(
                 100,
                 (layer.from / Math.max(1, durationInFrames)) * 100
               );
               const widthPct = Math.max(
-                2,
+                3,
                 (layer.durationInFrames / Math.max(1, durationInFrames)) * 100
               );
+              const isSelected = layer.id === selectedLayerId;
 
               return (
-                <div key={layer.id} className="h-7 relative px-1 flex items-center">
+                <div
+                  key={layer.id}
+                  onMouseDown={(e) => {
+                    if (e.target === e.currentTarget) {
+                      seekFromClientX(e.clientX);
+                    }
+                  }}
+                  className="h-7 relative flex items-center"
+                >
+                  {/* Draggable & Trimmable Premiere Clip Bar */}
                   <div
                     style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                    onMouseDown={(e) => startClipDrag(e, layer, "move")}
                     className={cn(
-                      "absolute top-1 bottom-1 rounded-md border px-2 flex items-center justify-between overflow-hidden transition-opacity",
-                      getTrackBarStyle(layer.kind, layer.visible)
+                      "group absolute top-1 bottom-1 rounded border flex items-center justify-between overflow-hidden cursor-grab active:cursor-grabbing select-none",
+                      getTrackBarStyle(layer.kind, layer.visible, isSelected)
                     )}
+                    title={`${layer.trackCode} ${layer.label} (${layer.from}f – ${
+                      layer.from + layer.durationInFrames
+                    }f) • Geser untuk pindah waktu, tarik ujung kiri/kanan untuk trim`}
                   >
-                    <span className="text-[10px] font-medium truncate flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                      {layer.label}
-                    </span>
-                    <span className="text-[9px] font-mono opacity-75 shrink-0 ml-2">
-                      {layer.from}f–{layer.from + layer.durationInFrames}f
-                    </span>
+                    {/* Left Trim Handle */}
+                    <div
+                      onMouseDown={(e) => startClipDrag(e, layer, "trim-start")}
+                      className="w-1.5 h-full bg-amber-400/30 hover:bg-amber-400 cursor-ew-resize shrink-0 transition-colors"
+                      title="Trim Start Frame"
+                    />
+
+                    <div className="px-1.5 flex items-center justify-between gap-2 min-w-0 flex-1">
+                      <span className="text-[10px] font-medium truncate flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                        {layer.label}
+                      </span>
+                      <span className="text-[9px] font-mono opacity-80 shrink-0">
+                        {layer.from}f–{layer.from + layer.durationInFrames}f
+                      </span>
+                    </div>
+
+                    {/* Right Trim Handle */}
+                    <div
+                      onMouseDown={(e) => startClipDrag(e, layer, "trim-end")}
+                      className="w-1.5 h-full bg-amber-400/30 hover:bg-amber-400 cursor-ew-resize shrink-0 transition-colors"
+                      title="Trim End Frame"
+                    />
                   </div>
                 </div>
               );

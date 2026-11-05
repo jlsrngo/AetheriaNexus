@@ -1,5 +1,6 @@
 export interface VideoLayerSpec {
   id: string;
+  trackCode: string;
   label: string;
   kind: "background" | "pattern" | "icon" | "text";
   from: number;
@@ -14,13 +15,16 @@ export interface NexusVideoProps extends Record<string, unknown> {
   themeColor: "orange" | "emerald" | "violet" | "rose" | "amber" | "cyan";
   category: string;
   subCategory?: string;
+  editorialTag?: string;
   showText?: boolean;
   showBackground?: boolean;
   isMuted?: boolean;
   /** Per-layer visibility map (keyed by layer id) */
   layerVisibility?: Record<string, boolean>;
-  /** Optional per-layer start frame override */
+  /** Per-layer start frame override (Premiere clip position) */
   layerStartFrame?: Record<string, number>;
+  /** Per-layer duration override in frames (Premiere clip length) */
+  layerDuration?: Record<string, number>;
 }
 
 /**
@@ -36,10 +40,12 @@ export const defaultNexusVideoProps: NexusVideoProps = {
   themeColor: "orange",
   category: "PRODUCTIVITY",
   subCategory: "EXECUTIVE HABITS",
+  editorialTag: "NEXUS // EDITORIAL SHORT",
   showText: true,
   showBackground: true,
   layerVisibility: {},
   layerStartFrame: {},
+  layerDuration: {},
 };
 
 export const defaultTikTokProps: NexusVideoProps = defaultNexusVideoProps;
@@ -54,9 +60,9 @@ export const nexusVideoSpec = {
 } as const;
 
 /**
- * Computes the decomposed multi-layer structure for a composition so both
- * <NexusVideoComposition /> (Remotion <Sequence> tree) and <Timeline /> render
- * the exact same layers.
+ * Decomposes the video into individual Premiere-style NLE tracks so every
+ * badge, text block, bullet point, icon, and background pattern has its own
+ * independent <Sequence> clip.
  */
 export function buildCompositionLayers(
   props: NexusVideoProps,
@@ -64,96 +70,111 @@ export function buildCompositionLayers(
 ): VideoLayerSpec[] {
   const vis = props.layerVisibility || {};
   const starts = props.layerStartFrame || {};
+  const durations = props.layerDuration || {};
   const showBg = props.showBackground !== false;
   const showTxt = props.showText !== false;
 
   const isLayerVisible = (id: string, groupEnabled: boolean) =>
     groupEnabled && vis[id] !== false;
 
-  const getFrom = (id: string, defaultFrom: number) =>
-    Math.max(0, Math.min(totalFrames - 5, starts[id] ?? defaultFrom));
+  const resolveTiming = (id: string, defaultFrom: number) => {
+    const from = Math.max(
+      0,
+      Math.min(totalFrames - 5, Math.round(starts[id] ?? defaultFrom))
+    );
+    const maxDur = Math.max(5, totalFrames - from);
+    const dur = Math.max(
+      5,
+      Math.min(maxDur, Math.round(durations[id] ?? maxDur))
+    );
+    return { from, durationInFrames: dur };
+  };
 
   const bodyLines = (props.bodyText || "")
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
 
-  const layers: VideoLayerSpec[] = [
+  const rawLayers: Array<Omit<VideoLayerSpec, "trackCode">> = [
     {
-      id: "bg-base",
-      label: "Background: Radial Base",
-      kind: "background",
-      from: getFrom("bg-base", 0),
-      durationInFrames: totalFrames - getFrom("bg-base", 0),
-      visible: isLayerVisible("bg-base", showBg),
+      id: "hud-category",
+      label: `Badge Kiri: // ${props.category || "CATEGORY"}`,
+      kind: "icon",
+      ...resolveTiming("hud-category", 0),
+      visible: isLayerVisible("hud-category", showTxt),
     },
     {
-      id: "bg-orb-pattern",
-      label: "Corak: Ambient Glow Orb",
-      kind: "pattern",
-      from: getFrom("bg-orb-pattern", 0),
-      durationInFrames: totalFrames - getFrom("bg-orb-pattern", 0),
-      visible: isLayerVisible("bg-orb-pattern", showBg),
+      id: "hud-subcategory",
+      label: `Label Kanan: [ ${props.subCategory || "SUBCATEGORY"} ]`,
+      kind: "text",
+      ...resolveTiming("hud-subcategory", 4),
+      visible: isLayerVisible("hud-subcategory", showTxt),
+    },
+    {
+      id: "text-hook",
+      label: `Judul Hook: "${(props.hookText || "").slice(0, 24)}..."`,
+      kind: "text",
+      ...resolveTiming("text-hook", 8),
+      visible: isLayerVisible("text-hook", showTxt),
+    },
+    ...bodyLines.map((line, idx) => {
+      const id = `text-bullet-${idx}`;
+      const defaultStart = Math.min(totalFrames - 15, 20 + idx * 14);
+      return {
+        id,
+        label: `Poin #${idx + 1}: ${line.slice(0, 26)}`,
+        kind: "text" as const,
+        ...resolveTiming(id, defaultStart),
+        visible: isLayerVisible(id, showTxt),
+      };
+    }),
+    {
+      id: "footer-icon",
+      label: "Ikon Petir: [⚡] Avatar Box",
+      kind: "icon",
+      ...resolveTiming("footer-icon", 32),
+      visible: isLayerVisible("footer-icon", showTxt),
+    },
+    {
+      id: "footer-author",
+      label: `Author: ${props.authorHandle || "@nexus.creative"}`,
+      kind: "text",
+      ...resolveTiming("footer-author", 36),
+      visible: isLayerVisible("footer-author", showTxt),
+    },
+    {
+      id: "footer-tag",
+      label: `Badge Kanan Bawah: ${props.editorialTag || "NEXUS // EDITORIAL SHORT"}`,
+      kind: "icon",
+      ...resolveTiming("footer-tag", 40),
+      visible: isLayerVisible("footer-tag", showTxt),
     },
     {
       id: "bg-grid-pattern",
       label: "Corak: Blueprint Grid",
       kind: "pattern",
-      from: getFrom("bg-grid-pattern", 0),
-      durationInFrames: totalFrames - getFrom("bg-grid-pattern", 0),
+      ...resolveTiming("bg-grid-pattern", 0),
       visible: isLayerVisible("bg-grid-pattern", showBg),
     },
     {
-      id: "hud-category",
-      label: `Badge: // ${props.category || "CATEGORY"}`,
-      kind: "icon",
-      from: getFrom("hud-category", 0),
-      durationInFrames: totalFrames - getFrom("hud-category", 0),
-      visible: isLayerVisible("hud-category", showTxt),
+      id: "bg-orb-pattern",
+      label: "Corak: Ambient Glow Orb",
+      kind: "pattern",
+      ...resolveTiming("bg-orb-pattern", 0),
+      visible: isLayerVisible("bg-orb-pattern", showBg),
     },
     {
-      id: "text-hook",
-      label: `Text Hook: "${(props.hookText || "").slice(0, 26)}..."`,
-      kind: "text",
-      from: getFrom("text-hook", 5),
-      durationInFrames: Math.max(10, totalFrames - getFrom("text-hook", 5)),
-      visible: isLayerVisible("text-hook", showTxt),
+      id: "bg-base",
+      label: "Background: Radial Gradient",
+      kind: "background",
+      ...resolveTiming("bg-base", 0),
+      visible: isLayerVisible("bg-base", showBg),
     },
   ];
 
-  bodyLines.forEach((line, idx) => {
-    const id = `text-bullet-${idx}`;
-    const defaultStart = Math.min(totalFrames - 15, 22 + idx * 14);
-    const from = getFrom(id, defaultStart);
-    layers.push({
-      id,
-      label: `Text #${idx + 1}: ${line.slice(0, 28)}`,
-      kind: "text",
-      from,
-      durationInFrames: Math.max(10, totalFrames - from),
-      visible: isLayerVisible(id, showTxt),
-    });
-  });
-
-  const iconFrom = getFrom("footer-icon", 30);
-  layers.push({
-    id: "footer-icon",
-    label: "Icon: Bolt Badge (⚡)",
-    kind: "icon",
-    from: iconFrom,
-    durationInFrames: Math.max(10, totalFrames - iconFrom),
-    visible: isLayerVisible("footer-icon", showTxt),
-  });
-
-  const authorFrom = getFrom("footer-author", 35);
-  layers.push({
-    id: "footer-author",
-    label: `Text Author: ${props.authorHandle || "@nexus"}`,
-    kind: "text",
-    from: authorFrom,
-    durationInFrames: Math.max(10, totalFrames - authorFrom),
-    visible: isLayerVisible("footer-author", showTxt),
-  });
-
-  return layers;
+  const totalCount = rawLayers.length;
+  return rawLayers.map((layer, index) => ({
+    ...layer,
+    trackCode: `V${totalCount - index}`,
+  }));
 }
