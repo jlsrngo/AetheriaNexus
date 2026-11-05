@@ -633,20 +633,25 @@ export const StudioPreview: React.FC = () => {
     );
   };
 
-  // Dynamic Photoshop / CorelDRAW Style Horizontal Ruler
+  // Dynamic Photoshop / CorelDRAW Style Horizontal Ruler (Full Edge-to-Edge)
   const renderHorizontalRuler = (position: "top" | "bottom") => {
     const width = viewportDim.w;
     if (width <= 0) return null;
 
-    const minStepDocUnits = 65 / Math.max(0.001, effectiveScale);
+    const safeScale = Math.max(0.0001, effectiveScale);
+    const minStepDocUnits = 65 / safeScale;
     const CANDIDATE_STEPS = [
-      1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000,
+      1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000,
     ];
     const step = CANDIDATE_STEPS.find((s) => s >= minStepDocUnits) || 1000;
     const minorStep = step <= 5 ? 1 : step / 5;
 
-    const startDocX = Math.floor((0 - canvasOriginX) / (step / 5)) * (step / 5);
-    const endDocX = Math.ceil((width - canvasOriginX) / (step / 5)) * (step / 5);
+    // Convert screen boundaries (0 and width) to document units
+    const startDocX = (0 - canvasOriginX) / safeScale;
+    const endDocX = (width - canvasOriginX) / safeScale;
+
+    const firstDocX = Math.floor(startDocX / minorStep) * minorStep;
+    const lastDocX = Math.ceil(endDocX / minorStep) * minorStep;
 
     const ticks: Array<{
       val: number;
@@ -655,15 +660,15 @@ export const StudioPreview: React.FC = () => {
       isOrigin: boolean;
     }> = [];
 
-    const maxTicks = 140;
+    const maxTicks = 600;
     let count = 0;
     for (
-      let docX = startDocX;
-      docX <= endDocX && count < maxTicks;
+      let docX = firstDocX;
+      docX <= lastDocX && count < maxTicks;
       docX += minorStep, count++
     ) {
-      const screenX = Math.round(canvasOriginX + docX * effectiveScale);
-      if (screenX >= 0 && screenX <= width) {
+      const screenX = Math.round(canvasOriginX + docX * safeScale);
+      if (screenX >= -1 && screenX <= width + 1) {
         const isMajor =
           Math.abs(docX % step) < 0.001 || Math.abs(docX) < 0.001;
         const isOrigin = Math.abs(docX) < 0.001;
@@ -726,21 +731,25 @@ export const StudioPreview: React.FC = () => {
     );
   };
 
-  // Dynamic Photoshop / CorelDRAW Style Vertical Ruler
+  // Dynamic Photoshop / CorelDRAW Style Vertical Ruler (Full Edge-to-Edge)
   const renderVerticalRuler = (position: "left" | "right") => {
     const height = viewportDim.h;
     if (height <= 0) return null;
 
-    const minStepDocUnits = 65 / Math.max(0.001, effectiveScale);
+    const safeScale = Math.max(0.0001, effectiveScale);
+    const minStepDocUnits = 65 / safeScale;
     const CANDIDATE_STEPS = [
-      1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000,
+      1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000,
     ];
     const step = CANDIDATE_STEPS.find((s) => s >= minStepDocUnits) || 1000;
     const minorStep = step <= 5 ? 1 : step / 5;
 
-    const startDocY = Math.floor((0 - canvasOriginY) / (step / 5)) * (step / 5);
-    const endDocY =
-      Math.ceil((height - canvasOriginY) / (step / 5)) * (step / 5);
+    // Convert screen boundaries (0 and height) to document units
+    const startDocY = (0 - canvasOriginY) / safeScale;
+    const endDocY = (height - canvasOriginY) / safeScale;
+
+    const firstDocY = Math.floor(startDocY / minorStep) * minorStep;
+    const lastDocY = Math.ceil(endDocY / minorStep) * minorStep;
 
     const ticks: Array<{
       val: number;
@@ -749,15 +758,15 @@ export const StudioPreview: React.FC = () => {
       isOrigin: boolean;
     }> = [];
 
-    const maxTicks = 140;
+    const maxTicks = 600;
     let count = 0;
     for (
-      let docY = startDocY;
-      docY <= endDocY && count < maxTicks;
+      let docY = firstDocY;
+      docY <= lastDocY && count < maxTicks;
       docY += minorStep, count++
     ) {
-      const screenY = Math.round(canvasOriginY + docY * effectiveScale);
-      if (screenY >= 0 && screenY <= height) {
+      const screenY = Math.round(canvasOriginY + docY * safeScale);
+      if (screenY >= -1 && screenY <= height + 1) {
         const isMajor =
           Math.abs(docY % step) < 0.001 || Math.abs(docY) < 0.001;
         const isOrigin = Math.abs(docY) < 0.001;

@@ -16,7 +16,6 @@ import {
   Trash2,
   Download,
   Loader2,
-  Pencil,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -63,8 +62,11 @@ export const Timeline: React.FC<TimelineProps> = ({
   const [dragOverride, setDragOverride] = useState<DragOverride | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
-  // Zoom scale: 0% = 1.0x (full view), 100% = 25.0x (ultra-wide single-frame precision)
-  const zoomMultiplier = 1 + (timelineZoom / 100) * 24;
+  // Zoom scale: negative = compact frames (down to 0.15x), 0% = 1.0x (fit), positive = stretch up to 25.0x
+  const zoomMultiplier =
+    timelineZoom >= 0
+      ? 1 + (timelineZoom / 100) * 24
+      : Math.max(0.15, 1 + (timelineZoom / 100) * 0.85);
 
   const rulerRef = useRef<HTMLDivElement>(null);
   const leftScrollRef = useRef<HTMLDivElement>(null);
@@ -91,8 +93,6 @@ export const Timeline: React.FC<TimelineProps> = ({
         : l
     );
   }, [baseLayers, dragOverride]);
-
-  const selectedLayer = layers.find((l) => l.id === selectedLayerId) ?? layers[0];
 
   const seekFromClientX = useCallback(
     (clientX: number) => {
@@ -591,56 +591,63 @@ export const Timeline: React.FC<TimelineProps> = ({
         title="Drag to resize Timeline height"
       />
 
-      {/* 1. Three-Column Solid Header (Never Overlaps When Resized Narrow) */}
-      <div className="bg-[var(--bg-panel)] border-b border-[var(--border-color)] px-3 py-1.5 grid grid-cols-[1fr_auto_1fr] items-center gap-2 shrink-0">
-        {/* Left Column: Row 1 (Timeline Zoom Slider Bar, [I, O], Reset) | Row 2 (Tracks Count + Selected Clip Info) */}
-        <div className="flex flex-col gap-1.5 min-w-0 items-start">
-          <div className="flex items-center gap-1.5 max-w-full overflow-x-auto no-scrollbar">
-            {/* Timeline Horizontal Zoom Slider Bar (Starts at 0%, Stretches up to 25x for Single-Frame Precision) */}
-            <div
-              className="h-6 px-2 flex items-center gap-1.5 border border-[var(--border-strong)] bg-[var(--bg-card)] rounded-md text-[10px] font-mono shrink-0"
-              title="Drag slider to zoom Timeline frames horizontally (from 0% fit to 100% single-frame precision)"
+      {/* 1. Premiere-Style Compact Unified Transport & Options Toolbar */}
+      <div className="bg-[var(--bg-panel)] border-b border-[var(--border-color)] px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        {/* Left Section: Playback Transport, Timecode, Markers & Tracks */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Transport Pill (<  (Play)  >) */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-sm shrink-0">
+            <button
+              type="button"
+              onClick={() => step(-1)}
+              title="Previous Frame"
+              className="w-5 h-5 rounded-full bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
             >
-              <button
-                type="button"
-                onClick={() =>
-                  setTimelineZoom((z) => Math.max(0, z - 10))
-                }
-                className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
-                title="Zoom Out Timeline (-10%)"
-              >
-                <ZoomOut className="w-3 h-3" />
-              </button>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={1}
-                value={timelineZoom}
-                onChange={(e) => setTimelineZoom(Number(e.target.value))}
-                className="w-16 sm:w-20 h-1 accent-[#cf6613] bg-[var(--bg-input)] rounded-lg cursor-ew-resize outline-none"
-                title={`Timeline Zoom: ${timelineZoom}%`}
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  setTimelineZoom((z) => Math.min(100, z + 10))
-                }
-                className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
-                title="Zoom In Timeline (+10%)"
-              >
-                <ZoomIn className="w-3 h-3" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setTimelineZoom(0)}
-                className="text-amber-400 font-semibold px-0.5 hover:underline cursor-pointer"
-                title="Click to reset Timeline Zoom to 0% (Fit)"
-              >
-                {timelineZoom}%
-              </button>
-            </div>
+              <ChevronLeft className="w-3 h-3" />
+            </button>
 
+            <button
+              type="button"
+              onClick={onTogglePlay}
+              title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+              className="w-7 h-7 rounded-full flex items-center justify-center bg-[#cf6613] hover:bg-[#b8580f] text-white border border-[#e07b27] shadow transition-all cursor-pointer"
+            >
+              {isPlaying ? (
+                <Pause className="w-3 h-3 fill-current" />
+              ) : (
+                <Play className="w-3 h-3 fill-current ml-0.5" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => step(1)}
+              title="Next Frame"
+              className="w-5 h-5 rounded-full bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            >
+              <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+
+          {/* Frame & Seconds Timecode */}
+          <button
+            type="button"
+            onClick={() => onSeek(canvas.inFrame ?? 0)}
+            title="Click to jump to in-frame"
+            className="h-6 px-2 rounded-md bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] flex items-center gap-1 text-[10px] font-mono text-[var(--text-secondary)] shrink-0 cursor-pointer"
+          >
+            <span>FRAME</span>
+            <span className="text-amber-400 font-semibold">
+              {String(currentFrame).padStart(3, "0")}
+            </span>
+            <span>/ {durationInFrames}</span>
+            <span className="text-[var(--text-muted)] ml-1">
+              ({(currentFrame / fps).toFixed(2)}s)
+            </span>
+          </button>
+
+          {/* In / Out Markers & Reset */}
+          <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() =>
@@ -653,7 +660,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                 "px-2 h-6 rounded-md text-[10px] font-mono border transition-colors cursor-pointer shrink-0",
                 canvas.inFrame !== null
                   ? "bg-[#cf6613] border-[#e07b27] text-white font-semibold"
-                  : "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+                  : "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               )}
             >
               [I{canvas.inFrame !== null ? `:${canvas.inFrame}` : ""}
@@ -671,7 +678,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                 "px-2 h-6 rounded-md text-[10px] font-mono border transition-colors cursor-pointer shrink-0",
                 canvas.outFrame !== null
                   ? "bg-[#cf6613] border-[#e07b27] text-white font-semibold"
-                  : "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+                  : "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               )}
             >
               {canvas.outFrame !== null ? `${canvas.outFrame}:` : ""}O]
@@ -679,152 +686,127 @@ export const Timeline: React.FC<TimelineProps> = ({
             <button
               type="button"
               onClick={handleResetLayerTimings}
-              title="Reset all clip positions and durations"
-              className="px-2 h-6 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+              title="Reset all clip timings"
+              className="px-2 h-6 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1 cursor-pointer shrink-0"
             >
-              <RotateCcw className="w-3 h-3" />
+              <RotateCcw className="w-2.5 h-2.5" />
               <span>Reset</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 text-[10px] font-mono max-w-full overflow-x-auto no-scrollbar">
-            <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-amber-400 font-semibold flex items-center shrink-0">
-              {layers.length} TRACKS
-            </span>
-            {selectedLayer && (
-              <button
-                type="button"
-                onClick={() => setModalLayer(selectedLayer)}
-                className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] hover:border-amber-400/80 text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1.5 cursor-pointer truncate max-w-[280px] transition-colors"
-                title="Click to open clip edit popup (or double-click clip directly)"
-              >
-                <span className="text-amber-400 font-semibold shrink-0">
-                  {selectedLayer.trackCode}:
-                </span>
-                <span className="truncate text-[var(--text-primary)] font-medium">
-                  {selectedLayer.content ?? selectedLayer.label}
-                </span>
-                <span className="text-[var(--text-muted)] text-[9px] font-mono shrink-0 ml-1">
-                  ({selectedLayer.from}f–{selectedLayer.from + selectedLayer.durationInFrames}f)
-                </span>
-                <Pencil className="w-2.5 h-2.5 text-amber-400 shrink-0 ml-0.5" />
-              </button>
-            )}
-          </div>
+          {/* Track Count Badge */}
+          <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-amber-400 font-semibold text-[10px] font-mono flex items-center shrink-0">
+            {layers.length} TRACKS
+          </span>
         </div>
 
-        {/* Center Column: Solid Transport Pill (<  (Play)  >) — Dedicated Grid Column, Zero Overlap */}
-        <div className="flex items-center justify-center shrink-0 px-1">
-          <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[var(--bg-card)] border-2 border-[var(--border-strong)] shadow-xl">
+        {/* Right Section: Zoom Slider (Minus/Plus), Speed, FPS, Add Layer, Quick Export */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Timeline Horizontal Zoom Slider Bar (Minus zooms out / compacts frames, Plus zooms in / stretches) */}
+          <div
+            className="h-6 px-2 flex items-center gap-1.5 border border-[var(--border-strong)] bg-[var(--bg-card)] rounded-md text-[10px] font-mono shrink-0"
+            title="Drag slider to zoom Timeline frames horizontally (minus to compact, plus to stretch for micro precision)"
+          >
             <button
               type="button"
-              onClick={() => step(-1)}
-              title="Previous Frame"
-              className="w-6 h-6 rounded-full bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              type="button"
-              onClick={onTogglePlay}
-              title={isPlaying ? "Pause (Space)" : "Play (Space)"}
-              className="w-8 h-8 rounded-full flex items-center justify-center bg-[#cf6613] hover:bg-[#b8580f] text-white border border-[#e07b27] shadow-md transition-all cursor-pointer"
-            >
-              {isPlaying ? (
-                <Pause className="w-3.5 h-3.5 fill-current" />
-              ) : (
-                <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => step(1)}
-              title="Next Frame"
-              className="w-6 h-6 rounded-full bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Right Column: Row 1 (Frame/Time, + Layer, Export) | Row 2 (Speed Dropdown + Interactive FPS Dropdown) */}
-        <div className="flex flex-col gap-1.5 min-w-0 items-end">
-          <div className="flex items-center gap-1.5 max-w-full overflow-x-auto no-scrollbar">
-            <button
-              type="button"
-              onClick={() => onSeek(canvas.inFrame ?? 0)}
-              title="Click to jump to frame 0"
-              className="h-6 px-2 rounded-md bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] flex items-center gap-1 text-[10px] font-mono text-[var(--text-secondary)] shrink-0 cursor-pointer"
-            >
-              <span>FRAME</span>
-              <span className="text-amber-400 font-semibold">
-                {String(currentFrame).padStart(3, "0")}
-              </span>
-              <span>/ {durationInFrames}</span>
-            </button>
-            <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center text-[10px] font-mono text-[var(--text-primary)] shrink-0">
-              {(currentFrame / fps).toFixed(2)}s
-            </span>
-            <button
-              type="button"
-              onClick={handleAddCustomLayer}
-              title="Add New Dynamic Layer (Unlimited V1..Vn Tracks)"
-              className="px-2 h-6 rounded-md bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-[10px] font-semibold text-white flex items-center gap-1 cursor-pointer transition-colors shrink-0"
-            >
-              <Plus className="w-3 h-3" />
-              <span>Layer</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleQuickExport()}
-              disabled={isExporting}
-              title="Export / Render Video (MP4)"
-              className="w-6 h-6 rounded-md bg-[var(--bg-card)] hover:bg-[#cf6613] border border-[var(--border-strong)] hover:border-[#e07b27] text-[var(--text-primary)] hover:text-white flex items-center justify-center cursor-pointer transition-colors disabled:opacity-60 shrink-0"
-            >
-              {isExporting ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5" />
-              )}
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1.5 text-[10px] font-mono max-w-full overflow-x-auto no-scrollbar">
-            <select
-              value={canvas.playbackRate}
-              onChange={(e) =>
-                updateCanvas({
-                  playbackRate: Number(e.target.value) as 0.5 | 1 | 1.5 | 2,
-                })
+              onClick={() =>
+                setTimelineZoom((z) => Math.max(-100, z - 10))
               }
-              className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer shrink-0"
-              title="Playback Speed"
+              className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
+              title="Zoom Out Timeline / Compact Frames (-10%)"
             >
-              <option value={0.5}>0.5x</option>
-              <option value={1}>1.0x</option>
-              <option value={1.5}>1.5x</option>
-              <option value={2}>2.0x</option>
-            </select>
-
-            <select
-              value={fps}
-              onChange={(e) => {
-                const nextFps = Number(e.target.value) || 30;
-                actions.updateActiveMetadata({ fps: nextFps });
-                toast.success(`Updated composition frame rate to ${nextFps} FPS`);
-              }}
-              className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer shrink-0"
-              title="Select Composition FPS (Frame Rate)"
+              <ZoomOut className="w-3 h-3" />
+            </button>
+            <input
+              type="range"
+              min={-100}
+              max={100}
+              step={5}
+              value={timelineZoom}
+              onChange={(e) => setTimelineZoom(Number(e.target.value))}
+              className="w-16 sm:w-20 h-1 accent-[#cf6613] bg-[var(--bg-input)] rounded-lg cursor-ew-resize outline-none"
+              title={`Timeline Zoom: ${timelineZoom > 0 ? `+${timelineZoom}%` : `${timelineZoom}%`}`}
+            />
+            <button
+              type="button"
+              onClick={() =>
+                setTimelineZoom((z) => Math.min(100, z + 10))
+              }
+              className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
+              title="Zoom In Timeline / Stretch Frames (+10%)"
             >
-              <option value={24}>24 FPS</option>
-              <option value={25}>25 FPS</option>
-              <option value={30}>30 FPS</option>
-              <option value={50}>50 FPS</option>
-              <option value={60}>60 FPS</option>
-            </select>
+              <ZoomIn className="w-3 h-3" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimelineZoom(0)}
+              className="text-amber-400 font-semibold px-0.5 hover:underline cursor-pointer min-w-8 text-center"
+              title="Click to reset Timeline Zoom to 0% (Fit)"
+            >
+              {timelineZoom > 0 ? `+${timelineZoom}%` : `${timelineZoom}%`}
+            </button>
           </div>
+
+          {/* Playback Speed */}
+          <select
+            value={canvas.playbackRate}
+            onChange={(e) =>
+              updateCanvas({
+                playbackRate: Number(e.target.value) as 0.5 | 1 | 1.5 | 2,
+              })
+            }
+            className="h-6 px-1.5 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer shrink-0"
+            title="Playback Speed"
+          >
+            <option value={0.5}>0.5x</option>
+            <option value={1}>1.0x</option>
+            <option value={1.5}>1.5x</option>
+            <option value={2}>2.0x</option>
+          </select>
+
+          {/* FPS Selector */}
+          <select
+            value={fps}
+            onChange={(e) => {
+              const nextFps = Number(e.target.value) || 30;
+              actions.updateActiveMetadata({ fps: nextFps });
+              toast.success(`Updated frame rate to ${nextFps} FPS`);
+            }}
+            className="h-6 px-1.5 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer shrink-0"
+            title="Frame Rate (FPS)"
+          >
+            <option value={24}>24 FPS</option>
+            <option value={25}>25 FPS</option>
+            <option value={30}>30 FPS</option>
+            <option value={50}>50 FPS</option>
+            <option value={60}>60 FPS</option>
+          </select>
+
+          {/* Add Layer Button */}
+          <button
+            type="button"
+            onClick={handleAddCustomLayer}
+            title="Add New Dynamic Layer"
+            className="px-2 h-6 rounded-md bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-[10px] font-semibold text-white flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+          >
+            <Plus className="w-3 h-3" />
+            <span>Layer</span>
+          </button>
+
+          {/* Quick Export Button */}
+          <button
+            type="button"
+            onClick={() => void handleQuickExport()}
+            disabled={isExporting}
+            title="Export / Render Video (MP4)"
+            className="w-6 h-6 rounded-md bg-[var(--bg-card)] hover:bg-[#cf6613] border border-[var(--border-strong)] hover:border-[#e07b27] text-[var(--text-primary)] hover:text-white flex items-center justify-center cursor-pointer transition-colors disabled:opacity-60 shrink-0"
+          >
+            {isExporting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Download className="w-3.5 h-3.5" />
+            )}
+          </button>
         </div>
       </div>
 
@@ -834,7 +816,7 @@ export const Timeline: React.FC<TimelineProps> = ({
         <div className="w-[245px] shrink-0 border-r border-[var(--border-color)] bg-[var(--bg-panel)] flex flex-col min-h-0">
           <div className="h-6 px-2.5 border-b border-[var(--border-color)] flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] shrink-0">
             <span>Track / Component Layer</span>
-            <span>Edit / View</span>
+            <span>Visibility</span>
           </div>
 
           <div
@@ -894,18 +876,6 @@ export const Timeline: React.FC<TimelineProps> = ({
                     </span>
                   </div>
                   <div className="flex items-center gap-0.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedLayerId(layer.id);
-                        setModalLayer(layer);
-                      }}
-                      className="p-1 rounded text-[var(--text-muted)] hover:text-amber-400 hover:bg-[var(--bg-card)] transition-colors cursor-pointer"
-                      title="Open clip edit modal"
-                    >
-                      <Pencil className="w-2.5 h-2.5" />
-                    </button>
                     {layer.isCustom && (
                       <button
                         type="button"
