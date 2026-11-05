@@ -7,7 +7,32 @@ use std::process::Command;
 
 use crate::paths::now_ms;
 
-const DEFAULT_COMPOSITION: &str = "NexusEditorialVideo";
+pub const DEFAULT_COMPOSITION: &str = "NexusEditorialVideo";
+
+/// Single place that builds the `node scripts/render.mjs` invocation.
+/// Used by the agent tool, the HTTP `/api/render-media` route and the Tauri command,
+/// so browser detection and bundle caching apply everywhere.
+pub fn build_command(root: &Path, composition: &str, props: &str, output: Option<&Path>) -> Command {
+    let mut cmd = Command::new("node");
+    cmd.current_dir(root)
+        .arg(root.join("scripts").join("render.mjs"))
+        .arg("--composition")
+        .arg(composition)
+        .arg("--props")
+        .arg(props)
+        .arg("--bundle-dir")
+        .arg(crate::paths::render_cache_dir());
+
+    if let Some(browser) = crate::paths::detect_browser_executable() {
+        cmd.arg("--browser-executable").arg(browser);
+    }
+
+    if let Some(output) = output {
+        cmd.arg("--output").arg(output);
+    }
+
+    cmd
+}
 
 pub fn render_video_tool_definition() -> Value {
     json!({
@@ -74,13 +99,7 @@ pub fn execute_render_video(
             .join(format!("nexus-{}.mp4", now_ms())),
     };
 
-    let mut cmd = Command::new("node");
-    cmd.current_dir(&root)
-        .arg("scripts/render.mjs")
-        .arg("--composition")
-        .arg(composition_id)
-        .arg("--output")
-        .arg(&output_path);
+    let mut cmd = build_command(&root, composition_id, "{}", Some(&output_path));
 
     match cmd.output() {
         Ok(output) => {
@@ -119,7 +138,8 @@ pub fn execute_render_video(
 
 #[cfg(test)]
 mod tests {
-    use super::last_event;
+    use super::{build_command, last_event};
+    use std::path::Path;
 
     #[test]
     fn test_last_event_picks_latest_and_ignores_noise() {
@@ -133,5 +153,25 @@ mod tests {
         assert_eq!(done["compositionId"], "TikTokVideo");
         assert_eq!(done["outputPath"], "out.mp4");
         assert!(last_event(stdout, "error").is_none());
+    }
+
+    #[test]
+    fn test_build_command_passes_cache_and_browser() {
+        let root = crate::paths::project_root();
+        let cmd = build_command(&root, "TikTokVideo", "{}", Some(Path::new("out.mp4")));
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|arg| arg.to_string_lossy().to_string())
+            .collect();
+
+        assert!(root.join("scripts").join("render.mjs").is_file());
+        assert!(args.contains(&"--bundle-dir".to_string()));
+        assert!(args.contains(&crate::paths::render_cache_dir().to_string_lossy().to_string()));
+        assert!(args.contains(&"TikTokVideo".to_string()));
+        assert!(args.contains(&"out.mp4".to_string()));
+
+        if crate::paths::detect_browser_executable().is_some() {
+            assert!(args.contains(&"--browser-executable".to_string()));
+        }
     }
 }

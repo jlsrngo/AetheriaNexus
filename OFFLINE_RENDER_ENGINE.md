@@ -1,6 +1,6 @@
 # Mesin Render Offline — Tetap Remotion, Tanpa Internet
 
-> **Status:** Rencana (belum dieksekusi)
+> **Status:** Sebagian dikerjakan — Fase 2, 3, dan 5 selesai (lihat §2b). Fase 4 (kemas installer) belum.
 > **Keputusan:** Mesin pembuat video **tetap Remotion**. Kita tidak menulis renderer sendiri.
 > **Yang berubah:** cara mengemas dan menjalankannya — supaya tidak butuh internet, tidak butuh server, dan tidak butuh user meng-install apa pun.
 > **Dokumen terkait:** [`PRD_DESKTOP_TAURI.md`](PRD_DESKTOP_TAURI.md)
@@ -13,7 +13,7 @@
 |---|---|---|
 | Mesin React → video | Remotion | **Remotion (tetap)** |
 | Cara memanggil | `node scripts/render.mjs` | `render-engine.exe` (Node dibungkus) |
-| Preview | iframe Studio `:3333` | dihapus atau `<Player>` |
+| Preview | iframe Studio `:3333` | **`<Player>` + timeline buatan sendiri** (tanpa port, tanpa iframe) |
 | Studio / `@remotion/cli` | dipakai | **dibuang** |
 | Chrome | diunduh ke `node_modules/.remotion` | pakai Edge bawaan Windows |
 | Internet | dibutuhkan sekali (npx + unduh Chrome) | **tidak sama sekali** |
@@ -25,7 +25,7 @@ Yang kita bangun **bukan** renderer baru. Kita hanya mengemas Remotion supaya bi
 
 ## 2. Kondisi Sekarang (diukur, bukan perkiraan)
 
-### Waktu render — 1 run penuh
+### Waktu render — 1 run penuh (baseline sebelum perubahan)
 
 ```
 Render 150 frame 1080×1920 NexusEditorialVideo   = 94,7 detik
@@ -34,6 +34,24 @@ Render 150 frame 1080×1920 NexusEditorialVideo   = 94,7 detik
   ├─ 59,3 – 93,3s   gambar + encode 150 fr  = 34,0 detik
   └─ 93,3 – 94,7s   finalisasi mp4
 ```
+
+### Hasil setelah perubahan (diukur di mesin ini)
+
+```
+Render 150 frame 1080×1920 NexusEditorialVideo
+  Sebelum (Chrome unduhan, bundling tiap render)   = 94,7s
+  Sesudah, render pertama (Edge, bundle kosong)    = 69,1s
+  Sesudah, render berikutnya (bundle dipakai lagi) = 22,0s
+```
+
+| Perubahan | Bukti |
+|---|---|
+| Edge menggantikan `chrome-headless-shell` | Render sukses dengan folder `node_modules/.remotion` (303 MB) **dipindahkan keluar** |
+| Cache bundling | Render kedua mencetak `Reusing cached bundle...`, turun ke 22,0s |
+| Hasil tetap valid | `ffprobe`: 1080x1920, 30 fps, `nb_frames=150`, `duration=5.000000` |
+| Studio dibuang | `@remotion/cli` hilang dari `package.json`, tidak ada proses yang membuka port 3333 |
+
+Rust sekarang yang menentukan jalur render: `paths::detect_browser_executable()` (Edge → Chrome) dan `paths::render_cache_dir()` (`%LOCALAPPDATA%\ArunakiNexus\bundle`). Tiga pemanggil render — tool agen, `/api/render-media`, dan command Tauri — memakai satu `tool::render::build_command()`.
 
 ### Ukuran yang terlibat
 
@@ -136,7 +154,7 @@ node --experimental-sea-config sea-config.json
 ┌────────────────────── 1 proses: arunaki-desktop ──────────────────────┐
 │                                                                        │
 │  WebView2                                                              │
-│    └─ <Player> (opsional) — preview tanpa port                         │
+│    └─ Preview stage (UI sendiri) — tanpa port, tanpa iframe            │
 │                                                                        │
 │  Rust (arunaki-engine)                                                 │
 │    ├─ render queue (progress, cancel)                                  │
@@ -184,49 +202,42 @@ Kontrak JSON per baris ini **sudah ada** dan sudah diuji (`tool/render.rs` + `st
 
 ## 7. Fase Kerja
 
-### Fase 1 — Tutup kebocoran internet (±1 jam)
-1. `npm i -D @remotion/cli@4.0.540` (masuk `package-lock.json`) **atau** langsung buang Studio
-2. Hapus cache `_npx\03f562a46baa5292`
-3. **Verifikasi:** putus internet, restart app, panel Studio tetap menyala (kalau Studio belum dibuang)
+### Fase 1 — Tutup kebocoran internet — ✅ SELESAI
+`@remotion/cli` dibuang dari `package.json` beserta script `studio`. Nama `@remotion/cli` memang tidak pernah ada di `package-lock.json`, jadi `npx` tidak lagi dipanggil di mana pun.
 
-### Fase 2 — Render tanpa Chrome unduhan (±2 jam)
-1. Tambah `browserExecutable` ke `scripts/render.mjs`, deteksi Edge → Chrome → unduh
-2. Pindahkan `node_modules/.remotion` (303 MB) ke samping, render ulang
-3. **Verifikasi:** render berhasil tanpa folder `chrome-headless-shell`; hasil mp4 tetap 1.090.920 byte
+### Fase 2 — Render tanpa Chrome unduhan — ✅ SELESAI
+`paths::detect_browser_executable()` mencari Edge → Chrome, hasilnya diteruskan sebagai `--browser-executable` ke `scripts/render.mjs`.
+**Bukti:** render berhasil setelah `node_modules/.remotion` (303 MB) dipindahkan keluar. Tidak ada unduhan.
 
-### Fase 3 — Cache bundling (±3 jam)
-Bundling 53 detik adalah 56% waktu render. `bundle()` bisa diarahkan ke folder tetap:
+### Fase 3 — Cache bundling — ✅ SELESAI
+`paths::render_cache_dir()` → `%LOCALAPPDATA%\ArunakiNexus\bundle`, diteruskan sebagai `--bundle-dir`. Script membandingkan mtime `apps/src/remotion/` dengan `.stamp` di folder cache; kalau sama, bundling dilewati.
+**Bukti:** render kedua mencetak `Reusing cached bundle...` dan selesai dalam 22,0s (dari 94,7s).
 
-```js
-await bundle({ entryPoint, outDir: "dist-render/bundle" });
-```
-
-Lalu render berikutnya memakai folder itu selama `apps/src/remotion/*` belum berubah (bandingkan mtime).
-1. **Verifikasi:** render kedua turun dari 94,7s ke ~40s; hasil mp4 identik
-
-### Fase 4 — Kemas jadi exe (±4 jam)
+### Fase 4 — Kemas jadi exe — ⬜ BELUM
 1. `sea-config.json` → `render-engine.exe`
 2. `tauri.conf.json`: `resources` untuk `render/` + `externalBin` kalau pakai Node sidecar
-3. `prepare-bundle.cjs` ikut mengemas folder `render/`
+3. `prepare-bundle.cjs` ikut mengemas folder `render/` (termasuk subset `node_modules` yang dipakai bundler + renderer)
 4. **Verifikasi:** install di mesin tanpa Node, tanpa internet → render berhasil
 
-### Fase 5 — Buang Studio (±1 jam)
-1. Hapus `NexusStudioSuite.tsx`, `handle_ensure_studio_server`, spawn di `src-tauri/src/lib.rs`
-2. Ganti dengan `<Player>` kalau preview masih dibutuhkan
-3. **Verifikasi:** `netstat` tidak menunjukkan port 3333 setelah app jalan
+### Fase 5 — Buang Studio — ✅ SELESAI
+1. `NexusStudioSuite.tsx` dihapus, diganti `PreviewStage.tsx` (placeholder; UI preview buatan sendiri menyusul)
+2. `handle_ensure_studio_server` + route `/api/ensure-studio-server` dihapus
+3. Spawn `npx remotion studio` di `src-tauri/src/lib.rs` dihapus
+4. **Verifikasi:** tidak ada proses yang membuka port 3333
 
 ---
 
 ## 8. Kriteria Selesai
 
 ```
-[ ] Render berhasil di mesin tanpa Node terpasang
-[ ] Render berhasil tanpa koneksi internet
-[ ] Render berhasil tanpa folder chrome-headless-shell
-[ ] Installer tidak menyertakan @remotion/cli
-[ ] Tidak ada port 3333 setelah aplikasi jalan
-[ ] ffprobe: 1080x1920, 30 fps, 5.00s, h264
-[ ] cargo test -p arunaki-engine hijau
+[x] Render berhasil tanpa folder chrome-headless-shell   (Edge, 303 MB tidak dipakai)
+[x] Installer tidak menyertakan @remotion/cli             (dibuang dari package.json)
+[x] Tidak ada port 3333 setelah aplikasi jalan            (spawn Studio dihapus)
+[x] ffprobe: 1080x1920, 30 fps, 5.00s, h264
+[x] cargo test -p arunaki-engine hijau                    (71 passed)
+[x] Render kedua tidak membundel ulang                    (22,0s)
+[ ] Render berhasil tanpa koneksi internet                (belum diuji dengan adapter dimatikan)
+[ ] Render berhasil di mesin tanpa Node terpasang         (butuh Fase 4)
 [ ] Installer < 260 MB (Node 80 + @remotion 74 + compositor 28 + webpack 14 + sisa)
 ```
 

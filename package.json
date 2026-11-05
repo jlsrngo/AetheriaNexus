@@ -10,7 +10,6 @@
     "start": "cargo run --release -p arunaki-engine --bin arunaki-engine",
     "dev:web": "npm run dev -w apps",
     "dev:desktop": "cargo run --release -p arunaki-engine --bin arunaki-engine",
-    "studio": "remotion studio apps/src/remotion/entry.ts --port 3333",
     "build": "npm run build -w apps",
     "typecheck": "tsc -b apps/tsconfig.json",
     "test:unit": "cargo test --workspace",
@@ -30,7 +29,6 @@
     "@jridgewell/trace-mapping": "^0.3.31",
     "@playwright/test": "^1.61.1",
     "@remotion/bundler": "^4.0.540",
-    "@remotion/cli": "^4.0.540",
     "@remotion/renderer": "^4.0.540",
     "turbo": "2.10.2"
   },

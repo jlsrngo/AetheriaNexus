@@ -272,17 +272,15 @@ pub async fn render_nexus_video(
     props_json: Option<String>,
     output_path: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    use std::process::Command;
-
     let props_arg = props_json.unwrap_or_else(|| "{}".to_string());
-    let mut cmd = Command::new("node");
-    cmd.arg("scripts/render.mjs")
-        .arg("--props")
-        .arg(&props_arg);
+    let output_target = output_path.as_deref().map(std::path::Path::new);
 
-    if let Some(ref out) = output_path {
-        cmd.arg("--output").arg(out);
-    }
+    let mut cmd = arunaki_engine::tool::render::build_command(
+        &arunaki_engine::paths::project_root(),
+        arunaki_engine::tool::render::DEFAULT_COMPOSITION,
+        &props_arg,
+        output_target,
+    );
 
     let output = cmd
         .output()

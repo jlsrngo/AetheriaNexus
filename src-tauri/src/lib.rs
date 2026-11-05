@@ -80,44 +80,6 @@ pub fn run() {
                 });
             });
 
-            // 2. Auto-spawn Remotion Studio daemon on port 3333 if not already listening
-            std::thread::spawn(|| {
-                let rt = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .unwrap();
-                rt.block_on(async {
-                    let probe_url = "http://127.0.0.1:3333";
-                    let is_up = reqwest::Client::builder()
-                        .timeout(std::time::Duration::from_millis(600))
-                        .build()
-                        .unwrap()
-                        .head(probe_url)
-                        .send()
-                        .await
-                        .map(|r| r.status().is_success())
-                        .unwrap_or(false);
-
-                    if !is_up {
-                        let root = arunaki_engine::paths::project_root();
-
-                        #[cfg(target_os = "windows")]
-                        let mut cmd = std::process::Command::new("cmd");
-                        #[cfg(target_os = "windows")]
-                        cmd.args(["/c", "npx remotion studio apps/src/remotion/entry.ts --port 3333 --no-open"])
-                            .current_dir(&root);
-
-                        #[cfg(not(target_os = "windows"))]
-                        let mut cmd = std::process::Command::new("sh");
-                        #[cfg(not(target_os = "windows"))]
-                        cmd.args(["-c", "npx remotion studio apps/src/remotion/entry.ts --port 3333 --no-open"])
-                            .current_dir(&root);
-
-                        let _ = cmd.spawn();
-                    }
-                });
-            });
-
             // 2. Completely disable all native Microsoft Edge WebView2 browser features
             // (Print Ctrl+P, Find bar Ctrl+F/F3, Reload F5/Ctrl+R, Context Menu, Autofill, Zoom, DevTools, Status Bar)
             #[cfg(windows)]

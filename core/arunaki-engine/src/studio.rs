@@ -1,7 +1,8 @@
-//! Arunaki Nexus Studio Backend Engine (Pure Rust)
+//! Arunaki Nexus Render Backend Engine (Pure Rust)
 //!
-//! Replaces Node.js backend dependencies of Remotion Studio with a high-performance,
-//! zero-cost Rust Axum server, local composition registry, asset scanner, and GPU render worker.
+//! Owns the render pipeline that used to be Remotion Studio's backend: composition
+//! registry, asset scanner, GPU telemetry, and the render job worker that drives the
+//! Remotion engine (node + Edge) and streams JSON progress events to the UI.
 
 use axum::{
     extract::Query,
@@ -15,7 +16,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{OnceLock, RwLock};
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::Command;
 
 use crate::paths::{arunaki_dot_dir, gen_id, now_ms};
 
@@ -215,7 +215,6 @@ pub fn router() -> Router {
         .route("/api/render-progress", post(handle_render_progress).get(handle_render_progress))
         .route("/api/write-static-file", post(handle_write_static_file))
         .route("/api/delete-static-file", post(handle_delete_static_file))
-        .route("/api/ensure-studio-server", post(handle_ensure_studio_server).get(handle_ensure_studio_server))
         // 1. GPU Telemetry & Hardware Accelerator
         .route("/api/studio/gpu-telemetry", post(handle_gpu_telemetry).get(handle_gpu_telemetry))
         // 2. High-Retention TikTok Caption / Subtitle Engine
@@ -229,44 +228,6 @@ pub fn router() -> Router {
         .route("/api/studio/schedule-cancel", post(handle_schedule_cancel))
         // 5. Creative AI Script-to-Composition Orchestrator
         .route("/api/studio/generate-script", post(handle_generate_script))
-}
-
-/// POST / GET /api/ensure-studio-server
-pub async fn handle_ensure_studio_server() -> impl IntoResponse {
-    let is_listening = tokio::net::TcpStream::connect("127.0.0.1:3333").await.is_ok();
-    if is_listening {
-        return Json(json!({
-            "success": true,
-            "status": "running",
-            "port": 3333,
-            "message": "Remotion Studio is active"
-        }));
-    }
-
-    tokio::spawn(async move {
-        let root = crate::paths::project_root();
-
-        #[cfg(target_os = "windows")]
-        let mut cmd = Command::new("cmd");
-        #[cfg(target_os = "windows")]
-        cmd.args(["/c", "npx remotion studio apps/src/remotion/entry.ts --port 3333 --no-open"])
-            .current_dir(&root);
-
-        #[cfg(not(target_os = "windows"))]
-        let mut cmd = Command::new("sh");
-        #[cfg(not(target_os = "windows"))]
-        cmd.args(["-c", "npx remotion studio apps/src/remotion/entry.ts --port 3333 --no-open"])
-            .current_dir(&root);
-
-        let _ = cmd.spawn();
-    });
-
-    Json(json!({
-        "success": true,
-        "status": "starting",
-        "port": 3333,
-        "message": "Remotion Studio process spawned"
-    }))
 }
 
 /// GET / POST /api/get-compositions
@@ -533,18 +494,15 @@ pub async fn handle_render_media(
     let out_dest = output_file_str.clone();
     let comp_for_worker = comp_id.clone();
     tokio::spawn(async move {
-        let child = Command::new("node")
-            .current_dir(crate::paths::project_root())
-            .arg("scripts/render.mjs")
-            .arg("--composition")
-            .arg(&comp_for_worker)
-            .arg("--props")
-            .arg(&props_str)
-            .arg("--output")
-            .arg(&out_dest)
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn();
+        let child = tokio::process::Command::from(crate::tool::render::build_command(
+            &crate::paths::project_root(),
+            &comp_for_worker,
+            &props_str,
+            Some(std::path::Path::new(&out_dest)),
+        ))
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn();
 
         match child {
             Ok(mut process) => {

@@ -137,6 +137,44 @@ pub fn project_root() -> PathBuf {
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
 }
 
+/// Finds a Chromium build Remotion can drive, so a render never has to download one.
+/// Edge ships with every Windows 10/11, Chrome is the fallback.
+pub fn detect_browser_executable() -> Option<PathBuf> {
+    let base = |key: &str| {
+        std::env::var(key)
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .map(PathBuf::from)
+    };
+
+    let browsers = [
+        ("Microsoft", "Edge", "msedge.exe"),
+        ("Google", "Chrome", "chrome.exe"),
+    ];
+
+    let mut candidates = Vec::new();
+    for root in ["PROGRAMFILES(X86)", "PROGRAMFILES", "LOCALAPPDATA"] {
+        if let Some(root) = base(root) {
+            for (vendor, product, exe) in browsers {
+                candidates.push(root.join(vendor).join(product).join("Application").join(exe));
+            }
+        }
+    }
+
+    candidates.into_iter().find(|path| path.is_file())
+}
+
+/// Stable folder for the Remotion webpack bundle so repeat renders skip the ~53s rebuild.
+/// Kept out of the install dir, which is read-only under Program Files.
+pub fn render_cache_dir() -> PathBuf {
+    let base = std::env::var("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| arunaki_dot_dir());
+    let dir = base.join("ArunakiNexus").join("bundle");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
 pub fn normalize_workspace_path(raw: &str) -> String {
     let trimmed = raw.trim().replace('/', "\\");
     let clean = trimmed.trim_end_matches('\\');
@@ -259,6 +297,20 @@ mod tests {
             "project_root() returned {} which has no scripts/render.mjs",
             root.display()
         );
+    }
+
+    #[test]
+    fn test_render_cache_dir_exists() {
+        let dir = render_cache_dir();
+        assert!(dir.is_dir(), "render_cache_dir() returned {} which is not a directory", dir.display());
+        assert!(dir.ends_with(Path::new("ArunakiNexus").join("bundle")));
+    }
+
+    #[test]
+    fn test_detect_browser_returns_existing_file() {
+        if let Some(path) = detect_browser_executable() {
+            assert!(path.is_file(), "detected browser {} does not exist", path.display());
+        }
     }
 }
 
