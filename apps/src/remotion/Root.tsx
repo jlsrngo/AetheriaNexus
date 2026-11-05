@@ -1,28 +1,28 @@
 import React from "react";
 import { Composition } from "remotion";
 import { NexusVideoComposition } from "./NexusVideoComposition";
-import { defaultNexusVideoProps } from "./types";
+import { defaultNexusVideoProps, nexusVideoSpec } from "./types";
 
 export const NexusVideoRoot: React.FC = () => {
   return (
     <>
       <Composition
-        id="NexusEditorialVideo"
+        id={nexusVideoSpec.id}
         component={NexusVideoComposition}
-        durationInFrames={150}
-        fps={30}
-        width={1080}
-        height={1920}
+        durationInFrames={nexusVideoSpec.durationInFrames}
+        fps={nexusVideoSpec.fps}
+        width={nexusVideoSpec.width}
+        height={nexusVideoSpec.height}
         defaultProps={defaultNexusVideoProps}
       />
       {/* Compatibility Composition alias */}
       <Composition
         id="TikTokVideo"
         component={NexusVideoComposition}
-        durationInFrames={150}
-        fps={30}
-        width={1080}
-        height={1920}
+        durationInFrames={nexusVideoSpec.durationInFrames}
+        fps={nexusVideoSpec.fps}
+        width={nexusVideoSpec.width}
+        height={nexusVideoSpec.height}
         defaultProps={defaultNexusVideoProps}
       />
     </>

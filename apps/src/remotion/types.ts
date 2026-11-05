@@ -25,3 +25,12 @@ export const defaultNexusVideoProps: NexusVideoProps = {
 };
 
 export const defaultTikTokProps: NexusVideoProps = defaultNexusVideoProps;
+
+/** Shared by the Composition registration and the in-app preview so the two cannot drift. */
+export const nexusVideoSpec = {
+  id: "NexusEditorialVideo",
+  durationInFrames: 150,
+  fps: 30,
+  width: 1080,
+  height: 1920,
+} as const;

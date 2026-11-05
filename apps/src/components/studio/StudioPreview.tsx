@@ -1,15 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import { NexusVideoComposition } from "../../remotion/NexusVideoComposition";
-import { defaultNexusVideoProps } from "../../remotion/types";
+import { defaultNexusVideoProps, nexusVideoSpec } from "../../remotion/types";
 import { Timeline } from "./Timeline";
-
-// Mirrors the Composition registered in apps/src/remotion/Root.tsx.
-const COMPOSITION_ID = "NexusEditorialVideo";
-const DURATION_IN_FRAMES = 150;
-const FPS = 30;
-const WIDTH = 1080;
-const HEIGHT = 1920;
 
 /**
  * In-app preview surface. Remotion's runtime draws the composition inside the WebView,
@@ -55,10 +48,10 @@ export const StudioPreview: React.FC = () => {
           ref={playerRef}
           component={NexusVideoComposition}
           inputProps={defaultNexusVideoProps}
-          durationInFrames={DURATION_IN_FRAMES}
-          fps={FPS}
-          compositionWidth={WIDTH}
-          compositionHeight={HEIGHT}
+          durationInFrames={nexusVideoSpec.durationInFrames}
+          fps={nexusVideoSpec.fps}
+          compositionWidth={nexusVideoSpec.width}
+          compositionHeight={nexusVideoSpec.height}
           controls={false}
           loop
           clickToPlay
@@ -69,9 +62,9 @@ export const StudioPreview: React.FC = () => {
       </div>
 
       <Timeline
-        compositionId={COMPOSITION_ID}
-        durationInFrames={DURATION_IN_FRAMES}
-        fps={FPS}
+        compositionId={nexusVideoSpec.id}
+        durationInFrames={nexusVideoSpec.durationInFrames}
+        fps={nexusVideoSpec.fps}
         currentFrame={currentFrame}
         isPlaying={isPlaying}
         onSeek={handleSeek}
