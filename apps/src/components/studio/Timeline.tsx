@@ -57,11 +57,14 @@ export const Timeline: React.FC<TimelineProps> = ({
   const subtitles = subtitleCues;
 
   const [timelineHeight, setTimelineHeight] = useState<number>(280);
-  const [timelineZoom, setTimelineZoom] = useState<number>(1);
+  const [timelineZoom, setTimelineZoom] = useState<number>(0);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>("text-hook");
   const [modalLayer, setModalLayer] = useState<VideoLayerSpec | null>(null);
   const [dragOverride, setDragOverride] = useState<DragOverride | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
+
+  // Zoom scale: 0% = 1.0x (full view), 100% = 25.0x (ultra-wide single-frame precision)
+  const zoomMultiplier = 1 + (timelineZoom / 100) * 24;
 
   const rulerRef = useRef<HTMLDivElement>(null);
   const leftScrollRef = useRef<HTMLDivElement>(null);
@@ -69,7 +72,6 @@ export const Timeline: React.FC<TimelineProps> = ({
 
   const lastFrame = Math.max(0, durationInFrames - 1);
   const progress = lastFrame === 0 ? 0 : currentFrame / lastFrame;
-  const totalSeconds = Math.ceil(durationInFrames / fps);
 
   const baseLayers = useMemo(
     () => buildCompositionLayers(activeComposition.props, durationInFrames),
@@ -298,8 +300,8 @@ export const Timeline: React.FC<TimelineProps> = ({
     nextFrom: number,
     nextEnd: number
   ) => {
-    const safeFrom = Math.max(0, Math.min(durationInFrames - 5, Math.round(nextFrom)));
-    const safeEnd = Math.max(safeFrom + 5, Math.min(durationInFrames, Math.round(nextEnd)));
+    const safeFrom = Math.max(0, Math.min(durationInFrames - 1, Math.round(nextFrom)));
+    const safeEnd = Math.max(safeFrom + 1, Math.min(durationInFrames, Math.round(nextEnd)));
     const safeDur = safeEnd - safeFrom;
     actions.updateActiveProps({
       layerStartFrame: {
@@ -346,12 +348,12 @@ export const Timeline: React.FC<TimelineProps> = ({
         );
         latestDur = origDur;
       } else if (mode === "trim-start") {
-        latestFrom = Math.max(0, Math.min(origEnd - 5, origFrom + deltaFrames));
-        latestDur = origEnd - latestFrom;
+        latestFrom = Math.max(0, Math.min(origEnd - 1, origFrom + deltaFrames));
+        latestDur = Math.max(1, origEnd - latestFrom);
       } else if (mode === "trim-end") {
         latestFrom = origFrom;
         latestDur = Math.max(
-          5,
+          1,
           Math.min(durationInFrames - origFrom, origDur + deltaFrames)
         );
       }
@@ -594,48 +596,48 @@ export const Timeline: React.FC<TimelineProps> = ({
         {/* Left Column: Row 1 (Timeline Zoom Slider Bar, [I, O], Reset) | Row 2 (Tracks Count + Selected Clip Info) */}
         <div className="flex flex-col gap-1.5 min-w-0 items-start">
           <div className="flex items-center gap-1.5 max-w-full overflow-x-auto no-scrollbar">
-            {/* Timeline Horizontal Zoom Slider Bar */}
+            {/* Timeline Horizontal Zoom Slider Bar (Starts at 0%, Stretches up to 25x for Single-Frame Precision) */}
             <div
               className="h-6 px-2 flex items-center gap-1.5 border border-[var(--border-strong)] bg-[var(--bg-card)] rounded-md text-[10px] font-mono shrink-0"
-              title="Drag slider to zoom Timeline frames horizontally"
+              title="Drag slider to zoom Timeline frames horizontally (from 0% fit to 100% single-frame precision)"
             >
               <button
                 type="button"
                 onClick={() =>
-                  setTimelineZoom((z) => Math.max(1, Number((z - 0.5).toFixed(1))))
+                  setTimelineZoom((z) => Math.max(0, z - 10))
                 }
                 className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
-                title="Zoom Out Timeline"
+                title="Zoom Out Timeline (-10%)"
               >
                 <ZoomOut className="w-3 h-3" />
               </button>
               <input
                 type="range"
-                min={1}
-                max={8}
-                step={0.1}
+                min={0}
+                max={100}
+                step={1}
                 value={timelineZoom}
                 onChange={(e) => setTimelineZoom(Number(e.target.value))}
                 className="w-16 sm:w-20 h-1 accent-[#cf6613] bg-[var(--bg-input)] rounded-lg cursor-ew-resize outline-none"
-                title={`Timeline Zoom: ${Math.round(timelineZoom * 100)}%`}
+                title={`Timeline Zoom: ${timelineZoom}%`}
               />
               <button
                 type="button"
                 onClick={() =>
-                  setTimelineZoom((z) => Math.min(8, Number((z + 0.5).toFixed(1))))
+                  setTimelineZoom((z) => Math.min(100, z + 10))
                 }
                 className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
-                title="Zoom In Timeline (Stretch Frames)"
+                title="Zoom In Timeline (+10%)"
               >
                 <ZoomIn className="w-3 h-3" />
               </button>
               <button
                 type="button"
-                onClick={() => setTimelineZoom(1)}
+                onClick={() => setTimelineZoom(0)}
                 className="text-amber-400 font-semibold px-0.5 hover:underline cursor-pointer"
-                title="Click to reset Timeline Zoom to 100%"
+                title="Click to reset Timeline Zoom to 0% (Fit)"
               >
-                {Math.round(timelineZoom * 100)}%
+                {timelineZoom}%
               </button>
             </div>
 
@@ -962,17 +964,15 @@ export const Timeline: React.FC<TimelineProps> = ({
           onWheel={(e) => {
             if (e.ctrlKey || e.altKey) {
               e.preventDefault();
-              const delta = e.deltaY < 0 ? 0.5 : -0.5;
-              setTimelineZoom((z) =>
-                Math.max(1, Math.min(8, Number((z + delta).toFixed(1))))
-              );
+              const delta = e.deltaY < 0 ? 5 : -5;
+              setTimelineZoom((z) => Math.max(0, Math.min(100, z + delta)));
             }
           }}
         >
           <div
             className="relative flex-1 flex flex-col min-h-0"
             style={{
-              width: `${timelineZoom * 100}%`,
+              width: `${zoomMultiplier * 100}%`,
               minWidth: "100%",
             }}
           >
@@ -987,7 +987,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               />
             )}
 
-            {/* Time Ruler (Shows Finer Frame/Sub-Second Graduations When Zoomed In) */}
+            {/* Time Ruler (Shows Finer Single-Frame Graduations When Zoomed In) */}
             <div
               ref={rulerRef}
               className="h-6 border-b border-[var(--border-color)] bg-[var(--bg-panel)] relative shrink-0 cursor-col-resize"
@@ -1003,34 +1003,38 @@ export const Timeline: React.FC<TimelineProps> = ({
               }
             >
               {(() => {
-                const subSteps = timelineZoom >= 4 ? 4 : timelineZoom >= 2 ? 2 : 1;
-                const totalTicks = totalSeconds * subSteps;
+                let frameStep = fps;
+                if (timelineZoom >= 75) frameStep = 1; // 1 frame per tick!
+                else if (timelineZoom >= 50) frameStep = 2; // 2 frames per tick
+                else if (timelineZoom >= 30) frameStep = 5; // 5 frames per tick
+                else if (timelineZoom >= 15) frameStep = Math.max(1, Math.round(fps / 2)); // half second
+                else frameStep = fps; // 1 second
+
+                const totalTicks = Math.ceil(durationInFrames / frameStep);
                 return Array.from({ length: totalTicks + 1 }, (_, idx) => {
-                  const secVal = idx / subSteps;
-                  const frameVal = Math.round(secVal * fps);
-                  const left = Math.min(
-                    100,
-                    (frameVal / Math.max(1, lastFrame)) * 100
-                  );
-                  const isWholeSec = idx % subSteps === 0;
+                  const frameVal = idx * frameStep;
+                  if (frameVal > durationInFrames) return null;
+                  const left = Math.min(100, (frameVal / Math.max(1, lastFrame)) * 100);
+                  const isMajor = frameVal % fps === 0 || (frameStep <= 2 && frameVal % 5 === 0);
+                  const secVal = (frameVal / fps).toFixed(frameStep === 1 ? 2 : 1);
                   return (
                     <div
-                      key={idx}
+                      key={frameVal}
                       className={cn(
                         "absolute top-0 bottom-0 border-l font-mono text-[9px] leading-6",
-                        isWholeSec
+                        isMajor
                           ? "border-[var(--border-strong)] text-[var(--text-secondary)]"
-                          : "border-[var(--border-color)] text-[var(--text-muted)]",
+                          : "border-[var(--border-color)]/70 text-[var(--text-muted)]",
                         left >= 100
                           ? "-translate-x-full pr-1 text-right"
                           : "pl-1"
                       )}
                       style={{ left: `${left}%` }}
                     >
-                      {isWholeSec
-                        ? timelineZoom >= 2
-                          ? `${secVal}s (${frameVal}f)`
-                          : `${secVal}s`
+                      {timelineZoom >= 50
+                        ? `${frameVal}f`
+                        : isMajor
+                        ? `${secVal}s (${frameVal}f)`
                         : `${frameVal}f`}
                     </div>
                   );
@@ -1059,7 +1063,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                   (layer.from / Math.max(1, durationInFrames)) * 100
                 );
                 const widthPct = Math.max(
-                  3,
+                  0.1,
                   (layer.durationInFrames / Math.max(1, durationInFrames)) * 100
                 );
                 const isSelected = layer.id === selectedLayerId;

@@ -30,6 +30,11 @@ export interface CustomVideoLayerInput {
   visible?: boolean;
 }
 
+export interface LayerOffset {
+  x: number;
+  y: number;
+}
+
 export interface NexusVideoProps extends Record<string, unknown> {
   hookText: string;
   bodyText: string;
@@ -51,6 +56,8 @@ export interface NexusVideoProps extends Record<string, unknown> {
   layerDuration?: Record<string, number>;
   /** Optional custom label override for pattern/icon/background tracks */
   layerLabels?: Record<string, string>;
+  /** Per-layer manual position offsets { x: number, y: number } in composition pixels */
+  layerOffsets?: Record<string, LayerOffset>;
 }
 
 /**
@@ -72,6 +79,7 @@ export const defaultNexusVideoProps: NexusVideoProps = {
   layerVisibility: {},
   layerStartFrame: {},
   layerDuration: {},
+  layerOffsets: {},
 };
 
 export const defaultTikTokProps: NexusVideoProps = defaultNexusVideoProps;

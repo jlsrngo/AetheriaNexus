@@ -49,8 +49,8 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
     if (trimmed.length > 0) {
       onSaveContent(layer, trimmed);
     }
-    const safeFrom = Math.max(0, Math.min(durationInFrames - 5, fromDraft));
-    const safeDur = Math.max(5, Math.min(durationInFrames - safeFrom, durationDraft));
+    const safeFrom = Math.max(0, Math.min(durationInFrames - 1, fromDraft));
+    const safeDur = Math.max(1, Math.min(durationInFrames - safeFrom, durationDraft));
     onSaveTiming(layer, safeFrom, safeDur);
     onClose();
   };
@@ -133,11 +133,12 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                 <input
                   type="number"
                   min={0}
-                  max={durationInFrames - 5}
+                  max={durationInFrames - 1}
+                  step={1}
                   value={fromDraft}
                   onChange={(e) =>
                     setFromDraft(
-                      Math.max(0, Math.min(durationInFrames - 5, Number(e.target.value) || 0))
+                      Math.max(0, Math.min(durationInFrames - 1, Number(e.target.value) || 0))
                     )
                   }
                   className="w-full h-7 px-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-amber-400"
@@ -150,12 +151,13 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                 </label>
                 <input
                   type="number"
-                  min={5}
+                  min={1}
                   max={durationInFrames - fromDraft}
+                  step={1}
                   value={durationDraft}
                   onChange={(e) =>
                     setDurationDraft(
-                      Math.max(5, Math.min(durationInFrames - fromDraft, Number(e.target.value) || 5))
+                      Math.max(1, Math.min(durationInFrames - fromDraft, Number(e.target.value) || 1))
                     )
                   }
                   className="w-full h-7 px-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-amber-400"
@@ -168,13 +170,14 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                 </label>
                 <input
                   type="number"
-                  min={fromDraft + 5}
+                  min={fromDraft + 1}
                   max={durationInFrames}
+                  step={1}
                   value={endFrame}
                   onChange={(e) => {
-                    const nextEnd = Number(e.target.value) || fromDraft + 5;
+                    const nextEnd = Number(e.target.value) || fromDraft + 1;
                     setDurationDraft(
-                      Math.max(5, Math.min(durationInFrames - fromDraft, nextEnd - fromDraft))
+                      Math.max(1, Math.min(durationInFrames - fromDraft, nextEnd - fromDraft))
                     );
                   }}
                   className="w-full h-7 px-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-amber-400"
@@ -257,3 +260,4 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
     </div>
   );
 };
+

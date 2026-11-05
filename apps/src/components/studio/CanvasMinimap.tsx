@@ -181,3 +181,4 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
     </div>
   );
 };
+

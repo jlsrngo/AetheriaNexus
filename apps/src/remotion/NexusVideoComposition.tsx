@@ -92,7 +92,10 @@ function resolveThemePalette(themeColor?: string) {
   return THEME_GRADIENTS.orange;
 }
 
-const HookTitleAnimated: React.FC<{ hookText: string }> = ({ hookText }) => {
+const HookTitleAnimated: React.FC<{
+  hookText: string;
+  offset?: { x: number; y: number };
+}> = ({ hookText, offset }) => {
   const localFrame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -105,31 +108,46 @@ const HookTitleAnimated: React.FC<{ hookText: string }> = ({ hookText }) => {
     extrapolateRight: "clamp",
   });
 
+  const offX = offset?.x || 0;
+  const offY = offset?.y || 0;
+
   return (
-    <h1
+    <div
+      data-nexus-layer-id="text-hook"
+      data-nexus-layer-name="Hook Headline"
       style={{
-        fontSize: "64px",
-        lineHeight: 1.22,
-        fontWeight: 900,
-        letterSpacing: "-1px",
-        margin: 0,
-        textShadow: "0 4px 30px rgba(0,0,0,0.8)",
-        transform: `scale(${hookSpring})`,
-        opacity: hookOpacity,
-        background: "linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%)",
-        WebkitBackgroundClip: "text",
-        WebkitTextFillColor: "transparent",
+        display: "inline-block",
+        transform: `translate3d(${offX}px, ${offY}px, 0)`,
       }}
     >
-      {hookText}
-    </h1>
+      <h1
+        style={{
+          fontSize: "64px",
+          lineHeight: 1.22,
+          fontWeight: 900,
+          letterSpacing: "-1px",
+          margin: 0,
+          textShadow: "0 4px 30px rgba(0,0,0,0.8)",
+          transform: `scale(${hookSpring})`,
+          opacity: hookOpacity,
+          background: "linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+        }}
+      >
+        {hookText}
+      </h1>
+    </div>
   );
 };
 
 const BulletCardAnimated: React.FC<{
   line: string;
   accent: string;
-}> = ({ line, accent }) => {
+  layerId?: string;
+  layerName?: string;
+  offset?: { x: number; y: number };
+}> = ({ line, accent, layerId, layerName, offset }) => {
   const localFrame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -144,8 +162,13 @@ const BulletCardAnimated: React.FC<{
   });
   const translateY = interpolate(cardSpring, [0, 1], [28, 0]);
 
+  const offX = offset?.x || 0;
+  const offY = offset?.y || 0;
+
   return (
     <div
+      data-nexus-layer-id={layerId}
+      data-nexus-layer-name={layerName || "Bullet Card"}
       style={{
         display: "flex",
         alignItems: "flex-start",
@@ -156,7 +179,7 @@ const BulletCardAnimated: React.FC<{
         borderRadius: "0px",
         backdropFilter: "blur(16px)",
         opacity,
-        transform: `translateY(${translateY}px)`,
+        transform: `translate3d(${offX}px, ${translateY + offY}px, 0)`,
       }}
     >
       <span
@@ -220,6 +243,16 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
   const footerIcon = layerMap.get("footer-icon");
   const footerAuthor = layerMap.get("footer-author");
   const footerTag = layerMap.get("footer-tag");
+
+  const offsets = props.layerOffsets || {};
+  const getOffset = (id: string) => offsets[id] || { x: 0, y: 0 };
+  const getOffsetStyle = (id: string): React.CSSProperties => {
+    const off = getOffset(id);
+    if (!off.x && !off.y) return {};
+    return {
+      transform: `translate3d(${off.x}px, ${off.y}px, 0)`,
+    };
+  };
 
   return (
     <AbsoluteFill
@@ -308,6 +341,8 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
               name={hudCategory.label}
             >
               <div
+                data-nexus-layer-id="hud-category"
+                data-nexus-layer-name="Category Badge"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -318,6 +353,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                   borderRadius: "0px",
                   backdropFilter: "blur(20px)",
                   boxShadow: `0 0 25px ${currentTheme.glow}`,
+                  ...getOffsetStyle("hud-category"),
                 }}
               >
                 <span
@@ -353,6 +389,8 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
               name={hudSubcategory.label}
             >
               <div
+                data-nexus-layer-id="hud-subcategory"
+                data-nexus-layer-name="Subcategory Label"
                 style={{
                   fontSize: "18px",
                   fontWeight: 600,
@@ -360,6 +398,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                   fontFamily: "'JetBrains Mono', monospace",
                   letterSpacing: "2px",
                   textTransform: "uppercase",
+                  ...getOffsetStyle("hud-subcategory"),
                 }}
               >
                 [ {subCategory} ]
@@ -385,7 +424,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
             durationInFrames={textHook.durationInFrames}
             name={textHook.label}
           >
-            <HookTitleAnimated hookText={hookText} />
+            <HookTitleAnimated hookText={hookText} offset={getOffset("text-hook")} />
           </Sequence>
         )}
 
@@ -407,7 +446,13 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                 durationInFrames={bulletLayer.durationInFrames}
                 name={bulletLayer.label}
               >
-                <BulletCardAnimated line={line} accent={currentTheme.accent} />
+                <BulletCardAnimated
+                  line={line}
+                  accent={currentTheme.accent}
+                  layerId={bulletLayer.id}
+                  layerName={`Bullet #${idx + 1}`}
+                  offset={getOffset(bulletLayer.id)}
+                />
               </Sequence>
             );
           })}
@@ -425,6 +470,9 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                 <BulletCardAnimated
                   line={customLayer.content || customLayer.label}
                   accent={currentTheme.accent}
+                  layerId={customLayer.id}
+                  layerName={customLayer.label}
+                  offset={getOffset(customLayer.id)}
                 />
               </Sequence>
             ))}
@@ -452,6 +500,8 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
               name={footerIcon.label}
             >
               <div
+                data-nexus-layer-id="footer-icon"
+                data-nexus-layer-name="Footer Icon"
                 style={{
                   width: "52px",
                   height: "52px",
@@ -463,6 +513,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                   fontSize: "26px",
                   fontWeight: 900,
                   borderRadius: "0px",
+                  ...getOffsetStyle("footer-icon"),
                 }}
               >
                 ⚡
@@ -477,7 +528,13 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
               durationInFrames={footerAuthor.durationInFrames}
               name={footerAuthor.label}
             >
-              <div>
+              <div
+                data-nexus-layer-id="footer-author"
+                data-nexus-layer-name="Author Handle"
+                style={{
+                  ...getOffsetStyle("footer-author"),
+                }}
+              >
                 <div
                   style={{
                     fontSize: "26px",
@@ -511,6 +568,8 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
               name={footerTag.label}
             >
               <div
+                data-nexus-layer-id="footer-tag"
+                data-nexus-layer-name="Editorial Badge"
                 style={{
                   fontSize: "18px",
                   fontWeight: 800,
@@ -521,6 +580,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                   fontFamily: "'JetBrains Mono', monospace",
                   letterSpacing: "2px",
                   borderRadius: "0px",
+                  ...getOffsetStyle("footer-tag"),
                 }}
               >
                 {editorialTag}

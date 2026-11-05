@@ -6,6 +6,7 @@ import {
   Grid,
   Maximize2,
   Repeat,
+  RotateCcw,
   Ruler,
   ShieldAlert,
   ZoomIn,
@@ -25,6 +26,8 @@ const GRID_PRESETS = [
   { label: "6×6", cols: 6, rows: 6 },
   { label: "8×8", cols: 8, rows: 8 },
   { label: "12×12", cols: 12, rows: 12 },
+  { label: "16×16", cols: 16, rows: 16 },
+  { label: "24×24", cols: 24, rows: 24 },
   { label: "9×16", cols: 9, rows: 16 },
   { label: "16×9", cols: 16, rows: 9 },
 ];
@@ -32,7 +35,21 @@ const GRID_PRESETS = [
 export const StudioPreview: React.FC = () => {
   const playerRef = useRef<PlayerRef>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const [viewportDim, setViewportDim] = useState<{ w: number; h: number }>({ w: 800, h: 600 });
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
+
+  // Canvas Viewport Pan State
   const [isPanning, setIsPanning] = useState(false);
+
+  // Selected Layer & Interactive Canvas Drag State (Corel / Photoshop style)
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [selectedLayerBox, setSelectedLayerBox] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    layerName: string;
+  } | null>(null);
 
   const {
     activeComposition,
@@ -46,6 +63,23 @@ export const StudioPreview: React.FC = () => {
   useEffect(() => {
     void actions.syncFromBackend();
   }, [actions]);
+
+  // Keep track of viewport container dimensions for 1:1 ruler tracking
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setViewportDim({
+          w: entry.contentRect.width,
+          h: entry.contentRect.height,
+        });
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const player = playerRef.current;
@@ -93,49 +127,210 @@ export const StudioPreview: React.FC = () => {
   }, []);
 
   const numericZoom =
-    canvas.zoom === "fit" ? 1 : Math.max(0.25, Math.min(3, canvas.zoom));
+    canvas.zoom === "fit" ? 1 : Math.max(0.25, Math.min(10, canvas.zoom));
   const isZoomed = canvas.zoom !== "fit" && numericZoom > 1.05;
   const panX = canvas.panX ?? 0;
   const panY = canvas.panY ?? 0;
 
+  // Compute exact canvas coordinate space relative to viewport
+  const compW = activeComposition.width;
+  const compH = activeComposition.height;
+  const fitRatio = Math.min(
+    Math.max(1, viewportDim.w - 32) / compW,
+    Math.max(1, viewportDim.h - 32) / compH
+  );
+  const effectiveScale = canvas.zoom === "fit" ? fitRatio : fitRatio * numericZoom;
+  const renderedW = compW * effectiveScale;
+  const renderedH = compH * effectiveScale;
+  const canvasOriginX = (viewportDim.w - renderedW) / 2 + (canvas.zoom === "fit" ? 0 : panX);
+  const canvasOriginY = (viewportDim.h - renderedH) / 2 + (canvas.zoom === "fit" ? 0 : panY);
+
+  // Direct Mouse Wheel Zoom (Photoshop/Corel/Figma style, no Ctrl/Alt key required)
   const handleCanvasWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.altKey || e.metaKey) {
-      e.preventDefault();
-      const delta = e.deltaY < 0 ? 0.15 : -0.15;
-      const nextZoom = Math.max(0.25, Math.min(3, Number((numericZoom + delta).toFixed(2))));
-      actions.updateCanvas({ zoom: nextZoom });
-    }
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.15 : 0.87;
+    const currentZoomVal = canvas.zoom === "fit" ? 1 : canvas.zoom;
+    const nextZoom = Math.max(
+      0.25,
+      Math.min(10.0, Number((currentZoomVal * factor).toFixed(2)))
+    );
+    actions.updateCanvas({ zoom: nextZoom });
   };
 
-  const handleCanvasMouseDown = (e: React.MouseEvent) => {
-    const isMiddle = e.button === 1;
-    const isLeftOnBg = e.button === 0 && (e.target === e.currentTarget || e.altKey);
-    if (!isMiddle && !isLeftOnBg) return;
+  // Synchronize Bounding Box with selected layer's DOM element
+  const updateBoundingBox = useCallback(() => {
+    if (!selectedLayerId || !viewportRef.current) {
+      setSelectedLayerBox(null);
+      return;
+    }
+    const el = viewportRef.current.querySelector(
+      `[data-nexus-layer-id="${selectedLayerId}"]`
+    ) as HTMLElement | null;
+    if (!el) {
+      setSelectedLayerBox(null);
+      return;
+    }
+    const elRect = el.getBoundingClientRect();
+    const vpRect = viewportRef.current.getBoundingClientRect();
+    setSelectedLayerBox({
+      left: elRect.left - vpRect.left,
+      top: elRect.top - vpRect.top,
+      width: elRect.width,
+      height: elRect.height,
+      layerName: el.getAttribute("data-nexus-layer-name") || selectedLayerId,
+    });
+  }, [selectedLayerId]);
 
-    e.preventDefault();
-    setIsPanning(true);
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const origPanX = panX;
-    const origPanY = panY;
+  useEffect(() => {
+    updateBoundingBox();
+    const frameId = requestAnimationFrame(updateBoundingBox);
+    return () => cancelAnimationFrame(frameId);
+  }, [updateBoundingBox, numericZoom, panX, panY, currentFrame, activeComposition.props]);
 
-    const onMove = (moveEvent: MouseEvent) => {
-      const dx = moveEvent.clientX - startX;
-      const dy = moveEvent.clientY - startY;
-      actions.updateCanvas({
-        panX: Math.round(origPanX + dx),
-        panY: Math.round(origPanY + dy),
+  // Keyboard Nudge (Pixel-by-pixel micro alignment with arrow keys)
+  useEffect(() => {
+    if (!selectedLayerId) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      if (e.key === "Escape") {
+        setSelectedLayerId(null);
+        return;
+      }
+
+      const step = e.shiftKey ? 10 : 1;
+      let dx = 0;
+      let dy = 0;
+
+      if (e.key === "ArrowLeft") dx = -step;
+      else if (e.key === "ArrowRight") dx = step;
+      else if (e.key === "ArrowUp") dy = -step;
+      else if (e.key === "ArrowDown") dy = step;
+      else return;
+
+      e.preventDefault();
+      const currentOffsets = activeComposition.props.layerOffsets || {};
+      const cur = currentOffsets[selectedLayerId] || { x: 0, y: 0 };
+      actions.updateActiveProps({
+        layerOffsets: {
+          ...currentOffsets,
+          [selectedLayerId]: {
+            x: cur.x + dx,
+            y: cur.y + dy,
+          },
+        },
       });
     };
 
-    const onUp = () => {
-      setIsPanning(false);
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [actions, activeComposition.props.layerOffsets, selectedLayerId]);
 
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+  // Interactive Layer Dragging or Viewport Panning on Canvas
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    const isMiddle = e.button === 1;
+    const clickedLayerEl = (e.target as HTMLElement).closest(
+      "[data-nexus-layer-id]"
+    ) as HTMLElement | null;
+
+    // A. User clicked an interactive component layer on the canvas -> Start layer translation
+    if (clickedLayerEl && e.button === 0 && !e.altKey && !isMiddle) {
+      e.preventDefault();
+      e.stopPropagation();
+      const layerId = clickedLayerEl.getAttribute("data-nexus-layer-id");
+      if (!layerId) return;
+
+      setSelectedLayerId(layerId);
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const currentOffsets = activeComposition.props.layerOffsets || {};
+      const orig = currentOffsets[layerId] || { x: 0, y: 0 };
+      const startOffX = orig.x;
+      const startOffY = orig.y;
+
+      let rafId: number | null = null;
+      let latestX = startOffX;
+      let latestY = startOffY;
+
+      const onMove = (moveEvent: MouseEvent) => {
+        const dx = (moveEvent.clientX - startX) / effectiveScale;
+        const dy = (moveEvent.clientY - startY) / effectiveScale;
+        latestX = Math.round(startOffX + dx);
+        latestY = Math.round(startOffY + dy);
+
+        if (rafId === null) {
+          rafId = requestAnimationFrame(() => {
+            rafId = null;
+            actions.updateActiveProps({
+              layerOffsets: {
+                ...activeComposition.props.layerOffsets,
+                [layerId]: { x: latestX, y: latestY },
+              },
+            });
+          });
+        }
+      };
+
+      const onUp = () => {
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        actions.updateActiveProps({
+          layerOffsets: {
+            ...activeComposition.props.layerOffsets,
+            [layerId]: { x: latestX, y: latestY },
+          },
+        });
+      };
+
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+      return;
+    }
+
+    // B. User clicked outside components -> Deselect or Pan Canvas Viewport
+    if (e.target === e.currentTarget || isMiddle || e.altKey) {
+      if (!isMiddle && !e.altKey) {
+        setSelectedLayerId(null);
+      }
+
+      e.preventDefault();
+      setIsPanning(true);
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const origPanX = panX;
+      const origPanY = panY;
+
+      const onMove = (moveEvent: MouseEvent) => {
+        const dx = moveEvent.clientX - startX;
+        const dy = moveEvent.clientY - startY;
+        actions.updateCanvas({
+          panX: Math.round(origPanX + dx),
+          panY: Math.round(origPanY + dy),
+        });
+      };
+
+      const onUp = () => {
+        setIsPanning(false);
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    }
+  };
+
+  const handleResetLayerOffset = (layerId: string) => {
+    const currentOffsets = { ...(activeComposition.props.layerOffsets || {}) };
+    delete currentOffsets[layerId];
+    actions.updateActiveProps({ layerOffsets: currentOffsets });
   };
 
   const scaleStyle: React.CSSProperties =
@@ -149,109 +344,188 @@ export const StudioPreview: React.FC = () => {
           transition: isPanning ? "none" : "transform 0.08s ease-out",
         };
 
-  const gridCols = Math.max(1, Math.min(32, canvas.gridCols || 3));
-  const gridRows = Math.max(1, Math.min(32, canvas.gridRows || 3));
-  const rulerSteps = [0, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 100];
+  const gridCols = Math.max(1, Math.min(64, canvas.gridCols || 3));
+  const gridRows = Math.max(1, Math.min(64, canvas.gridRows || 3));
 
-  const renderHorizontalRuler = (position: "top" | "bottom") => (
-    <div
-      className={cn(
-        "h-5 bg-[var(--bg-panel)] px-3 relative select-none shrink-0 overflow-hidden",
-        position === "top"
-          ? "border-b border-[var(--border-color)]"
-          : "border-t border-[var(--border-color)]"
-      )}
-    >
-      <div className="relative w-full h-full">
-        {Array.from({ length: 41 }, (_, idx) => {
-          const pct = idx * 2.5;
-          const isMajor = idx % 4 === 0;
-          const isMid = idx % 2 === 0 && !isMajor;
-          const pxVal = Math.round((pct / 100) * activeComposition.width);
-          return (
+  // Dynamic Photoshop / CorelDRAW Style Horizontal Ruler (Follows Pan & Zoom Precision)
+  const renderHorizontalRuler = (position: "top" | "bottom") => {
+    const width = viewportDim.w;
+    if (width <= 0) return null;
+
+    const minStepDocUnits = 65 / Math.max(0.001, effectiveScale);
+    const CANDIDATE_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
+    const step = CANDIDATE_STEPS.find((s) => s >= minStepDocUnits) || 1000;
+    const minorStep = step <= 5 ? 1 : step / 5;
+
+    const startDocX = Math.floor((0 - canvasOriginX) / (step / 5)) * (step / 5);
+    const endDocX = Math.ceil((width - canvasOriginX) / (step / 5)) * (step / 5);
+
+    const ticks: Array<{
+      val: number;
+      screenX: number;
+      isMajor: boolean;
+      isOrigin: boolean;
+    }> = [];
+
+    const maxTicks = 140;
+    let count = 0;
+    for (
+      let docX = startDocX;
+      docX <= endDocX && count < maxTicks;
+      docX += minorStep, count++
+    ) {
+      const screenX = Math.round(canvasOriginX + docX * effectiveScale);
+      if (screenX >= 0 && screenX <= width) {
+        const isMajor = Math.abs(docX % step) < 0.001 || Math.abs(docX) < 0.001;
+        const isOrigin = Math.abs(docX) < 0.001;
+        ticks.push({ val: Math.round(docX), screenX, isMajor, isOrigin });
+      }
+    }
+
+    return (
+      <div
+        className={cn(
+          "h-5 bg-[var(--bg-panel)] relative select-none shrink-0 overflow-hidden font-mono",
+          position === "top"
+            ? "border-b border-[var(--border-color)]"
+            : "border-t border-[var(--border-color)]"
+        )}
+      >
+        <div className="relative w-full h-full">
+          {ticks.map(({ val, screenX, isMajor, isOrigin }) => (
             <div
-              key={idx}
-              className="absolute top-0 bottom-0 flex flex-col justify-between pointer-events-none"
-              style={{ left: `${pct}%` }}
+              key={`${val}-${screenX}`}
+              className="absolute top-0 bottom-0 pointer-events-none flex flex-col justify-between"
+              style={{ left: `${screenX}px` }}
             >
               <div
                 className={cn(
-                  "w-px bg-[var(--border-strong)]",
+                  "w-px",
                   position === "top" ? "mt-auto" : "mb-auto",
-                  isMajor ? "h-2.5 bg-amber-400/80" : isMid ? "h-1.5" : "h-1"
-                )}
-              />
-              {rulerSteps.includes(pct) && isMajor && (
-                <span
-                  className={cn(
-                    "absolute text-[8px] font-mono text-[var(--text-muted)] whitespace-nowrap",
-                    position === "top" ? "top-0.5" : "bottom-0.5",
-                    pct >= 100
-                      ? "-translate-x-full pr-1"
-                      : pct === 0
-                      ? "pl-1"
-                      : "-translate-x-1/2"
-                  )}
-                >
-                  {pxVal}px
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  const renderVerticalRuler = (position: "left" | "right") => (
-    <div
-      className={cn(
-        "w-7 bg-[var(--bg-panel)] py-3 relative select-none shrink-0 overflow-hidden",
-        position === "left"
-          ? "border-r border-[var(--border-color)]"
-          : "border-l border-[var(--border-color)]"
-      )}
-    >
-      <div className="relative w-full h-full">
-        {Array.from({ length: 41 }, (_, idx) => {
-          const pct = idx * 2.5;
-          const isMajor = idx % 4 === 0;
-          const isMid = idx % 2 === 0 && !isMajor;
-          const pxVal = Math.round((pct / 100) * activeComposition.height);
-          return (
-            <div
-              key={idx}
-              className="absolute left-0 right-0 flex items-center pointer-events-none"
-              style={{ top: `${pct}%` }}
-            >
-              <div
-                className={cn(
-                  "h-px bg-[var(--border-strong)]",
-                  position === "left" ? "ml-auto" : "mr-auto",
-                  isMajor ? "w-2.5 bg-amber-400/80" : isMid ? "w-1.5" : "w-1"
+                  isOrigin
+                    ? "h-full bg-amber-400 z-10"
+                    : isMajor
+                    ? "h-2 bg-[var(--text-secondary)]"
+                    : "h-1 bg-[var(--border-strong)]"
                 )}
               />
               {isMajor && (
                 <span
                   className={cn(
-                    "absolute text-[7px] font-mono text-[var(--text-muted)] whitespace-nowrap",
-                    position === "left" ? "left-0.5" : "right-0.5",
-                    pct >= 100
-                      ? "-translate-y-full pb-0.5"
-                      : pct === 0
-                      ? "pt-0.5"
-                      : "-translate-y-1/2"
+                    "absolute text-[8px] whitespace-nowrap",
+                    isOrigin
+                      ? "text-amber-400 font-bold"
+                      : "text-[var(--text-muted)]",
+                    position === "top" ? "top-0.5" : "bottom-0.5",
+                    val === 0 ? "left-1" : "-translate-x-1/2"
                   )}
                 >
-                  {pxVal}
+                  {val}
                 </span>
               )}
             </div>
-          );
-        })}
+          ))}
+
+          {cursorPos && (
+            <div
+              className="absolute top-0 bottom-0 w-px bg-amber-400/80 pointer-events-none z-20"
+              style={{ left: `${cursorPos.x}px` }}
+            />
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
+
+  // Dynamic Photoshop / CorelDRAW Style Vertical Ruler (Follows Pan & Zoom Precision)
+  const renderVerticalRuler = (position: "left" | "right") => {
+    const height = viewportDim.h;
+    if (height <= 0) return null;
+
+    const minStepDocUnits = 65 / Math.max(0.001, effectiveScale);
+    const CANDIDATE_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
+    const step = CANDIDATE_STEPS.find((s) => s >= minStepDocUnits) || 1000;
+    const minorStep = step <= 5 ? 1 : step / 5;
+
+    const startDocY = Math.floor((0 - canvasOriginY) / (step / 5)) * (step / 5);
+    const endDocY = Math.ceil((height - canvasOriginY) / (step / 5)) * (step / 5);
+
+    const ticks: Array<{
+      val: number;
+      screenY: number;
+      isMajor: boolean;
+      isOrigin: boolean;
+    }> = [];
+
+    const maxTicks = 140;
+    let count = 0;
+    for (
+      let docY = startDocY;
+      docY <= endDocY && count < maxTicks;
+      docY += minorStep, count++
+    ) {
+      const screenY = Math.round(canvasOriginY + docY * effectiveScale);
+      if (screenY >= 0 && screenY <= height) {
+        const isMajor = Math.abs(docY % step) < 0.001 || Math.abs(docY) < 0.001;
+        const isOrigin = Math.abs(docY) < 0.001;
+        ticks.push({ val: Math.round(docY), screenY, isMajor, isOrigin });
+      }
+    }
+
+    return (
+      <div
+        className={cn(
+          "w-7 bg-[var(--bg-panel)] relative select-none shrink-0 overflow-hidden font-mono",
+          position === "left"
+            ? "border-r border-[var(--border-color)]"
+            : "border-l border-[var(--border-color)]"
+        )}
+      >
+        <div className="relative w-full h-full">
+          {ticks.map(({ val, screenY, isMajor, isOrigin }) => (
+            <div
+              key={`${val}-${screenY}`}
+              className="absolute left-0 right-0 pointer-events-none flex items-center justify-between"
+              style={{ top: `${screenY}px` }}
+            >
+              <div
+                className={cn(
+                  "h-px",
+                  position === "left" ? "ml-auto" : "mr-auto",
+                  isOrigin
+                    ? "w-full bg-amber-400 z-10"
+                    : isMajor
+                    ? "w-2 bg-[var(--text-secondary)]"
+                    : "w-1 bg-[var(--border-strong)]"
+                )}
+              />
+              {isMajor && (
+                <span
+                  className={cn(
+                    "absolute text-[7px] whitespace-nowrap",
+                    isOrigin
+                      ? "text-amber-400 font-bold"
+                      : "text-[var(--text-muted)]",
+                    position === "left" ? "left-0.5" : "right-0.5",
+                    val === 0 ? "top-1" : "-translate-y-1/2"
+                  )}
+                >
+                  {val}
+                </span>
+              )}
+            </div>
+          ))}
+
+          {cursorPos && (
+            <div
+              className="absolute left-0 right-0 h-px bg-amber-400/80 pointer-events-none z-20"
+              style={{ top: `${cursorPos.y}px` }}
+            />
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[var(--bg-app)]">
@@ -272,7 +546,7 @@ export const StudioPreview: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Canvas Zoom Slider Bar */}
+          {/* Canvas Zoom Slider Bar (From 0.25x up to 10.0x for Ultra-Deep Precision) */}
           <div className="flex items-center gap-1 px-1.5 h-6 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)]">
             <button
               type="button"
@@ -297,7 +571,7 @@ export const StudioPreview: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                const next = Math.max(0.25, Number((numericZoom - 0.25).toFixed(2)));
+                const next = Math.max(0.25, Number((numericZoom * 0.8).toFixed(2)));
                 actions.updateCanvas({ zoom: next });
               }}
               className="text-[var(--text-muted)] hover:text-amber-400 cursor-pointer p-0.5"
@@ -309,20 +583,20 @@ export const StudioPreview: React.FC = () => {
             <input
               type="range"
               min={0.25}
-              max={3}
+              max={10.0}
               step={0.05}
               value={numericZoom}
               onChange={(e) =>
                 actions.updateCanvas({ zoom: Number(e.target.value) })
               }
-              className="w-16 sm:w-20 h-1 accent-[#cf6613] bg-[var(--bg-input)] rounded-lg cursor-ew-resize outline-none"
-              title={`Canvas Zoom: ${Math.round(numericZoom * 100)}%`}
+              className="w-16 sm:w-24 h-1 accent-[#cf6613] bg-[var(--bg-input)] rounded-lg cursor-ew-resize outline-none"
+              title={`Canvas Zoom: ${Math.round(numericZoom * 100)}% (Up to 1000% Zoom)`}
             />
 
             <button
               type="button"
               onClick={() => {
-                const next = Math.min(3, Number((numericZoom + 0.25).toFixed(2)));
+                const next = Math.min(10.0, Number((numericZoom * 1.25).toFixed(2)));
                 actions.updateCanvas({ zoom: next });
               }}
               className="text-[var(--text-muted)] hover:text-amber-400 cursor-pointer p-0.5"
@@ -359,7 +633,7 @@ export const StudioPreview: React.FC = () => {
           <button
             type="button"
             onClick={() => actions.updateCanvas({ showRulers: !canvas.showRulers })}
-            title="Toggle 4-Sided Canvas Rulers (Top, Bottom, Left & Right)"
+            title="Toggle Dynamic Photoshop/Corel Style Rulers"
             className={cn(
               "h-6 px-1.5 rounded-md border flex items-center justify-center cursor-pointer transition-colors",
               canvas.showRulers
@@ -385,12 +659,12 @@ export const StudioPreview: React.FC = () => {
             <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
           </button>
 
-          {/* Full-Canvas Grid Toggle (Icon-only) + N×M Selector */}
+          {/* Full-Canvas Custom Grid (Mau Berapa Kali Berapa Bisa) */}
           <div className="flex items-center rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] overflow-hidden">
             <button
               type="button"
               onClick={() => actions.updateCanvas({ showGrid: !canvas.showGrid })}
-              title="Toggle Full-Canvas Grid Lines"
+              title="Toggle Custom Grid Lines"
               className={cn(
                 "h-6 px-1.5 flex items-center justify-center cursor-pointer transition-colors",
                 canvas.showGrid
@@ -400,6 +674,37 @@ export const StudioPreview: React.FC = () => {
             >
               <Grid className="w-3.5 h-3.5 shrink-0" />
             </button>
+
+            {/* Direct Editable Columns × Rows (Berapa kali berapa bisa) */}
+            <div className="flex items-center gap-0.5 px-1 bg-[var(--bg-panel)] border-l border-[var(--border-strong)] text-[10px] font-mono">
+              <input
+                type="number"
+                min={1}
+                max={64}
+                value={gridCols}
+                onChange={(e) => {
+                  const val = Math.max(1, Math.min(64, Number(e.target.value) || 1));
+                  actions.updateCanvas({ showGrid: true, gridCols: val });
+                }}
+                className="w-6 text-center bg-[var(--bg-card)] border border-[var(--border-color)] rounded text-[9px] text-[var(--text-primary)] outline-none focus:border-amber-400"
+                title="Grid Columns (Vertical Lines) - Enter any number"
+              />
+              <span className="text-[var(--text-muted)] text-[9px]">×</span>
+              <input
+                type="number"
+                min={1}
+                max={64}
+                value={gridRows}
+                onChange={(e) => {
+                  const val = Math.max(1, Math.min(64, Number(e.target.value) || 1));
+                  actions.updateCanvas({ showGrid: true, gridRows: val });
+                }}
+                className="w-6 text-center bg-[var(--bg-card)] border border-[var(--border-color)] rounded text-[9px] text-[var(--text-primary)] outline-none focus:border-amber-400"
+                title="Grid Rows (Horizontal Lines) - Enter any number"
+              />
+            </div>
+
+            {/* Presets Quick Selector */}
             <select
               value={`${gridCols}x${gridRows}`}
               onChange={(e) => {
@@ -412,8 +717,8 @@ export const StudioPreview: React.FC = () => {
                   });
                 }
               }}
-              className="h-6 px-1.5 bg-[var(--bg-panel)] border-l border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer"
-              title="Select Grid Columns × Rows"
+              className="h-6 px-1 bg-[var(--bg-panel)] border-l border-[var(--border-color)] text-[10px] font-mono text-[var(--text-muted)] hover:text-[var(--text-primary)] outline-none cursor-pointer"
+              title="Select Grid Preset"
             >
               {GRID_PRESETS.map((p) => (
                 <option key={p.label} value={`${p.cols}x${p.rows}`}>
@@ -421,37 +726,6 @@ export const StudioPreview: React.FC = () => {
                 </option>
               ))}
             </select>
-            {canvas.showGrid && (
-              <div className="flex items-center gap-0.5 px-1 bg-[var(--bg-panel)] border-l border-[var(--border-color)] text-[10px] font-mono">
-                <input
-                  type="number"
-                  min={1}
-                  max={32}
-                  value={gridCols}
-                  onChange={(e) =>
-                    actions.updateCanvas({
-                      gridCols: Math.max(1, Math.min(32, Number(e.target.value) || 1)),
-                    })
-                  }
-                  className="w-6 text-center bg-[var(--bg-card)] border border-[var(--border-color)] rounded text-[9px] text-[var(--text-primary)] outline-none"
-                  title="Grid Columns"
-                />
-                <span className="text-[var(--text-muted)] text-[9px]">×</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={32}
-                  value={gridRows}
-                  onChange={(e) =>
-                    actions.updateCanvas({
-                      gridRows: Math.max(1, Math.min(32, Number(e.target.value) || 1)),
-                    })
-                  }
-                  className="w-6 text-center bg-[var(--bg-card)] border border-[var(--border-color)] rounded text-[9px] text-[var(--text-primary)] outline-none"
-                  title="Grid Rows"
-                />
-              </div>
-            )}
           </div>
 
           {/* Loop Toggle */}
@@ -481,10 +755,10 @@ export const StudioPreview: React.FC = () => {
         </div>
       </div>
 
-      {/* Top Horizontal Ruler */}
+      {/* Top Dynamic Horizontal Ruler */}
       {canvas.showRulers && renderHorizontalRuler("top")}
 
-      {/* Middle Row: Left Vertical Ruler | Canvas Viewport & Minimap | Right Vertical Ruler */}
+      {/* Middle Row: Left Dynamic Vertical Ruler | Canvas Viewport & Minimap | Right Ruler */}
       <div className="flex-1 min-h-0 flex flex-row overflow-hidden relative">
         {canvas.showRulers && renderVerticalRuler("left")}
 
@@ -493,20 +767,33 @@ export const StudioPreview: React.FC = () => {
           ref={viewportRef}
           onWheel={handleCanvasWheel}
           onMouseDown={handleCanvasMouseDown}
+          onMouseMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            setCursorPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+          }}
+          onMouseLeave={() => setCursorPos(null)}
           className={cn(
             "flex-1 min-h-0 flex items-center justify-center p-3 relative overflow-hidden bg-[#0A0A0C]",
             isPanning ? "cursor-grabbing" : isZoomed ? "cursor-grab" : "cursor-default"
           )}
         >
-          {/* Full-Canvas N×M Grid Overlay across the entire canvas area */}
+          {/* Full-Canvas Custom N×M Grid Overlay across the entire composition */}
           {canvas.showGrid && (
-            <div className="pointer-events-none absolute inset-0 z-20">
+            <div
+              className="pointer-events-none absolute z-20"
+              style={{
+                left: `${canvasOriginX}px`,
+                top: `${canvasOriginY}px`,
+                width: `${renderedW}px`,
+                height: `${renderedH}px`,
+              }}
+            >
               {Array.from({ length: gridCols - 1 }, (_, i) => {
                 const leftPct = ((i + 1) / gridCols) * 100;
                 return (
                   <div
                     key={`v-${i}`}
-                    className="absolute top-0 bottom-0 w-px bg-amber-400/35"
+                    className="absolute top-0 bottom-0 w-px bg-amber-400/40"
                     style={{ left: `${leftPct}%` }}
                   />
                 );
@@ -516,7 +803,7 @@ export const StudioPreview: React.FC = () => {
                 return (
                   <div
                     key={`h-${i}`}
-                    className="absolute left-0 right-0 h-px bg-amber-400/35"
+                    className="absolute left-0 right-0 h-px bg-amber-400/40"
                     style={{ top: `${topPct}%` }}
                   />
                 );
@@ -532,7 +819,7 @@ export const StudioPreview: React.FC = () => {
             fallbackTitle="Preview renderer failed"
             onReset={() => {}}
           >
-            <div className="w-full h-full flex items-center justify-center relative">
+            <div className="w-full h-full flex items-center justify-center relative select-none">
               <Player
                 key={`${activeComposition.id}-${activeComposition.width}x${activeComposition.height}-${activeComposition.fps}`}
                 ref={playerRef}
@@ -547,7 +834,6 @@ export const StudioPreview: React.FC = () => {
                 outFrame={canvas.outFrame}
                 controls={false}
                 loop={canvas.loop}
-                clickToPlay
                 doubleClickToFullscreen
                 acknowledgeRemotionLicense
                 style={scaleStyle}
@@ -555,7 +841,15 @@ export const StudioPreview: React.FC = () => {
 
               {/* TikTok / Reels Safe Zone Guide Overlay */}
               {canvas.showGuides && (
-                <div className="pointer-events-none absolute inset-6 border border-dashed border-cyan-400 rounded-lg flex flex-col justify-between p-2 z-10">
+                <div
+                  className="pointer-events-none absolute border border-dashed border-cyan-400 rounded-lg flex flex-col justify-between p-2 z-10"
+                  style={{
+                    left: `${canvasOriginX + renderedW * 0.05}px`,
+                    top: `${canvasOriginY + renderedH * 0.05}px`,
+                    width: `${renderedW * 0.9}px`,
+                    height: `${renderedH * 0.9}px`,
+                  }}
+                >
                   <div className="flex justify-between text-[9px] font-mono text-cyan-300 uppercase">
                     <span className="px-1.5 py-0.5 rounded bg-[var(--bg-panel)] border border-[var(--border-color)]">
                       Safe Zone Top
@@ -577,6 +871,59 @@ export const StudioPreview: React.FC = () => {
             </div>
           </ErrorBoundary>
 
+          {/* CorelDRAW / Photoshop 8-Handle Bounding Box Overlay on Selected Element */}
+          {selectedLayerBox && selectedLayerId && (
+            <div
+              style={{
+                left: `${selectedLayerBox.left}px`,
+                top: `${selectedLayerBox.top}px`,
+                width: `${selectedLayerBox.width}px`,
+                height: `${selectedLayerBox.height}px`,
+              }}
+              onMouseDown={(e) => handleCanvasMouseDown(e)}
+              className="absolute pointer-events-auto border-2 border-amber-400 select-none z-30 cursor-move"
+              title="Click and drag to reposition, or use keyboard arrow keys to nudge by 1px"
+            >
+              {/* 8 Corel / Photoshop Square Handles (Black square with crisp white outline) */}
+              <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
+              <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
+              <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
+              <div className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
+              <div className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
+              <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
+              <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
+              <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-black border-2 border-white pointer-events-none shadow" />
+
+              {/* Center Crosshair × */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/90 text-xs font-mono font-bold pointer-events-none">
+                ×
+              </div>
+
+              {/* Floating Position Pill */}
+              <div className="absolute -top-8 left-0 flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/95 border border-amber-400 text-[10px] font-mono text-white shadow-xl whitespace-nowrap z-40">
+                <span className="text-amber-400 font-bold">{selectedLayerBox.layerName}</span>
+                <span className="text-[var(--text-muted)]">•</span>
+                <span>
+                  X: {activeComposition.props.layerOffsets?.[selectedLayerId]?.x ?? 0}px
+                </span>
+                <span>
+                  Y: {activeComposition.props.layerOffsets?.[selectedLayerId]?.y ?? 0}px
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleResetLayerOffset(selectedLayerId);
+                  }}
+                  className="ml-1 p-0.5 text-amber-400 hover:text-white cursor-pointer"
+                  title="Reset Position (0, 0)"
+                >
+                  <RotateCcw className="w-2.5 h-2.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Floating Canvas Viewport Minimap */}
           {canvas.showMinimap !== false && (
             <CanvasMinimap
@@ -596,7 +943,7 @@ export const StudioPreview: React.FC = () => {
         {canvas.showRulers && renderVerticalRuler("right")}
       </div>
 
-      {/* Bottom Horizontal Ruler */}
+      {/* Bottom Dynamic Horizontal Ruler */}
       {canvas.showRulers && renderHorizontalRuler("bottom")}
 
       {canvas.showTimeline && (
