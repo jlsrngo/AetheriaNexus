@@ -215,37 +215,159 @@ export const Timeline: React.FC<TimelineProps> = ({
       ? (canvas.outFrame / lastFrame) * 100
       : null;
 
-  const renderLayerIcon = (kind: VideoLayerSpec["kind"]) => {
-    switch (kind) {
-      case "background":
-        return <Layers className="w-3 h-3 text-amber-500 shrink-0" />;
-      case "pattern":
-        return <Sparkles className="w-3 h-3 text-orange-400 shrink-0" />;
-      case "icon":
-        return <Award className="w-3 h-3 text-amber-300 shrink-0" />;
-      case "text":
-        return <Type className="w-3 h-3 text-amber-400 shrink-0" />;
-    }
+  interface PremiereClipPalette {
+    badge: string;
+    icon: string;
+    clip: string;
+    selected: string;
+    dot: string;
+    handle: string;
+  }
+
+  const PREMIERE_PALETTES: Record<string, PremiereClipPalette> = {
+    violet: {
+      badge: "text-violet-300 bg-violet-950/60 border-violet-500/40",
+      icon: "text-violet-400",
+      clip: "bg-violet-500/25 border-violet-400/60 text-violet-100",
+      selected: "ring-1 ring-violet-300 border-violet-300 bg-violet-500/35",
+      dot: "bg-violet-400",
+      handle: "bg-violet-400/35 hover:bg-violet-300",
+    },
+    cyan: {
+      badge: "text-cyan-300 bg-cyan-950/60 border-cyan-500/40",
+      icon: "text-cyan-400",
+      clip: "bg-cyan-500/25 border-cyan-400/60 text-cyan-100",
+      selected: "ring-1 ring-cyan-300 border-cyan-300 bg-cyan-500/35",
+      dot: "bg-cyan-400",
+      handle: "bg-cyan-400/35 hover:bg-cyan-300",
+    },
+    rose: {
+      badge: "text-rose-300 bg-rose-950/60 border-rose-500/40",
+      icon: "text-rose-400",
+      clip: "bg-rose-500/25 border-rose-400/60 text-rose-100",
+      selected: "ring-1 ring-rose-300 border-rose-300 bg-rose-500/35",
+      dot: "bg-rose-400",
+      handle: "bg-rose-400/35 hover:bg-rose-300",
+    },
+    amber: {
+      badge: "text-amber-300 bg-amber-950/60 border-amber-500/40",
+      icon: "text-amber-400",
+      clip: "bg-amber-500/25 border-amber-400/60 text-amber-100",
+      selected: "ring-1 ring-amber-300 border-amber-300 bg-amber-500/35",
+      dot: "bg-amber-400",
+      handle: "bg-amber-400/35 hover:bg-amber-300",
+    },
+    sky: {
+      badge: "text-sky-300 bg-sky-950/60 border-sky-500/40",
+      icon: "text-sky-400",
+      clip: "bg-sky-500/25 border-sky-400/60 text-sky-100",
+      selected: "ring-1 ring-sky-300 border-sky-300 bg-sky-500/35",
+      dot: "bg-sky-400",
+      handle: "bg-sky-400/35 hover:bg-sky-300",
+    },
+    fuchsia: {
+      badge: "text-fuchsia-300 bg-fuchsia-950/60 border-fuchsia-500/40",
+      icon: "text-fuchsia-400",
+      clip: "bg-fuchsia-500/25 border-fuchsia-400/60 text-fuchsia-100",
+      selected: "ring-1 ring-fuchsia-300 border-fuchsia-300 bg-fuchsia-500/35",
+      dot: "bg-fuchsia-400",
+      handle: "bg-fuchsia-400/35 hover:bg-fuchsia-300",
+    },
+    orange: {
+      badge: "text-orange-300 bg-orange-950/60 border-orange-500/40",
+      icon: "text-orange-400",
+      clip: "bg-orange-500/25 border-orange-400/60 text-orange-100",
+      selected: "ring-1 ring-orange-300 border-orange-300 bg-orange-500/35",
+      dot: "bg-orange-400",
+      handle: "bg-orange-400/35 hover:bg-orange-300",
+    },
+    indigo: {
+      badge: "text-indigo-300 bg-indigo-950/60 border-indigo-500/40",
+      icon: "text-indigo-400",
+      clip: "bg-indigo-500/25 border-indigo-400/60 text-indigo-100",
+      selected: "ring-1 ring-indigo-300 border-indigo-300 bg-indigo-500/35",
+      dot: "bg-indigo-400",
+      handle: "bg-indigo-400/35 hover:bg-indigo-300",
+    },
+    pink: {
+      badge: "text-pink-300 bg-pink-950/60 border-pink-500/40",
+      icon: "text-pink-400",
+      clip: "bg-pink-500/25 border-pink-400/60 text-pink-100",
+      selected: "ring-1 ring-pink-300 border-pink-300 bg-pink-500/35",
+      dot: "bg-pink-400",
+      handle: "bg-pink-400/35 hover:bg-pink-300",
+    },
+    blue: {
+      badge: "text-blue-300 bg-blue-950/60 border-blue-500/40",
+      icon: "text-blue-400",
+      clip: "bg-blue-500/25 border-blue-400/60 text-blue-100",
+      selected: "ring-1 ring-blue-300 border-blue-300 bg-blue-500/35",
+      dot: "bg-blue-400",
+      handle: "bg-blue-400/35 hover:bg-blue-300",
+    },
+    purple: {
+      badge: "text-purple-300 bg-purple-950/60 border-purple-500/40",
+      icon: "text-purple-400",
+      clip: "bg-purple-500/25 border-purple-400/60 text-purple-100",
+      selected: "ring-1 ring-purple-300 border-purple-300 bg-purple-500/35",
+      dot: "bg-purple-400",
+      handle: "bg-purple-400/35 hover:bg-purple-300",
+    },
+    slate: {
+      badge: "text-slate-300 bg-slate-900/80 border-slate-500/40",
+      icon: "text-slate-400",
+      clip: "bg-slate-500/25 border-slate-400/60 text-slate-200",
+      selected: "ring-1 ring-slate-300 border-slate-300 bg-slate-500/35",
+      dot: "bg-slate-300",
+      handle: "bg-slate-400/35 hover:bg-slate-300",
+    },
   };
 
-  const getTrackBarStyle = (
-    kind: VideoLayerSpec["kind"],
-    visible: boolean,
-    isSelected: boolean
-  ) => {
-    if (!visible) {
-      return "bg-[var(--bg-card)]/40 border-[var(--border-color)] text-[var(--text-muted)] opacity-40";
-    }
-    const base =
-      kind === "background"
-        ? "bg-amber-950/50 border-amber-600/40 text-amber-200"
-        : kind === "pattern"
-        ? "bg-orange-950/50 border-orange-500/40 text-orange-200"
-        : kind === "icon"
-        ? "bg-amber-500/20 border-amber-400/50 text-amber-100"
-        : "bg-[#f59e0b]/25 border-[#f59e0b]/60 text-[var(--text-primary)]";
+  const PALETTE_CYCLE = [
+    "violet",
+    "cyan",
+    "rose",
+    "amber",
+    "sky",
+    "fuchsia",
+    "orange",
+    "indigo",
+    "pink",
+    "blue",
+    "purple",
+    "slate",
+  ] as const;
 
-    return cn(base, isSelected && "ring-1 ring-amber-400 border-amber-400");
+  const getLayerPalette = (layer: VideoLayerSpec, idx: number): PremiereClipPalette => {
+    const byId: Record<string, keyof typeof PREMIERE_PALETTES> = {
+      "hud-category": "violet",
+      "hud-subcategory": "cyan",
+      "text-hook": "rose",
+      "text-bullet-0": "amber",
+      "text-bullet-1": "sky",
+      "text-bullet-2": "fuchsia",
+      "footer-icon": "orange",
+      "footer-author": "indigo",
+      "footer-tag": "pink",
+      "bg-grid-pattern": "blue",
+      "bg-orb-pattern": "purple",
+      "bg-base": "slate",
+    };
+    const key = byId[layer.id] ?? PALETTE_CYCLE[idx % PALETTE_CYCLE.length];
+    return PREMIERE_PALETTES[key];
+  };
+
+  const renderLayerIcon = (kind: VideoLayerSpec["kind"], iconClass: string) => {
+    switch (kind) {
+      case "background":
+        return <Layers className={cn("w-3 h-3 shrink-0", iconClass)} />;
+      case "pattern":
+        return <Sparkles className={cn("w-3 h-3 shrink-0", iconClass)} />;
+      case "icon":
+        return <Award className={cn("w-3 h-3 shrink-0", iconClass)} />;
+      case "text":
+        return <Type className={cn("w-3 h-3 shrink-0", iconClass)} />;
+    }
   };
 
   return (
@@ -432,8 +554,9 @@ export const Timeline: React.FC<TimelineProps> = ({
             }}
             className="flex-1 overflow-y-auto divide-y divide-[var(--border-color)]/50"
           >
-            {layers.map((layer) => {
+            {layers.map((layer, idx) => {
               const isSelected = layer.id === selectedLayerId;
+              const palette = getLayerPalette(layer, idx);
               return (
                 <div
                   key={layer.id}
@@ -449,10 +572,20 @@ export const Timeline: React.FC<TimelineProps> = ({
                   )}
                 >
                   <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                    <span className="w-7 text-[9px] font-mono font-bold text-amber-400/90 bg-[var(--bg-card)] border border-[var(--border-color)] rounded px-1 py-0.5 text-center shrink-0">
+                    <span
+                      className={cn(
+                        "w-7 text-[9px] font-mono font-bold border rounded px-1 py-0.5 text-center shrink-0",
+                        layer.visible
+                          ? palette.badge
+                          : "text-[var(--text-muted)] bg-[var(--bg-card)] border-[var(--border-color)] opacity-50"
+                      )}
+                    >
                       {layer.trackCode}
                     </span>
-                    {renderLayerIcon(layer.kind)}
+                    {renderLayerIcon(
+                      layer.kind,
+                      layer.visible ? palette.icon : "text-[var(--text-muted)]"
+                    )}
                     <span
                       className={cn(
                         "text-[11px] truncate",
@@ -472,7 +605,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                     }}
                     className={cn(
                       "p-1 rounded hover:bg-[var(--bg-card)] transition-colors cursor-pointer shrink-0",
-                      layer.visible ? "text-amber-400" : "text-[var(--text-muted)]"
+                      layer.visible ? palette.icon : "text-[var(--text-muted)]"
                     )}
                     title={layer.visible ? "Sembunyikan Layer" : "Tampilkan Layer"}
                   >
@@ -563,7 +696,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             }}
             className="flex-1 overflow-y-auto divide-y divide-[var(--border-color)]/40 relative"
           >
-            {layers.map((layer) => {
+            {layers.map((layer, idx) => {
               const leftPct = Math.min(
                 100,
                 (layer.from / Math.max(1, durationInFrames)) * 100
@@ -573,6 +706,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                 (layer.durationInFrames / Math.max(1, durationInFrames)) * 100
               );
               const isSelected = layer.id === selectedLayerId;
+              const palette = getLayerPalette(layer, idx);
 
               return (
                 <div
@@ -589,8 +723,10 @@ export const Timeline: React.FC<TimelineProps> = ({
                     style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                     onMouseDown={(e) => startClipDrag(e, layer, "move")}
                     className={cn(
-                      "group absolute top-1 bottom-1 rounded border flex items-center justify-between overflow-hidden cursor-grab active:cursor-grabbing select-none",
-                      getTrackBarStyle(layer.kind, layer.visible, isSelected)
+                      "group absolute top-1 bottom-1 rounded border flex items-center justify-between overflow-hidden cursor-grab active:cursor-grabbing select-none transition-colors",
+                      !layer.visible
+                        ? "bg-[var(--bg-card)]/40 border-[var(--border-color)] text-[var(--text-muted)] opacity-40"
+                        : cn(palette.clip, isSelected && palette.selected)
                     )}
                     title={`${layer.trackCode} ${layer.label} (${layer.from}f – ${
                       layer.from + layer.durationInFrames
@@ -599,13 +735,21 @@ export const Timeline: React.FC<TimelineProps> = ({
                     {/* Left Trim Handle */}
                     <div
                       onMouseDown={(e) => startClipDrag(e, layer, "trim-start")}
-                      className="w-1.5 h-full bg-amber-400/30 hover:bg-amber-400 cursor-ew-resize shrink-0 transition-colors"
+                      className={cn(
+                        "w-1.5 h-full cursor-ew-resize shrink-0 transition-colors",
+                        palette.handle
+                      )}
                       title="Trim Start Frame"
                     />
 
                     <div className="px-1.5 flex items-center justify-between gap-2 min-w-0 flex-1">
                       <span className="text-[10px] font-medium truncate flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                        <span
+                          className={cn(
+                            "w-1.5 h-1.5 rounded-full shrink-0",
+                            layer.visible ? palette.dot : "bg-[var(--text-muted)]"
+                          )}
+                        />
                         {layer.label}
                       </span>
                       <span className="text-[9px] font-mono opacity-80 shrink-0">
@@ -616,7 +760,10 @@ export const Timeline: React.FC<TimelineProps> = ({
                     {/* Right Trim Handle */}
                     <div
                       onMouseDown={(e) => startClipDrag(e, layer, "trim-end")}
-                      className="w-1.5 h-full bg-amber-400/30 hover:bg-amber-400 cursor-ew-resize shrink-0 transition-colors"
+                      className={cn(
+                        "w-1.5 h-full cursor-ew-resize shrink-0 transition-colors",
+                        palette.handle
+                      )}
                       title="Trim End Frame"
                     />
                   </div>
