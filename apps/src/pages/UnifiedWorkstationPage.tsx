@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { WorkstationLeftExplorer } from "../components/workstation/WorkstationLeftExplorer";
 import { WorkstationActivityBar, type SidebarView } from "../components/workstation/activity/WorkstationActivityBar";
 import { WorkspaceSearchPanel } from "../components/workstation/search/WorkspaceSearchPanel";
+import { CompositionsPanel } from "../components/studio/panels/CompositionsPanel";
 import { WorkstationCenterPanel } from "../components/workstation/WorkstationCenterPanel";
 import { WorkstationRightChat } from "../components/workstation/WorkstationRightChat";
 import { ConnectFolderModal } from "../components/workstation/ConnectFolderModal";
@@ -14,6 +15,7 @@ import { useWorkstationChat } from "../components/workstation/chat/useWorkstatio
 import { useWorkstationSession } from "../components/workstation/hooks/useWorkstationSession";
 import { useWorkstationFiles } from "../components/workstation/hooks/useWorkstationFiles";
 import { useWorkstationLayout } from "../components/workstation/hooks/useWorkstationLayout";
+import { useStudioStore } from "../hooks/useStudioStore";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
 
 export function UnifiedWorkstationPage() {
@@ -93,7 +95,11 @@ export function UnifiedWorkstationPage() {
   });
 
   const [showQuickOpenModal, setShowQuickOpenModal] = useState(false);
-  const [activeSidebarView, setActiveSidebarView] = useState<SidebarView>("explorer");
+  const [activeSidebarView, setActiveSidebarView] = useState<SidebarView>("compositions");
+  const { renderJobs } = useStudioStore();
+  const activeRenderCount =
+    renderJobs.filter((j) => j.status === "rendering" || j.status === "pending").length ||
+    renderJobs.length;
 
   const handleSelectSidebarView = useCallback(
     (view: SidebarView) => {
@@ -115,11 +121,20 @@ export function UnifiedWorkstationPage() {
       setActiveSidebarView("search");
       if (leftCollapsed) handleToggleLeft();
     };
+    const handleOpenSidebarView = (e: Event) => {
+      const custom = e as CustomEvent<SidebarView>;
+      if (custom.detail) {
+        setActiveSidebarView(custom.detail);
+        if (leftCollapsed) handleToggleLeft();
+      }
+    };
     window.addEventListener("arunaki-quick-open-file", handleQuickOpenEvent);
     window.addEventListener("arunaki-workspace-search", handleWorkspaceSearchEvent);
+    window.addEventListener("arunaki-open-sidebar-view", handleOpenSidebarView);
     return () => {
       window.removeEventListener("arunaki-quick-open-file", handleQuickOpenEvent);
       window.removeEventListener("arunaki-workspace-search", handleWorkspaceSearchEvent);
+      window.removeEventListener("arunaki-open-sidebar-view", handleOpenSidebarView);
     };
   }, [leftCollapsed, handleToggleLeft]);
 
@@ -130,12 +145,20 @@ export function UnifiedWorkstationPage() {
         className="flex-1 flex overflow-hidden relative"
         style={{ "--left-panel-width": "256px", "--right-panel-width": "320px" } as React.CSSProperties}
       >
-        {/* Activity Bar on far left (VS Code parity) */}
+        {/* Activity Bar on far left (6 Remotion + VS Code icons) */}
         <WorkstationActivityBar
           activeView={activeSidebarView}
           isCollapsed={leftCollapsed}
           onSelectView={handleSelectSidebarView}
+          renderJobCount={activeRenderCount}
         />
+
+        {!leftCollapsed && activeSidebarView === "compositions" && (
+          <CompositionsPanel
+            width="var(--left-panel-width)"
+            onClose={handleCloseLeft}
+          />
+        )}
 
         {!leftCollapsed && activeSidebarView === "explorer" && (
           <WorkstationLeftExplorer

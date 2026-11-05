@@ -1,0 +1,321 @@
+import { memo, useMemo, useState } from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Clapperboard,
+  Copy,
+  Film,
+  PanelLeftClose,
+  Plus,
+  RotateCw,
+  Search,
+  Trash2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useStudioStore } from "../../../hooks/useStudioStore";
+import { cn } from "../../../lib/utils";
+import type { StudioComposition } from "../../../types/studio";
+
+interface CompositionsPanelProps {
+  onClose: () => void;
+  width?: number | string;
+}
+
+export const CompositionsPanel = memo(function CompositionsPanel({
+  onClose,
+  width = "var(--left-panel-width, 256px)",
+}: CompositionsPanelProps) {
+  const { compositions, activeComposition, actions } = useStudioStore();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newRatio, setNewRatio] = useState<"9:16" | "1:1" | "16:9">("9:16");
+  const [newDuration, setNewDuration] = useState(5);
+  const [newFps, setNewFps] = useState(30);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const grouped = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const filtered = q
+      ? compositions.filter(
+          (c) =>
+            c.name.toLowerCase().includes(q) ||
+            c.id.toLowerCase().includes(q) ||
+            c.folder.toLowerCase().includes(q)
+        )
+      : compositions;
+
+    const map = new Map<string, StudioComposition[]>();
+    for (const comp of filtered) {
+      const folder = comp.folder || "COMPOSITIONS";
+      const list = map.get(folder) ?? [];
+      list.push(comp);
+      map.set(folder, list);
+    }
+    return Array.from(map.entries());
+  }, [compositions, searchQuery]);
+
+  const handleToggleFolder = (folder: string) => {
+    setCollapsedFolders((prev) => ({ ...prev, [folder]: !prev[folder] }));
+  };
+
+  const handleCreate = () => {
+    if (!newName.trim()) {
+      toast.error("Masukkan nama komposisi terlebih dahulu");
+      return;
+    }
+    const created = actions.createComposition({
+      name: newName.trim(),
+      ratio: newRatio,
+      duration: newDuration,
+      fps: newFps,
+    });
+    setNewName("");
+    setShowNewForm(false);
+    toast.success(`Komposisi "${created.name}" dibuat`);
+  };
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    await actions.syncFromBackend();
+    setIsSyncing(false);
+    toast.success("Daftar komposisi disinkronkan");
+  };
+
+  return (
+    <aside
+      className="bg-[var(--bg-panel)] text-[var(--text-primary)] border-r border-[var(--border-color)] flex flex-col shrink-0 transition-colors duration-150 select-none"
+      style={{ width }}
+    >
+      {/* Panel Header */}
+      <div className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0">
+        <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2">
+          <Clapperboard className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={2} />
+          <span>Compositions</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] font-mono text-[var(--text-muted)]">
+            {compositions.length}
+          </span>
+        </span>
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => setShowNewForm((prev) => !prev)}
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            title="New Composition (Ctrl+N)"
+          >
+            <Plus className="w-3.5 h-3.5" strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            onClick={handleSync}
+            className={cn(
+              "text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer",
+              isSyncing && "animate-spin"
+            )}
+            title="Sync Compositions from Engine"
+          >
+            <RotateCw className="w-3.5 h-3.5" strokeWidth={1.5} />
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            title="Close Panel (Ctrl+B)"
+          >
+            <PanelLeftClose className="w-4 h-4" strokeWidth={1.5} />
+          </button>
+        </div>
+      </div>
+
+      {/* Search Bar */}
+      <div className="p-2 border-b border-[var(--border-color)] shrink-0">
+        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] focus-within:border-[var(--border-strong)]">
+          <Search className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search compositions..."
+            className="w-full bg-transparent text-xs text-[var(--text-primary)] placeholder:text-[var(--text-dim)] outline-none"
+          />
+        </div>
+      </div>
+
+      {/* Inline New Composition Form */}
+      {showNewForm && (
+        <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)]/60 space-y-2.5 shrink-0">
+          <div className="text-[11px] font-semibold text-[var(--text-primary)] flex items-center justify-between">
+            <span>New Remotion Composition</span>
+            <button
+              type="button"
+              onClick={() => setShowNewForm(false)}
+              className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Composition ID / Name..."
+            autoFocus
+            className="w-full px-2.5 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
+          />
+          <div className="grid grid-cols-3 gap-1.5">
+            {(["9:16", "1:1", "16:9"] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setNewRatio(r)}
+                className={cn(
+                  "py-1 rounded-md text-[11px] font-mono border cursor-pointer transition-colors",
+                  newRatio === r
+                    ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)] font-semibold"
+                    : "bg-[var(--bg-input)] text-[var(--text-muted)] border-[var(--border-color)] hover:text-[var(--text-primary)]"
+                )}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] text-[var(--text-muted)] mb-1">Duration (s)</label>
+              <input
+                type="number"
+                min={1}
+                max={180}
+                value={newDuration}
+                onChange={(e) => setNewDuration(Math.max(1, Number(e.target.value) || 5))}
+                className="w-full px-2 py-1 rounded-md bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-primary)] outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-[var(--text-muted)] mb-1">FPS</label>
+              <select
+                value={newFps}
+                onChange={(e) => setNewFps(Number(e.target.value))}
+                className="w-full px-2 py-1 rounded-md bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-primary)] outline-none"
+              >
+                <option value={24}>24 FPS</option>
+                <option value={30}>30 FPS</option>
+                <option value={60}>60 FPS</option>
+              </select>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleCreate}
+            className="w-full py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-medium cursor-pointer transition-colors"
+          >
+            Create Composition
+          </button>
+        </div>
+      )}
+
+      {/* Folder Tree List */}
+      <div className="flex-1 overflow-y-auto py-1.5 px-1.5 space-y-2">
+        {grouped.map(([folder, items]) => {
+          const isCollapsed = !!collapsedFolders[folder];
+          return (
+            <div key={folder} className="space-y-0.5">
+              <button
+                type="button"
+                onClick={() => handleToggleFolder(folder)}
+                className="w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]/60 transition-colors cursor-pointer"
+              >
+                <span className="flex items-center gap-1.5 truncate">
+                  {isCollapsed ? (
+                    <ChevronRight className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+                  )}
+                  <span className="truncate tracking-wide">{folder}</span>
+                </span>
+                <span className="text-[10px] font-mono text-[var(--text-dim)]">{items.length}</span>
+              </button>
+
+              {!isCollapsed && (
+                <div className="space-y-0.5 pl-2">
+                  {items.map((comp) => {
+                    const isSelected = comp.id === activeComposition.id;
+                    return (
+                      <div
+                        key={comp.id}
+                        onClick={() => actions.selectComposition(comp.id)}
+                        className={cn(
+                          "group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-all border",
+                          isSelected
+                            ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)] shadow-xs"
+                            : "bg-transparent text-[var(--text-secondary)] border-transparent hover:bg-[var(--bg-hover)]/60 hover:text-[var(--text-primary)]"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <Film
+                            className={cn(
+                              "w-3.5 h-3.5 shrink-0",
+                              isSelected ? "text-emerald-400" : "text-[var(--text-muted)]"
+                            )}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate font-medium leading-tight">{comp.name}</div>
+                            <div className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--text-muted)] mt-0.5">
+                              <span>{comp.ratio}</span>
+                              <span>·</span>
+                              <span>{comp.duration}s</span>
+                              <span>·</span>
+                              <span>{comp.fps}fps</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const copy = actions.duplicateComposition(comp.id);
+                              if (copy) toast.success(`Duplicated "${copy.name}"`);
+                            }}
+                            title="Duplicate Composition"
+                            className="p-1 rounded hover:bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                          {compositions.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                actions.deleteComposition(comp.id);
+                                toast.info(`Removed "${comp.name}"`);
+                              }}
+                              title="Delete Composition"
+                              className="p-1 rounded hover:bg-rose-500/20 text-[var(--text-muted)] hover:text-rose-400 cursor-pointer"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Bottom Active Composition Summary Footer */}
+      <div className="p-2.5 border-t border-[var(--border-color)] bg-[var(--bg-card)]/40 flex items-center justify-between text-[11px] shrink-0">
+        <span className="text-[var(--text-muted)] truncate">Active:</span>
+        <span className="font-mono text-[var(--text-primary)] font-medium truncate max-w-[160px]">
+          {activeComposition.width}×{activeComposition.height} · {Math.round(activeComposition.duration * activeComposition.fps)}f
+        </span>
+      </div>
+    </aside>
+  );
+});

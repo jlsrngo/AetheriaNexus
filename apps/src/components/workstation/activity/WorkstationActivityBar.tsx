@@ -1,25 +1,87 @@
 import { memo } from "react";
-import { Files, Search, type LucideIcon } from "lucide-react";
+import {
+  Clapperboard,
+  Files,
+  SlidersHorizontal,
+  Layers,
+  Download,
+  Search,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useTheme } from "../../../lib/theme";
 
-export type SidebarView = "explorer" | "search";
+export type SidebarView =
+  | "compositions"
+  | "explorer"
+  | "inspector"
+  | "elements"
+  | "renders"
+  | "search";
 
 interface WorkstationActivityBarProps {
   activeView: SidebarView;
   isCollapsed: boolean;
   onSelectView: (view: SidebarView) => void;
+  renderJobCount?: number;
 }
 
-const ITEMS: { view: SidebarView; label: string; icon: LucideIcon; neoOn: string; neoOff: string }[] = [
-  { view: "explorer", label: "Explorer", icon: Files, neoOn: "bg-[#CCFF00]", neoOff: "bg-[#FFFDFB] hover:bg-[#CCFF00]" },
-  { view: "search", label: "Search", icon: Search, neoOn: "bg-[#FF9F43]", neoOff: "bg-[#FFFDFB] hover:bg-[#FF9F43]" },
+const ITEMS: {
+  view: SidebarView;
+  label: string;
+  icon: LucideIcon;
+  neoOn: string;
+  neoOff: string;
+}[] = [
+  {
+    view: "compositions",
+    label: "Compositions (Scene)",
+    icon: Clapperboard,
+    neoOn: "bg-[#CCFF00]",
+    neoOff: "bg-[#FFFDFB] hover:bg-[#CCFF00]",
+  },
+  {
+    view: "explorer",
+    label: "Assets & Explorer",
+    icon: Files,
+    neoOn: "bg-[#A3E635]",
+    neoOff: "bg-[#FFFDFB] hover:bg-[#A3E635]",
+  },
+  {
+    view: "inspector",
+    label: "Inspector & Properties",
+    icon: SlidersHorizontal,
+    neoOn: "bg-[#B388FF]",
+    neoOff: "bg-[#FFFDFB] hover:bg-[#B388FF]",
+  },
+  {
+    view: "elements",
+    label: "Elements & Captions",
+    icon: Layers,
+    neoOn: "bg-[#FFD166]",
+    neoOff: "bg-[#FFFDFB] hover:bg-[#FFD166]",
+  },
+  {
+    view: "renders",
+    label: "Render Queue (Jobs)",
+    icon: Download,
+    neoOn: "bg-[#FF9F43]",
+    neoOff: "bg-[#FFFDFB] hover:bg-[#FF9F43]",
+  },
+  {
+    view: "search",
+    label: "Search",
+    icon: Search,
+    neoOn: "bg-[#67E8F9]",
+    neoOff: "bg-[#FFFDFB] hover:bg-[#67E8F9]",
+  },
 ];
 
 export const WorkstationActivityBar = memo(function WorkstationActivityBar({
   activeView,
   isCollapsed,
   onSelectView,
+  renderJobCount = 0,
 }: WorkstationActivityBarProps) {
   const { isNeobrutalism } = useTheme();
 
@@ -54,6 +116,21 @@ export const WorkstationActivityBar = memo(function WorkstationActivityBar({
                 <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-[var(--text-primary)] rounded-r" />
               )}
               <Icon className="w-4 h-4 stroke-[1.8]" />
+
+              {view === "renders" && renderJobCount > 0 && (
+                <span
+                  className={cn(
+                    "absolute -top-1 -right-1 min-w-[17px] h-[17px] px-0.5 rounded-full text-[10px] font-bold leading-none flex items-center justify-center text-center pointer-events-none select-none",
+                    isNeobrutalism
+                      ? "bg-[#FF9F43] text-[#141413] border border-[#141413]"
+                      : "bg-[#0078d4] text-white"
+                  )}
+                >
+                  <span className="inline-block transform -translate-y-[0.5px]">
+                    {renderJobCount > 99 ? "99+" : renderJobCount}
+                  </span>
+                </span>
+              )}
             </button>
           );
         })}
