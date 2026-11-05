@@ -97,7 +97,7 @@ These guidelines are functioning effectively when:
 
 ---
 
-## 5. UI Design System: Rounded Workstation (Arunaki Agent parity)
+## 5. UI Design System: Normal UI
 
 **Rujukan visual:** aplikasi Arunaki Agent. Rencana migrasi dan selisih per area ada di
 [`UI_PARITY_PLAN.md`](UI_PARITY_PLAN.md).
@@ -114,7 +114,7 @@ Semua komponen UI aplikasi desktop ini **WAJIB** mengikuti aturan berikut:
    * Shadow hanya untuk elemen mengambang (nav pill, dropdown, modal).
 3. **Tipografi:**
    * **Inter** untuk label, judul, isi, dan tombol.
-   * **Monospace** hanya untuk angka dan telemetri: ukuran file, frame, FPS, timestamp, kode.
+   * **Monospace** hanya untuk angka: ukuran file, frame, FPS, timestamp, kode.
    * Label kecil boleh all-caps + `tracking-wide`, tetapi tidak wajib.
 4. **Palet Netral Gelap:**
    * App `#0A0A0C`, panel `#121215`, kartu `#1A1A1F`, border `#26262C`.

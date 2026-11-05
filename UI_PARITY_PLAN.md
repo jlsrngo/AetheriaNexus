@@ -15,7 +15,7 @@ Status: **rencana saja, belum ada kode yang diubah.**
 | K2 | **Menu Edit & Apps.** Di Arunaki Agent ada File/Edit/View/Apps/Help; di Nexus hanya Berkas/Tampilan/Bantuan yang benar-benar berfungsi (`EditMenu`/`AppsMenu` memanggil event tanpa listener). | Tetap 3 menu. Menambah menu mati = kontrol palsu. |
 | K3 | **Tombol akun** di kanan atas referensi. Nexus belum punya sistem akun. | Tombol Settings yang sudah ada, bukan avatar palsu. |
 
-Rounded sudah diputuskan: `AGENTS.md` §5 sudah diperbarui ke *Rounded Workstation*, jadi tidak ada lagi
+Rounded sudah diputuskan: `AGENTS.md` §5 sudah diperbarui ke *Normal UI*, jadi tidak ada lagi
 aturan sudut 0° yang bertentangan.
 
 ---
@@ -54,7 +54,7 @@ aturan sudut 0° yang bertentangan.
 ```
 
 Font: `Inter` untuk UI (sudah dimuat di `index.css` baris 1), `font-mono` dipertahankan hanya untuk
-angka dan telemetri.
+angka.
 
 **Cara menerapkan radius tanpa 153 suntingan manual:** tambahkan satu override utilitas di
 `index.css`, lalu ganti nama token saat komponen disentuh.

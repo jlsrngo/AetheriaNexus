@@ -2,7 +2,7 @@
 
 **Version:** 1.0.0  
 **Status:** Canonical Architecture Specification  
-**Design Language:** Rounded Workstation UI (Arunaki Agent parity)  
+**Design Language:** Normal, rounded UI (Arunaki Agent parity)  
 
 ---
 
