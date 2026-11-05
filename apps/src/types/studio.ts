@@ -69,3 +69,4 @@ export interface StudioCanvasSettings {
   inFrame: number | null;
   outFrame: number | null;
 }
+

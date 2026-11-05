@@ -319,3 +319,4 @@ export const CompositionsPanel = memo(function CompositionsPanel({
     </aside>
   );
 });
+

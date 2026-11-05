@@ -395,3 +395,4 @@ export function InspectorPanel({ width = 256, onClose }: InspectorPanelProps) {
     </aside>
   );
 }
+
