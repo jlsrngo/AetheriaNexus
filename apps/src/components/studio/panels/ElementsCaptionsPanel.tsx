@@ -2,6 +2,8 @@ import { useState } from "react";
 import {
   Sparkles,
   PanelLeftClose,
+  GripHorizontal,
+  X,
   Type,
   Captions,
   Wand2,
@@ -19,6 +21,7 @@ import type { StudioSubtitleCue } from "../../../types/studio";
 interface ElementsCaptionsPanelProps {
   width?: number | string;
   onClose: () => void;
+  isFloating?: boolean;
 }
 
 const VIRAL_HOOK_PRESETS = [
@@ -56,8 +59,9 @@ const CAPTION_STYLES: Array<{
 ];
 
 export function ElementsCaptionsPanel({
-  width = 256,
+  width = "100%",
   onClose,
+  isFloating = false,
 }: ElementsCaptionsPanelProps) {
   const {
     activeComposition,
@@ -195,18 +199,26 @@ export function ElementsCaptionsPanel({
       style={{ width }}
     >
       {/* Header */}
-      <div className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0">
-        <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-amber-400" strokeWidth={2} />
-          Elements & Captions
+      <div
+        className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0"
+        title="Drag header to detach into a floating resizable window"
+      >
+        <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5 min-w-0">
+          <GripHorizontal className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+          <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" strokeWidth={2} />
+          <span className="truncate">Elements & Captions</span>
         </span>
         <button
           type="button"
           onClick={onClose}
-          className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-          title="Close Panel (Ctrl+B)"
+          className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+          title={isFloating ? "Return to Sidebar" : "Close Panel (Ctrl+B)"}
         >
-          <PanelLeftClose className="w-4 h-4" strokeWidth={1.5} />
+          {isFloating ? (
+            <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+          ) : (
+            <PanelLeftClose className="w-3.5 h-3.5" strokeWidth={1.75} />
+          )}
         </button>
       </div>
 

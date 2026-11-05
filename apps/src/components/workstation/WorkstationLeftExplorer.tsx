@@ -1,5 +1,5 @@
 import { useMemo, useEffect, memo } from "react";
-import { Folder, FolderOpen, FolderX, PanelLeftClose, PanelLeftOpen, RotateCw, Trash2 } from "lucide-react";
+import { Folder, FolderOpen, FolderX, GripHorizontal, PanelLeftClose, PanelLeftOpen, RotateCw, Trash2, X } from "lucide-react";
 import FileTree from "../workspace/FileTree";
 import { CanvasItem, WorkspaceFile, Workspace } from "./explorer/types";
 import { useNativeFileTree } from "./explorer/useNativeFileTree";
@@ -22,6 +22,7 @@ interface WorkstationLeftExplorerProps {
   onNativeFilesChange?: (names: string[]) => void;
   recentCanvases?: CanvasItem[];
   onOpenCanvasTab?: (item: CanvasItem) => void;
+  isFloating?: boolean;
 }
 
 function WorkstationLeftExplorerComponent({
@@ -32,9 +33,10 @@ function WorkstationLeftExplorerComponent({
   workspaceFiles,
   onOpenFileTab,
   onOpenFolderModal,
-  width = 256,
+  width = "100%",
   onNativeFilesChange,
   onCloseFolder,
+  isFloating = false,
 }: WorkstationLeftExplorerProps) {
   const { t } = useI18n();
 
@@ -117,18 +119,22 @@ function WorkstationLeftExplorerComponent({
       style={{ width }}
     >
       {/* Panel Header */}
-      <div className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0">
-        <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2">
-          <Folder className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={2} />
-          {t("explorer", "Explorer")}
+      <div
+        className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0"
+        title="Drag header to detach into a floating resizable window"
+      >
+        <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5 min-w-0">
+          <GripHorizontal className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+          <Folder className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" strokeWidth={2} />
+          <span className="truncate">{t("explorer", "Explorer")}</span>
         </span>
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1 shrink-0">
           {activeWorkspace?.rootPath ? (
             <>
               <button
                 type="button"
                 onClick={handleRefresh}
-                className={`text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer ${isRefreshing ? "animate-spin" : ""}`}
+                className={`w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer ${isRefreshing ? "animate-spin" : ""}`}
                 title={t("refreshExplorer", "Refresh Explorer")}
                 disabled={isRefreshing}
               >
@@ -138,10 +144,10 @@ function WorkstationLeftExplorerComponent({
                 <button
                   type="button"
                   onClick={onCloseFolder}
-                  className="text-[var(--text-muted)] hover:text-red-500 p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                  className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-red-500 hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
                   title={t("closeFolderTooltip", "Close Folder")}
                 >
-                  <FolderX className="w-4 h-4" strokeWidth={1.5} />
+                  <FolderX className="w-3.5 h-3.5" strokeWidth={1.5} />
                 </button>
               )}
             </>
@@ -150,7 +156,7 @@ function WorkstationLeftExplorerComponent({
               <button
                 type="button"
                 onClick={onOpenFolderModal}
-                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
                 title={t("openFolder", "Open Folder...")}
               >
                 <FolderOpen className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -159,11 +165,15 @@ function WorkstationLeftExplorerComponent({
           )}
           <button
             type="button"
-            onClick={handleToggle}
-            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-            title={`${t("closeExplorer", "Close Explorer")} (Ctrl+B)`}
+            onClick={isFloating ? onClose : handleToggle}
+            className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
+            title={isFloating ? "Return to Sidebar" : `${t("closeExplorer", "Close Explorer")} (Ctrl+B)`}
           >
-            <PanelLeftClose className="w-4 h-4" strokeWidth={1.5} />
+            {isFloating ? (
+              <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+            ) : (
+              <PanelLeftClose className="w-3.5 h-3.5" strokeWidth={1.75} />
+            )}
           </button>
         </div>
       </div>

@@ -8,6 +8,10 @@ import { CompositionsPanel } from "../components/studio/panels/CompositionsPanel
 import { InspectorPanel } from "../components/studio/panels/InspectorPanel";
 import { ElementsCaptionsPanel } from "../components/studio/panels/ElementsCaptionsPanel";
 import { RenderQueuePanel } from "../components/studio/panels/RenderQueuePanel";
+import {
+  DetachablePanelShell,
+  type FloatingPanelGeometry,
+} from "../components/studio/panels/DetachablePanelShell";
 import { WorkstationCenterPanel } from "../components/workstation/WorkstationCenterPanel";
 import { WorkstationRightChat } from "../components/workstation/WorkstationRightChat";
 import { ConnectFolderModal } from "../components/workstation/ConnectFolderModal";
@@ -99,22 +103,86 @@ export function UnifiedWorkstationPage() {
 
   const [showQuickOpenModal, setShowQuickOpenModal] = useState(false);
   const [activeSidebarView, setActiveSidebarView] = useState<SidebarView>("compositions");
-  const [isInspectorFloating, setIsInspectorFloating] = useState(false);
-  const [inspectorFloatPos, setInspectorFloatPos] = useState<{ x: number; y: number }>({
-    x: 84,
-    y: 68,
-  });
+  const [floatingPanels, setFloatingPanels] = useState<
+    Partial<Record<SidebarView, FloatingPanelGeometry>>
+  >({});
+  const [, setTopZIndex] = useState(55);
+
   const { renderJobs } = useStudioStore();
   const activeRenderCount =
     renderJobs.filter((j) => j.status === "rendering" || j.status === "pending").length ||
     renderJobs.length;
 
+  const handleFloatPanel = useCallback(
+    (view: SidebarView, pos: { x: number; y: number }) => {
+      setTopZIndex((prevZ) => {
+        const nextZ = prevZ + 1;
+        setFloatingPanels((prev) => ({
+          ...prev,
+          [view]: {
+            x: pos.x,
+            y: pos.y,
+            width: prev[view]?.width ?? 310,
+            zIndex: nextZ,
+          },
+        }));
+        return nextZ;
+      });
+      if (!leftCollapsed && activeSidebarView === view) {
+        handleCloseLeft();
+      }
+    },
+    [leftCollapsed, activeSidebarView, handleCloseLeft]
+  );
+
+  const handleDockPanelBack = useCallback(
+    (view: SidebarView) => {
+      setFloatingPanels((prev) => {
+        const next = { ...prev };
+        delete next[view];
+        return next;
+      });
+      setActiveSidebarView(view);
+      if (leftCollapsed) {
+        handleToggleLeft();
+      }
+    },
+    [leftCollapsed, handleToggleLeft]
+  );
+
+  const handleUpdateFloatingGeometry = useCallback(
+    (view: SidebarView, patch: Partial<FloatingPanelGeometry>) => {
+      setFloatingPanels((prev) => {
+        const cur = prev[view];
+        if (!cur) return prev;
+        return {
+          ...prev,
+          [view]: { ...cur, ...patch },
+        };
+      });
+    },
+    []
+  );
+
+  const handleFocusFloatingPanel = useCallback((view: SidebarView) => {
+    setTopZIndex((prevZ) => {
+      const nextZ = prevZ + 1;
+      setFloatingPanels((prev) => {
+        const cur = prev[view];
+        if (!cur || cur.zIndex === prevZ) return prev;
+        return {
+          ...prev,
+          [view]: { ...cur, zIndex: nextZ },
+        };
+      });
+      return nextZ;
+    });
+  }, []);
+
   const handleSelectSidebarView = useCallback(
     (view: SidebarView) => {
-      if (view === "inspector" && isInspectorFloating) {
-        setIsInspectorFloating(false);
-        setActiveSidebarView("inspector");
-        if (leftCollapsed) handleToggleLeft();
+      if (floatingPanels[view]) {
+        handleDockPanelBack(view);
         return;
       }
       if (leftCollapsed) {
@@ -126,8 +194,81 @@ export function UnifiedWorkstationPage() {
         setActiveSidebarView(view);
       }
     },
-    [leftCollapsed, activeSidebarView, handleToggleLeft, isInspectorFloating]
+    [leftCollapsed, activeSidebarView, handleToggleLeft, floatingPanels, handleDockPanelBack]
   );
+
+  const renderPanelContent = (view: SidebarView, isFloating: boolean) => {
+    const onCloseAction = isFloating
+      ? () => handleDockPanelBack(view)
+      : handleCloseLeft;
+
+    switch (view) {
+      case "compositions":
+        return (
+          <CompositionsPanel
+            width="100%"
+            isFloating={isFloating}
+            onClose={onCloseAction}
+          />
+        );
+      case "inspector":
+        return (
+          <InspectorPanel
+            width="100%"
+            isFloating={isFloating}
+            onClose={onCloseAction}
+          />
+        );
+      case "elements":
+        return (
+          <ElementsCaptionsPanel
+            width="100%"
+            isFloating={isFloating}
+            onClose={onCloseAction}
+          />
+        );
+      case "renders":
+        return (
+          <RenderQueuePanel
+            width="100%"
+            isFloating={isFloating}
+            onClose={onCloseAction}
+          />
+        );
+      case "explorer":
+        return (
+          <WorkstationLeftExplorer
+            collapsed={false}
+            isFloating={isFloating}
+            onClose={onCloseAction}
+            onToggle={isFloating ? onCloseAction : handleToggleLeft}
+            activeWorkspace={activeWorkspace}
+            workspaceFiles={workspaceFiles}
+            onOpenFileTab={tabs.handleOpenFileTab}
+            onOpenFolderModal={handleOpenFolderModal}
+            onCloseFolder={handleCloseFolderAction}
+            width="100%"
+            onNativeFilesChange={setNativeFileNames}
+            recentCanvases={tabs.recentCanvases}
+            onOpenCanvasTab={tabs.handleOpenCanvasTab}
+          />
+        );
+      case "search":
+        return (
+          <WorkspaceSearchPanel
+            activeFolder={activeFolder}
+            workspaceFiles={workspaceFiles}
+            onOpenFileTab={tabs.handleOpenFileTab}
+            isFloating={isFloating}
+            onClose={onCloseAction}
+            onToggle={isFloating ? onCloseAction : handleToggleLeft}
+            width="100%"
+          />
+        );
+    }
+  };
+
+  const isCurrentSidebarFloating = Boolean(floatingPanels[activeSidebarView]);
 
   useEffect(() => {
     const handleQuickOpenEvent = () => setShowQuickOpenModal((prev) => !prev);
@@ -167,86 +308,46 @@ export function UnifiedWorkstationPage() {
           renderJobCount={activeRenderCount}
         />
 
-        {!leftCollapsed && activeSidebarView === "compositions" && (
-          <CompositionsPanel
-            width="var(--left-panel-width)"
-            onClose={handleCloseLeft}
-          />
+        {/* Docked Left Sidebar Panel (Can be dragged out into a floating window) */}
+        {!leftCollapsed && !isCurrentSidebarFloating && (
+          <DetachablePanelShell
+            isFloating={false}
+            dockedWidth="var(--left-panel-width)"
+            onFloat={(pos) => handleFloatPanel(activeSidebarView, pos)}
+            onUpdateGeometry={(patch) =>
+              handleUpdateFloatingGeometry(activeSidebarView, patch)
+            }
+          >
+            {renderPanelContent(activeSidebarView, false)}
+          </DetachablePanelShell>
         )}
 
-        {!leftCollapsed && activeSidebarView === "inspector" && !isInspectorFloating && (
-          <InspectorPanel
-            width="var(--left-panel-width)"
-            onClose={handleCloseLeft}
-            onFloat={(pos) => {
-              if (pos) setInspectorFloatPos(pos);
-              setIsInspectorFloating(true);
-              handleCloseLeft();
-            }}
-          />
-        )}
-
-        {isInspectorFloating && (
-          <InspectorPanel
-            isFloating
-            initialFloatPos={inspectorFloatPos}
-            onDock={() => {
-              setIsInspectorFloating(false);
-              setActiveSidebarView("inspector");
-              if (leftCollapsed) handleToggleLeft();
-            }}
-            onClose={() => setIsInspectorFloating(false)}
-          />
-        )}
-
-        {!leftCollapsed && activeSidebarView === "elements" && (
-          <ElementsCaptionsPanel
-            width="var(--left-panel-width)"
-            onClose={handleCloseLeft}
-          />
-        )}
-
-        {!leftCollapsed && activeSidebarView === "renders" && (
-          <RenderQueuePanel
-            width="var(--left-panel-width)"
-            onClose={handleCloseLeft}
-          />
-        )}
-
-        {!leftCollapsed && activeSidebarView === "explorer" && (
-          <WorkstationLeftExplorer
-            collapsed={false}
-            onClose={handleCloseLeft}
-            onToggle={handleToggleLeft}
-            activeWorkspace={activeWorkspace}
-            workspaceFiles={workspaceFiles}
-            onOpenFileTab={tabs.handleOpenFileTab}
-            onOpenFolderModal={handleOpenFolderModal}
-            onCloseFolder={handleCloseFolderAction}
-            width="var(--left-panel-width)"
-            onNativeFilesChange={setNativeFileNames}
-            recentCanvases={tabs.recentCanvases}
-            onOpenCanvasTab={tabs.handleOpenCanvasTab}
-          />
-        )}
-
-        {!leftCollapsed && activeSidebarView === "search" && (
-          <WorkspaceSearchPanel
-            activeFolder={activeFolder}
-            workspaceFiles={workspaceFiles}
-            onOpenFileTab={tabs.handleOpenFileTab}
-            onClose={handleCloseLeft}
-            onToggle={handleToggleLeft}
-            width="var(--left-panel-width)"
-          />
-        )}
-
-        {!leftCollapsed && (
+        {!leftCollapsed && !isCurrentSidebarFloating && (
           <div
             className="w-1 cursor-col-resize bg-transparent shrink-0 hover:bg-[var(--border-strong)] transition-colors"
             onMouseDown={(e) => startDrag("left", e)}
           />
         )}
+
+        {/* All Detached Floating Left Panels (Resizable Width & Independent Positioning) */}
+        {(Object.keys(floatingPanels) as SidebarView[]).map((viewKey) => {
+          const geo = floatingPanels[viewKey];
+          if (!geo) return null;
+          return (
+            <DetachablePanelShell
+              key={`float-${viewKey}`}
+              isFloating
+              geometry={geo}
+              onFloat={(pos) => handleFloatPanel(viewKey, pos)}
+              onUpdateGeometry={(patch) =>
+                handleUpdateFloatingGeometry(viewKey, patch)
+              }
+              onFocus={() => handleFocusFloatingPanel(viewKey)}
+            >
+              {renderPanelContent(viewKey, true)}
+            </DetachablePanelShell>
+          );
+        })}
 
         {/* Center: tabs + video preview + timeline */}
         <WorkstationCenterPanel

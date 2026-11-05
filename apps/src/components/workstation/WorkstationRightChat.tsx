@@ -175,18 +175,18 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
         <button
           type="button"
           onClick={onClose}
-          className="w-7 h-7 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
+          className="w-6 h-6 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
           title="Open Chat Panel"
         >
-          <PanelRightOpen className="w-3.5 h-3.5 text-[var(--text-primary)]" />
+          <PanelRightOpen className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={1.8} />
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="mt-2.5 w-7 h-7 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-amber-400 hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
+          className="mt-2 w-6 h-6 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-[#f97316] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
           title="AI Video Agent"
         >
-          <SleekRobotIcon className="w-4 h-4" />
+          <SleekRobotIcon className="w-3.5 h-3.5" />
         </button>
       </aside>
     );

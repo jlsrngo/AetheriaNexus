@@ -5,11 +5,13 @@ import {
   Clapperboard,
   Copy,
   Film,
+  GripHorizontal,
   PanelLeftClose,
   Plus,
   RotateCw,
   Search,
   Trash2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useStudioStore } from "../../../hooks/useStudioStore";
@@ -19,11 +21,13 @@ import type { StudioComposition } from "../../../types/studio";
 interface CompositionsPanelProps {
   onClose: () => void;
   width?: number | string;
+  isFloating?: boolean;
 }
 
 export const CompositionsPanel = memo(function CompositionsPanel({
   onClose,
-  width = "var(--left-panel-width, 256px)",
+  width = "100%",
+  isFloating = false,
 }: CompositionsPanelProps) {
   const { compositions, activeComposition, actions } = useStudioStore();
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,19 +93,23 @@ export const CompositionsPanel = memo(function CompositionsPanel({
       style={{ width }}
     >
       {/* Panel Header */}
-      <div className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0">
-        <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2">
-          <Clapperboard className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={2} />
-          <span>Compositions</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] font-mono text-[var(--text-muted)]">
+      <div
+        className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0"
+        title="Drag header to detach into a floating resizable window"
+      >
+        <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5 min-w-0">
+          <GripHorizontal className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+          <Clapperboard className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" strokeWidth={2} />
+          <span className="truncate">Compositions</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] font-mono text-[var(--text-muted)] shrink-0">
             {compositions.length}
           </span>
         </span>
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
             onClick={() => setShowNewForm((prev) => !prev)}
-            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
             title="New Composition (Ctrl+N)"
           >
             <Plus className="w-3.5 h-3.5" strokeWidth={1.8} />
@@ -110,7 +118,7 @@ export const CompositionsPanel = memo(function CompositionsPanel({
             type="button"
             onClick={handleSync}
             className={cn(
-              "text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer",
+              "w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer",
               isSyncing && "animate-spin"
             )}
             title="Sync Compositions from Engine"
@@ -120,10 +128,14 @@ export const CompositionsPanel = memo(function CompositionsPanel({
           <button
             type="button"
             onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-            title="Close Panel (Ctrl+B)"
+            className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
+            title={isFloating ? "Return to Sidebar" : "Close Panel (Ctrl+B)"}
           >
-            <PanelLeftClose className="w-4 h-4" strokeWidth={1.5} />
+            {isFloating ? (
+              <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+            ) : (
+              <PanelLeftClose className="w-3.5 h-3.5" strokeWidth={1.75} />
+            )}
           </button>
         </div>
       </div>

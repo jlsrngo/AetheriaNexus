@@ -34,7 +34,7 @@ export interface NexusVideoProps extends Record<string, unknown> {
   hookText: string;
   bodyText: string;
   authorHandle: string;
-  themeColor: "orange" | "indigo" | "emerald" | "violet" | "rose" | "amber" | "cyan";
+  themeColor: string;
   category: string;
   subCategory?: string;
   editorialTag?: string;

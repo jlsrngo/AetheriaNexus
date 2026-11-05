@@ -4,6 +4,7 @@ import {
   X,
   RotateCw,
   PanelLeftClose,
+  GripHorizontal,
   CaseSensitive,
   FileText,
   Loader2,
@@ -23,6 +24,7 @@ interface WorkspaceSearchPanelProps {
   onClose?: () => void;
   onToggle?: () => void;
   width?: number | string;
+  isFloating?: boolean;
 }
 
 export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
@@ -31,7 +33,8 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
   onOpenFileTab,
   onClose,
   onToggle,
-  width = 256,
+  width = "100%",
+  isFloating = false,
 }: WorkspaceSearchPanelProps) {
   const { t } = useI18n();
 
@@ -60,8 +63,12 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
       aria-label="Workspace Search Panel"
     >
       {/* Top Header */}
-      <div className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0 bg-[var(--bg-panel)]">
-        <div className="flex items-center gap-2 min-w-0 flex-1 mr-1 overflow-hidden">
+      <div
+        className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0 bg-[var(--bg-panel)]"
+        title="Drag header to detach into a floating resizable window"
+      >
+        <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-1 overflow-hidden">
+          <GripHorizontal className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
           <Search className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" strokeWidth={1.8} />
           <span
             className="text-xs font-semibold text-[var(--text-primary)] tracking-wide truncate whitespace-nowrap"
@@ -71,11 +78,11 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
           </span>
         </div>
 
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
             onClick={() => runSearch(query, caseSensitive)}
-            className="p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
             title={t("refresh", "Refresh")}
           >
             <RotateCw className={cn("w-3.5 h-3.5", isSearching && "animate-spin")} />
@@ -83,11 +90,15 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
           {(onClose || onToggle) && (
             <button
               type="button"
-              onClick={onToggle || onClose}
-              className="p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-              title={`${t("closePanel", "Close Panel")} (Ctrl+B)`}
+              onClick={onClose || onToggle}
+              className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
+              title={isFloating ? "Return to Sidebar" : `${t("closePanel", "Close Panel")} (Ctrl+B)`}
             >
-              <PanelLeftClose className="w-4 h-4" strokeWidth={1.5} />
+              {isFloating ? (
+                <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+              ) : (
+                <PanelLeftClose className="w-3.5 h-3.5" strokeWidth={1.75} />
+              )}
             </button>
           )}
         </div>

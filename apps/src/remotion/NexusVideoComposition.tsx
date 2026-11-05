@@ -10,7 +10,7 @@ import {
 import { NexusVideoProps, buildCompositionLayers } from "./types";
 
 const THEME_GRADIENTS: Record<
-  NexusVideoProps["themeColor"],
+  string,
   { bg: string; accent: string; glow: string; border: string }
 > = {
   orange: {
@@ -56,6 +56,41 @@ const THEME_GRADIENTS: Record<
     border: "rgba(6, 182, 212, 0.6)",
   },
 };
+
+function resolveThemePalette(themeColor?: string) {
+  if (!themeColor) return THEME_GRADIENTS.orange;
+  const key = themeColor.trim().toLowerCase();
+  if (THEME_GRADIENTS[key]) return THEME_GRADIENTS[key];
+
+  const hexMatch = key.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (hexMatch) {
+    const raw = hexMatch[1];
+    const fullHex =
+      raw.length === 3
+        ? raw
+            .split("")
+            .map((ch) => ch + ch)
+            .join("")
+        : raw;
+    const r = parseInt(fullHex.slice(0, 2), 16);
+    const g = parseInt(fullHex.slice(2, 4), 16);
+    const b = parseInt(fullHex.slice(4, 6), 16);
+    const rMid = Math.round(r * 0.46);
+    const gMid = Math.round(g * 0.46);
+    const bMid = Math.round(b * 0.46);
+    const rDark = Math.round(r * 0.22);
+    const gDark = Math.round(g * 0.22);
+    const bDark = Math.round(b * 0.22);
+    return {
+      bg: `radial-gradient(circle at 50% 20%, rgb(${rMid}, ${gMid}, ${bMid}) 0%, rgb(${rDark}, ${gDark}, ${bDark}) 45%, #050b14 100%)`,
+      accent: `#${fullHex}`,
+      glow: `rgba(${r}, ${g}, ${b}, 0.42)`,
+      border: `rgba(${r}, ${g}, ${b}, 0.65)`,
+    };
+  }
+
+  return THEME_GRADIENTS.orange;
+}
 
 const HookTitleAnimated: React.FC<{ hookText: string }> = ({ hookText }) => {
   const localFrame = useCurrentFrame();
@@ -167,7 +202,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
   const layers = buildCompositionLayers(props, durationInFrames);
   const layerMap = new Map(layers.map((l) => [l.id, l]));
 
-  const currentTheme = THEME_GRADIENTS[themeColor] || THEME_GRADIENTS.orange;
+  const currentTheme = resolveThemePalette(themeColor);
   const bodyLines = (bodyText || "")
     .split("\n")
     .map((l) => l.trim())

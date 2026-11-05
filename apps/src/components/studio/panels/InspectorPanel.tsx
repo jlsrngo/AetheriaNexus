@@ -1,9 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   SlidersHorizontal,
   PanelLeftClose,
-  PanelLeftOpen,
-  PictureInPicture2,
   GripHorizontal,
   X,
   RotateCcw,
@@ -24,114 +22,49 @@ interface InspectorPanelProps {
   width?: number | string;
   onClose: () => void;
   isFloating?: boolean;
-  initialFloatPos?: { x: number; y: number };
-  onFloat?: (initialPos?: { x: number; y: number }) => void;
-  onDock?: () => void;
 }
 
-const THEME_COLORS: Array<{
-  id: NexusVideoProps["themeColor"];
-  label: string;
-  dot: string;
-}> = [
-  { id: "orange", label: "Orange", dot: "bg-orange-500" },
-  { id: "indigo", label: "Indigo", dot: "bg-indigo-500" },
-  { id: "violet", label: "Violet", dot: "bg-violet-500" },
-  { id: "rose", label: "Rose", dot: "bg-rose-500" },
-  { id: "amber", label: "Amber", dot: "bg-amber-400" },
-  { id: "cyan", label: "Cyan", dot: "bg-cyan-400" },
-];
+const NAMED_COLOR_TO_HEX: Record<string, string> = {
+  orange: "#f97316",
+  indigo: "#6366f1",
+  violet: "#a855f7",
+  rose: "#f43f5e",
+  amber: "#f59e0b",
+  cyan: "#06b6d4",
+  emerald: "#06b6d4",
+};
+
+function toHexColor(val?: string): string {
+  if (!val) return "#f97316";
+  const clean = val.trim().toLowerCase();
+  if (NAMED_COLOR_TO_HEX[clean]) return NAMED_COLOR_TO_HEX[clean];
+  if (/^#[0-9a-f]{6}$/i.test(clean)) return clean;
+  if (/^#[0-9a-f]{3}$/i.test(clean)) {
+    return (
+      "#" +
+      clean
+        .slice(1)
+        .split("")
+        .map((c) => c + c)
+        .join("")
+    );
+  }
+  return "#f97316";
+}
 
 export function InspectorPanel({
-  width = 256,
+  width = "100%",
   onClose,
   isFloating = false,
-  initialFloatPos,
-  onFloat,
-  onDock,
 }: InspectorPanelProps) {
   const { activeComposition, durationInFrames, undoStack, redoStack, actions } =
     useStudioStore();
   const [editorMode, setEditorMode] = useState<"schema" | "json">("schema");
   const [jsonDraft, setJsonDraft] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
-  const [floatPos, setFloatPos] = useState<{ x: number; y: number }>(
-    initialFloatPos ?? { x: 84, y: 68 }
-  );
-
-  useEffect(() => {
-    if (initialFloatPos) {
-      setFloatPos(initialFloatPos);
-    }
-  }, [initialFloatPos]);
 
   const props = activeComposition.props;
-
-  const handleHeaderMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest("button")) return;
-    e.preventDefault();
-
-    const startX = e.clientX;
-    const startY = e.clientY;
-
-    if (isFloating) {
-      const origX = floatPos.x;
-      const origY = floatPos.y;
-      const onMove = (moveEvent: MouseEvent) => {
-        const nextX = Math.max(
-          12,
-          Math.min(window.innerWidth - 312, origX + (moveEvent.clientX - startX))
-        );
-        const nextY = Math.max(
-          36,
-          Math.min(window.innerHeight - 120, origY + (moveEvent.clientY - startY))
-        );
-        setFloatPos({ x: nextX, y: nextY });
-      };
-      const onUp = () => {
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-      };
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
-    } else if (onFloat) {
-      let detached = false;
-      const onMove = (moveEvent: MouseEvent) => {
-        const dist = Math.hypot(
-          moveEvent.clientX - startX,
-          moveEvent.clientY - startY
-        );
-        if (!detached && dist > 8) {
-          detached = true;
-          const nextX = Math.max(
-            12,
-            Math.min(window.innerWidth - 312, moveEvent.clientX - 140)
-          );
-          const nextY = Math.max(
-            36,
-            Math.min(window.innerHeight - 120, moveEvent.clientY - 18)
-          );
-          onFloat({ x: nextX, y: nextY });
-        } else if (detached) {
-          const nextX = Math.max(
-            12,
-            Math.min(window.innerWidth - 312, moveEvent.clientX - 140)
-          );
-          const nextY = Math.max(
-            36,
-            Math.min(window.innerHeight - 120, moveEvent.clientY - 18)
-          );
-          setFloatPos({ x: nextX, y: nextY });
-        }
-      };
-      const onUp = () => {
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-      };
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
-    }
-  };
+  const activeHexColor = toHexColor(props.themeColor);
 
   const handleRatioSelect = (ratio: "9:16" | "1:1" | "16:9") => {
     const dims =
@@ -183,30 +116,20 @@ export function InspectorPanel({
 
   return (
     <aside
-      className={cn(
-        "bg-[var(--bg-panel)] text-[var(--text-primary)] flex flex-col select-none",
-        isFloating
-          ? "fixed z-50 w-[300px] max-h-[82vh] rounded-xl border-2 border-[var(--border-strong)] shadow-2xl overflow-hidden"
-          : "border-r border-[var(--border-color)] shrink-0 transition-colors duration-150"
-      )}
-      style={
-        isFloating
-          ? { left: floatPos.x, top: floatPos.y }
-          : { width }
-      }
+      className="bg-[var(--bg-panel)] text-[var(--text-primary)] border-r border-[var(--border-color)] flex flex-col shrink-0 select-none transition-colors duration-150"
+      style={{ width }}
     >
-      {/* Panel Header (Draggable to detach or move Floating Popup) */}
+      {/* Panel Header (Draggable via DetachablePanelShell) */}
       <div
-        onMouseDown={handleHeaderMouseDown}
-        className="h-9 px-3 box-border border-b border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between shrink-0 cursor-grab active:cursor-grabbing"
-        title="Drag header to detach Inspector into a floating popup window"
+        className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0"
+        title="Drag header to detach into a floating resizable window"
       >
-        <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
+        <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5 min-w-0">
           <GripHorizontal className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
           <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400 shrink-0" strokeWidth={2} />
           <span className="truncate">Inspector & Props</span>
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
             onClick={() => actions.undoProps()}
@@ -214,7 +137,7 @@ export function InspectorPanel({
             className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 flex items-center justify-center hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
             title="Undo Prop Change (Ctrl+Z)"
           >
-            <Undo2 className="w-3 h-3" strokeWidth={1.75} />
+            <Undo2 className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>
           <button
             type="button"
@@ -223,51 +146,20 @@ export function InspectorPanel({
             className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 flex items-center justify-center hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
             title="Redo Prop Change (Ctrl+Y)"
           >
-            <Redo2 className="w-3 h-3" strokeWidth={1.75} />
+            <Redo2 className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>
-          {isFloating ? (
-            <>
-              {onDock && (
-                <button
-                  type="button"
-                  onClick={onDock}
-                  className="w-6 h-6 rounded-md bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white flex items-center justify-center transition-colors cursor-pointer"
-                  title="Dock back to Left Sidebar"
-                >
-                  <PanelLeftOpen className="w-3 h-3" strokeWidth={1.75} />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
-                title="Close Floating Inspector"
-              >
-                <X className="w-3.5 h-3.5" strokeWidth={1.75} />
-              </button>
-            </>
-          ) : (
-            <>
-              {onFloat && (
-                <button
-                  type="button"
-                  onClick={() => onFloat({ x: 84, y: 68 })}
-                  className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-amber-400 hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
-                  title="Pop out Inspector as a floating draggable window"
-                >
-                  <PictureInPicture2 className="w-3 h-3" strokeWidth={1.75} />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
-                title="Close Panel (Ctrl+B)"
-              >
-                <PanelLeftClose className="w-3.5 h-3.5" strokeWidth={1.75} />
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
+            title={isFloating ? "Return to Sidebar" : "Close Panel (Ctrl+B)"}
+          >
+            {isFloating ? (
+              <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+            ) : (
+              <PanelLeftClose className="w-3.5 h-3.5" strokeWidth={1.75} />
+            )}
+          </button>
         </div>
       </div>
 
@@ -438,26 +330,38 @@ export function InspectorPanel({
               />
             </div>
 
-            {/* Theme Color Swatches */}
+            {/* Theme Accent Color Picker */}
             <div>
-              <label className="text-[10px] text-[var(--text-muted)] block mb-1">Theme Accent</label>
-              <div className="grid grid-cols-3 gap-1">
-                {THEME_COLORS.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => actions.updateActiveProps({ themeColor: c.id })}
-                    className={cn(
-                      "h-6 px-2 rounded-md border flex items-center gap-1.5 text-[10px] transition-colors cursor-pointer",
-                      props.themeColor === c.id
-                        ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-primary)] font-semibold"
-                        : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                    )}
-                  >
-                    <span className={cn("w-2 h-2 rounded-full shrink-0", c.dot)} />
-                    <span className="truncate">{c.label}</span>
-                  </button>
-                ))}
+              <label className="text-[10px] text-[var(--text-muted)] block mb-1">
+                Theme Accent Color
+              </label>
+              <div className="flex items-center gap-2 p-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)]">
+                <label
+                  className="relative w-8 h-7 rounded-md border border-[var(--border-strong)] overflow-hidden cursor-pointer shrink-0 flex items-center justify-center"
+                  style={{ backgroundColor: activeHexColor }}
+                  title="Click to open Color Picker"
+                >
+                  <input
+                    type="color"
+                    value={activeHexColor}
+                    onChange={(e) =>
+                      actions.updateActiveProps({ themeColor: e.target.value })
+                    }
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </label>
+                <input
+                  type="text"
+                  value={activeHexColor.toUpperCase()}
+                  onChange={(e) => {
+                    const v = e.target.value.trim();
+                    if (/^#[0-9a-fA-F]{0,6}$/.test(v)) {
+                      actions.updateActiveProps({ themeColor: v });
+                    }
+                  }}
+                  placeholder="#F97316"
+                  className="flex-1 min-w-0 h-7 px-2 rounded-md bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
+                />
               </div>
             </div>
 

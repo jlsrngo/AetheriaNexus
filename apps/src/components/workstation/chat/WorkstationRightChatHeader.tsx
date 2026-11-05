@@ -17,20 +17,20 @@ export function SleekRobotIcon({ className }: { className?: string }) {
       className={className}
     >
       {/* Curved antenna */}
-      <path d="M12 2.5v2.5" />
-      <circle cx="12" cy="2" r="1" fill="currentColor" stroke="none" />
-      {/* Rounded dome visor head (non-boxy) */}
-      <path d="M5.5 11.5C5.5 7.6 8.4 5 12 5s6.5 2.6 6.5 6.5c0 3.4-2.6 5.5-6.5 5.5s-6.5-2.1-6.5-5.5Z" />
+      <path d="M12 2v3" />
+      <circle cx="12" cy="2" r="1.2" fill="currentColor" stroke="none" />
+      {/* Rounded dome visor head filling standard 24x24 icon bounds */}
+      <path d="M4.5 12C4.5 7.5 7.8 4.8 12 4.8s7.5 2.7 7.5 7.2c0 3.8-3 6.2-7.5 6.2S4.5 15.8 4.5 12Z" />
       {/* Curved side audio pods */}
-      <path d="M3.5 10.5a1.5 1.5 0 0 1 2-1.4v3.8a1.5 1.5 0 0 1-2-1.4v-1Z" />
-      <path d="M20.5 10.5a1.5 1.5 0 0 0-2-1.4v3.8a1.5 1.5 0 0 0 2-1.4v-1Z" />
+      <path d="M2.5 10.8a1.6 1.6 0 0 1 2-1.5v4.4a1.6 1.6 0 0 1-2-1.5v-1.4Z" />
+      <path d="M21.5 10.8a1.6 1.6 0 0 0-2-1.5v4.4a1.6 1.6 0 0 0 2-1.5v-1.4Z" />
       {/* Expressive glowing eyes */}
-      <circle cx="9.75" cy="11" r="1.15" fill="currentColor" stroke="none" />
-      <circle cx="14.25" cy="11" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="9.5" cy="11.5" r="1.25" fill="currentColor" stroke="none" />
+      <circle cx="14.5" cy="11.5" r="1.25" fill="currentColor" stroke="none" />
       {/* Gentle curved smile */}
-      <path d="M10 13.75c.65.5 1.3.75 2 .75s1.35-.25 2-.75" />
+      <path d="M9.8 14.5c.7.55 1.4.8 2.2.8s1.5-.25 2.2-.8" />
       {/* Sleek curved collar base */}
-      <path d="M7.5 19.5c1.2-1.3 2.7-1.9 4.5-1.9s3.3.6 4.5 1.9" />
+      <path d="M6.8 21c1.4-1.5 3.1-2.2 5.2-2.2s3.8.7 5.2 2.2" />
     </svg>
   );
 }
@@ -137,20 +137,20 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
   return (
     <div className="h-10 px-3 border-b border-[var(--border-color)] flex items-center justify-between bg-[var(--bg-panel)] shrink-0 select-none">
       <div className="flex items-center gap-1.5 flex-1 min-w-0 pr-3">
-        <div
-          className="w-6 h-6 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center shrink-0 text-amber-400"
-          title="AI Video Agent"
-        >
-          <SleekRobotIcon className="w-4 h-4" />
-        </div>
         <button
           type="button"
           onClick={onClose}
           className="w-6 h-6 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer flex items-center justify-center shrink-0"
           title={t("closePanel", "Collapse Chat Panel")}
         >
-          <PanelRightClose className="w-3.5 h-3.5" />
+          <PanelRightClose className="w-3.5 h-3.5" strokeWidth={1.8} />
         </button>
+        <div
+          className="w-6 h-6 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center shrink-0 text-[#f97316]"
+          title="AI Video Agent"
+        >
+          <SleekRobotIcon className="w-3.5 h-3.5" />
+        </div>
         {isEditingTitle ? (
           <input
             type="text"
@@ -193,9 +193,9 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
             }
           >
             {isCompacting ? (
-              <Loader2 className="w-3 h-3 text-white animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
             ) : (
-              <Sparkles className="w-3 h-3" strokeWidth={1.8} />
+              <Sparkles className="w-3.5 h-3.5" strokeWidth={1.8} />
             )}
           </button>
         )}
