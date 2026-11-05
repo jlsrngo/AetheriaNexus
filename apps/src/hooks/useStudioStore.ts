@@ -175,12 +175,17 @@ let state: StudioStoreState = {
 };
 
 const listeners = new Set<() => void>();
+let storageTimer: ReturnType<typeof setTimeout> | null = null;
+let backendSyncTimer: ReturnType<typeof setTimeout> | null = null;
 
 function emit() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.compositions));
-  } catch {}
   listeners.forEach((l) => l());
+  if (storageTimer) clearTimeout(storageTimer);
+  storageTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.compositions));
+    } catch {}
+  }, 250);
 }
 
 function subscribe(listener: () => void) {
@@ -233,11 +238,14 @@ export const studioActions = {
     };
     emit();
 
-    void apiFetch(`${API_BASE}/update-default-props`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ compositionId: active.id, props: nextProps }),
-    }).catch(() => {});
+    if (backendSyncTimer) clearTimeout(backendSyncTimer);
+    backendSyncTimer = setTimeout(() => {
+      void apiFetch(`${API_BASE}/update-default-props`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ compositionId: active.id, props: nextProps }),
+      }).catch(() => {});
+    }, 300);
   },
 
   updateActiveMetadata(partial: Partial<Pick<StudioComposition, "name" | "folder" | "ratio" | "duration" | "fps" | "width" | "height">>) {

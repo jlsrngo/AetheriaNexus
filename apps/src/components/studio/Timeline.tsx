@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -28,6 +28,12 @@ interface TimelineProps {
   onTogglePlay: () => void;
 }
 
+interface DragOverride {
+  id: string;
+  from: number;
+  durationInFrames: number;
+}
+
 export const Timeline: React.FC<TimelineProps> = ({
   durationInFrames,
   fps,
@@ -40,8 +46,9 @@ export const Timeline: React.FC<TimelineProps> = ({
   const updateCanvas = actions.updateCanvas;
   const subtitles = subtitleCues;
 
-  const [timelineHeight, setTimelineHeight] = useState<number>(256);
+  const [timelineHeight, setTimelineHeight] = useState<number>(264);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>("text-hook");
+  const [dragOverride, setDragOverride] = useState<DragOverride | null>(null);
 
   const rulerRef = useRef<HTMLDivElement>(null);
   const leftScrollRef = useRef<HTMLDivElement>(null);
@@ -51,7 +58,25 @@ export const Timeline: React.FC<TimelineProps> = ({
   const progress = lastFrame === 0 ? 0 : currentFrame / lastFrame;
   const totalSeconds = Math.ceil(durationInFrames / fps);
 
-  const layers = buildCompositionLayers(activeComposition.props, durationInFrames);
+  const baseLayers = useMemo(
+    () => buildCompositionLayers(activeComposition.props, durationInFrames),
+    [activeComposition.props, durationInFrames]
+  );
+
+  // Merge local 60fps drag override so dragging never re-renders Remotion <Player> on every pixel
+  const layers = useMemo(() => {
+    if (!dragOverride) return baseLayers;
+    return baseLayers.map((l) =>
+      l.id === dragOverride.id
+        ? {
+            ...l,
+            from: dragOverride.from,
+            durationInFrames: dragOverride.durationInFrames,
+          }
+        : l
+    );
+  }, [baseLayers, dragOverride]);
+
   const selectedLayer = layers.find((l) => l.id === selectedLayerId) ?? layers[0];
 
   const seekFromClientX = useCallback(
@@ -79,6 +104,7 @@ export const Timeline: React.FC<TimelineProps> = ({
   };
 
   const handleResetLayerTimings = () => {
+    setDragOverride(null);
     actions.updateActiveProps({
       layerStartFrame: {},
       layerDuration: {},
@@ -86,7 +112,7 @@ export const Timeline: React.FC<TimelineProps> = ({
     });
   };
 
-  // Dragging or trimming a clip bar like Adobe Premiere Pro
+  // 60fps Zero-Lag Clip Dragging (commits to store only on mouseup)
   const startClipDrag = (
     e: React.MouseEvent,
     layer: VideoLayerSpec,
@@ -104,45 +130,59 @@ export const Timeline: React.FC<TimelineProps> = ({
     const origDur = layer.durationInFrames;
     const origEnd = origFrom + origDur;
 
+    let latestFrom = origFrom;
+    let latestDur = origDur;
+    let rafId: number | null = null;
+
     const onMove = (moveEvent: MouseEvent) => {
       const deltaPx = moveEvent.clientX - startX;
       const deltaFrames = Math.round((deltaPx / trackWidth) * durationInFrames);
 
-      const nextStarts = { ...(activeComposition.props.layerStartFrame || {}) };
-      const nextDurs = { ...(activeComposition.props.layerDuration || {}) };
-
       if (mode === "move") {
-        const clampedFrom = Math.max(
+        latestFrom = Math.max(
           0,
           Math.min(durationInFrames - origDur, origFrom + deltaFrames)
         );
-        nextStarts[layer.id] = clampedFrom;
-        nextDurs[layer.id] = origDur;
+        latestDur = origDur;
       } else if (mode === "trim-start") {
-        const clampedFrom = Math.max(
-          0,
-          Math.min(origEnd - 5, origFrom + deltaFrames)
-        );
-        nextStarts[layer.id] = clampedFrom;
-        nextDurs[layer.id] = origEnd - clampedFrom;
+        latestFrom = Math.max(0, Math.min(origEnd - 5, origFrom + deltaFrames));
+        latestDur = origEnd - latestFrom;
       } else if (mode === "trim-end") {
-        const clampedDur = Math.max(
+        latestFrom = origFrom;
+        latestDur = Math.max(
           5,
           Math.min(durationInFrames - origFrom, origDur + deltaFrames)
         );
-        nextStarts[layer.id] = origFrom;
-        nextDurs[layer.id] = clampedDur;
       }
 
-      actions.updateActiveProps({
-        layerStartFrame: nextStarts,
-        layerDuration: nextDurs,
-      });
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          setDragOverride({
+            id: layer.id,
+            from: latestFrom,
+            durationInFrames: latestDur,
+          });
+        });
+      }
     };
 
     const onUp = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      setDragOverride(null);
+
+      if (latestFrom !== origFrom || latestDur !== origDur) {
+        const nextStarts = { ...(activeComposition.props.layerStartFrame || {}) };
+        const nextDurs = { ...(activeComposition.props.layerDuration || {}) };
+        nextStarts[layer.id] = latestFrom;
+        nextDurs[layer.id] = latestDur;
+        actions.updateActiveProps({
+          layerStartFrame: nextStarts,
+          layerDuration: nextDurs,
+        });
+      }
     };
 
     window.addEventListener("mousemove", onMove);
@@ -156,7 +196,7 @@ export const Timeline: React.FC<TimelineProps> = ({
 
     const onMove = (moveEvent: MouseEvent) => {
       const delta = startY - moveEvent.clientY;
-      setTimelineHeight(Math.max(170, Math.min(440, startH + delta)));
+      setTimelineHeight(Math.max(180, Math.min(460, startH + delta)));
     };
     const onUp = () => {
       window.removeEventListener("mousemove", onMove);
@@ -220,55 +260,20 @@ export const Timeline: React.FC<TimelineProps> = ({
         title="Tarik untuk mengubah tinggi Timeline"
       />
 
-      {/* 1. Transport Header Bar (Play on far left, Orange/Amber theme) */}
-      <div className="h-8 px-3 flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-panel)] shrink-0">
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={onTogglePlay}
-            title={isPlaying ? "Pause (Space)" : "Play (Space)"}
-            className={cn(
-              "h-6 px-2.5 flex items-center gap-1.5 border rounded-md text-[11px] font-semibold transition-colors cursor-pointer",
-              isPlaying
-                ? "bg-amber-500 text-black border-amber-400"
-                : "bg-amber-500/15 border-amber-500/40 text-amber-400 hover:bg-amber-500/25"
-            )}
-          >
-            {isPlaying ? (
-              <Pause className="w-3 h-3 fill-current" />
-            ) : (
-              <Play className="w-3 h-3 fill-current" />
-            )}
-            <span>{isPlaying ? "Pause" : "Play"}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onSeek(canvas.inFrame ?? 0)}
-            title="Go to start / In point"
-            className="w-6 h-6 flex items-center justify-center border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md transition-colors cursor-pointer"
-          >
-            <SkipBack className="w-3 h-3" />
-          </button>
-          <button
-            type="button"
-            onClick={() => step(-1)}
-            title="Previous frame"
-            className="w-6 h-6 flex items-center justify-center border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md transition-colors cursor-pointer"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => step(1)}
-            title="Next frame"
-            className="w-6 h-6 flex items-center justify-center border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md transition-colors cursor-pointer"
-          >
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-
-          {/* In / Out Point Markers */}
-          <div className="flex items-center gap-1 ml-1 pl-1.5 border-l border-[var(--border-color)]">
+      {/* 1. Two-Row Header with Centered Transport Pill (Matches User Diagram) */}
+      <div className="relative bg-[var(--bg-panel)] border-b border-[var(--border-color)] shrink-0">
+        {/* Top Row: Left Trim/Reset Menu | Right Frame & Time Telemetry */}
+        <div className="h-7 px-3 flex items-center justify-between border-b border-[var(--border-color)]/70 whitespace-nowrap">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => onSeek(canvas.inFrame ?? 0)}
+              title="Ke Awal / In Point"
+              className="h-5 px-1.5 flex items-center gap-1 border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded text-[10px] cursor-pointer transition-colors"
+            >
+              <SkipBack className="w-2.5 h-2.5" />
+              <span>Start</span>
+            </button>
             <button
               type="button"
               onClick={() =>
@@ -307,61 +312,114 @@ export const Timeline: React.FC<TimelineProps> = ({
             <button
               type="button"
               onClick={handleResetLayerTimings}
-              title="Reset semua posisi & durasi clip layer"
-              className="ml-1 px-1.5 h-5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] text-[var(--text-muted)] hover:text-amber-400 flex items-center gap-1 cursor-pointer transition-colors"
+              title="Reset posisi & durasi semua clip"
+              className="px-1.5 h-5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] text-[var(--text-muted)] hover:text-amber-400 flex items-center gap-1 cursor-pointer transition-colors"
             >
               <RotateCcw className="w-2.5 h-2.5" />
-              <span>Reset Clips</span>
+              <span>Reset</span>
             </button>
+          </div>
+
+          <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--text-muted)] whitespace-nowrap">
+            <span>
+              FRAME{" "}
+              <span className="text-amber-400 font-semibold">
+                {String(currentFrame).padStart(3, "0")}
+              </span>{" "}
+              / {durationInFrames}
+            </span>
+            <span className="text-[var(--border-strong)]">•</span>
+            <span className="text-[var(--text-primary)]">
+              {(currentFrame / fps).toFixed(2)}s
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--text-muted)]">
-          {selectedLayer && (
-            <>
-              <span className="text-[10px] text-amber-400 truncate max-w-[180px]">
-                {selectedLayer.trackCode}: {selectedLayer.from}f–
-                {selectedLayer.from + selectedLayer.durationInFrames}f
+        {/* Bottom Row: Left Selected Track Info | Right Speed & FPS */}
+        <div className="h-7 px-3 flex items-center justify-between whitespace-nowrap">
+          <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--text-muted)]">
+            <span className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-amber-400 font-semibold">
+              {layers.length} TRACKS
+            </span>
+            {selectedLayer && (
+              <span className="text-[var(--text-secondary)] truncate max-w-[180px]">
+                {selectedLayer.trackCode}:{" "}
+                <span className="text-amber-400">
+                  {selectedLayer.from}f–
+                  {selectedLayer.from + selectedLayer.durationInFrames}f
+                </span>
               </span>
-              <span className="text-[var(--border-strong)]">|</span>
-            </>
-          )}
-          <select
-            value={canvas.playbackRate}
-            onChange={(e) =>
-              updateCanvas({
-                playbackRate: Number(e.target.value) as 0.5 | 1 | 1.5 | 2,
-              })
-            }
-            className="h-5 px-1 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] font-mono text-[var(--text-secondary)] outline-none cursor-pointer"
-            title="Playback Speed"
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--text-muted)] whitespace-nowrap">
+            <select
+              value={canvas.playbackRate}
+              onChange={(e) =>
+                updateCanvas({
+                  playbackRate: Number(e.target.value) as 0.5 | 1 | 1.5 | 2,
+                })
+              }
+              className="h-5 px-1.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer"
+              title="Kecepatan Putar"
+            >
+              <option value={0.5}>0.5x</option>
+              <option value={1}>1.0x</option>
+              <option value={1.5}>1.5x</option>
+              <option value={2}>2.0x</option>
+            </select>
+            <span className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)]">
+              {fps} FPS
+            </span>
+          </div>
+        </div>
+
+        {/* Center Floating Transport Pill (<  (Play)  >) straddling Row 1 & Row 2 */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-lg">
+          <button
+            type="button"
+            onClick={() => step(-1)}
+            title="Frame Sebelumnya"
+            className="w-6 h-6 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
           >
-            <option value={0.5}>0.5x</option>
-            <option value={1}>1x</option>
-            <option value={1.5}>1.5x</option>
-            <option value={2}>2x</option>
-          </select>
-          <span className="text-[var(--border-strong)]">|</span>
-          <span>
-            FRAME{" "}
-            <span className="text-amber-400 font-semibold">
-              {String(currentFrame).padStart(3, "0")}
-            </span>{" "}
-            / {durationInFrames}
-          </span>
-          <span className="text-[var(--border-strong)]">|</span>
-          <span>{(currentFrame / fps).toFixed(2)}s</span>
-          <span className="text-[var(--border-strong)]">|</span>
-          <span>{fps} FPS</span>
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={onTogglePlay}
+            title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+            className={cn(
+              "w-7 h-7 rounded-full flex items-center justify-center border transition-all cursor-pointer",
+              isPlaying
+                ? "bg-amber-500 text-black border-amber-400 shadow-sm"
+                : "bg-amber-500/20 border-amber-500/50 text-amber-400 hover:bg-amber-500/30"
+            )}
+          >
+            {isPlaying ? (
+              <Pause className="w-3.5 h-3.5 fill-current" />
+            ) : (
+              <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => step(1)}
+            title="Frame Berikutnya"
+            className="w-6 h-6 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
       {/* 2. Premiere-Style Multi-Track Body */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Left Column: Track Code (V12..V1) + Component Name + Eye Visibility */}
-        <div className="w-[250px] shrink-0 border-r border-[var(--border-color)] bg-[var(--bg-panel)] flex flex-col min-h-0">
+        <div className="w-[245px] shrink-0 border-r border-[var(--border-color)] bg-[var(--bg-panel)] flex flex-col min-h-0">
           <div className="h-6 px-2.5 border-b border-[var(--border-color)] flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] shrink-0">
-            <span>Track / Komponen Layer ({layers.length})</span>
+            <span>Track / Komponen Layer</span>
             <span>Mata</span>
           </div>
 
@@ -457,7 +515,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             />
           )}
 
-          {/* Time Ruler (Click/drag here to scrub playhead) */}
+          {/* Time Ruler */}
           <div
             ref={rulerRef}
             className="h-6 border-b border-[var(--border-color)] bg-[var(--bg-panel)]/70 relative shrink-0 cursor-col-resize"
@@ -536,7 +594,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                     )}
                     title={`${layer.trackCode} ${layer.label} (${layer.from}f – ${
                       layer.from + layer.durationInFrames
-                    }f) • Geser untuk pindah waktu, tarik ujung kiri/kanan untuk trim`}
+                    }f) • Geser tengah untuk pindah waktu, tarik ujung kiri/kanan untuk trim`}
                   >
                     {/* Left Trim Handle */}
                     <div
