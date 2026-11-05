@@ -1,6 +1,6 @@
 import { memo, useState, useCallback } from "react";
 import { CenterTab } from "./tabs/types";
-import { NexusStudioSuite } from "../studio/NexusStudioSuite";
+import { StudioPreview } from "../studio/StudioPreview";
 import { CenterTabRenderer } from "./tabs/CenterTabRenderer";
 import { useCenterPanelEditor } from "./hooks/useCenterPanelEditor";
 import { Film, FileCode, X } from "lucide-react";
@@ -61,8 +61,7 @@ function WorkstationCenterPanelComponent({
   return (
     <main className="flex-1 flex flex-col min-w-0 bg-neutral-950 overflow-hidden select-none border-l border-r border-neutral-800 transition-none font-mono">
       {/* 1. TOP VIEW SELECTOR BAR (Clean, Boxy, Sharp) */}
-      {tabs.length > 0 && (
-        <div className="h-9 bg-neutral-900 border-b border-neutral-800 px-3 flex items-center justify-between shrink-0">
+      <div className="h-9 bg-neutral-900 border-b border-neutral-800 px-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             <button
               type="button"
@@ -119,12 +118,11 @@ function WorkstationCenterPanelComponent({
             <span className="text-emerald-400 font-bold">NATIVE DESKTOP</span>
           </div>
         </div>
-      )}
 
-      {/* 2. MAIN CENTER CONTENT VIEW (Authentic 1,152-Files Remotion Studio Suite) */}
+      {/* 2. MAIN CENTER CONTENT VIEW (in-house preview stage — engine is driven from Rust) */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-neutral-950">
         {activeView === "studio" ? (
-          <NexusStudioSuite />
+          <StudioPreview />
         ) : activeTab ? (
           <div className="w-full h-full flex flex-col flex-1 min-h-0">
             <CenterTabRenderer
@@ -152,7 +150,7 @@ function WorkstationCenterPanelComponent({
             />
           </div>
         ) : (
-          <NexusStudioSuite />
+          <StudioPreview />
         )}
       </div>
     </main>

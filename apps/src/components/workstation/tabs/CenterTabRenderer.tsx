@@ -2,7 +2,7 @@ import { memo, lazy, Suspense } from "react";
 import { CenterTab } from "./types";
 import { CenterEditorView } from "./CenterEditorView";
 import { SplitDiffViewer } from "./SplitDiffViewer";
-import { NexusStudioSuite } from "../../studio/NexusStudioSuite";
+import { StudioPreview } from "../../studio/StudioPreview";
 import { cn } from "../../../lib/utils";
 
 const CanvasView = lazy(() =>
@@ -73,7 +73,7 @@ export const CenterTabRenderer = memo(function CenterTabRenderer({
           />
         </Suspense>
       ) : tab.type === "stage" ? (
-        <NexusStudioSuite />
+        <StudioPreview />
       ) : tab.type === "diff" ? (
         <SplitDiffViewer
           fileName={tab.title.replace(" (Working Tree)", "")}

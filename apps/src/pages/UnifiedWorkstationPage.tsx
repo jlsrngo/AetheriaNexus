@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
-import { NexusStudioSuite } from "../components/studio/NexusStudioSuite";
+import { WorkstationLeftExplorer } from "../components/workstation/WorkstationLeftExplorer";
+import { WorkstationCenterPanel } from "../components/workstation/WorkstationCenterPanel";
 import { WorkstationRightChat } from "../components/workstation/WorkstationRightChat";
-import { WindowControls } from "../components/common/WindowControls";
 import { ConnectFolderModal } from "../components/workstation/ConnectFolderModal";
 import { SearchSectionModal } from "../components/workstation/SearchSectionModal";
 import { QuickOpenFileModal } from "../components/workstation/QuickOpenFileModal";
@@ -27,7 +27,7 @@ export function UnifiedWorkstationPage() {
     activeChatId,
     setActiveChatId,
     openFolder,
-    handleCloseFolderAction: _handleCloseFolderAction,
+    handleCloseFolderAction,
     handleSelectSessionAction,
   } = useWorkstationSession({ isWorkstationRoute });
 
@@ -35,7 +35,7 @@ export function UnifiedWorkstationPage() {
   const {
     workspaceFiles,
     refetchFiles,
-    setNativeFileNames: _setNativeFileNames,
+    setNativeFileNames,
     mentionFiles,
   } = useWorkstationFiles({ activeFolder });
 
@@ -73,10 +73,14 @@ export function UnifiedWorkstationPage() {
   // 5. Layout Panels & Global Window Event Handlers
   const {
     containerRef,
+    leftCollapsed,
     rightCollapsed,
     startDrag,
+    handleCloseLeft,
+    handleToggleLeft,
     handleToggleRight,
     showFolderModal,
+    handleOpenFolderModal,
     handleCloseFolderModal,
     showSearchSectionModal,
     handleOpenSearchModal,
@@ -99,7 +103,7 @@ export function UnifiedWorkstationPage() {
 
   return (
     <div className="flex flex-col h-full w-full bg-neutral-950 text-neutral-100 overflow-hidden select-none transition-none font-mono relative">
-      {/* Floating AI Copilot toggle & Window Controls when right panel is collapsed */}
+      {/* Floating AI Copilot toggle when right panel is collapsed */}
       {rightCollapsed && (
         <div className="absolute top-1 right-2 z-50 flex items-center gap-1.5 bg-neutral-900/90 border border-neutral-800 p-0.5 shadow-lg">
           <button
@@ -110,20 +114,52 @@ export function UnifiedWorkstationPage() {
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             <span>AI COPILOT</span>
           </button>
-          <div className="w-[1px] h-4 bg-neutral-800" />
-          <WindowControls />
         </div>
       )}
 
       <div
         ref={containerRef}
         className="flex-1 flex overflow-hidden relative"
-        style={{ "--right-panel-width": "340px" } as React.CSSProperties}
+        style={
+          {
+            "--left-panel-width": "256px",
+            "--right-panel-width": "340px",
+          } as React.CSSProperties
+        }
       >
-        {/* Authentic 1,152-file Remotion Studio Engine Suite (Edge-to-Edge) */}
-        <div className="flex-1 min-w-0 h-full overflow-hidden flex flex-col bg-neutral-950">
-          <NexusStudioSuite />
-        </div>
+        {/* 1. Left: workspace explorer */}
+        <WorkstationLeftExplorer
+          collapsed={leftCollapsed}
+          onClose={handleCloseLeft}
+          onToggle={handleToggleLeft}
+          activeWorkspace={activeWorkspace}
+          workspaceFiles={workspaceFiles}
+          onOpenFileTab={tabs.handleOpenFileTab}
+          onOpenFolderModal={handleOpenFolderModal}
+          onCloseFolder={handleCloseFolderAction}
+          width="var(--left-panel-width, 256px)"
+          onNativeFilesChange={setNativeFileNames}
+          recentCanvases={tabs.recentCanvases}
+          onOpenCanvasTab={tabs.handleOpenCanvasTab}
+        />
+
+        {!leftCollapsed && (
+          <div
+            className="w-1 cursor-col-resize bg-transparent shrink-0 hover:bg-neutral-600 transition-colors"
+            onMouseDown={(e) => startDrag("left", e)}
+          />
+        )}
+
+        {/* 2. Center: tabs + video preview + timeline */}
+        <WorkstationCenterPanel
+          tabs={tabs.tabs}
+          activeTabId={tabs.activeTabId}
+          activeFolder={activeFolder}
+          onSelectTab={tabs.setActiveTabId}
+          onCloseTab={tabs.handleCloseTab}
+          onUpdateTabContent={tabs.handleUpdateTabContent}
+          onSaveTabContent={tabs.handleSaveFileTab}
+        />
 
         {/* Resizer when Right Chat is open */}
         {!rightCollapsed && (
