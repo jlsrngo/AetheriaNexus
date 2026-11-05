@@ -34,6 +34,18 @@ export function ExplorerMediaAssets() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const readFileAsBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const res = String(reader.result || "");
+        const commaIdx = res.indexOf(",");
+        resolve(commaIdx >= 0 ? res.slice(commaIdx + 1) : res);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+
   const handleUploadChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -51,11 +63,11 @@ export function ExplorerMediaAssets() {
     actions.setAssets([newAsset, ...assets.filter((a) => a.path !== relativePath)]);
 
     try {
-      const textContent = file.size < 200_000 ? await file.text() : `[Binary Asset: ${file.name}]`;
+      const base64Data = await readFileAsBase64(file);
       await apiFetch(`${API_BASE}/write-static-file`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath: relativePath, contents: textContent }),
+        body: JSON.stringify({ filePath: relativePath, base64Data }),
       });
     } catch {}
 

@@ -3,10 +3,9 @@ import fs from "node:fs";
 import { bundle } from "@remotion/bundler";
 import { getCompositions, renderMedia } from "@remotion/renderer";
 
-// Bridge between the Rust backend and the Remotion engine. Rust passes every path it
-// owns (bundle cache, browser executable); this script only orchestrates Remotion.
-// shortcut: apps/src/remotion and this script are not shipped by tauri.conf.json yet,
-// so a packaged installer cannot render. Upgrade when packaging is finished.
+// Bridge between the Rust backend and the Remotion engine. Rust computes the bundle stamp,
+// multi-core concurrency, codec, frame range, and browser executable path; this script
+// only executes Remotion with those pre-computed parameters.
 const emit = (payload) => console.log(JSON.stringify(payload));
 
 function parseArgs(argv) {
@@ -16,6 +15,10 @@ function parseArgs(argv) {
     composition: "",
     entry: "",
     bundleDir: "",
+    bundleStamp: "",
+    concurrency: "4",
+    codec: "h264",
+    frames: "",
     browser: "",
   };
   for (let i = 0; i < argv.length; i++) {
@@ -26,6 +29,10 @@ function parseArgs(argv) {
     else if (argv[i] === "--composition") parsed.composition = value;
     else if (argv[i] === "--entry") parsed.entry = value;
     else if (argv[i] === "--bundle-dir") parsed.bundleDir = value;
+    else if (argv[i] === "--bundle-stamp") parsed.bundleStamp = value;
+    else if (argv[i] === "--concurrency") parsed.concurrency = value;
+    else if (argv[i] === "--codec") parsed.codec = value;
+    else if (argv[i] === "--frames") parsed.frames = value;
     else if (argv[i] === "--browser-executable") parsed.browser = value;
     else continue;
     i++;
@@ -33,33 +40,21 @@ function parseArgs(argv) {
   return parsed;
 }
 
-function newestMtime(dir) {
-  let newest = 0;
-  for (const name of fs.readdirSync(dir)) {
-    const full = path.join(dir, name);
-    const stat = fs.statSync(full);
-    newest = Math.max(newest, stat.isDirectory() ? newestMtime(full) : stat.mtimeMs);
-  }
-  return newest;
-}
-
-async function resolveServeUrl(entryPoint, bundleDir) {
-  // shortcut: two renders started at the same time share one bundle dir and can
-  // interleave webpack output. Upgrade to a lock file if concurrent renders happen.
+async function resolveServeUrl(entryPoint, bundleDir, rustStamp) {
   if (!bundleDir) {
     emit({ type: "status", message: `Bundling ${path.basename(entryPoint)}...` });
     return await bundle({ entryPoint });
   }
 
   const stampFile = path.join(bundleDir, ".stamp");
-  const stamp = String(newestMtime(path.dirname(entryPoint)));
+  const stamp = rustStamp || String(fs.statSync(entryPoint).mtimeMs);
   const cached =
     fs.existsSync(path.join(bundleDir, "index.html")) &&
     fs.existsSync(stampFile) &&
     fs.readFileSync(stampFile, "utf8") === stamp;
 
   if (cached) {
-    emit({ type: "status", message: "Reusing cached bundle..." });
+    emit({ type: "status", message: "Reusing Rust-verified cached bundle..." });
     return bundleDir;
   }
 
@@ -96,24 +91,35 @@ async function main() {
     throw new Error(`Remotion entry point not found: ${entryPoint}`);
   }
 
-  // null lets Remotion fall back to downloading a browser; Rust only omits this
-  // when neither Edge nor Chrome exists on the machine.
   const browserExecutable = args.browser || null;
+  const concurrency = Math.max(1, Math.min(16, Number.parseInt(args.concurrency, 10) || 4));
+  const validCodecs = ["h264", "h265", "vp8", "vp9", "gif", "prores"];
+  const codec = validCodecs.includes(args.codec) ? args.codec : "h264";
+
+  let frameRange = undefined;
+  if (args.frames && args.frames.includes("-")) {
+    const [s, e] = args.frames.split("-").map((n) => Number.parseInt(n, 10));
+    if (!Number.isNaN(s) && !Number.isNaN(e) && e >= s) {
+      frameRange = [s, e];
+    }
+  }
+
   emit({
     type: "status",
     message: browserExecutable
-      ? `Browser: ${path.basename(browserExecutable)}`
+      ? `Browser: ${path.basename(browserExecutable)} (${concurrency} threads, ${codec})`
       : "No local browser found, Remotion may download one",
   });
 
   const serveUrl = await resolveServeUrl(
     entryPoint,
     args.bundleDir ? path.resolve(args.bundleDir) : "",
+    args.bundleStamp,
   );
 
   const compositions = await getCompositions(serveUrl, { inputProps, browserExecutable });
   const composition = args.composition
-    ? compositions.find((c) => c.id === args.composition)
+    ? compositions.find((c) => c.id === args.composition) || compositions[0]
     : compositions[0];
 
   if (!composition) {
@@ -132,10 +138,15 @@ async function main() {
   await renderMedia({
     composition,
     serveUrl,
-    codec: "h264",
+    codec,
+    concurrency,
+    frameRange,
     outputLocation,
     inputProps,
     browserExecutable,
+    chromiumOptions: {
+      gl: "angle",
+    },
     onProgress: ({ renderedFrames }) => {
       const percent = Math.min(100, Math.round((renderedFrames / composition.durationInFrames) * 100));
       emit({ type: "progress", percent, renderedFrames, totalFrames: composition.durationInFrames });

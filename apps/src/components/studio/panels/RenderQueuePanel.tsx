@@ -27,6 +27,7 @@ export function RenderQueuePanel({
   const {
     activeComposition,
     durationInFrames,
+    canvas,
     renderJobs,
     gpuTelemetry,
     actions,
@@ -112,6 +113,9 @@ export function RenderQueuePanel({
           inputProps: activeComposition.props,
           outputName: cleanName,
           ratio: activeComposition.ratio,
+          codec,
+          inFrame: canvas.inFrame,
+          outFrame: canvas.outFrame,
         }),
       });
       if (res.ok) {

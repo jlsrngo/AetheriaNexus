@@ -1,18 +1,79 @@
-//! Trigger Render Tool for Nexus AI Agent.
-//! Acts as the programmatic equivalent of clicking the "[↓] RENDER MP4" button in the UI.
+//! Trigger Render Tool for Nexus AI Agent (Rust Native Render Orchestrator).
+//! Computes bundle cache stamps, CPU parallelism, codec selection, and frame ranges
+//! in Rust before invoking the Remotion worker.
 
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::UNIX_EPOCH;
 
 use crate::paths::now_ms;
 
 pub const DEFAULT_COMPOSITION: &str = "NexusEditorialVideo";
 
-/// Single place that builds the `node scripts/render.mjs` invocation.
-/// Used by the agent tool, the HTTP `/api/render-media` route and the Tauri command,
-/// so browser detection and bundle caching apply everywhere.
-pub fn build_command(root: &Path, composition: &str, props: &str, output: Option<&Path>) -> Command {
+#[derive(Default, Clone, Debug)]
+pub struct RenderOptions {
+    pub codec: Option<String>,
+    pub frame_range: Option<(u32, u32)>,
+    pub concurrency: Option<usize>,
+}
+
+/// Fast native Rust directory mtime scanner for `apps/src/remotion` so Node.js
+/// does not have to recursively stat files synchronously before every render.
+pub fn compute_remotion_bundle_stamp(root: &Path) -> String {
+    let remotion_dir = root.join("apps").join("src").join("remotion");
+    let newest = newest_mtime_ms(&remotion_dir);
+    format!("{}", newest)
+}
+
+fn newest_mtime_ms(dir: &Path) -> u128 {
+    let mut newest: u128 = 0;
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                newest = newest.max(newest_mtime_ms(&path));
+            } else if let Ok(meta) = entry.metadata() {
+                if let Ok(modified) = meta.modified() {
+                    if let Ok(dur) = modified.duration_since(UNIX_EPOCH) {
+                        newest = newest.max(dur.as_millis());
+                    }
+                }
+            }
+        }
+    }
+    newest
+}
+
+/// Detects optimal multi-core thread count in Rust (`available_parallelism`).
+pub fn optimal_render_concurrency() -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get().clamp(2, 16))
+        .unwrap_or(4)
+}
+
+/// Single place that builds the `node scripts/render.mjs` invocation with Rust-computed
+/// bundle stamp, multi-core concurrency, codec, and hardware acceleration flags.
+pub fn build_command(
+    root: &Path,
+    composition: &str,
+    props: &str,
+    output: Option<&Path>,
+) -> Command {
+    build_command_with_options(root, composition, props, output, &RenderOptions::default())
+}
+
+pub fn build_command_with_options(
+    root: &Path,
+    composition: &str,
+    props: &str,
+    output: Option<&Path>,
+    opts: &RenderOptions,
+) -> Command {
+    let concurrency = opts.concurrency.unwrap_or_else(optimal_render_concurrency);
+    let stamp = compute_remotion_bundle_stamp(root);
+    let codec = opts.codec.as_deref().unwrap_or("h264");
+
     let mut cmd = Command::new("node");
     cmd.current_dir(root)
         .arg(root.join("scripts").join("render.mjs"))
@@ -21,7 +82,17 @@ pub fn build_command(root: &Path, composition: &str, props: &str, output: Option
         .arg("--props")
         .arg(props)
         .arg("--bundle-dir")
-        .arg(crate::paths::render_cache_dir());
+        .arg(crate::paths::render_cache_dir())
+        .arg("--bundle-stamp")
+        .arg(stamp)
+        .arg("--concurrency")
+        .arg(concurrency.to_string())
+        .arg("--codec")
+        .arg(codec);
+
+    if let Some((start_f, end_f)) = opts.frame_range {
+        cmd.arg("--frames").arg(format!("{}-{}", start_f, end_f));
+    }
 
     if let Some(browser) = crate::paths::detect_browser_executable() {
         cmd.arg("--browser-executable").arg(browser);
@@ -166,6 +237,8 @@ mod tests {
 
         assert!(root.join("scripts").join("render.mjs").is_file());
         assert!(args.contains(&"--bundle-dir".to_string()));
+        assert!(args.contains(&"--concurrency".to_string()));
+        assert!(args.contains(&"--codec".to_string()));
         assert!(args.contains(&crate::paths::render_cache_dir().to_string_lossy().to_string()));
         assert!(args.contains(&"TikTokVideo".to_string()));
         assert!(args.contains(&"out.mp4".to_string()));

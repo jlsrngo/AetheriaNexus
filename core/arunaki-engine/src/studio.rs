@@ -228,6 +228,8 @@ pub fn router() -> Router {
         .route("/api/studio/schedule-cancel", post(handle_schedule_cancel))
         // 5. Creative AI Script-to-Composition Orchestrator
         .route("/api/studio/generate-script", post(handle_generate_script))
+        // 6. Native Rust 12-Layer NLE Timeline Calculator
+        .route("/api/studio/layers", post(handle_compute_layers).get(handle_get_active_layers))
 }
 
 /// GET / POST /api/get-compositions
@@ -252,103 +254,108 @@ fn format_file_size(bytes: u64) -> String {
     }
 }
 
-/// GET / POST /api/get-static-files
+/// GET / POST /api/get-static-files (Non-blocking background scanner)
 pub async fn handle_get_static_files() -> impl IntoResponse {
-    let mut files = Vec::new();
-    let workspace = crate::desktop::get_active_workspace_root()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."));
+    let files = tokio::task::spawn_blocking(move || {
+        let mut files = Vec::new();
+        let workspace = crate::desktop::get_active_workspace_root()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("."));
 
-    // Folders to scan for video/audio/image/data assets
-    let target_dirs = vec![
-        workspace.join("public"),
-        workspace.join("assets"),
-        workspace.join("media"),
-        workspace.join("output"),
-        workspace.join("export"),
-    ];
+        // Folders to scan for video/audio/image/data assets
+        let target_dirs = vec![
+            workspace.join("public"),
+            workspace.join("assets"),
+            workspace.join("media"),
+            workspace.join("output"),
+            workspace.join("export"),
+        ];
 
-    for dir in target_dirs {
-        if !dir.exists() || !dir.is_dir() {
-            continue;
-        }
-        if let Ok(entries) = std::fs::read_dir(&dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file() {
-                    let ext = path
-                        .extension()
-                        .and_then(|e| e.to_str())
-                        .map(|e| e.to_lowercase())
-                        .unwrap_or_default();
+        for dir in target_dirs {
+            if !dir.exists() || !dir.is_dir() {
+                continue;
+            }
+            if let Ok(entries) = std::fs::read_dir(&dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        let ext = path
+                            .extension()
+                            .and_then(|e| e.to_str())
+                            .map(|e| e.to_lowercase())
+                            .unwrap_or_default();
 
-                    let file_type = match ext.as_str() {
-                        "mp4" | "mov" | "webm" | "mkv" => "video",
-                        "mp3" | "wav" | "m4a" | "aac" | "ogg" | "flac" => "audio",
-                        "png" | "jpg" | "jpeg" | "svg" | "webp" | "gif" => "image",
-                        "json" | "csv" | "tsv" => "data",
-                        _ => continue,
-                    };
+                        let file_type = match ext.as_str() {
+                            "mp4" | "mov" | "webm" | "mkv" => "video",
+                            "mp3" | "wav" | "m4a" | "aac" | "ogg" | "flac" => "audio",
+                            "png" | "jpg" | "jpeg" | "svg" | "webp" | "gif" => "image",
+                            "json" | "csv" | "tsv" => "data",
+                            _ => continue,
+                        };
 
-                    let file_name = path
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or("unnamed")
-                        .to_string();
+                        let file_name = path
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("unnamed")
+                            .to_string();
 
-                    let bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
-                    let size_str = format_file_size(bytes);
-                    let rel_path = path
-                        .strip_prefix(&workspace)
-                        .map(|p| p.to_string_lossy().replace('\\', "/"))
-                        .unwrap_or_else(|_| file_name.clone());
+                        let bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                        let size_str = format_file_size(bytes);
+                        let rel_path = path
+                            .strip_prefix(&workspace)
+                            .map(|p| p.to_string_lossy().replace('\\', "/"))
+                            .unwrap_or_else(|_| file_name.clone());
 
-                    files.push(NexusStaticFile {
-                        id: gen_id("file"),
-                        name: file_name,
-                        file_type: file_type.to_string(),
-                        size: size_str,
-                        bytes,
-                        path: path.to_string_lossy().to_string(),
-                        relative_path: rel_path,
-                    });
+                        files.push(NexusStaticFile {
+                            id: gen_id("file"),
+                            name: file_name,
+                            file_type: file_type.to_string(),
+                            size: size_str,
+                            bytes,
+                            path: path.to_string_lossy().to_string(),
+                            relative_path: rel_path,
+                        });
+                    }
                 }
             }
         }
-    }
 
-    // Include built-in stock inventory if no custom assets scanned
-    if files.is_empty() {
-        files = vec![
-            NexusStaticFile {
-                id: "stock-audio-1".to_string(),
-                name: "lofi_focus_beat.mp3".to_string(),
-                file_type: "audio".to_string(),
-                size: "3.4 MB".to_string(),
-                bytes: 3_565_158,
-                path: "public/lofi_focus_beat.mp3".to_string(),
-                relative_path: "public/lofi_focus_beat.mp3".to_string(),
-            },
-            NexusStaticFile {
-                id: "stock-image-1".to_string(),
-                name: "brand_telemetry_hud.png".to_string(),
-                file_type: "image".to_string(),
-                size: "1.2 MB".to_string(),
-                bytes: 1_258_291,
-                path: "public/brand_telemetry_hud.png".to_string(),
-                relative_path: "public/brand_telemetry_hud.png".to_string(),
-            },
-            NexusStaticFile {
-                id: "stock-data-1".to_string(),
-                name: "hooks_library_2026.json".to_string(),
-                file_type: "data".to_string(),
-                size: "48 KB".to_string(),
-                bytes: 49_152,
-                path: "public/hooks_library_2026.json".to_string(),
-                relative_path: "public/hooks_library_2026.json".to_string(),
-            },
-        ];
-    }
+        // Include built-in stock inventory if no custom assets scanned
+        if files.is_empty() {
+            files = vec![
+                NexusStaticFile {
+                    id: "stock-audio-1".to_string(),
+                    name: "lofi_focus_beat.mp3".to_string(),
+                    file_type: "audio".to_string(),
+                    size: "3.4 MB".to_string(),
+                    bytes: 3_565_158,
+                    path: "public/lofi_focus_beat.mp3".to_string(),
+                    relative_path: "public/lofi_focus_beat.mp3".to_string(),
+                },
+                NexusStaticFile {
+                    id: "stock-image-1".to_string(),
+                    name: "brand_telemetry_hud.png".to_string(),
+                    file_type: "image".to_string(),
+                    size: "1.2 MB".to_string(),
+                    bytes: 1_258_291,
+                    path: "public/brand_telemetry_hud.png".to_string(),
+                    relative_path: "public/brand_telemetry_hud.png".to_string(),
+                },
+                NexusStaticFile {
+                    id: "stock-data-1".to_string(),
+                    name: "hooks_library_2026.json".to_string(),
+                    file_type: "data".to_string(),
+                    size: "48 KB".to_string(),
+                    bytes: 49_152,
+                    path: "public/hooks_library_2026.json".to_string(),
+                    relative_path: "public/hooks_library_2026.json".to_string(),
+                },
+            ];
+        }
+        files
+    })
+    .await
+    .unwrap_or_default();
 
     Json(json!({
         "success": true,
@@ -443,6 +450,9 @@ pub struct RenderMediaPayload {
     pub props: Option<Value>,
     pub output_name: Option<String>,
     pub ratio: Option<String>,
+    pub codec: Option<String>,
+    pub in_frame: Option<u32>,
+    pub out_frame: Option<u32>,
 }
 
 /// POST /api/render-media
@@ -471,6 +481,14 @@ pub async fn handle_render_media(
     };
 
     let output_file_str = output_file.to_string_lossy().to_string();
+    let render_opts = crate::tool::render::RenderOptions {
+        codec: payload.codec.clone(),
+        frame_range: match (payload.in_frame, payload.out_frame) {
+            (Some(s), Some(e)) if e >= s => Some((s, e)),
+            _ => None,
+        },
+        concurrency: None,
+    };
 
     let job = RenderJob {
         render_id: render_id.clone(),
@@ -494,11 +512,12 @@ pub async fn handle_render_media(
     let out_dest = output_file_str.clone();
     let comp_for_worker = comp_id.clone();
     tokio::spawn(async move {
-        let child = tokio::process::Command::from(crate::tool::render::build_command(
+        let child = tokio::process::Command::from(crate::tool::render::build_command_with_options(
             &crate::paths::project_root(),
             &comp_for_worker,
             &props_str,
             Some(std::path::Path::new(&out_dest)),
+            &render_opts,
         ))
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -653,44 +672,76 @@ pub async fn handle_render_progress(
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WriteFilePayload {
-    pub path: String,
-    pub data: String,
+    pub path: Option<String>,
+    pub file_path: Option<String>,
+    pub data: Option<String>,
+    pub contents: Option<String>,
+    pub base64_data: Option<String>,
+    pub source_path: Option<String>,
 }
 
-/// POST /api/write-static-file
+/// POST /api/write-static-file (Native Rust non-blocking binary & file copy handler)
 pub async fn handle_write_static_file(
     Json(payload): Json<WriteFilePayload>,
 ) -> impl IntoResponse {
-    let workspace = crate::desktop::get_active_workspace_root()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."));
+    let rel = payload
+        .file_path
+        .or(payload.path)
+        .unwrap_or_else(|| "public/asset.bin".to_string());
 
-    let target = workspace.join(payload.path);
-    if let Some(parent) = target.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
+    let res = tokio::task::spawn_blocking(move || -> Result<String, String> {
+        let workspace = crate::desktop::get_active_workspace_root()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("."));
 
-    match std::fs::write(&target, payload.data.as_bytes()) {
-        Ok(_) => Json(json!({ "success": true, "path": target.to_string_lossy() })),
-        Err(e) => Json(json!({ "success": false, "error": e.to_string() })),
+        let target = workspace.join(&rel);
+        if let Some(parent) = target.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+
+        if let Some(src) = payload.source_path {
+            std::fs::copy(&src, &target).map_err(|e| e.to_string())?;
+        } else if let Some(b64) = payload.base64_data {
+            use base64::Engine;
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(b64.trim())
+                .map_err(|e| format!("Invalid base64 payload: {}", e))?;
+            std::fs::write(&target, &bytes).map_err(|e| e.to_string())?;
+        } else {
+            let text = payload.contents.or(payload.data).unwrap_or_default();
+            std::fs::write(&target, text.as_bytes()).map_err(|e| e.to_string())?;
+        }
+
+        Ok(target.to_string_lossy().to_string())
+    })
+    .await
+    .unwrap_or_else(|e| Err(e.to_string()));
+
+    match res {
+        Ok(saved_path) => Json(json!({ "success": true, "path": saved_path })),
+        Err(e) => Json(json!({ "success": false, "error": e })),
     }
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DeleteFilePayload {
-    pub path: String,
+    pub path: Option<String>,
+    pub file_path: Option<String>,
 }
 
 /// POST /api/delete-static-file
 pub async fn handle_delete_static_file(
     Json(payload): Json<DeleteFilePayload>,
 ) -> impl IntoResponse {
+    let rel = payload.file_path.or(payload.path).unwrap_or_default();
     let workspace = crate::desktop::get_active_workspace_root()
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."));
 
-    let target = workspace.join(payload.path);
+    let target = workspace.join(rel);
     if target.exists() && target.is_file() {
         match std::fs::remove_file(&target) {
             Ok(_) => Json(json!({ "success": true })),
@@ -702,7 +753,7 @@ pub async fn handle_delete_static_file(
 }
 
 // ============================================================================
-// 1. GPU Telemetry & Hardware Accelerator
+// 1. GPU Telemetry & Hardware Accelerator (Cached OnceLock in Rust)
 // ============================================================================
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -717,7 +768,9 @@ pub struct GpuTelemetry {
     pub memory_mb: u64,
 }
 
-pub async fn handle_gpu_telemetry() -> impl IntoResponse {
+static GPU_TELEMETRY_CACHE: OnceLock<GpuTelemetry> = OnceLock::new();
+
+fn detect_gpu_telemetry_once() -> GpuTelemetry {
     let mut encoder = "libx264".to_string();
     let mut vendor = "CPU".to_string();
     let mut name = "Software Encoder (libx264)".to_string();
@@ -727,10 +780,20 @@ pub async fn handle_gpu_telemetry() -> impl IntoResponse {
 
     #[cfg(target_os = "windows")]
     {
-        let output = std::process::Command::new("wmic")
-            .args(["path", "win32_VideoController", "get", "name"])
-            .output();
-        if let Ok(out) = output {
+        let probe = std::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                "(Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name) -join ' '",
+            ])
+            .output()
+            .or_else(|_| {
+                std::process::Command::new("wmic")
+                    .args(["path", "win32_VideoController", "get", "name"])
+                    .output()
+            });
+
+        if let Ok(out) = probe {
             let text = String::from_utf8_lossy(&out.stdout).to_lowercase();
             if text.contains("nvidia") || text.contains("geforce") || text.contains("rtx") || text.contains("gtx") {
                 encoder = "h264_nvenc".to_string();
@@ -757,14 +820,46 @@ pub async fn handle_gpu_telemetry() -> impl IntoResponse {
         }
     }
 
+    GpuTelemetry {
+        success: true,
+        encoder,
+        gpu_vendor: vendor,
+        gpu_name: name,
+        hardware_accelerated: hw,
+        supported_codecs: codecs,
+        memory_mb: vram,
+    }
+}
+
+pub async fn handle_gpu_telemetry() -> impl IntoResponse {
+    if let Some(cached) = GPU_TELEMETRY_CACHE.get() {
+        return Json(json!({
+            "success": true,
+            "data": cached,
+            "encoder": cached.encoder,
+            "gpuVendor": cached.gpu_vendor,
+            "gpuName": cached.gpu_name,
+            "hardwareAccelerated": cached.hardware_accelerated,
+            "supportedCodecs": cached.supported_codecs,
+            "memoryMb": cached.memory_mb
+        }));
+    }
+
+    let telemetry = tokio::task::spawn_blocking(|| {
+        GPU_TELEMETRY_CACHE.get_or_init(detect_gpu_telemetry_once).clone()
+    })
+    .await
+    .unwrap_or_else(|_| detect_gpu_telemetry_once());
+
     Json(json!({
         "success": true,
-        "encoder": encoder,
-        "gpuVendor": vendor,
-        "gpuName": name,
-        "hardwareAccelerated": hw,
-        "supportedCodecs": codecs,
-        "memoryMb": vram
+        "data": telemetry,
+        "encoder": telemetry.encoder,
+        "gpuVendor": telemetry.gpu_vendor,
+        "gpuName": telemetry.gpu_name,
+        "hardwareAccelerated": telemetry.hardware_accelerated,
+        "supportedCodecs": telemetry.supported_codecs,
+        "memoryMb": telemetry.memory_mb
     }))
 }
 
@@ -921,28 +1016,34 @@ pub struct ScanMediaPayload {
 pub async fn handle_scan_media_vault(
     Json(payload): Json<ScanMediaPayload>,
 ) -> impl IntoResponse {
-    let workspace = crate::desktop::get_active_workspace_root()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."));
+    let (scanned_path, results) = tokio::task::spawn_blocking(move || {
+        let workspace = crate::desktop::get_active_workspace_root()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("."));
 
-    let target_dir = if let Some(p) = payload.path {
-        PathBuf::from(p)
-    } else {
-        workspace.join("public")
-    };
+        let target_dir = if let Some(p) = payload.path {
+            PathBuf::from(p)
+        } else {
+            workspace.join("public")
+        };
 
-    let mut results: Vec<NexusStaticFile> = Vec::new();
-    if target_dir.exists() && target_dir.is_dir() {
-        scan_directory_files(&target_dir, &target_dir, &mut results, 0, 4);
-    }
+        let mut results: Vec<NexusStaticFile> = Vec::new();
+        if target_dir.exists() && target_dir.is_dir() {
+            scan_directory_files(&target_dir, &target_dir, &mut results, 0, 4);
+        }
 
-    if let Some(types) = payload.file_types {
-        results.retain(|f| types.contains(&f.file_type));
-    }
+        if let Some(types) = payload.file_types {
+            results.retain(|f| types.contains(&f.file_type));
+        }
+
+        (target_dir.to_string_lossy().to_string(), results)
+    })
+    .await
+    .unwrap_or_else(|_| (String::new(), Vec::new()));
 
     Json(json!({
         "success": true,
-        "scannedPath": target_dir.to_string_lossy(),
+        "scannedPath": scanned_path,
         "totalFiles": results.len(),
         "assets": results
     }))
@@ -1228,4 +1329,247 @@ pub async fn handle_generate_script(
         "success": true,
         "composition": preset
     }))
+}
+
+// ============================================================================
+// 6. Native Rust 12-Layer NLE Timeline Calculator
+// ============================================================================
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct RustVideoLayerSpec {
+    pub id: String,
+    pub track_code: String,
+    pub label: String,
+    pub kind: String,
+    pub from: u32,
+    pub duration_in_frames: u32,
+    pub visible: bool,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ComputeLayersPayload {
+    pub composition_id: Option<String>,
+    pub props: Option<Value>,
+    pub total_frames: Option<u32>,
+}
+
+pub fn build_composition_layers_rust(props: &Value, total_frames: u32) -> Vec<RustVideoLayerSpec> {
+    let total = total_frames.max(15);
+    let show_bg = props.get("showBackground").and_then(Value::as_bool).unwrap_or(true);
+    let show_txt = props.get("showText").and_then(Value::as_bool).unwrap_or(true);
+    let vis_map = props.get("layerVisibility").and_then(Value::as_object);
+    let start_map = props.get("layerStartFrame").and_then(Value::as_object);
+    let dur_map = props.get("layerDuration").and_then(Value::as_object);
+
+    let is_vis = |id: &str, group: bool| -> bool {
+        if !group {
+            return false;
+        }
+        vis_map
+            .and_then(|m| m.get(id))
+            .and_then(Value::as_bool)
+            .unwrap_or(true)
+    };
+
+    let resolve_timing = |id: &str, default_from: u32| -> (u32, u32) {
+        let from_raw = start_map
+            .and_then(|m| m.get(id))
+            .and_then(Value::as_u64)
+            .map(|v| v as u32)
+            .unwrap_or(default_from);
+        let from = from_raw.min(total.saturating_sub(5));
+        let max_dur = total.saturating_sub(from).max(5);
+        let dur = dur_map
+            .and_then(|m| m.get(id))
+            .and_then(Value::as_u64)
+            .map(|v| v as u32)
+            .unwrap_or(max_dur)
+            .clamp(5, max_dur);
+        (from, dur)
+    };
+
+    let category = props.get("category").and_then(Value::as_str).unwrap_or("PRODUCTIVITY");
+    let sub_category = props.get("subCategory").and_then(Value::as_str).unwrap_or("EXECUTIVE HABITS");
+    let hook_text = props.get("hookText").and_then(Value::as_str).unwrap_or("");
+    let body_text = props.get("bodyText").and_then(Value::as_str).unwrap_or("");
+    let author_handle = props.get("authorHandle").and_then(Value::as_str).unwrap_or("@nexus.creative");
+    let editorial_tag = props
+        .get("editorialTag")
+        .and_then(Value::as_str)
+        .unwrap_or("NEXUS // EDITORIAL SHORT");
+
+    let mut raw: Vec<(String, String, &str, u32, u32, bool)> = Vec::new();
+
+    let (f, d) = resolve_timing("hud-category", 0);
+    raw.push((
+        "hud-category".to_string(),
+        format!("Badge Kiri: // {}", category),
+        "icon",
+        f,
+        d,
+        is_vis("hud-category", show_txt),
+    ));
+
+    let (f, d) = resolve_timing("hud-subcategory", 4);
+    raw.push((
+        "hud-subcategory".to_string(),
+        format!("Label Kanan: [ {} ]", sub_category),
+        "text",
+        f,
+        d,
+        is_vis("hud-subcategory", show_txt),
+    ));
+
+    let hook_short: String = hook_text.chars().take(24).collect();
+    let (f, d) = resolve_timing("text-hook", 8);
+    raw.push((
+        "text-hook".to_string(),
+        format!("Judul Hook: \"{}...\"", hook_short),
+        "text",
+        f,
+        d,
+        is_vis("text-hook", show_txt),
+    ));
+
+    for (idx, line) in body_text.lines().map(str::trim).filter(|l| !l.is_empty()).enumerate() {
+        let id = format!("text-bullet-{}", idx);
+        let default_start = (20 + (idx as u32) * 14).min(total.saturating_sub(15));
+        let (f, d) = resolve_timing(&id, default_start);
+        let short_line: String = line.chars().take(26).collect();
+        raw.push((
+            id.clone(),
+            format!("Poin #{}: {}", idx + 1, short_line),
+            "text",
+            f,
+            d,
+            is_vis(&id, show_txt),
+        ));
+    }
+
+    let (f, d) = resolve_timing("footer-icon", 32);
+    raw.push((
+        "footer-icon".to_string(),
+        "Ikon Petir: [⚡] Avatar Box".to_string(),
+        "icon",
+        f,
+        d,
+        is_vis("footer-icon", show_txt),
+    ));
+
+    let (f, d) = resolve_timing("footer-author", 36);
+    raw.push((
+        "footer-author".to_string(),
+        format!("Author: {}", author_handle),
+        "text",
+        f,
+        d,
+        is_vis("footer-author", show_txt),
+    ));
+
+    let (f, d) = resolve_timing("footer-tag", 40);
+    raw.push((
+        "footer-tag".to_string(),
+        format!("Badge Kanan Bawah: {}", editorial_tag),
+        "icon",
+        f,
+        d,
+        is_vis("footer-tag", show_txt),
+    ));
+
+    let (f, d) = resolve_timing("bg-grid-pattern", 0);
+    raw.push((
+        "bg-grid-pattern".to_string(),
+        "Corak: Blueprint Grid".to_string(),
+        "pattern",
+        f,
+        d,
+        is_vis("bg-grid-pattern", show_bg),
+    ));
+
+    let (f, d) = resolve_timing("bg-orb-pattern", 0);
+    raw.push((
+        "bg-orb-pattern".to_string(),
+        "Corak: Ambient Glow Orb".to_string(),
+        "pattern",
+        f,
+        d,
+        is_vis("bg-orb-pattern", show_bg),
+    ));
+
+    let (f, d) = resolve_timing("bg-base", 0);
+    raw.push((
+        "bg-base".to_string(),
+        "Background: Radial Gradient".to_string(),
+        "background",
+        f,
+        d,
+        is_vis("bg-base", show_bg),
+    ));
+
+    let count = raw.len();
+    raw.into_iter()
+        .enumerate()
+        .map(|(i, (id, label, kind, from, duration_in_frames, visible))| RustVideoLayerSpec {
+            id,
+            track_code: format!("V{}", count - i),
+            label,
+            kind: kind.to_string(),
+            from,
+            duration_in_frames,
+            visible,
+        })
+        .collect()
+}
+
+pub async fn handle_compute_layers(
+    Json(payload): Json<ComputeLayersPayload>,
+) -> impl IntoResponse {
+    let store = get_compositions_store().read().unwrap();
+    let active = payload
+        .composition_id
+        .as_ref()
+        .and_then(|id| store.iter().find(|c| &c.id == id))
+        .or_else(|| store.first());
+
+    let props = payload
+        .props
+        .or_else(|| active.map(|c| c.props.clone()))
+        .unwrap_or_else(|| json!({}));
+
+    let total_frames = payload.total_frames.unwrap_or_else(|| {
+        active
+            .map(|c| ((c.duration * (c.fps as f64)).round() as u32).max(15))
+            .unwrap_or(150)
+    });
+    drop(store);
+
+    let layers = build_composition_layers_rust(&props, total_frames);
+    Json(json!({
+        "success": true,
+        "totalLayers": layers.len(),
+        "totalFrames": total_frames,
+        "layers": layers
+    }))
+}
+
+pub async fn handle_get_active_layers() -> impl IntoResponse {
+    let store = get_compositions_store().read().unwrap();
+    let first = store.first().cloned();
+    drop(store);
+
+    if let Some(comp) = first {
+        let total_frames = ((comp.duration * (comp.fps as f64)).round() as u32).max(15);
+        let layers = build_composition_layers_rust(&comp.props, total_frames);
+        Json(json!({
+            "success": true,
+            "compositionId": comp.id,
+            "totalLayers": layers.len(),
+            "totalFrames": total_frames,
+            "layers": layers
+        }))
+    } else {
+        Json(json!({ "success": false, "layers": [] }))
+    }
 }
