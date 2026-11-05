@@ -207,9 +207,9 @@ export function RenderQueuePanel({
             </span>
             <span
               className={cn(
-                "px-1.5 py-0.5 rounded-full text-[9px] font-mono border",
+                "px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold border shrink-0 whitespace-nowrap",
                 gpuTelemetry?.hardwareAccelerated
-                  ? "bg-[#451A03] border-[#D97706] text-[#FDE68A]"
+                  ? "bg-[#cf6613] border-[#e07b27] text-white"
                   : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)]"
               )}
             >
@@ -217,7 +217,7 @@ export function RenderQueuePanel({
             </span>
           </div>
           <div className="text-[11px] text-[var(--text-secondary)] truncate">
-            {gpuTelemetry?.gpuName || "Local Remotion Renderer (Zero Cloud Cost)"}
+            {gpuTelemetry?.gpuName || "Local Nexus Renderer (Zero Cloud Cost)"}
           </div>
         </div>
 
@@ -279,9 +279,9 @@ export function RenderQueuePanel({
             <button
               type="button"
               onClick={() => void handleStartRender()}
-              className="h-7 px-3.5 rounded-lg bg-[#be123c] hover:bg-[#9f1239] border border-[#e11d48] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              className="h-7 px-3.5 rounded-lg bg-[#be123c] hover:bg-[#9f1239] border border-[#e11d48] text-white text-xs font-semibold flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer transition-colors"
             >
-              <Play className="w-3.5 h-3.5 fill-current" />
+              <Play className="w-3.5 h-3.5 fill-current shrink-0" />
               <span>Render Video ({codec.toUpperCase()})</span>
             </button>
           </div>
@@ -326,12 +326,12 @@ export function RenderQueuePanel({
                     </span>
                     <span
                       className={cn(
-                        "px-1.5 py-0.5 rounded-full text-[9px] font-mono flex items-center gap-1 shrink-0 border",
+                        "px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap border",
                         job.status === "done"
-                          ? "bg-[#083344] border-[#0891B2] text-[#67E8F9]"
+                          ? "bg-[#0284c7] border-[#38bdf8] text-white"
                           : job.status === "error"
-                          ? "bg-[#4C0519] border-[#E11D48] text-[#FDA4AF]"
-                          : "bg-[#451A03] border-[#D97706] text-[#FDE68A]"
+                          ? "bg-[#be123c] border-[#f43f5e] text-white"
+                          : "bg-[#cf6613] border-[#e07b27] text-white"
                       )}
                     >
                       {job.status === "done" ? (

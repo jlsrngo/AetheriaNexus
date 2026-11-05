@@ -780,39 +780,60 @@ fn detect_gpu_telemetry_once() -> GpuTelemetry {
 
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
         let probe = std::process::Command::new("powershell")
+            .creation_flags(CREATE_NO_WINDOW)
             .args([
                 "-NoProfile",
                 "-Command",
-                "(Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name) -join ' '",
+                "(Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name) -join ' / '",
             ])
             .output()
             .or_else(|_| {
                 std::process::Command::new("wmic")
+                    .creation_flags(CREATE_NO_WINDOW)
                     .args(["path", "win32_VideoController", "get", "name"])
                     .output()
             });
 
         if let Ok(out) = probe {
-            let text = String::from_utf8_lossy(&out.stdout).to_lowercase();
+            let raw_text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            let text = raw_text.to_lowercase();
+            let detected_label = if raw_text.is_empty() {
+                None
+            } else {
+                Some(raw_text)
+            };
+
             if text.contains("nvidia") || text.contains("geforce") || text.contains("rtx") || text.contains("gtx") {
                 encoder = "h264_nvenc".to_string();
                 vendor = "NVIDIA".to_string();
-                name = "NVIDIA GeForce / RTX Series (NVENC Accelerated)".to_string();
+                name = match detected_label {
+                    Some(lbl) => format!("{} (NVENC Accelerated)", lbl),
+                    None => "NVIDIA GeForce / RTX Series (NVENC Accelerated)".to_string(),
+                };
                 hw = true;
                 codecs.push("h264_nvenc".to_string());
                 codecs.push("hevc_nvenc".to_string());
             } else if text.contains("amd") || text.contains("radeon") {
                 encoder = "h264_amf".to_string();
                 vendor = "AMD".to_string();
-                name = "AMD Radeon Series (AMF Accelerated)".to_string();
+                name = match detected_label {
+                    Some(lbl) => format!("{} (AMF Accelerated)", lbl),
+                    None => "AMD Radeon Series (AMF Accelerated)".to_string(),
+                };
                 hw = true;
                 codecs.push("h264_amf".to_string());
                 codecs.push("hevc_amf".to_string());
             } else if text.contains("intel") || text.contains("iris") || text.contains("arc") {
                 encoder = "h264_qsv".to_string();
                 vendor = "Intel".to_string();
-                name = "Intel QuickSync Video (QSV Accelerated)".to_string();
+                name = match detected_label {
+                    Some(lbl) => format!("{} (QSV Accelerated)", lbl),
+                    None => "Intel QuickSync Video (QSV Accelerated)".to_string(),
+                };
                 hw = true;
                 codecs.push("h264_qsv".to_string());
                 codecs.push("hevc_qsv".to_string());
@@ -916,7 +937,7 @@ pub async fn handle_generate_subtitles(
     let high_impact_words = [
         "secret", "money", "fast", "never", "always", "stop", "rich", "millionaire",
         "hack", "truth", "viral", "proven", "dopamine", "fail", "win", "elite",
-        "rahasia", "cuan", "sukses", "gagal", "wajib", "trik", "tips", "bahaya",
+        "growth", "profit", "success", "critical", "essential", "trick", "tips", "warning",
     ];
 
     for (idx, chunk) in words.chunks(words_per_chunk).enumerate() {
@@ -973,12 +994,16 @@ pub struct FormatCaptionsPayload {
 pub async fn handle_format_captions(
     Json(payload): Json<FormatCaptionsPayload>,
 ) -> impl IntoResponse {
-    let style = payload.style.unwrap_or_else(|| "tiktok-bold".to_string());
-    let (primary_color, highlight_color) = match style.as_str() {
-        "beast-yellow" => ("#FFFFFF", "#FFE600"),
-        "neon-green" => ("#FFFFFF", "#00FF66"),
-        _ => ("#FFFFFF", "#00E5FF"), // TikTok cyan
+    let style = payload.style.unwrap_or_else(|| "#00F2FE".to_string());
+    let highlight_color = if style.starts_with('#') {
+        style.as_str()
+    } else {
+        match style.as_str() {
+            "beast-yellow" => "#F59E0B",
+            _ => "#00F2FE",
+        }
     };
+    let primary_color = "#FFFFFF";
 
     let formatted: Vec<SubtitleCue> = payload
         .cues

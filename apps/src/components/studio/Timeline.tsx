@@ -4,7 +4,6 @@ import {
   ChevronRight,
   Pause,
   Play,
-  SkipBack,
   Eye,
   EyeOff,
   Layers,
@@ -17,6 +16,9 @@ import {
   Trash2,
   Download,
   Loader2,
+  Pencil,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
@@ -54,7 +56,10 @@ export const Timeline: React.FC<TimelineProps> = ({
   const subtitles = subtitleCues;
 
   const [timelineHeight, setTimelineHeight] = useState<number>(280);
+  const [timelineZoom, setTimelineZoom] = useState<number>(1);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>("text-hook");
+  const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
+  const [editingDraft, setEditingDraft] = useState<string>("");
   const [dragOverride, setDragOverride] = useState<DragOverride | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
@@ -100,16 +105,6 @@ export const Timeline: React.FC<TimelineProps> = ({
 
   const step = (delta: number) =>
     onSeek(Math.min(lastFrame, Math.max(0, currentFrame + delta)));
-
-  const handleStartButton = () => {
-    const targetStart = canvas.inFrame ?? 0;
-    if (currentFrame !== targetStart) {
-      onSeek(targetStart);
-    } else {
-      onSeek(targetStart);
-      onTogglePlay();
-    }
-  };
 
   const handleQuickExport = async () => {
     if (isExporting) return;
@@ -241,6 +236,97 @@ export const Timeline: React.FC<TimelineProps> = ({
     actions.updateActiveProps({
       customLayers: currentCustom.filter((c) => c.id !== layerId),
     });
+  };
+
+  const handleUpdateLayerContent = (layer: VideoLayerSpec, nextValue: string) => {
+    const props = activeComposition.props;
+    if (layer.id === "text-hook") {
+      actions.updateActiveProps({ hookText: nextValue });
+      return;
+    }
+    if (layer.id === "hud-category") {
+      actions.updateActiveProps({ category: nextValue });
+      return;
+    }
+    if (layer.id === "hud-subcategory") {
+      actions.updateActiveProps({ subCategory: nextValue });
+      return;
+    }
+    if (layer.id === "footer-author") {
+      actions.updateActiveProps({ authorHandle: nextValue });
+      return;
+    }
+    if (layer.id === "footer-tag") {
+      actions.updateActiveProps({ editorialTag: nextValue });
+      return;
+    }
+    if (layer.id.startsWith("text-bullet-")) {
+      const bulletIdx = Number(layer.id.replace("text-bullet-", ""));
+      const lines = (props.bodyText || "")
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (!Number.isNaN(bulletIdx) && bulletIdx >= 0 && bulletIdx < lines.length) {
+        lines[bulletIdx] = nextValue;
+        actions.updateActiveProps({ bodyText: lines.join("\n") });
+      }
+      return;
+    }
+    if (layer.isCustom) {
+      const currentCustom = Array.isArray(props.customLayers)
+        ? props.customLayers
+        : [];
+      actions.updateActiveProps({
+        customLayers: currentCustom.map((item) =>
+          item.id === layer.id
+            ? { ...item, content: nextValue, label: nextValue }
+            : item
+        ),
+      });
+      return;
+    }
+    actions.updateActiveProps({
+      layerLabels: {
+        ...(props.layerLabels || {}),
+        [layer.id]: nextValue,
+      },
+    });
+  };
+
+  const handleUpdateLayerTiming = (
+    layer: VideoLayerSpec,
+    nextFrom: number,
+    nextEnd: number
+  ) => {
+    const safeFrom = Math.max(0, Math.min(durationInFrames - 5, Math.round(nextFrom)));
+    const safeEnd = Math.max(safeFrom + 5, Math.min(durationInFrames, Math.round(nextEnd)));
+    const safeDur = safeEnd - safeFrom;
+    actions.updateActiveProps({
+      layerStartFrame: {
+        ...(activeComposition.props.layerStartFrame || {}),
+        [layer.id]: safeFrom,
+      },
+      layerDuration: {
+        ...(activeComposition.props.layerDuration || {}),
+        [layer.id]: safeDur,
+      },
+    });
+  };
+
+  const startInlineEdit = (layer: VideoLayerSpec) => {
+    setSelectedLayerId(layer.id);
+    setEditingLayerId(layer.id);
+    setEditingDraft(layer.content ?? layer.label);
+  };
+
+  const commitInlineEdit = (layer: VideoLayerSpec) => {
+    if (editingLayerId === layer.id) {
+      const trimmed = editingDraft.trim();
+      if (trimmed.length > 0) {
+        handleUpdateLayerContent(layer, trimmed);
+      }
+      setEditingLayerId(null);
+    }
   };
 
   // 60fps Zero-Lag Clip Dragging (commits to store only on mouseup)
@@ -519,20 +605,46 @@ export const Timeline: React.FC<TimelineProps> = ({
         title="Drag to resize Timeline height"
       />
 
-      {/* 1. Two-Row Solid Header with Centered Transport Pill */}
-      <div className="relative bg-[var(--bg-panel)] border-b border-[var(--border-color)] shrink-0">
-        {/* Top Row: 4 Left Controls (Start, [I, O], Reset) | 4 Right Controls (Frame, Time, + Layer, Export Icon) */}
-        <div className="h-9 px-3.5 flex items-center justify-between border-b border-[var(--border-color)] whitespace-nowrap">
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={handleStartButton}
-              title="Jump to Start Frame (or Play from Start)"
-              className="h-6 px-2 flex items-center gap-1 border border-[var(--border-strong)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md text-[10px] font-medium cursor-pointer transition-colors"
+      {/* 1. Three-Column Solid Header (Never Overlaps When Resized Narrow) */}
+      <div className="bg-[var(--bg-panel)] border-b border-[var(--border-color)] px-3 py-1.5 grid grid-cols-[1fr_auto_1fr] items-center gap-2 shrink-0">
+        {/* Left Column: Row 1 (Timeline Zoom, [I, O], Reset) | Row 2 (Tracks Count + Inline Selected Clip Editor) */}
+        <div className="flex flex-col gap-1.5 min-w-0 items-start">
+          <div className="flex items-center gap-1.5 max-w-full overflow-x-auto no-scrollbar">
+            {/* Timeline Horizontal Zoom Control (Replaces Redundant Start Button) */}
+            <div
+              className="h-6 px-1.5 flex items-center gap-1 border border-[var(--border-strong)] bg-[var(--bg-card)] rounded-md text-[10px] font-mono shrink-0"
+              title="Zoom Timeline Horizontally (Stretch Frames)"
             >
-              <SkipBack className="w-3 h-3 text-amber-400" />
-              <span>Start</span>
-            </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setTimelineZoom((z) => Math.max(1, Number((z - 0.5).toFixed(1))))
+                }
+                className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
+                title="Zoom Out Timeline"
+              >
+                <ZoomOut className="w-3 h-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setTimelineZoom(1)}
+                className="text-amber-400 font-semibold px-0.5 cursor-pointer"
+                title="Click to reset Timeline Zoom to 100%"
+              >
+                {Math.round(timelineZoom * 100)}%
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setTimelineZoom((z) => Math.min(8, Number((z + 0.5).toFixed(1))))
+                }
+                className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
+                title="Zoom In Timeline (Stretch Frames)"
+              >
+                <ZoomIn className="w-3 h-3" />
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={() =>
@@ -542,7 +654,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               }
               title="Set In Point (I)"
               className={cn(
-                "px-2 h-6 rounded-md text-[10px] font-mono border transition-colors cursor-pointer",
+                "px-2 h-6 rounded-md text-[10px] font-mono border transition-colors cursor-pointer shrink-0",
                 canvas.inFrame !== null
                   ? "bg-[#cf6613] border-[#e07b27] text-white font-semibold"
                   : "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
@@ -560,7 +672,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               }
               title="Set Out Point (O)"
               className={cn(
-                "px-2 h-6 rounded-md text-[10px] font-mono border transition-colors cursor-pointer",
+                "px-2 h-6 rounded-md text-[10px] font-mono border transition-colors cursor-pointer shrink-0",
                 canvas.outFrame !== null
                   ? "bg-[#cf6613] border-[#e07b27] text-white font-semibold"
                   : "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
@@ -572,29 +684,127 @@ export const Timeline: React.FC<TimelineProps> = ({
               type="button"
               onClick={handleResetLayerTimings}
               title="Reset all clip positions and durations"
-              className="px-2 h-6 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center gap-1 cursor-pointer transition-colors"
+              className="px-2 h-6 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
             >
               <RotateCcw className="w-3 h-3" />
               <span>Reset</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 whitespace-nowrap">
-            <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center gap-1 text-[10px] font-mono text-[var(--text-secondary)]">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono max-w-full overflow-x-auto no-scrollbar">
+            <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-amber-400 font-semibold flex items-center shrink-0">
+              {layers.length} TRACKS
+            </span>
+            {selectedLayer && (
+              <div className="h-6 px-1.5 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] flex items-center gap-1.5 min-w-0">
+                <span className="text-[var(--text-primary)] font-semibold shrink-0">
+                  {selectedLayer.trackCode}:
+                </span>
+                <input
+                  type="text"
+                  value={selectedLayer.content ?? selectedLayer.label}
+                  onChange={(e) =>
+                    handleUpdateLayerContent(selectedLayer, e.target.value)
+                  }
+                  placeholder="Edit clip text..."
+                  className="w-28 sm:w-40 h-4 px-1 rounded bg-[var(--bg-input)] border border-[var(--border-color)] text-[10px] font-sans text-[var(--text-primary)] outline-none focus:border-amber-400"
+                  title="Edit selected clip content directly"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  max={durationInFrames - 5}
+                  value={selectedLayer.from}
+                  onChange={(e) =>
+                    handleUpdateLayerTiming(
+                      selectedLayer,
+                      Number(e.target.value) || 0,
+                      selectedLayer.from + selectedLayer.durationInFrames
+                    )
+                  }
+                  className="w-9 h-4 text-center rounded bg-[var(--bg-input)] border border-[var(--border-color)] text-[9px] text-amber-400 outline-none"
+                  title="Clip Start Frame"
+                />
+                <span className="text-[var(--text-muted)]">–</span>
+                <input
+                  type="number"
+                  min={selectedLayer.from + 5}
+                  max={durationInFrames}
+                  value={selectedLayer.from + selectedLayer.durationInFrames}
+                  onChange={(e) =>
+                    handleUpdateLayerTiming(
+                      selectedLayer,
+                      selectedLayer.from,
+                      Number(e.target.value) || durationInFrames
+                    )
+                  }
+                  className="w-9 h-4 text-center rounded bg-[var(--bg-input)] border border-[var(--border-color)] text-[9px] text-amber-400 outline-none"
+                  title="Clip End Frame"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Center Column: Solid Transport Pill (<  (Play)  >) — Dedicated Grid Column, Zero Overlap */}
+        <div className="flex items-center justify-center shrink-0 px-1">
+          <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[var(--bg-card)] border-2 border-[var(--border-strong)] shadow-xl">
+            <button
+              type="button"
+              onClick={() => step(-1)}
+              title="Previous Frame"
+              className="w-6 h-6 rounded-full bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={onTogglePlay}
+              title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-[#cf6613] hover:bg-[#b8580f] text-white border border-[#e07b27] shadow-md transition-all cursor-pointer"
+            >
+              {isPlaying ? (
+                <Pause className="w-3.5 h-3.5 fill-current" />
+              ) : (
+                <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => step(1)}
+              title="Next Frame"
+              className="w-6 h-6 rounded-full bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Right Column: Row 1 (Frame/Time, + Layer, Export) | Row 2 (Speed Dropdown + Interactive FPS Dropdown) */}
+        <div className="flex flex-col gap-1.5 min-w-0 items-end">
+          <div className="flex items-center gap-1.5 max-w-full overflow-x-auto no-scrollbar">
+            <button
+              type="button"
+              onClick={() => onSeek(canvas.inFrame ?? 0)}
+              title="Click to jump to frame 0"
+              className="h-6 px-2 rounded-md bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] flex items-center gap-1 text-[10px] font-mono text-[var(--text-secondary)] shrink-0 cursor-pointer"
+            >
               <span>FRAME</span>
               <span className="text-amber-400 font-semibold">
                 {String(currentFrame).padStart(3, "0")}
               </span>
               <span>/ {durationInFrames}</span>
-            </span>
-            <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center text-[10px] font-mono text-[var(--text-primary)]">
+            </button>
+            <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center text-[10px] font-mono text-[var(--text-primary)] shrink-0">
               {(currentFrame / fps).toFixed(2)}s
             </span>
             <button
               type="button"
               onClick={handleAddCustomLayer}
               title="Add New Dynamic Layer (Unlimited V1..Vn Tracks)"
-              className="px-2 h-6 rounded-md bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-[10px] font-semibold text-white flex items-center gap-1 cursor-pointer transition-colors"
+              className="px-2 h-6 rounded-md bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-[10px] font-semibold text-white flex items-center gap-1 cursor-pointer transition-colors shrink-0"
             >
               <Plus className="w-3 h-3" />
               <span>Layer</span>
@@ -604,7 +814,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               onClick={() => void handleQuickExport()}
               disabled={isExporting}
               title="Export / Render Video (MP4)"
-              className="w-6 h-6 rounded-md bg-[var(--bg-card)] hover:bg-[#cf6613] border border-[var(--border-strong)] hover:border-[#e07b27] text-[var(--text-primary)] hover:text-white flex items-center justify-center cursor-pointer transition-colors disabled:opacity-60"
+              className="w-6 h-6 rounded-md bg-[var(--bg-card)] hover:bg-[#cf6613] border border-[var(--border-strong)] hover:border-[#e07b27] text-[var(--text-primary)] hover:text-white flex items-center justify-center cursor-pointer transition-colors disabled:opacity-60 shrink-0"
             >
               {isExporting ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -613,28 +823,8 @@ export const Timeline: React.FC<TimelineProps> = ({
               )}
             </button>
           </div>
-        </div>
 
-        {/* Bottom Row: 2 Left Items (Tracks Badge + Selected Range) | 2 Right Items (Speed + FPS) */}
-        <div className="h-9 px-3.5 flex items-center justify-between whitespace-nowrap">
-          <div className="flex items-center gap-1.5 text-[10px] font-mono">
-            <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-amber-400 font-semibold flex items-center">
-              {layers.length} TRACKS
-            </span>
-            {selectedLayer && (
-              <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)] flex items-center gap-1 truncate max-w-[190px]">
-                <span className="text-[var(--text-primary)] font-semibold">
-                  {selectedLayer.trackCode}:
-                </span>
-                <span className="text-amber-400">
-                  {selectedLayer.from}f–
-                  {selectedLayer.from + selectedLayer.durationInFrames}f
-                </span>
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1.5 text-[10px] font-mono whitespace-nowrap">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono max-w-full overflow-x-auto no-scrollbar">
             <select
               value={canvas.playbackRate}
               onChange={(e) =>
@@ -642,7 +832,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                   playbackRate: Number(e.target.value) as 0.5 | 1 | 1.5 | 2,
                 })
               }
-              className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer"
+              className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer shrink-0"
               title="Playback Speed"
             >
               <option value={0.5}>0.5x</option>
@@ -650,54 +840,34 @@ export const Timeline: React.FC<TimelineProps> = ({
               <option value={1.5}>1.5x</option>
               <option value={2}>2.0x</option>
             </select>
-            <span className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[var(--text-secondary)] flex items-center">
-              {fps} FPS
-            </span>
+
+            <select
+              value={fps}
+              onChange={(e) => {
+                const nextFps = Number(e.target.value) || 30;
+                actions.updateActiveMetadata({ fps: nextFps });
+                toast.success(`Updated composition frame rate to ${nextFps} FPS`);
+              }}
+              className="h-6 px-2 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer shrink-0"
+              title="Select Composition FPS (Frame Rate)"
+            >
+              <option value={24}>24 FPS</option>
+              <option value={25}>25 FPS</option>
+              <option value={30}>30 FPS</option>
+              <option value={50}>50 FPS</option>
+              <option value={60}>60 FPS</option>
+            </select>
           </div>
-        </div>
-
-        {/* Center Floating Solid Transport Pill (<  (Play)  >) straddling Row 1 & Row 2 */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[var(--bg-card)] border-2 border-[var(--border-strong)] shadow-xl">
-          <button
-            type="button"
-            onClick={() => step(-1)}
-            title="Previous Frame"
-            className="w-6 h-6 rounded-full bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            type="button"
-            onClick={onTogglePlay}
-            title={isPlaying ? "Pause (Space)" : "Play (Space)"}
-            className="w-8 h-8 rounded-full flex items-center justify-center bg-[#cf6613] hover:bg-[#b8580f] text-white border border-[#e07b27] shadow-md transition-all cursor-pointer"
-          >
-            {isPlaying ? (
-              <Pause className="w-3.5 h-3.5 fill-current" />
-            ) : (
-              <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => step(1)}
-            title="Next Frame"
-            className="w-6 h-6 rounded-full bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-          >
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
         </div>
       </div>
 
       {/* 2. Premiere-Style Multi-Track Body */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
-        {/* Left Column: Track Code (V12..V1) + Component Name + Eye Visibility */}
+        {/* Left Column: Track Code (V12..V1) + Component Name + Edit/Visibility */}
         <div className="w-[245px] shrink-0 border-r border-[var(--border-color)] bg-[var(--bg-panel)] flex flex-col min-h-0">
           <div className="h-6 px-2.5 border-b border-[var(--border-color)] flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] shrink-0">
             <span>Track / Component Layer</span>
-            <span>View</span>
+            <span>Edit / View</span>
           </div>
 
           <div
@@ -719,6 +889,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                     setSelectedLayerId(layer.id);
                     onSeek(layer.from);
                   }}
+                  onDoubleClick={() => startInlineEdit(layer)}
                   className={cn(
                     "h-7 px-2 flex items-center justify-between gap-1.5 transition-colors cursor-pointer",
                     isSelected
@@ -753,6 +924,17 @@ export const Timeline: React.FC<TimelineProps> = ({
                     </span>
                   </div>
                   <div className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startInlineEdit(layer);
+                      }}
+                      className="p-1 rounded text-[var(--text-muted)] hover:text-amber-400 hover:bg-[var(--bg-card)] transition-colors cursor-pointer"
+                      title="Edit clip content manually"
+                    >
+                      <Pencil className="w-2.5 h-2.5" />
+                    </button>
                     {layer.isCustom && (
                       <button
                         type="button"
@@ -805,178 +987,239 @@ export const Timeline: React.FC<TimelineProps> = ({
           </div>
         </div>
 
-        {/* Right Column: Time Ruler + Draggable/Trimmable Clip Lanes */}
-        <div className="flex-1 relative flex flex-col min-h-0 overflow-hidden">
-          {/* In/Out Highlight Region */}
-          {(inPercent !== null || outPercent !== null) && (
+        {/* Right Column: Horizontally Zoomable Time Ruler + Draggable/Trimmable/Editable Clip Lanes */}
+        <div
+          className="flex-1 relative flex flex-col min-h-0 overflow-x-auto overflow-y-hidden"
+          onWheel={(e) => {
+            if (e.ctrlKey || e.altKey) {
+              e.preventDefault();
+              const delta = e.deltaY < 0 ? 0.5 : -0.5;
+              setTimelineZoom((z) =>
+                Math.max(1, Math.min(8, Number((z + delta).toFixed(1))))
+              );
+            }
+          }}
+        >
+          <div
+            className="relative flex-1 flex flex-col min-h-0"
+            style={{
+              width: `${timelineZoom * 100}%`,
+              minWidth: "100%",
+            }}
+          >
+            {/* In/Out Highlight Region */}
+            {(inPercent !== null || outPercent !== null) && (
+              <div
+                className="absolute top-0 bottom-0 bg-[#23190B] border-x border-[#D97706] pointer-events-none z-0"
+                style={{
+                  left: `${inPercent ?? 0}%`,
+                  width: `${Math.max(0, (outPercent ?? 100) - (inPercent ?? 0))}%`,
+                }}
+              />
+            )}
+
+            {/* Time Ruler (Shows Finer Frame/Sub-Second Graduations When Zoomed In) */}
             <div
-              className="absolute top-0 bottom-0 bg-[#23190B] border-x border-[#D97706] pointer-events-none z-0"
-              style={{
-                left: `${inPercent ?? 0}%`,
-                width: `${Math.max(0, (outPercent ?? 100) - (inPercent ?? 0))}%`,
-              }}
-            />
-          )}
-
-          {/* Time Ruler */}
-          <div
-            ref={rulerRef}
-            className="h-6 border-b border-[var(--border-color)] bg-[var(--bg-panel)] relative shrink-0 cursor-col-resize"
-            onPointerDown={(e) => {
-              e.currentTarget.setPointerCapture(e.pointerId);
-              seekFromClientX(e.clientX);
-            }}
-            onPointerMove={(e) => {
-              if (e.buttons === 1) seekFromClientX(e.clientX);
-            }}
-            onPointerUp={(e) => e.currentTarget.releasePointerCapture(e.pointerId)}
-          >
-            {Array.from({ length: totalSeconds + 1 }, (_, second) => {
-              const left = Math.min(
-                100,
-                ((second * fps) / Math.max(1, lastFrame)) * 100
-              );
-              return (
-                <div
-                  key={second}
-                  className={cn(
-                    "absolute top-0 bottom-0 border-l border-[var(--border-color)] font-mono text-[9px] leading-6 text-[var(--text-muted)]",
-                    left >= 100 ? "-translate-x-full pr-1 text-right" : "pl-1"
-                  )}
-                  style={{ left: `${left}%` }}
-                >
-                  {second}s
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Scrollable Clip Track Lanes */}
-          <div
-            ref={rightScrollRef}
-            onScroll={(e) => {
-              if (leftScrollRef.current) {
-                leftScrollRef.current.scrollTop = e.currentTarget.scrollTop;
-              }
-            }}
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) {
+              ref={rulerRef}
+              className="h-6 border-b border-[var(--border-color)] bg-[var(--bg-panel)] relative shrink-0 cursor-col-resize"
+              onPointerDown={(e) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
                 seekFromClientX(e.clientX);
+              }}
+              onPointerMove={(e) => {
+                if (e.buttons === 1) seekFromClientX(e.clientX);
+              }}
+              onPointerUp={(e) =>
+                e.currentTarget.releasePointerCapture(e.pointerId)
               }
-            }}
-            className="flex-1 overflow-y-auto divide-y divide-[var(--border-color)]/40 relative"
-          >
-            {layers.map((layer, idx) => {
-              const leftPct = Math.min(
-                100,
-                (layer.from / Math.max(1, durationInFrames)) * 100
-              );
-              const widthPct = Math.max(
-                3,
-                (layer.durationInFrames / Math.max(1, durationInFrames)) * 100
-              );
-              const isSelected = layer.id === selectedLayerId;
-              const palette = getLayerPalette(layer, idx);
-
-              return (
-                <div
-                  key={layer.id}
-                  onMouseDown={(e) => {
-                    if (e.target === e.currentTarget) {
-                      seekFromClientX(e.clientX);
-                    }
-                  }}
-                  className="h-7 relative flex items-center"
-                >
-                  {/* Draggable & Trimmable Premiere Clip Bar */}
-                  <div
-                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                    onMouseDown={(e) => startClipDrag(e, layer, "move")}
-                    className={cn(
-                      "group absolute top-1 bottom-1 rounded border flex items-center justify-between overflow-hidden cursor-grab active:cursor-grabbing select-none transition-colors",
-                      !layer.visible
-                        ? "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)] opacity-50"
-                        : cn(palette.clip, isSelected && palette.selected)
-                    )}
-                    title={`${layer.trackCode} ${layer.label} (${layer.from}f – ${
-                      layer.from + layer.durationInFrames
-                    }f) • Drag center to move clip, drag left/right edges to trim`}
-                  >
-                    {/* Left Trim Handle */}
-                    <div
-                      onMouseDown={(e) => startClipDrag(e, layer, "trim-start")}
-                      className={cn(
-                        "w-1.5 h-full cursor-ew-resize shrink-0 transition-colors",
-                        palette.handle
-                      )}
-                      title="Trim Start Frame"
-                    />
-
-                    <div className="px-1.5 flex items-center justify-between gap-2 min-w-0 flex-1">
-                      <span className="text-[10px] font-medium truncate flex items-center gap-1.5">
-                        <span
-                          className={cn(
-                            "w-1.5 h-1.5 rounded-full shrink-0",
-                            layer.visible ? palette.dot : "bg-[var(--text-muted)]"
-                          )}
-                        />
-                        {layer.label}
-                      </span>
-                      <span className="text-[9px] font-mono opacity-80 shrink-0">
-                        {layer.from}f–{layer.from + layer.durationInFrames}f
-                      </span>
-                    </div>
-
-                    {/* Right Trim Handle */}
-                    <div
-                      onMouseDown={(e) => startClipDrag(e, layer, "trim-end")}
-                      className={cn(
-                        "w-1.5 h-full cursor-ew-resize shrink-0 transition-colors",
-                        palette.handle
-                      )}
-                      title="Trim End Frame"
-                    />
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Subtitles Track Row */}
-            {subtitles.length > 0 && (
-              <div className="h-7 relative">
-                {subtitles.map((cue, idx) => {
-                  const startPct = Math.min(
+            >
+              {(() => {
+                const subSteps = timelineZoom >= 4 ? 4 : timelineZoom >= 2 ? 2 : 1;
+                const totalTicks = totalSeconds * subSteps;
+                return Array.from({ length: totalTicks + 1 }, (_, idx) => {
+                  const secVal = idx / subSteps;
+                  const frameVal = Math.round(secVal * fps);
+                  const left = Math.min(
                     100,
-                    (cue.startFrame / Math.max(1, lastFrame)) * 100
+                    (frameVal / Math.max(1, lastFrame)) * 100
                   );
-                  const widthPct = Math.max(
-                    1.5,
-                    ((cue.endFrame - cue.startFrame) / Math.max(1, lastFrame)) *
-                      100
-                  );
+                  const isWholeSec = idx % subSteps === 0;
                   return (
                     <div
-                      key={`${cue.startFrame}-${idx}`}
-                      style={{ left: `${startPct}%`, width: `${widthPct}%` }}
-                      className="absolute top-1 bottom-1 bg-[#5C2D0C] border border-[#F59E0B] rounded px-1 flex items-center overflow-hidden"
-                      title={`${cue.text} (${cue.startFrame}f - ${cue.endFrame}f)`}
+                      key={idx}
+                      className={cn(
+                        "absolute top-0 bottom-0 border-l font-mono text-[9px] leading-6",
+                        isWholeSec
+                          ? "border-[var(--border-strong)] text-[var(--text-secondary)]"
+                          : "border-[var(--border-color)] text-[var(--text-muted)]",
+                        left >= 100
+                          ? "-translate-x-full pr-1 text-right"
+                          : "pl-1"
+                      )}
+                      style={{ left: `${left}%` }}
                     >
-                      <span className="text-[9px] font-mono text-[#FEF3C7] truncate">
-                        {cue.text}
-                      </span>
+                      {isWholeSec
+                        ? timelineZoom >= 2
+                          ? `${secVal}s (${frameVal}f)`
+                          : `${secVal}s`
+                        : `${frameVal}f`}
                     </div>
                   );
-                })}
-              </div>
-            )}
-          </div>
+                });
+              })()}
+            </div>
 
-          {/* Playhead Vertical Line */}
-          <div
-            className="absolute top-0 bottom-0 w-px bg-amber-500 pointer-events-none z-20"
-            style={{ left: `${progress * 100}%` }}
-          >
-            <div className="absolute top-0 -left-[4px] w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-black" />
+            {/* Scrollable Clip Track Lanes */}
+            <div
+              ref={rightScrollRef}
+              onScroll={(e) => {
+                if (leftScrollRef.current) {
+                  leftScrollRef.current.scrollTop = e.currentTarget.scrollTop;
+                }
+              }}
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) {
+                  seekFromClientX(e.clientX);
+                }
+              }}
+              className="flex-1 overflow-y-auto divide-y divide-[var(--border-color)]/40 relative"
+            >
+              {layers.map((layer, idx) => {
+                const leftPct = Math.min(
+                  100,
+                  (layer.from / Math.max(1, durationInFrames)) * 100
+                );
+                const widthPct = Math.max(
+                  3,
+                  (layer.durationInFrames / Math.max(1, durationInFrames)) * 100
+                );
+                const isSelected = layer.id === selectedLayerId;
+                const isEditing = layer.id === editingLayerId;
+                const palette = getLayerPalette(layer, idx);
+
+                return (
+                  <div
+                    key={layer.id}
+                    onMouseDown={(e) => {
+                      if (e.target === e.currentTarget) {
+                        seekFromClientX(e.clientX);
+                      }
+                    }}
+                    className="h-7 relative flex items-center"
+                  >
+                    {/* Draggable, Trimmable & Double-Click Editable Premiere Clip Bar */}
+                    <div
+                      style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                      onMouseDown={(e) => {
+                        if (!isEditing) startClipDrag(e, layer, "move");
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        startInlineEdit(layer);
+                      }}
+                      className={cn(
+                        "group absolute top-1 bottom-1 rounded border flex items-center justify-between overflow-hidden select-none transition-colors",
+                        isEditing ? "cursor-text" : "cursor-grab active:cursor-grabbing",
+                        !layer.visible
+                          ? "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)] opacity-50"
+                          : cn(palette.clip, isSelected && palette.selected)
+                      )}
+                      title={`${layer.trackCode} ${layer.label} (${layer.from}f – ${
+                        layer.from + layer.durationInFrames
+                      }f) • Double-click clip to edit text manually, drag center to move, drag edges to trim`}
+                    >
+                      {/* Left Trim Handle */}
+                      <div
+                        onMouseDown={(e) => startClipDrag(e, layer, "trim-start")}
+                        className={cn(
+                          "w-1.5 h-full cursor-ew-resize shrink-0 transition-colors",
+                          palette.handle
+                        )}
+                        title="Trim Start Frame"
+                      />
+
+                      <div className="px-1.5 flex items-center justify-between gap-2 min-w-0 flex-1">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            autoFocus
+                            value={editingDraft}
+                            onChange={(e) => setEditingDraft(e.target.value)}
+                            onBlur={() => commitInlineEdit(layer)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitInlineEdit(layer);
+                              if (e.key === "Escape") setEditingLayerId(null);
+                            }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            className="w-full h-4 px-1 rounded bg-black/60 border border-amber-400 text-[10px] text-white outline-none"
+                          />
+                        ) : (
+                          <span className="text-[10px] font-medium truncate flex items-center gap-1.5">
+                            <span
+                              className={cn(
+                                "w-1.5 h-1.5 rounded-full shrink-0",
+                                layer.visible ? palette.dot : "bg-[var(--text-muted)]"
+                              )}
+                            />
+                            {layer.label}
+                          </span>
+                        )}
+                        <span className="text-[9px] font-mono opacity-80 shrink-0">
+                          {layer.from}f–{layer.from + layer.durationInFrames}f
+                        </span>
+                      </div>
+
+                      {/* Right Trim Handle */}
+                      <div
+                        onMouseDown={(e) => startClipDrag(e, layer, "trim-end")}
+                        className={cn(
+                          "w-1.5 h-full cursor-ew-resize shrink-0 transition-colors",
+                          palette.handle
+                        )}
+                        title="Trim End Frame"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Subtitles Track Row */}
+              {subtitles.length > 0 && (
+                <div className="h-7 relative">
+                  {subtitles.map((cue, idx) => {
+                    const startPct = Math.min(
+                      100,
+                      (cue.startFrame / Math.max(1, lastFrame)) * 100
+                    );
+                    const widthPct = Math.max(
+                      1.5,
+                      ((cue.endFrame - cue.startFrame) / Math.max(1, lastFrame)) *
+                        100
+                    );
+                    return (
+                      <div
+                        key={`${cue.startFrame}-${idx}`}
+                        style={{ left: `${startPct}%`, width: `${widthPct}%` }}
+                        className="absolute top-1 bottom-1 bg-[#5C2D0C] border border-[#F59E0B] rounded px-1 flex items-center overflow-hidden"
+                        title={`${cue.text} (${cue.startFrame}f - ${cue.endFrame}f)`}
+                      >
+                        <span className="text-[9px] font-mono text-[#FEF3C7] truncate">
+                          {cue.text}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Playhead Vertical Line */}
+            <div
+              className="absolute top-0 bottom-0 w-px bg-amber-500 pointer-events-none z-20"
+              style={{ left: `${progress * 100}%` }}
+            >
+              <div className="absolute top-0 -left-[4px] w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-black" />
+            </div>
           </div>
         </div>
       </div>

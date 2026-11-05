@@ -49,6 +49,8 @@ export interface NexusVideoProps extends Record<string, unknown> {
   layerStartFrame?: Record<string, number>;
   /** Per-layer duration override in frames (Premiere clip length) */
   layerDuration?: Record<string, number>;
+  /** Optional custom label override for pattern/icon/background tracks */
+  layerLabels?: Record<string, string>;
 }
 
 /**
@@ -95,6 +97,7 @@ export function buildCompositionLayers(
   const vis = props.layerVisibility || {};
   const starts = props.layerStartFrame || {};
   const durations = props.layerDuration || {};
+  const customLabels = props.layerLabels || {};
   const showBg = props.showBackground !== false;
   const showTxt = props.showText !== false;
 
@@ -150,6 +153,7 @@ export function buildCompositionLayers(
     rawLayers.push({
       id: "hud-category",
       label: `Left Badge: // ${props.category}`,
+      content: props.category,
       kind: "icon",
       ...resolveTiming("hud-category", 0),
       visible: isLayerVisible("hud-category", showTxt),
@@ -161,6 +165,7 @@ export function buildCompositionLayers(
     rawLayers.push({
       id: "hud-subcategory",
       label: `Right Label: [ ${props.subCategory} ]`,
+      content: props.subCategory,
       kind: "text",
       ...resolveTiming("hud-subcategory", 4),
       visible: isLayerVisible("hud-subcategory", showTxt),
@@ -172,6 +177,7 @@ export function buildCompositionLayers(
     rawLayers.push({
       id: "text-hook",
       label: `Hook Title: "${props.hookText.slice(0, 24)}..."`,
+      content: props.hookText,
       kind: "text",
       ...resolveTiming("text-hook", 8),
       visible: isLayerVisible("text-hook", showTxt),
@@ -196,7 +202,8 @@ export function buildCompositionLayers(
   if ((props.authorHandle ?? "").trim().length > 0) {
     rawLayers.push({
       id: "footer-icon",
-      label: "Avatar Icon: [⚡] Box",
+      label: customLabels["footer-icon"] || "Avatar Icon: [⚡] Box",
+      content: customLabels["footer-icon"] || "Avatar Icon: [⚡] Box",
       kind: "icon",
       ...resolveTiming("footer-icon", 32),
       visible: isLayerVisible("footer-icon", showTxt),
@@ -204,6 +211,7 @@ export function buildCompositionLayers(
     rawLayers.push({
       id: "footer-author",
       label: `Author: ${props.authorHandle}`,
+      content: props.authorHandle,
       kind: "text",
       ...resolveTiming("footer-author", 36),
       visible: isLayerVisible("footer-author", showTxt),
@@ -215,6 +223,7 @@ export function buildCompositionLayers(
     rawLayers.push({
       id: "footer-tag",
       label: `Footer Badge: ${props.editorialTag}`,
+      content: props.editorialTag,
       kind: "icon",
       ...resolveTiming("footer-tag", 40),
       visible: isLayerVisible("footer-tag", showTxt),
@@ -225,21 +234,24 @@ export function buildCompositionLayers(
   rawLayers.push(
     {
       id: "bg-grid-pattern",
-      label: "Pattern: Blueprint Grid",
+      label: customLabels["bg-grid-pattern"] || "Pattern: Blueprint Grid",
+      content: customLabels["bg-grid-pattern"] || "Pattern: Blueprint Grid",
       kind: "pattern",
       ...resolveTiming("bg-grid-pattern", 0),
       visible: isLayerVisible("bg-grid-pattern", showBg),
     },
     {
       id: "bg-orb-pattern",
-      label: "Pattern: Ambient Glow Orb",
+      label: customLabels["bg-orb-pattern"] || "Pattern: Ambient Glow Orb",
+      content: customLabels["bg-orb-pattern"] || "Pattern: Ambient Glow Orb",
       kind: "pattern",
       ...resolveTiming("bg-orb-pattern", 0),
       visible: isLayerVisible("bg-orb-pattern", showBg),
     },
     {
       id: "bg-base",
-      label: "Background: Radial Gradient",
+      label: customLabels["bg-base"] || "Background: Radial Gradient",
+      content: customLabels["bg-base"] || "Background: Radial Gradient",
       kind: "background",
       ...resolveTiming("bg-base", 0),
       visible: isLayerVisible("bg-base", showBg),

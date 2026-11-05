@@ -132,7 +132,7 @@ interface StudioStoreState {
   assets: StudioStaticAsset[];
   renderJobs: StudioRenderJob[];
   subtitleCues: StudioSubtitleCue[];
-  captionStyle: "tiktok-bold" | "beast-yellow" | "neon-green";
+  captionStyle: string;
   gpuTelemetry: StudioGpuTelemetry | null;
   undoStack: NexusVideoProps[];
   redoStack: NexusVideoProps[];
@@ -177,7 +177,10 @@ let state: StudioStoreState = {
   canvas: {
     zoom: "fit",
     showGuides: false,
-    showRulers: false,
+    showRulers: true,
+    showGrid: false,
+    gridCols: 3,
+    gridRows: 3,
     showCheckerboard: false,
     showTimeline: true,
     loop: true,
@@ -188,7 +191,7 @@ let state: StudioStoreState = {
   assets: DEFAULT_ASSETS,
   renderJobs: [],
   subtitleCues: [],
-  captionStyle: "tiktok-bold",
+  captionStyle: "#00F2FE",
   gpuTelemetry: null,
   undoStack: [],
   redoStack: [],
@@ -415,7 +418,7 @@ export const studioActions = {
     emit();
   },
 
-  setSubtitleCues(cues: StudioSubtitleCue[], style?: "tiktok-bold" | "beast-yellow" | "neon-green") {
+  setSubtitleCues(cues: StudioSubtitleCue[], style?: string) {
     state = {
       ...state,
       subtitleCues: cues,

@@ -60,58 +60,60 @@ function WorkstationCenterPanelComponent({
 
   return (
     <main className="flex-1 flex flex-col min-w-0 bg-[var(--bg-app)] overflow-hidden select-none border-l border-r border-[var(--border-color)] transition-none">
-      {/* 1. TOP VIEW SELECTOR BAR */}
-      <div className="h-9 bg-[var(--bg-app)] border-b border-[var(--border-color)] px-2.5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          <button
-            type="button"
-            onClick={() => setActiveView("studio")}
-            className={cn(
-              "px-3 py-1 text-xs font-medium flex items-center gap-1.5 border rounded-md transition-colors cursor-pointer shrink-0",
-              activeView === "studio"
-                ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)] shadow-sm"
-                : "bg-transparent text-[var(--text-muted)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]"
-            )}
-          >
-            <Film className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Studio Stage</span>
-          </button>
+      {/* 1. TOP TAB BAR (Shown only when code/script tabs are open alongside Nexus Canvas) */}
+      {tabs.length > 0 && (
+        <div className="h-9 bg-[var(--bg-app)] border-b border-[var(--border-color)] px-2.5 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            <button
+              type="button"
+              onClick={() => setActiveView("studio")}
+              className={cn(
+                "px-3 py-1 text-xs font-medium flex items-center gap-1.5 border rounded-md transition-colors cursor-pointer shrink-0",
+                activeView === "studio"
+                  ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)] shadow-sm"
+                  : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+              )}
+            >
+              <Film className="w-3.5 h-3.5 text-[#f97316]" />
+              <span>Nexus Canvas</span>
+            </button>
 
-          {/* Open Script Tabs if any */}
-          {tabs.map((tab) => {
-            const isTabActive = activeView === "script" && activeTabId === tab.id;
-            return (
-              <div
-                key={tab.id}
-                onClick={() => {
-                  onSelectTab(tab.id);
-                  setActiveView("script");
-                }}
-                className={cn(
-                  "px-3 py-1 text-xs font-medium flex items-center gap-1.5 border rounded-md transition-colors cursor-pointer shrink-0",
-                  isTabActive
-                    ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)] shadow-sm"
-                    : "bg-transparent text-[var(--text-muted)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]"
-                )}
-              >
-                <FileCode className="w-3 h-3 text-amber-400" />
-                <span className="truncate max-w-[120px]">{tab.title}</span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCloseTab(tab.id);
-                    if (tabs.length <= 1) setActiveView("studio");
+            {/* Open Script Tabs */}
+            {tabs.map((tab) => {
+              const isTabActive = activeView === "script" && activeTabId === tab.id;
+              return (
+                <div
+                  key={tab.id}
+                  onClick={() => {
+                    onSelectTab(tab.id);
+                    setActiveView("script");
                   }}
-                  className="hover:text-rose-400 ml-1 p-0.5 rounded transition-colors"
+                  className={cn(
+                    "px-3 py-1 text-xs font-medium flex items-center gap-1.5 border rounded-md transition-colors cursor-pointer shrink-0",
+                    isTabActive
+                      ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)] shadow-sm"
+                      : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+                  )}
                 >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            );
-          })}
+                  <FileCode className="w-3 h-3 text-amber-400" />
+                  <span className="truncate max-w-[120px]">{tab.title}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCloseTab(tab.id);
+                      if (tabs.length <= 1) setActiveView("studio");
+                    }}
+                    className="hover:text-rose-400 ml-1 p-0.5 rounded transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 2. MAIN CENTER CONTENT VIEW (in-house preview stage — engine is driven from Rust) */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-[var(--bg-app)]">

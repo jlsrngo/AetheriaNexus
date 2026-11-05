@@ -425,7 +425,10 @@ export const ChatInputBox = memo(function ChatInputBox({
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"
-          placeholder={t("askPlaceholder", "Ask anything, type @ to mention files, / for commands...")}
+          placeholder={t(
+            "askPlaceholder",
+            "Describe a video scene, edit layers, or type @ for files, / for commands..."
+          )}
           rows={1}
           style={{ fieldSizing: "content", maxHeight: "160px" } as React.CSSProperties}
           className="col-start-1 row-start-1 w-full min-h-[24px] max-h-[160px] bg-transparent text-xs leading-[20px] py-0.5 text-[var(--text-primary)] placeholder-[var(--text-dim)] resize-none overflow-y-auto focus:outline-none no-scrollbar"

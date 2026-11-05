@@ -4,8 +4,7 @@ export type Language = "en" | "id";
 
 export const LANGUAGE_STORAGE_KEY = "arunaki_language";
 
-export const translations = {
-  en: {
+const enDict = {
     // Menu Bar
     file: "File",
     edit: "Edit",
@@ -61,7 +60,7 @@ export const translations = {
     systemTheme: "System Theme",
     language: "Language",
     english: "English",
-    indonesian: "Bahasa Indonesia",
+    indonesian: "English (US)",
     toggleFullscreen: "Toggle Fullscreen",
     resetZoom: "Reset Zoom",
 
@@ -200,9 +199,9 @@ export const translations = {
     step4Heading: "Save & Start Messaging",
     step4Desc1: "1. Make sure the toggle switch is ON, then click Save Changes.",
     step4Desc2: "2. Open your new bot on Telegram from your phone, and send /start.",
-    step4Desc3: "3. Forward any WhatsApp note or type a document instruction, such as:",
-    step4Example: '"rekap catatan penjualan ini ke file rekap.xlsx"',
-    step4Success: "Arunaki on your PC will automatically process the document and reply back to your phone.",
+    step4Desc3: "3. Forward any note or type a video automation instruction, such as:",
+    step4Example: '"Create a 5-second vertical product showcase video with 3 bullet points"',
+    step4Success: "Arunaki on your PC will automatically process the instruction and reply back to your phone.",
 
     // Test Token Messages
     tokenValidConnected: "Token is valid! Connected to",
@@ -330,7 +329,7 @@ export const translations = {
     newChatSession: "New Chat Session",
     compactSessionContext: "Compact Context (/compact)",
     closePanel: "Close Panel",
-    askPlaceholder: "Ask anything, type @ to mention files, / for commands...",
+    askPlaceholder: "Describe a video scene, edit layers, or type @ for files, / for commands...",
     reasoningEffort: "Reasoning Effort",
     effortDefault: "Default",
     effortLow: "Low",
@@ -503,554 +502,53 @@ export const translations = {
     openInCanvasTooltip: "Open this table in the Center Canvas Panel",
     tableOpenedInCanvas: "Table opened in Canvas panel",
     dataTableLabel: "Data Table",
-  },
-  id: {
-    // Menu Bar
-    file: "Berkas",
-    edit: "Edit",
-    view: "Tampilan",
-    apps: "Aplikasi",
-    help: "Bantuan",
+  };
 
-    // File Menu
-    newSession: "Sesi Baru",
-    openFolder: "Buka Folder...",
-    openFolderDescription: "Buka folder proyek untuk memeriksa dokumen dan mulai bekerja dengan Arunaki.",
-    saveDocument: "Simpan Dokumen",
-    backupWorkspace: "Cadangkan Ruang Kerja",
-    closeFolder: "Tutup Folder",
-    preferencesSettings: "Pengaturan / Preferensi",
-    exitWindow: "Keluar",
-    documentChanges: "Perubahan Dokumen",
-    sopPlaybooks: "Playbook",
-    changesTitle: "Daftar Perubahan",
-    noChangesDetected: "Tidak ada perubahan",
-    workingTreeClean: "Semua dokumen telah tersimpan sesuai disk.",
-    discardChanges: "Kembalikan Perubahan",
-    saveToDisk: "Simpan ke Disk",
-    newFileBadge: "Baru",
-    modifiedBadge: "Dimodifikasi",
-    newFileEmptyOriginal: "Dokumen baru — belum ada versi sebelumnya di disk.",
-    deleteItemTitle: "Hapus File",
-    deleteItemDesc: "Apakah Anda yakin ingin menghapus",
-    deleteItemWarning: "Tindakan ini akan menghapus file dari komputer secara permanen.",
-    deleteItemAction: "Hapus",
-    revertSuccess: "Berhasil mengembalikan versi tersimpan",
-    saveSuccess: "Berhasil menyimpan ke disk",
-
-    // Edit Menu
-    undo: "Urungkan",
-    redo: "Ulangi",
-    cut: "Potong",
-    copy: "Salin",
-    paste: "Tempel",
-    selectAll: "Pilih Semua",
-    findInSession: "Cari di Sesi...",
-    keyboardShortcuts: "Pintasan Keyboard",
-
-    // View Menu
-    explorerPanel: "Panel Berkas",
-    chatPanel: "Panel Percakapan",
-    wrapText: "Bungkus Teks (Wrap Text)",
-    wordWrap: "Word Wrap",
-    theme: "Tema Tampilan",
-    light: "Terang",
-    dark: "Gelap",
-    neobrutalism: "Neo-Brutalism",
-    systemTheme: "Ikuti Sistem",
-    language: "Bahasa",
-    english: "English",
-    indonesian: "Bahasa Indonesia",
-    toggleFullscreen: "Layar Penuh",
-    resetZoom: "Reset Zoom",
-
-    // Help Menu
-    knowledgeRules: "Pengetahuan & Aturan",
-    documentation: "Dokumentasi",
-    githubRepo: "Repositori GitHub",
-    reportIssue: "Laporkan Masalah",
-    aboutArunaki: "Tentang Arunaki",
-    about: "Tentang",
-
-    // Settings Navigation
-    settingsTitle: "Pengaturan Sistem Workstation",
-    settingsSubtitle: "Atur routing model AI, perilaku otomasi Microsoft Office desktop, dan lisensi akun pengguna.",
-    modelRouting: "Provider Model",
-    cliConnections: "Koneksi CLI",
-    appConnections: "Koneksi Aplikasi",
-    desktopAutomation: "Otomasi Office",
-    messagingApps: "Aplikasi Pesan",
-    accountLicense: "Akun & Lisensi",
-
-    // Common Actions
-    saveChanges: "Simpan Perubahan",
-    saving: "Menyimpan...",
-    setupGuide: "Panduan Setup",
-    refresh: "Muat Ulang",
-    connected: "Terhubung",
-    inactive: "Nonaktif",
-    connecting: "Menghubungkan...",
-    warning: "Peringatan",
-    testToken: "Test Token",
-    useActiveFolder: "Gunakan Folder Aktif",
-
-    // App Connections Tab
-    appConnectionsSubtitle: "Hubungkan sistem eksternal, sistem kasir ArunakiZen, dan integrasi perangkat kerja pihak ketiga.",
-    arunakiZenTitle: "Engine ArunakiZen",
-    arunakiZenBadge: "ArunakiZen Ritel & Stok",
-    arunakiZenDesc: "Engine kasir dan sistem retail ArunakiZen offline-first. Memungkinkan Agen Arunaki mengecek stok fisik barang secara real-time, membuat faktur penjualan resmi (R43), dan memantau status kas shift kasir.",
-    posHostUrlLabel: "Host URL Server ArunakiZen",
-    posHostUrlHelp: "Port dinamis otomatis dipilih pada rentang 5000-5100",
-    posAutoDetect: "Deteksi Otomatis",
-    posAutoDetecting: "Mendeteksi...",
-    posApiKeyLabel: "API Key Integrasi (Bearer Token)",
-    posApiKeyPlaceholder: "Ar-••••••••••••••••••••••••••••••••",
-    posApiKeyHelp: "Diambil dari Pengaturan ArunakiZen > Integrasi & API Key",
-    posSetupGuide: "Panduan Setup",
-    zenStep2Sub1: "Buka aplikasi desktop ArunakiZen.",
-    zenStep2Sub2: "Buka menu Pengaturan > Integrasi & API Key.",
-    zenStep2Sub3: "Klik 'Generate Token' atau salin kunci integrasi yang aktif.",
-    zenStep2Sub4: "Tempelkan kunci ke kolom 'API Key Integrasi'.",
-    needPortHelp: "Cara cek port? Lihat panduan",
-    needApiKeyHelp: "Di mana ambil token? Lihat panduan",
-    needCashierHelp: "Cara isi kasir? Lihat panduan",
-    posOperatorUserLabel: "Kode / Username Operator Kasir",
-    posOperatorUserPlaceholder: "Contoh: KASIR01",
-    posOperatorPassLabel: "Kata Sandi Operator Kasir",
-    posOperatorPassPlaceholder: "Kata sandi kasir...",
-    posOperatorHelp: "Seluruh transaksi penjualan dan pemotongan stok wajib terikat ke identitas operator kasir sah.",
-    posConnectedStore: "Toko Terhubung",
-    posOperatorActive: "Operator Aktif",
-    posAccessPermissions: "Hak Akses Diberikan",
-    posTestHandshake: "Uji Koneksi (Handshake)",
-    posTesting: "Menghubungkan...",
-    posSaveConfig: "Simpan Pengaturan",
-    posSaving: "Menyimpan...",
-    posToolsTitle: "Tool AI ArunakiZen yang Aktif",
-    posToolsDesc: "Tool berikut otomatis tersedia untuk model AI saat terhubung:",
-    posToolSearch: "Cari katalog barang, scan barcode, sisa stok & harga",
-    posToolOrder: "Buat faktur penjualan kasir ritel atomic (R43) & potong stok",
-    posToolShift: "Cek saldo kas laci, modal awal kasir & omset shift",
-    posStatusConnected: "Terhubung",
-    posStatusDisconnected: "Belum terhubung",
-    posStatusConnecting: "Menghubungkan...",
-    posConfigSavedSuccess: "Konfigurasi koneksi ArunakiZen berhasil disimpan.",
-    posHandshakeSuccess: "Sukses terhubung ke ArunakiZen sebagai operator",
-    posHandshakeFailed: "Gagal melakukan handshake koneksi",
-    posFillRequired: "Harap isi Host URL, API Key, Username, dan Kata Sandi kasir!",
-    posToastPortDetected: "ArunakiZen terdeteksi di:",
-    posToastPortNotFound: "Port ArunakiZen aktif tidak ditemukan otomatis. Menggunakan default http://127.0.0.1:5000",
-    posToastSaveFailed: "Gagal menyimpan konfigurasi:",
-    posConnectionFailed: "Koneksi gagal atau server ArunakiZen belum aktif",
-
-    // Messaging Tab
-    messagingSubtitle: "Kendalikan Arunaki langsung dari Telegram di HP Anda. Kirim rekapan, forward pesan WhatsApp, atau catatan mentah ke bot Telegram Anda, dan Arunaki di laptop akan mengeksekusinya otomatis.",
-    telegramGateway: "Telegram Bot Pribadi (BYOB)",
-    telegramGatewayDesc: "Koneksi langsung dari PC ke Telegram. 100% aman, gratis, dan tidak butuh sewa server VPS.",
-    botTokenLabel: "Token Bot Telegram",
-    botTokenHelp: "Belum punya token? Lihat caranya",
-    botTokenPlaceholder: "Contoh: 1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ",
-    whitelistLabel: "ID Pengguna Telegram yang Diizinkan (Keamanan)",
-    whitelistHelp: "Cara cek ID Telegram saya",
-    whitelistPlaceholder: "Contoh: 123456789, @juliosiringo (atau * untuk semua)",
-    whitelistDesc: "Mencegah orang asing mengendalikan PC Anda. Hanya akun Telegram di daftar ini yang direspon oleh Arunaki.",
-    targetFolderLabel: "Folder Proyek Tujuan di Komputer",
-    targetFolderDesc: "Folder tempat Arunaki akan membaca, membuat, dan mengedit berkas (Excel, Word, catatan) saat menerima perintah dari Telegram.",
-
-    // Setup Guide Modal
-    guideModalTitle: "Panduan Cepat: Menghubungkan Telegram ke Arunaki",
-    guideModalSubtitle: "Ikuti 4 langkah mudah ini (hanya butuh 2-3 menit sekali saja)",
-    step1Title: "1. Buat Bot",
-    step2Title: "2. Salin Token",
-    step3Title: "3. Cek ID Saya",
-    step4Title: "4. Selesai",
-    previous: "Sebelumnya",
-    next: "Lanjut",
-    doneClose: "Selesai & Tutup Panduan",
-
-    // Setup Guide Steps Content
-    step1Badge: "Langkah 1 dari 4",
-    step1Link: "Buka @BotFather di Telegram",
-    step1Heading: "Buat Bot Baru lewat @BotFather",
-    step1Desc1: "1. Buka aplikasi Telegram di HP atau laptop, lalu cari akun resmi pembuat bot: ",
-    step1Desc1Or: "(atau klik tautan di atas).",
-    step1Desc2: "2. Kirim perintah: ",
-    step1Desc3: "3. Beri nama tampilan bot (contoh: Asisten Dokumen), lalu tentukan username yang berakhiran bot (contoh: arunaki_work_bot).",
-    copyCommand: "Salin perintah",
-
-    step2Badge: "Langkah 2 dari 4",
-    step2Sub: "Token API",
-    step2Heading: "Salin Token HTTP API",
-    step2Desc1: "Setelah username bot ditentukan, @BotFather akan membalas dengan token bot Anda:",
-    step2Example: "Contoh balasan dari BotFather:",
-    step2UseToken: "Gunakan token ini untuk mengakses HTTP API:",
-    step2Desc2: "Salin seluruh baris token tersebut dan tempel (paste) ke kolom Token Bot Telegram di halaman pengaturan ini.",
-
-    step3Badge: "Langkah 3 dari 4",
-    step3Link: "Buka @userinfobot di Telegram",
-    step3Heading: "Daftarkan Akun Telegram Anda (Keamanan)",
-    step3DescPrefix: "Agar hanya Anda yang dapat mengendalikan Arunaki di laptop Anda:",
-    step3Desc1: "1. Buka @userinfobot di Telegram (klik tautan di atas).",
-    step3Desc2: "2. Kirim pesan apa saja atau klik /start. Bot akan membalas dengan nomor ID Telegram Anda (contoh: 123456789).",
-    step3Desc3: "3. Salin angka ID tersebut dan tempel ke kolom ID Pengguna Telegram yang Diizinkan.",
-
-    step4Badge: "Langkah Terakhir",
-    step4Sub: "Siap Digunakan!",
-    step4Heading: "Simpan & Mulai Kirim Pesan",
-    step4Desc1: "1. Pastikan sakelar aktif (ON), lalu klik Simpan Perubahan.",
-    step4Desc2: "2. Buka bot baru Anda di Telegram lewat HP, lalu kirim perintah /start.",
-    step4Desc3: "3. Teruskan (forward) pesan WhatsApp atau ketik instruksi dokumen, seperti:",
-    step4Example: '"rekap catatan penjualan ini ke file rekap.xlsx"',
-    step4Success: "Arunaki di laptop Anda akan otomatis memproses dokumen dan membalas langsung ke HP Anda.",
-
-    // Test Token Messages
-    tokenValidConnected: "Token valid! Terhubung ke",
-    failedVerifyToken: "Gagal memverifikasi token.",
-
-    // Main Navigation Tabs
-    navWorkstation: "Workstation",
-    navTasks: "Agenda",
-    navKnowledge: "Pengetahuan",
-    navHistory: "Riwayat",
-    navSettings: "Pengaturan",
-    // Tasks Board & Assistant
-    tasksBoardTitle: "Agenda Operasional",
-    tasksCount: "Agenda",
-    addNewTaskToday: "Tambah Agenda Hari Ini",
-    createNewTask: "Tambah Agenda",
-    editTask: "Perbarui Agenda Operasional",
-    taskTitle: "Judul Agenda Operasional",
-    taskTitlePlaceholder: "Contoh: Rekapitulasi faktur pajak masukan periode berjalan...",
-    taskBoardColumn: "Kolom Papan Agenda",
-    taskTargetDate: "Tanggal Pelaksanaan",
-    taskReminderTime: "Waktu Pelaksanaan",
-    taskPriority: "Tingkat Prioritas",
-    taskPriorityNormal: "Normal",
-    taskPriorityMedium: "Prioritas Menengah",
-    taskPriorityHigh: "Mendesak / Kritis",
-    taskTelegramReminder: "Pengingat Telegram Eksekutif",
-    taskTelegramReminderDesc: "Otomatis mengirimkan pemberitahuan ke Telegram saat jadwal pelaksanaan tiba",
-    taskAttachedDocument: "Dokumen Kerja Terkait (Opsional)",
-    taskAttachedDocumentPlaceholder: "Contoh: faktur_pajak.xlsx atau rekening_koran.pdf...",
-    taskProjectFilesLabel: "Pilih cepat dari proyek:",
-    taskSelectProjectFile: "Pilih berkas dari proyek...",
-    taskInstructions: "Instruksi Kerja & Catatan Operasional",
-    taskInstructionsPlaceholder: "Tuliskan instruksi kerja, target rekonsiliasi, atau catatan penting...",
-    taskSubtasks: "Daftar Rincian Subtugas / Checklist",
-    taskSubtaskPlaceholder: "Tambah rincian pekerjaan (Tekan Enter)...",
-    taskAddSubtaskBtn: "Tambah",
-    taskCancelBtn: "Batal",
-    taskSaveBtn: "Simpan Perubahan",
-    taskCreateBtn: "Catat Agenda",
-    taskDeleteBtn: "Hapus Agenda",
-    taskSearchPlaceholder: "Cari agenda...",
-    taskRefreshBoard: "Muat Ulang Papan",
-    taskNoTasksScheduled: "Belum ada agenda pada bagian ini",
-    taskCreateFirst: "+ Catat Agenda",
-    taskToday: "Hari Ini",
-    taskTomorrow: "Besok",
-    colToday: "Hari Ini",
-    colTomorrow: "Besok",
-    colInProgress: "Sedang Dikerjakan",
-    colDone: "Selesai",
-    syncGoogleCalendar: "Sinkron ke Google Calendar",
-    openInGoogleCalendar: "Buka di Google Calendar",
-    taskGoogleCalendar: "Sinkronisasi Google Calendar",
-    taskGoogleCalendarDesc: "Membuat tautan Google Calendar dengan tanggal, jam, dan rincian catatan",
-    taskEditModalTitle: "Edit Agenda Operasional",
-    taskCreateModalTitle: "Catat Agenda Operasional",
-    taskTitleLabel: "Judul Agenda Operasional",
-    taskColumnLabel: "Kolom Papan",
-    taskTargetDateLabel: "Tanggal Target",
-    taskScheduledTimeLabel: "Jam (WIB)",
-    taskPriorityLabel: "Tingkat Prioritas",
-    selectColumn: "Pilih Kolom",
-    selectTimeSlot: "Pilih Jadwal Jam",
-    applyTime: "Terapkan",
-    selectPriority: "Pilih Prioritas",
-    copyCalendarLink: "Salin",
-    openCalendar: "Buka Kalender",
-    autoOpenGCalWhenSaved: "Buka Google Calendar otomatis saat disimpan",
-    autoOpenGCalShort: "Buka kalender otomatis saat disimpan",
-    gcalLinkCopied: "Tautan Google Calendar berhasil disalin!",
-    openingGCal: "Membuka Google Calendar...",
-    noSubtasksYet: "Belum ada checklist subtugas",
-    addSubtaskPlaceholder: "Tambah subtugas (Tekan Enter)...",
-    addSubtaskBtn: "Tambah",
-    priorityNormal: "Normal",
-    priorityMedium: "Prioritas Menengah",
-    priorityHigh: "Mendesak / Kritis",
-    priorityBadgeLow: "Standar",
-    priorityBadgeMedium: "Menengah",
-    priorityBadgeHigh: "Tinggi",
-    filesCount: "berkas",
-    agendaHistory: "Riwayat",
-    viewModeAll: "Semua",
-    viewModeActive: "Aktif",
-    viewModeHistory: "Selesai",
-    taskOverdue: "Terlewat",
-    timePresetMorning: "Pagi (08:00)",
-    timePresetOfficeStart: "Mulai Kerja (09:00)",
-    timePresetMidday: "Menjelang Siang (11:30)",
-    timePresetAfternoon: "Rekap Sore (14:30)",
-    timePresetEndOfDay: "Akhir Jam Kerja (17:00)",
-
-    // Footer & Status Bar
-    noFolderOpened: "Tidak ada folder terbuka",
-    online: "Online",
-    offline: "Offline",
-    networkConnected: "Jaringan terhubung",
-    networkOffline: "Jaringan terputus",
-    switchToDark: "Beralih ke Mode Gelap",
-    switchToLight: "Beralih ke Mode Terang",
-    switchToNeobrutalism: "Beralih ke Neo-Brutalism",
-    userProfileSettings: "Profil Pengguna & Pengaturan",
-
-    // Workstation Explorer
-    explorer: "Penjelajah Berkas",
-    refreshExplorer: "Muat Ulang Berkas",
-    closeFolderTooltip: "Tutup Folder",
-    closeExplorer: "Tutup Panel Berkas",
-    openExplorer: "Buka Panel Berkas",
-    failedToReadFolder: "Gagal membaca folder",
-    tryAgain: "Coba lagi",
-    recentCanvases: "Dokumen Terakhir",
-
-    // Workstation Chat
-    chat: "Percakapan",
-    newChat: "Sesi Baru",
-    sessionNamePlaceholder: "Nama Sesi...",
-    clickToRenameSession: "Klik untuk ganti nama sesi",
-    newChatSession: "Sesi Percakapan Baru",
-    compactSessionContext: "Padatkan Konteks (/compact)",
-    closePanel: "Tutup Panel",
-    askPlaceholder: "Tanyakan apa saja, ketik @ untuk pilih file, / untuk perintah...",
-    reasoningEffort: "Tingkat Penalaran",
-    effortDefault: "Bawaan",
-    effortLow: "Rendah",
-    effortMedium: "Sedang",
-    effortHigh: "Tinggi",
-    addToQueue: "Tambah ke antrean",
-    stopGenerating: "Hentikan pembuatan",
-    selectFileToAttach: "Pilih berkas untuk dilampirkan",
-    attachFile: "Lampirkan berkas atau gambar",
-    attach: "Lampirkan",
-    slashCommands: "Perintah Cepat (/)",
-    imageAttached: "Gambar dilampirkan",
-    workWithAgent: "Mulai bekerja dengan agen dokumen",
-    thinking: "Sedang berpikir...",
-    executingTasks: "Mengeksekusi tugas dokumen",
-
-    // Modals
-    aboutDesktopTitle: "Arunaki Desktop",
-    aboutSubtitle: "Agen Otomasi Komputer & Dokumen Terisolasi",
-    version: "Versi",
-    buildDate: "Tanggal Build",
-    environment: "Lingkungan",
-    isolation: "Isolasi",
-    activeFolderSandbox: "Sandbox Folder Aktif",
-    done: "Selesai",
-    searchShortcuts: "Cari pintasan...",
-    resetAllShortcuts: "Reset Semua",
-    pressDesiredKeys: "Tekan kombinasi tombol...",
-
-    // Model Provider Settings & Routing
-    modelRoutingCatalogTitle: "Katalog Provider & Routing Model Bahasa",
-    modelRoutingCatalogSubtitle: "Kelola kredensial provider, endpoint API, dan urutan prioritas model cadangan.",
-    addProvider: "Tambah Provider",
-    automaticFallbackTitle: "Routing Cadangan Otomatis",
-    automaticFallbackDesc: "Saat mengeksekusi tugas dokumen, Arunaki mengarahkan ke model aktif utama. Jika endpoint mengalami batasan kuota atau error, sistem otomatis beralih secara berurutan ke model berikutnya dalam daftar tanpa mengganggu alur kerja Anda.",
-    loadingProviders: "Memuat konfigurasi provider...",
-    noProvidersConfigured: "Belum ada provider model yang dikonfigurasi.",
-    addFirstProvider: "+ Tambah Provider Pertama",
-
-    // Provider Card
-    moveProviderUp: "Pindahkan prioritas provider ke atas",
-    moveProviderDown: "Pindahkan prioritas provider ke bawah",
-    primaryActive: "Aktif Utama",
-    setPrimary: "Jadikan Utama",
-    primaryActiveTooltip: "Provider aktif utama",
-    setPrimaryTooltip: "Jadikan provider routing utama",
-    defaultEndpoint: "Endpoint Bawaan",
-    modelPool: "Daftar Model",
-    testPing: "Uji Koneksi",
-    testing: "Menguji...",
-    configure: "Konfigurasi",
-    deleteProvider: "Hapus provider",
-    clickToViewPing: "Klik untuk melihat payload ping & detail balasan LLM",
-    failed: "Gagal",
-    pingInspectionDetails: "Detail Pemeriksaan Ping Langsung",
-    promptSent: "Prompt Terkirim:",
-    llmReplyReceived: "Balasan LLM Diterima:",
-    latency: "Latensi:",
-    status: "Status:",
-    endpoint: "Endpoint:",
-    chatRoutingDivertedToCli: "Rute Obrolan Dialihkan ke CLI:",
-    turnOnCloudProviderNotice: "Nyalakan (ON) salah satu provider di bawah untuk kembali ke API Cloud.",
-    providerTurnedOff: "dimatikan (OFF)",
-    chatRoutingDivertedDesc: "Rute obrolan otomatis dialihkan ke CLI",
-    providerTurnedOnPrimary: "dinyalakan (ON - Utama)",
-    chatRoutingNowUsing: "Rute obrolan kini menggunakan",
-    failedToChangeProviderStatus: "Gagal mengubah status provider.",
-    clickToTurnOffDivertCli: "Klik untuk mematikan (OFF) & mengalihkan rute ke CLI / Local Agent",
-    clickToTurnOnPrimary: "Klik untuk menyalakan (ON) sebagai Primary API Provider",
-    provider: "Provider",
-
-    // Provider Form
-    configureProvider: "Konfigurasi Provider",
-    addNewProviderConnection: "Tambah Sambungan Provider Baru",
-    noEndpointSpecified: "Endpoint belum ditentukan",
-    selectActiveModels: "Pilih Model Aktif & Routing",
-    endpointCredentials: "Endpoint & Kredensial",
-    providerType: "Tipe Provider",
-    displayName: "Nama Tampilan",
-    baseUrlEndpoint: "Base URL / Endpoint",
-    apiKeyToken: "Kunci API / Token",
-    apiKeyPlaceholder: "sk-... (Kosongkan jika gateway lokal)",
-    activeModelRoutingPriority: "Prioritas Routing Model Aktif",
-    selectedCount: "dipilih",
-    dragDotsOrArrows: "Tarik titik atau gunakan panah untuk mengatur urutan prioritas",
-    primary: "Utama",
-    fallback: "Cadangan",
-    availableModels: "Model Tersedia",
-    filterModels: "Filter Model",
-    allModels: "Semua Model",
-    model: "Model",
-    freeModelsOnly: "Hanya Model Gratis",
-    selectedInPool: "Dipilih di Daftar",
-    modelFamilies: "Keluarga Model",
-    selectAllFree: "Pilih Semua Gratis",
-    searchModels: "Cari model...",
-    syncFromApi: "Sinkron dari API",
-    syncing: "Menyinkronkan...",
-    resetFilters: "Reset Filter",
-    clickToSelect: "Klik untuk memilih",
-    customModel: "+ Model Kustom",
-    add: "Tambah",
-    testConnection: "Uji Sambungan",
-    testingPing: "Menguji Ping...",
-    cancel: "Batal",
-    saveProvider: "Simpan Provider",
-
-    // Automation Tab
-    desktopAutomationTitle: "Otomasi Desktop & Perilaku OS",
-    desktopAutomationSubtitle: "Atur otomasi Office desktop (Word, Excel, PowerPoint), interaksi aplikasi dokumen, dan notifikasi sistem operasi.",
-    launchOfficeTitle: "Buka Microsoft Office Saat Mengedit",
-    launchOfficeDesc: "Membuka aplikasi desktop Office (Word, Excel, PowerPoint, dll.) secara visual di layar saat menjalankan tugas dokumen. Jika dinonaktifkan, semua modifikasi dokumen dilakukan di latar belakang tanpa membuka jendela.",
-    autoBackupTitle: "Cadangan Snapshot Otomatis Sebelum Modifikasi",
-    autoBackupDesc: "Membuat cadangan snapshot lokal di folder .arunaki-backups/ sebelum mengubah berkas demi pemulihan data 100% aman.",
-    desktopNotificationsTitle: "Notifikasi Sistem Desktop",
-    desktopNotificationsDesc: "Menampilkan notifikasi desktop bawaan saat tugas dokumen dan pembukuan selesai.",
-    testDesktopNotification: "Uji Notifikasi Desktop",
-    smartCompactionTitle: "Pemadatan Konteks Cerdas & Pemangkasan Token",
-    smartCompactionDesc: "Secara otomatis memadatkan riwayat obrolan dan memangkas output berkas mentah lama (Excel, OCR) untuk menghemat konsumsi token dan mempercepat waktu berpikir tanpa kehilangan alur kerja.",
-    compactActiveSessionNow: "Padatkan Sesi Aktif Sekarang",
-    electronShellTitle: "Shell Desktop Native Electron",
-    electronShellDesc: "Sistem berkas OS native, overlay jendela, dan jembatan IPC",
-
-    // Account Tab
-    userAccountLicenseTitle: "Akun Pengguna & Lisensi",
-    userAccountLicenseSubtitle: "Kelola profil workstation, sinkronisasi cloud terenkripsi, dan lisensi workstation multi-perangkat.",
-    proLicense: "Lisensi Pro",
-    fullNameBusiness: "Nama Lengkap / Identitas Bisnis",
-    save: "Simpan",
-    signOut: "Keluar Akun",
-    licenseDetails: "Rincian Lisensi",
-    verificationStatus: "Status Verifikasi",
-    activeVerified: "Aktif & Terverifikasi",
-    connectedClient: "Klien Terhubung",
-    windowsDesktopWorkstation: "Workstation Desktop Windows",
-    cloudWorkspaceSync: "Sinkronisasi Cloud Ruang Kerja",
-    aesEncryption: "Enkripsi lokal AES-256",
-    active: "Aktif",
-    createAccount: "Buat Akun Arunaki Baru",
-    signInAccount: "Masuk ke Arunaki",
-    createAccountDesc: "Daftar untuk mengaktifkan sinkronisasi cloud ruang kerja dan lisensi pro multi-perangkat.",
-    signInAccountDesc: "Hubungkan akun Anda untuk menyinkronkan konfigurasi ruang kerja di berbagai perangkat.",
-    continueGoogle: "Lanjutkan dengan Google",
-    continueGithub: "Lanjutkan dengan GitHub",
-    orContinueEmail: "atau lanjutkan dengan email",
-    emailAddress: "Alamat Email",
-    password: "Kata Sandi",
-    registerAndSignIn: "Daftar & Masuk",
-    signIn: "Masuk",
-    alreadyHaveAccount: "Sudah punya akun? Masuk",
-    dontHaveAccount: "Belum punya akun? Daftar",
-    privacyGuaranteeTitle: "Jaminan Privasi & Mode Offline:",
-    privacyGuaranteeDesc: "Arunaki beroperasi penuh secara lokal offline tanpa memerlukan akun aktif ataupun login internet.",
-
-    // Spreadsheet & Canvas Viewer
-    openInExcel: "Buka di Excel",
-    openInExcelNative: "Buka di Microsoft Excel",
-    openInExcelTooltip: "Buka dokumen ini langsung di aplikasi Microsoft Excel desktop asli",
-    copyCsv: "Salin CSV",
-    copiedCsv: "Disalin",
-    copyCsvTooltip: "Salin isi sheet ini sebagai CSV ke clipboard",
-    searchInSheet: "Cari di sheet...",
-    rowsLabel: "baris",
-    colsLabel: "kolom",
-    emptyCell: "Kosong",
-    nonDestructiveEmbedTooltip: "Berkas dibuka secara aman di memori (read-only) tanpa mengubah format asli OOXML Excel.",
-    spreadsheetBinaryNotice: "Berkas spreadsheet biner telah dimuat. Anda dapat membukanya langsung di Microsoft Excel desktop atau memeriksa integritasnya.",
-    sheetsLabel: "Sheets:",
-    openInCanvas: "Buka di Canvas",
-    openInCanvasTooltip: "Buka tabel ini di Panel Canvas Tengah",
-    tableOpenedInCanvas: "Tabel dibuka di panel Canvas",
-    dataTableLabel: "Tabel Data",
-  },
+export const translations = {
+  en: enDict,
+  id: enDict,
 } as const;
 
 export type TranslationKey = keyof typeof translations.en;
 
 export function getStoredLanguage(): Language {
-  if (typeof window === "undefined") return "id";
-  const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY) as Language | null;
-  if (stored === "en" || stored === "id") {
-    return stored;
-  }
-  return "id";
+  return "en";
 }
 
-export function setStoredLanguage(lang: Language): void {
+export function setStoredLanguage(_lang: Language): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
-  window.dispatchEvent(new CustomEvent("arunaki-language-change", { detail: lang }));
+  localStorage.setItem(LANGUAGE_STORAGE_KEY, "en");
+  window.dispatchEvent(new CustomEvent("arunaki-language-change", { detail: "en" }));
 }
 
 export function t(key: TranslationKey, fallback?: string): string {
-  const currentLang = getStoredLanguage();
-  const dict = translations[currentLang] || translations.en;
-  return (dict as any)[key] || fallback || (translations.en as any)[key] || key;
+  return (enDict as any)[key] || fallback || key;
 }
 
 export function useI18n() {
-  const [language, setLanguageState] = useState<Language>(() => getStoredLanguage());
+  const [language, setLanguageState] = useState<Language>("en");
 
   useEffect(() => {
-    const handleLanguageChange = (e: Event) => {
-      const customEvent = e as CustomEvent<Language>;
-      if (customEvent.detail && customEvent.detail !== language) {
-        setLanguageState(customEvent.detail);
-      }
+    const handleLanguageChange = () => {
+      setLanguageState("en");
     };
 
     window.addEventListener("arunaki-language-change", handleLanguageChange);
     return () => {
       window.removeEventListener("arunaki-language-change", handleLanguageChange);
     };
-  }, [language]);
+  }, []);
 
   const setLanguage = useCallback((lang: Language) => {
     setStoredLanguage(lang);
-    setLanguageState(lang);
+    setLanguageState("en");
   }, []);
 
   const translate = useCallback(
     (key: TranslationKey, fallback?: string) => {
-      const dict = translations[language] || translations.en;
-      return (dict as any)[key] || fallback || (translations.en as any)[key] || key;
+      return (enDict as any)[key] || fallback || key;
     },
-    [language]
+    []
   );
 
   return {

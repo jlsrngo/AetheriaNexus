@@ -48,15 +48,21 @@ const VIRAL_HOOK_PRESETS = [
   },
 ];
 
-const CAPTION_STYLES: Array<{
-  id: "tiktok-bold" | "beast-yellow" | "neon-green";
-  label: string;
-  color: string;
-}> = [
-  { id: "tiktok-bold", label: "TikTok Cyan", color: "#00F2FE" },
-  { id: "beast-yellow", label: "Beast Yellow", color: "#FFD700" },
-  { id: "neon-green", label: "Neon Green", color: "#10B981" },
+const CAPTION_QUICK_COLORS = [
+  { hex: "#00F2FE", label: "Cyan" },
+  { hex: "#F59E0B", label: "Amber" },
+  { hex: "#F97316", label: "Orange" },
+  { hex: "#F43F5E", label: "Rose" },
+  { hex: "#A855F7", label: "Violet" },
+  { hex: "#6366F1", label: "Indigo" },
 ];
+
+const resolveCaptionHex = (styleOrHex: string): string => {
+  if (/^#[0-9a-fA-F]{6}$/.test(styleOrHex)) return styleOrHex.toUpperCase();
+  if (styleOrHex === "beast-yellow") return "#F59E0B";
+  if (styleOrHex === "neon-green") return "#00F2FE";
+  return "#00F2FE";
+};
 
 export function ElementsCaptionsPanel({
   width = "100%",
@@ -86,11 +92,26 @@ export function ElementsCaptionsPanel({
     toast.success(`Added bullet #${nextNum}`);
   };
 
+  const currentCaptionHex = resolveCaptionHex(captionStyle);
+
+  const handleCaptionColorChange = (nextColor: string) => {
+    const normalized = nextColor.toUpperCase();
+    if (subtitleCues.length > 0) {
+      const updated = subtitleCues.map((cue) => ({
+        ...cue,
+        color: normalized,
+      }));
+      actions.setSubtitleCues(updated, normalized);
+    } else {
+      actions.setSubtitleCues([], normalized);
+    }
+  };
+
   const buildLocalSubtitles = (
     script: string,
     totalFrames: number,
     fps: number,
-    style: "tiktok-bold" | "beast-yellow" | "neon-green"
+    styleOrColor: string
   ): StudioSubtitleCue[] => {
     const words = script
       .replace(/\n+/g, " ")
@@ -103,12 +124,7 @@ export function ElementsCaptionsPanel({
       chunks.push(words.slice(i, i + chunkSize));
     }
     const framesPerCue = Math.max(6, Math.floor(totalFrames / chunks.length));
-    const color =
-      style === "beast-yellow"
-        ? "#FFD700"
-        : style === "neon-green"
-        ? "#10B981"
-        : "#00F2FE";
+    const color = resolveCaptionHex(styleOrColor);
     return chunks.map((wordChunk, idx) => {
       const startFrame = idx * framesPerCue;
       const endFrame =
@@ -122,19 +138,17 @@ export function ElementsCaptionsPanel({
         endFrame,
         startSec: Number((startFrame / fps).toFixed(2)),
         endSec: Number((endFrame / fps).toFixed(2)),
-        text: style === "beast-yellow" ? rawText.toUpperCase() : rawText,
+        text: rawText,
         words: wordChunk,
         highlightKeyword: wordChunk[0] ?? null,
         color,
-        scale: style === "beast-yellow" ? 1.15 : 1.0,
+        scale: 1.05,
       };
     });
   };
 
-  const handleGenerateSubtitles = async (
-    styleOverride?: "tiktok-bold" | "beast-yellow" | "neon-green"
-  ) => {
-    const targetStyle = styleOverride ?? captionStyle;
+  const handleGenerateSubtitles = async (styleOverride?: string) => {
+    const targetStyle = resolveCaptionHex(styleOverride ?? captionStyle);
     setIsGenerating(true);
     const fullScript = `${activeComposition.props.hookText}. ${activeComposition.props.bodyText}`;
 
@@ -143,6 +157,7 @@ export function ElementsCaptionsPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          text: fullScript,
           script: fullScript,
           fps: activeComposition.fps,
           durationInSeconds: activeComposition.duration,
@@ -152,30 +167,17 @@ export function ElementsCaptionsPanel({
       if (genRes.ok) {
         const genJson = (await genRes.json()) as {
           success?: boolean;
+          cues?: StudioSubtitleCue[];
           data?: { cues?: StudioSubtitleCue[] };
         };
-        const rawCues = genJson.data?.cues;
+        const rawCues = genJson.data?.cues ?? genJson.cues;
         if (Array.isArray(rawCues) && rawCues.length > 0) {
-          const fmtRes = await apiFetch(`${API_BASE}/studio/format-captions`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ cues: rawCues, style: targetStyle }),
-          });
-          if (fmtRes.ok) {
-            const fmtJson = (await fmtRes.json()) as {
-              data?: { cues?: StudioSubtitleCue[] };
-            };
-            if (Array.isArray(fmtJson.data?.cues)) {
-              actions.setSubtitleCues(fmtJson.data!.cues!, targetStyle);
-              toast.success(
-                `Generated ${fmtJson.data!.cues!.length} caption cues`
-              );
-              setIsGenerating(false);
-              return;
-            }
-          }
-          actions.setSubtitleCues(rawCues, targetStyle);
-          toast.success(`Generated ${rawCues.length} caption cues`);
+          const coloredCues = rawCues.map((cue) => ({
+            ...cue,
+            color: targetStyle,
+          }));
+          actions.setSubtitleCues(coloredCues, targetStyle);
+          toast.success(`Generated ${coloredCues.length} caption cues`);
           setIsGenerating(false);
           return;
         }
@@ -310,33 +312,53 @@ export function ElementsCaptionsPanel({
             )}
           </div>
 
-          {/* Style Selector */}
-          <div className="grid grid-cols-3 gap-1">
-            {CAPTION_STYLES.map((st) => (
-              <button
-                key={st.id}
-                type="button"
-                onClick={() => {
-                  if (subtitleCues.length > 0) {
-                    void handleGenerateSubtitles(st.id);
-                  } else {
-                    actions.setSubtitleCues([], st.id);
-                  }
-                }}
-                className={cn(
-                  "h-6 px-1.5 rounded-md border text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors",
-                  captionStyle === st.id
-                    ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-primary)] font-semibold"
-                    : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-muted)]"
-                )}
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full shrink-0"
-                  style={{ backgroundColor: st.color }}
+          {/* Caption Color Picker (Unrestricted Color Selection) */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-[var(--text-muted)] block">
+              Caption Highlight Color
+            </label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)]">
+                <label className="relative w-5 h-5 rounded-md border border-[var(--border-strong)] overflow-hidden cursor-pointer shrink-0 flex items-center justify-center">
+                  <input
+                    type="color"
+                    value={currentCaptionHex}
+                    onChange={(e) => handleCaptionColorChange(e.target.value)}
+                    className="absolute -inset-2 w-9 h-9 cursor-pointer opacity-0"
+                    title="Pick any custom caption color"
+                  />
+                  <span
+                    className="w-full h-full block"
+                    style={{ backgroundColor: currentCaptionHex }}
+                  />
+                </label>
+                <input
+                  type="text"
+                  value={currentCaptionHex}
+                  onChange={(e) => handleCaptionColorChange(e.target.value)}
+                  placeholder="#00F2FE"
+                  className="w-20 h-5 px-1 bg-transparent text-[11px] font-mono text-[var(--text-primary)] outline-none"
                 />
-                <span className="truncate">{st.label.split(" ")[1]}</span>
-              </button>
-            ))}
+              </div>
+
+              <div className="flex items-center gap-1">
+                {CAPTION_QUICK_COLORS.map((swatch) => (
+                  <button
+                    key={swatch.hex}
+                    type="button"
+                    onClick={() => handleCaptionColorChange(swatch.hex)}
+                    className={cn(
+                      "w-4 h-4 rounded-full border transition-transform cursor-pointer shrink-0",
+                      currentCaptionHex.toUpperCase() === swatch.hex
+                        ? "border-white scale-110"
+                        : "border-[var(--border-color)] hover:scale-105"
+                    )}
+                    style={{ backgroundColor: swatch.hex }}
+                    title={swatch.label}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end">
@@ -344,9 +366,9 @@ export function ElementsCaptionsPanel({
               type="button"
               onClick={() => void handleGenerateSubtitles()}
               disabled={isGenerating}
-              className="h-7 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              className="h-7 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer transition-colors"
             >
-              <Wand2 className="w-3.5 h-3.5" />
+              <Wand2 className="w-3.5 h-3.5 shrink-0" />
               <span>
                 {isGenerating ? "Generating..." : "Generate Captions"}
               </span>

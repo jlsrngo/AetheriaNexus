@@ -158,7 +158,7 @@ export const CompositionsPanel = memo(function CompositionsPanel({
       {showNewForm && (
         <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] space-y-2.5 shrink-0">
           <div className="text-[11px] font-semibold text-[var(--text-primary)] flex items-center justify-between">
-            <span>New Remotion Composition</span>
+            <span>New Nexus Composition</span>
             <button
               type="button"
               onClick={() => setShowNewForm(false)}
@@ -221,7 +221,7 @@ export const CompositionsPanel = memo(function CompositionsPanel({
             <button
               type="button"
               onClick={handleCreate}
-              className="h-7 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold cursor-pointer transition-colors"
+              className="h-7 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold shrink-0 whitespace-nowrap cursor-pointer transition-colors"
             >
               Create Composition
             </button>

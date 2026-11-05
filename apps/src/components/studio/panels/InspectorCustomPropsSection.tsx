@@ -200,17 +200,17 @@ export const InspectorCustomPropsSection: React.FC<
 
       {/* 2. Dynamic Body Bullet List (Add, Edit, or Remove Each Item) */}
       <div className="p-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2">
-        <div className="flex items-center justify-between">
-          <label className="text-[11px] font-medium text-[var(--text-secondary)]">
-            Body Bullets (<code className="text-[10px] text-amber-400">{bulletLines.length} items</code>)
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-[11px] font-medium text-[var(--text-secondary)] truncate min-w-0">
+            Body Bullets (<code className="text-[10px] text-amber-400">{bulletLines.length}</code>)
           </label>
           <button
             type="button"
             onClick={handleAddBullet}
-            className="h-6 px-2 rounded-md bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-[10px] font-semibold text-white flex items-center gap-1 cursor-pointer transition-colors"
+            className="h-6 px-2.5 rounded-md bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-[10px] font-semibold text-white flex items-center gap-1 shrink-0 whitespace-nowrap cursor-pointer transition-colors"
             title="Add new bullet point layer"
           >
-            <Plus className="w-3 h-3" />
+            <Plus className="w-3 h-3 shrink-0" />
             <span>Add Point</span>
           </button>
         </div>
@@ -281,18 +281,18 @@ export const InspectorCustomPropsSection: React.FC<
 
       {/* 4. Custom Dynamic Layers / Props (Unlimited Add, Edit & Delete) */}
       <div className="p-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-[var(--text-secondary)] flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-amber-400" />
-            <span>Custom Props & Layers ({customLayers.length})</span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] font-medium text-[var(--text-secondary)] flex items-center gap-1.5 min-w-0">
+            <Layers className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="truncate">Custom Layers ({customLayers.length})</span>
           </span>
           <button
             type="button"
             onClick={handleAddCustomLayer}
-            className="h-6 px-2 rounded-md bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-[10px] font-semibold text-white flex items-center gap-1 cursor-pointer transition-colors"
+            className="h-6 px-2.5 rounded-md bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-[10px] font-semibold text-white flex items-center gap-1 shrink-0 whitespace-nowrap cursor-pointer transition-colors"
             title="Add a custom layer/prop to composition and timeline"
           >
-            <Plus className="w-3 h-3" />
+            <Plus className="w-3 h-3 shrink-0" />
             <span>Add Custom</span>
           </button>
         </div>
@@ -381,3 +381,4 @@ export const InspectorCustomPropsSection: React.FC<
     </div>
   );
 };
+

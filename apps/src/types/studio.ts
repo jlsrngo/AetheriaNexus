@@ -62,6 +62,9 @@ export interface StudioCanvasSettings {
   zoom: "fit" | 0.5 | 0.75 | 1 | 1.5;
   showGuides: boolean;
   showRulers: boolean;
+  showGrid: boolean;
+  gridCols: number;
+  gridRows: number;
   showCheckerboard: boolean;
   showTimeline: boolean;
   loop: boolean;
