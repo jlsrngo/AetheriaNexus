@@ -339,19 +339,19 @@ export function ElementsCaptionsPanel({
             ))}
           </div>
 
-          <button
-            type="button"
-            onClick={() => void handleGenerateSubtitles()}
-            disabled={isGenerating}
-            className="w-full h-7 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-          >
-            <Wand2 className="w-3.5 h-3.5" />
-            <span>
-              {isGenerating
-                ? "Generating Word Cues..."
-                : "Generate Synchronized Captions"}
-            </span>
-          </button>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => void handleGenerateSubtitles()}
+              disabled={isGenerating}
+              className="h-7 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <Wand2 className="w-3.5 h-3.5" />
+              <span>
+                {isGenerating ? "Generating..." : "Generate Captions"}
+              </span>
+            </button>
+          </div>
 
           {/* Cue List */}
           {subtitleCues.length > 0 && (

@@ -217,13 +217,15 @@ export const CompositionsPanel = memo(function CompositionsPanel({
               </select>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleCreate}
-            className="w-full py-1.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold cursor-pointer transition-colors"
-          >
-            Create Composition
-          </button>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleCreate}
+              className="h-7 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold cursor-pointer transition-colors"
+            >
+              Create Composition
+            </button>
+          </div>
         </div>
       )}
 

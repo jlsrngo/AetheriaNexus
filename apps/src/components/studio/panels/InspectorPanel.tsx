@@ -17,6 +17,7 @@ import { useStudioStore } from "../../../hooks/useStudioStore";
 import { apiFetch, API_BASE } from "../../../lib/api";
 import { cn } from "../../../lib/utils";
 import type { NexusVideoProps } from "../../../remotion/types";
+import { InspectorCustomPropsSection } from "./InspectorCustomPropsSection";
 
 interface InspectorPanelProps {
   width?: number | string;
@@ -271,73 +272,21 @@ export function InspectorPanel({
 
         {editorMode === "schema" ? (
           <div className="space-y-2.5">
-            {/* Hook Text */}
-            <div>
-              <label className="text-[11px] font-medium text-[var(--text-secondary)] block mb-1">
-                Hook Title (<code className="text-[10px] text-amber-400">hookText</code>)
-              </label>
-              <textarea
-                rows={2}
-                value={props.hookText}
-                onChange={(e) => actions.updateActiveProps({ hookText: e.target.value })}
-                className="w-full p-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)] resize-none"
-              />
-            </div>
+            {/* Dynamic Add / Remove / Customize Props & Layers */}
+            <InspectorCustomPropsSection
+              props={props}
+              durationInFrames={durationInFrames}
+              onUpdateProps={(patch) => actions.updateActiveProps(patch)}
+            />
 
-            {/* Body Bullets */}
-            <div>
-              <label className="text-[11px] font-medium text-[var(--text-secondary)] block mb-1">
-                Body Bullets (<code className="text-[10px] text-amber-400">bodyText</code>)
-              </label>
-              <textarea
-                rows={4}
-                value={props.bodyText}
-                onChange={(e) => actions.updateActiveProps({ bodyText: e.target.value })}
-                className="w-full p-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)] resize-none leading-relaxed"
-              />
-            </div>
-
-            {/* Category & Subcategory */}
-            <div className="grid grid-cols-2 gap-1.5">
-              <div>
-                <label className="text-[10px] text-[var(--text-muted)] block mb-0.5">Category</label>
-                <input
-                  type="text"
-                  value={props.category}
-                  onChange={(e) => actions.updateActiveProps({ category: e.target.value })}
-                  className="w-full h-7 px-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-[var(--text-muted)] block mb-0.5">Sub-Category</label>
-                <input
-                  type="text"
-                  value={props.subCategory}
-                  onChange={(e) => actions.updateActiveProps({ subCategory: e.target.value })}
-                  className="w-full h-7 px-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
-                />
-              </div>
-            </div>
-
-            {/* Author Handle */}
-            <div>
-              <label className="text-[10px] text-[var(--text-muted)] block mb-0.5">Author Handle</label>
-              <input
-                type="text"
-                value={props.authorHandle}
-                onChange={(e) => actions.updateActiveProps({ authorHandle: e.target.value })}
-                className="w-full h-7 px-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
-              />
-            </div>
-
-            {/* Theme Accent Color Picker */}
+            {/* Theme Accent Color Picker (Compact, Non-Stretching) */}
             <div>
               <label className="text-[10px] text-[var(--text-muted)] block mb-1">
                 Theme Accent Color
               </label>
-              <div className="flex items-center gap-2 p-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)]">
+              <div className="inline-flex flex-wrap items-center gap-2 p-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)]">
                 <label
-                  className="relative w-8 h-7 rounded-md border border-[var(--border-strong)] overflow-hidden cursor-pointer shrink-0 flex items-center justify-center"
+                  className="relative w-7 h-7 rounded-md border border-[var(--border-strong)] overflow-hidden cursor-pointer shrink-0 flex items-center justify-center"
                   style={{ backgroundColor: activeHexColor }}
                   title="Click to open Color Picker"
                 >
@@ -360,8 +309,32 @@ export function InspectorPanel({
                     }
                   }}
                   placeholder="#F97316"
-                  className="flex-1 min-w-0 h-7 px-2 rounded-md bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
+                  className="w-24 h-7 px-2 rounded-md bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
                 />
+                <div className="flex items-center gap-1 pl-1 border-l border-[var(--border-color)]">
+                  {[
+                    "#f97316",
+                    "#6366f1",
+                    "#a855f7",
+                    "#f43f5e",
+                    "#f59e0b",
+                    "#06b6d4",
+                  ].map((hex) => (
+                    <button
+                      key={hex}
+                      type="button"
+                      onClick={() => actions.updateActiveProps({ themeColor: hex })}
+                      className={cn(
+                        "w-4 h-4 rounded-full border transition-transform cursor-pointer",
+                        activeHexColor.toLowerCase() === hex
+                          ? "border-white scale-110"
+                          : "border-transparent opacity-80 hover:opacity-100"
+                      )}
+                      style={{ backgroundColor: hex }}
+                      title={hex.toUpperCase()}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -399,40 +372,43 @@ export function InspectorPanel({
               onChange={(e) => setJsonDraft(e.target.value)}
               className="w-full p-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] font-mono text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)] resize-none"
             />
-            <button
-              type="button"
-              onClick={handleApplyJson}
-              className="w-full h-7 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-            >
-              <Check className="w-3.5 h-3.5" />
-              Apply JSON Props
-            </button>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleApplyJson}
+                className="h-7 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <Check className="w-3.5 h-3.5" />
+                Apply JSON Props
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Footer Actions (100% Solid Buttons) */}
-      <div className="p-2.5 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex items-center gap-1.5 shrink-0">
-        <button
-          type="button"
-          onClick={handleSavePropsToDisk}
-          disabled={isSaving}
-          className="flex-1 h-7 px-2.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-          title="Save Default Props to project (Ctrl+S)"
-        >
-          <Save className="w-3.5 h-3.5" />
-          <span>{isSaving ? "Saving..." : "Save Default Props"}</span>
-        </button>
+      {/* Footer Actions (Compact, Non-Stretching Solid Buttons) */}
+      <div className="p-2.5 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-end gap-2 shrink-0">
         <button
           type="button"
           onClick={() => {
             actions.resetActiveProps();
             toast.info("Reset composition props to defaults");
           }}
-          className="h-7 px-2.5 rounded-lg bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs flex items-center justify-center cursor-pointer transition-colors"
+          className="h-7 px-2.5 rounded-lg bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
           title="Reset to defaultProps"
         >
           <RotateCcw className="w-3.5 h-3.5" />
+          <span>Reset</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleSavePropsToDisk}
+          disabled={isSaving}
+          className="h-7 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+          title="Save Default Props to project (Ctrl+S)"
+        >
+          <Save className="w-3.5 h-3.5" />
+          <span>{isSaving ? "Saving..." : "Save Default Props"}</span>
         </button>
       </div>
     </aside>

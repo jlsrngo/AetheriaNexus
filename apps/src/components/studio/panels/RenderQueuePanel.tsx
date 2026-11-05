@@ -275,14 +275,16 @@ export function RenderQueuePanel({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => void handleStartRender()}
-            className="w-full h-8 rounded-lg bg-[#be123c] hover:bg-[#9f1239] border border-[#e11d48] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-          >
-            <Play className="w-3.5 h-3.5 fill-current" />
-            <span>Render Video ({codec.toUpperCase()})</span>
-          </button>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => void handleStartRender()}
+              className="h-7 px-3.5 rounded-lg bg-[#be123c] hover:bg-[#9f1239] border border-[#e11d48] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>Render Video ({codec.toUpperCase()})</span>
+            </button>
+          </div>
         </div>
 
         {/* 3. Render Queue List */}
