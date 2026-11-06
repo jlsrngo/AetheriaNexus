@@ -123,8 +123,8 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
   }, []);
 
   // Adaptive breakpoints
-  const isCompact = containerWidth < 740;
-  const isMedium = containerWidth >= 740 && containerWidth < 1050;
+  const isCompact = containerWidth < 820;
+  const isMedium = containerWidth >= 820 && containerWidth < 1050;
   const isWide = containerWidth >= 1050;
 
   // Close dropdowns on outside click or Escape
@@ -170,19 +170,19 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
 
   // Dynamic responsive tool button classes
   const toolBtnClass = cn(
-    "flex-1 min-w-[28px] max-w-[54px] sm:max-w-[60px] h-10 flex flex-col items-center justify-center rounded-lg transition-all cursor-pointer group text-center select-none shrink-0 sm:shrink",
+    "flex-1 min-w-0 max-w-[54px] sm:max-w-[60px] h-10 flex flex-col items-center justify-center rounded-lg transition-all cursor-pointer group text-center select-none shrink",
     isCompact ? "p-0.5" : "px-1 py-0.5"
   );
   const toolIconClass = isCompact ? "w-3 h-3" : "w-3.5 h-3.5";
   const toolLabelClass = cn(
-    "tracking-tight leading-none mt-0.5",
+    "tracking-tight leading-none mt-0.5 truncate max-w-full",
     isCompact ? "text-[7.5px]" : "text-[8.5px]"
   );
 
   return (
     <div
       ref={containerRef}
-      className="h-14 px-2 sm:px-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between gap-1 sm:gap-2 select-none shrink-0 relative z-40 w-full"
+      className="h-14 px-1.5 sm:px-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between gap-1 select-none shrink-0 relative z-40 w-full overflow-hidden"
     >
       {/* 1. LEFT SECTION: Playback Transport & Timecode */}
       <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
@@ -255,10 +255,10 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
       </div>
 
       {/* 2. CENTER SECTION: Fluid Responsive Tools (Adjusts & Expands to Fill Space) */}
-      <div className="flex-1 min-w-0 flex items-center justify-center gap-0.5 sm:gap-1 px-0.5 sm:px-1 max-w-4xl mx-auto">
+      <div className="flex-1 min-w-0 flex items-center justify-center gap-0.5 sm:gap-1 px-0.5 max-w-4xl mx-auto overflow-hidden">
         {/* --- GROUP 1: Composition Settings (Ratio, Speed, FPS) --- */}
         {/* Rasio Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={ratioRef} className="relative flex-1 min-w-[28px] max-w-[54px] sm:max-w-[60px]">
+        <div ref={ratioRef} className="relative flex-1 min-w-0 max-w-[54px] sm:max-w-[60px] shrink">
           <button
             type="button"
             onClick={() => {
@@ -319,7 +319,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
         </div>
 
         {/* Speed Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={speedRef} className="relative flex-1 min-w-[28px] max-w-[54px] sm:max-w-[60px]">
+        <div ref={speedRef} className="relative flex-1 min-w-0 max-w-[54px] sm:max-w-[60px] shrink">
           <button
             type="button"
             onClick={() => {
@@ -370,7 +370,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
         </div>
 
         {/* Frame Rate (FPS) Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={fpsRef} className="relative flex-1 min-w-[28px] max-w-[54px] sm:max-w-[60px]">
+        <div ref={fpsRef} className="relative flex-1 min-w-0 max-w-[54px] sm:max-w-[60px] shrink">
           <button
             type="button"
             onClick={() => {
@@ -685,8 +685,8 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           disabled={isExporting}
           title="Render & Export Video MP4 (Lokal GPU)"
           className={cn(
-            "h-8 rounded-full bg-[#cf6613] hover:bg-[#b8580f] active:scale-[0.98] border border-[#e07b27] text-white flex items-center gap-1.5 font-semibold shadow-md shadow-orange-950/40 hover:scale-[1.02] transition-all cursor-pointer disabled:opacity-50 shrink-0",
-            isCompact ? "px-2.5 text-[11px]" : "px-3.5 text-xs"
+            "rounded-full bg-[#cf6613] hover:bg-[#b8580f] active:scale-[0.98] border border-[#e07b27] text-white flex items-center justify-center font-semibold shadow-md shadow-orange-950/40 hover:scale-[1.02] transition-all cursor-pointer disabled:opacity-50 shrink-0",
+            isCompact ? "w-8 h-8 p-0" : "h-8 px-3.5 text-xs gap-1.5"
           )}
         >
           {isExporting ? (
@@ -694,7 +694,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           ) : (
             <Download className="w-3.5 h-3.5 text-white stroke-[2.5]" />
           )}
-          <span>Export</span>
+          {!isCompact && <span>Export</span>}
         </button>
       </div>
     </div>
