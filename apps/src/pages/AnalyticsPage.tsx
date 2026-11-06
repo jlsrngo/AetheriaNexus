@@ -8,161 +8,298 @@ import {
   Sparkles,
   CheckCircle2,
   Award,
-  Link2,
   RefreshCw,
   X,
   Check,
   Shield,
   Smartphone,
+  Camera,
+  ExternalLink,
+  Video,
+  Radio,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../lib/utils";
 
 type TimeRange = "7d" | "30d" | "90d" | "all";
+type SocialPlatform = "tiktok" | "reels" | "shorts";
 
-interface TikTokAccountState {
+interface SocialAccountState {
+  platform: SocialPlatform;
   handle: string;
   displayName: string;
+  bio: string;
   followers: string;
+  following: string;
   likes: string;
+  totalVideos: number;
   status: "connected" | "disconnected";
   authMethod: "oauth" | "creator_token";
   clientKey: string;
   autoSync: boolean;
   lastSync: string;
+  avatarUrl: string;
 }
 
-const DEFAULT_TIKTOK_ACCOUNT: TikTokAccountState = {
-  handle: "@arunaki.studio",
-  displayName: "Arunaki Content Lab",
-  followers: "28.4K",
-  likes: "194.2K",
-  status: "connected",
-  authMethod: "oauth",
-  clientKey: "aw98x***live",
-  autoSync: true,
-  lastSync: "Just now",
+const DEFAULT_AVATARS: Record<SocialPlatform, string> = {
+  tiktok:
+    "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='%231a1a1f'/><circle cx='50' cy='38' r='20' fill='%23cf6613'/><path d='M20 85 C20 62, 35 56, 50 56 C65 56, 80 62, 80 85 Z' fill='%23cf6613'/></svg>",
+  reels:
+    "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='%231a1a1f'/><circle cx='50' cy='38' r='20' fill='%23d946ef'/><path d='M20 85 C20 62, 35 56, 50 56 C65 56, 80 62, 80 85 Z' fill='%23d946ef'/></svg>",
+  shorts:
+    "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='%231a1a1f'/><circle cx='50' cy='38' r='20' fill='%23ef4444'/><path d='M20 85 C20 62, 35 56, 50 56 C65 56, 80 62, 80 85 Z' fill='%23ef4444'/></svg>",
+};
+
+const DEFAULT_ACCOUNTS: Record<SocialPlatform, SocialAccountState> = {
+  tiktok: {
+    platform: "tiktok",
+    handle: "@arunaki.studio",
+    displayName: "Arunaki Content Lab",
+    bio: "Automated high-retention short-form videos with Remotion • 3 posts daily",
+    followers: "28.4K",
+    following: "142",
+    likes: "194.2K",
+    totalVideos: 48,
+    status: "connected",
+    authMethod: "oauth",
+    clientKey: "aw98x***live",
+    autoSync: true,
+    lastSync: "Just now",
+    avatarUrl: DEFAULT_AVATARS.tiktok,
+  },
+  reels: {
+    platform: "reels",
+    handle: "@arunaki.creativelab",
+    displayName: "Arunaki Creative Lab",
+    bio: "Visual storytelling, design systems & aesthetic motion clips",
+    followers: "14.8K",
+    following: "88",
+    likes: "82.6K",
+    totalVideos: 32,
+    status: "connected",
+    authMethod: "oauth",
+    clientKey: "ig_meta_graph_9941",
+    autoSync: true,
+    lastSync: "Today 11:30",
+    avatarUrl: DEFAULT_AVATARS.reels,
+  },
+  shorts: {
+    platform: "shorts",
+    handle: "@ArunakiShorts",
+    displayName: "Arunaki Shorts Network",
+    bio: "Bite-sized productivity blueprints & tech insights in 60s",
+    followers: "9.2K",
+    following: "24",
+    likes: "45.1K",
+    totalVideos: 27,
+    status: "connected",
+    authMethod: "oauth",
+    clientKey: "yt_data_v3_session",
+    autoSync: true,
+    lastSync: "Yesterday",
+    avatarUrl: DEFAULT_AVATARS.shorts,
+  },
 };
 
 export const AnalyticsPage = memo(function AnalyticsPage() {
+  const [activePlatform, setActivePlatform] = useState<SocialPlatform>("tiktok");
   const [timeRange, setTimeRange] = useState<TimeRange>("30d");
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
-  // Load TikTok account state from localStorage
-  const [tiktokAccount, setTiktokAccount] = useState<TikTokAccountState>(() => {
+  // Modals state
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileModalTab, setProfileModalTab] = useState<"profile" | "settings">("profile");
+
+  // Load all accounts from localStorage
+  const [accounts, setAccounts] = useState<Record<SocialPlatform, SocialAccountState>>(() => {
     try {
-      const saved = localStorage.getItem("arunaki_tiktok_account");
-      if (saved) return JSON.parse(saved);
+      const saved = localStorage.getItem("arunaki_social_accounts");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...DEFAULT_ACCOUNTS, ...parsed };
+      }
     } catch {
       // fallback
     }
-    return DEFAULT_TIKTOK_ACCOUNT;
+    return DEFAULT_ACCOUNTS;
   });
 
-  // Modal draft states
-  const [draftHandle, setDraftHandle] = useState(tiktokAccount.handle);
-  const [draftDisplayName, setDraftDisplayName] = useState(tiktokAccount.displayName);
-  const [draftMethod, setDraftMethod] = useState<"oauth" | "creator_token">(tiktokAccount.authMethod);
-  const [draftKey, setDraftKey] = useState(tiktokAccount.clientKey || "tt_live_key_9941");
-  const [draftAutoSync, setDraftAutoSync] = useState(tiktokAccount.autoSync);
+  // Current active account
+  const currentAccount = accounts[activePlatform];
 
+  // Draft state for modal editing
+  const [draftHandle, setDraftHandle] = useState(currentAccount.handle);
+  const [draftDisplayName, setDraftDisplayName] = useState(currentAccount.displayName);
+  const [draftBio, setDraftBio] = useState(currentAccount.bio);
+  const [draftAvatarUrl, setDraftAvatarUrl] = useState(currentAccount.avatarUrl);
+  const [draftMethod, setDraftMethod] = useState<"oauth" | "creator_token">(currentAccount.authMethod);
+  const [draftKey, setDraftKey] = useState(currentAccount.clientKey);
+  const [draftAutoSync, setDraftAutoSync] = useState(currentAccount.autoSync);
+
+  // Sync draft states when active platform changes
   useEffect(() => {
-    localStorage.setItem("arunaki_tiktok_account", JSON.stringify(tiktokAccount));
-  }, [tiktokAccount]);
+    setDraftHandle(currentAccount.handle);
+    setDraftDisplayName(currentAccount.displayName);
+    setDraftBio(currentAccount.bio);
+    setDraftAvatarUrl(currentAccount.avatarUrl);
+    setDraftMethod(currentAccount.authMethod);
+    setDraftKey(currentAccount.clientKey);
+    setDraftAutoSync(currentAccount.autoSync);
+  }, [activePlatform, currentAccount]);
 
-  const isConnected = tiktokAccount.status === "connected";
+  // Persist accounts state
+  useEffect(() => {
+    localStorage.setItem("arunaki_social_accounts", JSON.stringify(accounts));
+  }, [accounts]);
+
+  const isConnected = currentAccount.status === "connected";
 
   const handleSyncMetrics = () => {
     if (!isConnected) {
-      toast.error("Please connect your TikTok account first.");
-      setIsAccountModalOpen(true);
+      toast.error(`Please connect your ${getPlatformLabel(activePlatform)} account first.`);
+      setIsProfileModalOpen(true);
       return;
     }
     setIsSyncing(true);
-    toast.loading("Fetching latest TikTok audience analytics & FYP retention...", { id: "tt-sync" });
+    toast.loading(`Fetching latest ${getPlatformLabel(activePlatform)} telemetry...`, { id: "sync-toast" });
     setTimeout(() => {
       setIsSyncing(false);
-      setTiktokAccount((prev) => ({
+      setAccounts((prev) => ({
         ...prev,
-        lastSync: "Just now",
+        [activePlatform]: {
+          ...prev[activePlatform],
+          lastSync: "Just now",
+        },
       }));
-      toast.success("TikTok analytics updated to the latest 30-day cycle!", { id: "tt-sync" });
-    }, 1200);
+      toast.success(`${getPlatformLabel(activePlatform)} metrics updated!`, { id: "sync-toast" });
+    }, 1100);
   };
 
-  const handleSaveAccount = (e: React.FormEvent) => {
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Avatar image must be under 5 MB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const result = ev.target?.result as string;
+        setDraftAvatarUrl(result);
+        toast.success("Profile photo preview updated. Click 'Save Profile' to apply.");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
     if (!draftHandle.trim()) {
-      toast.error("TikTok handle is required (e.g. @username).");
+      toast.error("Handle username is required (e.g. @username).");
       return;
     }
     const cleanHandle = draftHandle.trim().startsWith("@") ? draftHandle.trim() : `@${draftHandle.trim()}`;
-    const updated: TikTokAccountState = {
-      ...tiktokAccount,
+    const updated: SocialAccountState = {
+      ...currentAccount,
       handle: cleanHandle,
       displayName: draftDisplayName.trim() || cleanHandle.slice(1),
+      bio: draftBio.trim(),
+      avatarUrl: draftAvatarUrl || DEFAULT_AVATARS[activePlatform],
       authMethod: draftMethod,
       clientKey: draftKey.trim(),
       autoSync: draftAutoSync,
       status: "connected",
       lastSync: "Just now",
     };
-    setTiktokAccount(updated);
-    setIsAccountModalOpen(false);
-    toast.success(`TikTok account ${cleanHandle} connected successfully!`);
+
+    setAccounts((prev) => ({
+      ...prev,
+      [activePlatform]: updated,
+    }));
+
+    setIsProfileModalOpen(false);
+    toast.success(`${getPlatformLabel(activePlatform)} profile for ${cleanHandle} saved successfully!`);
   };
 
   const handleDisconnect = () => {
-    const updated: TikTokAccountState = {
-      ...tiktokAccount,
-      status: "disconnected",
-      lastSync: "Disconnected",
-    };
-    setTiktokAccount(updated);
-    setIsAccountModalOpen(false);
-    toast.info("TikTok account disconnected. Running in offline telemetry mode.");
+    setAccounts((prev) => ({
+      ...prev,
+      [activePlatform]: {
+        ...prev[activePlatform],
+        status: "disconnected",
+        lastSync: "Disconnected",
+      },
+    }));
+    setIsProfileModalOpen(false);
+    toast.info(`${getPlatformLabel(activePlatform)} account disconnected.`);
   };
 
-  // Dynamic metrics depending on selected range
-  const metrics = {
-    "7d": {
-      views: "64,280",
-      viewsGrowth: "+31.2%",
-      likes: "4,910",
-      engagementRate: "19.4%",
-      followers: "+940",
-      totalFollowers: tiktokAccount.followers,
-      retention: "81.2%",
+  function getPlatformLabel(p: SocialPlatform) {
+    switch (p) {
+      case "tiktok":
+        return "TikTok";
+      case "reels":
+        return "Instagram Reels";
+      case "shorts":
+        return "YouTube Shorts";
+    }
+  }
+
+  function getPlatformExternalUrl(p: SocialPlatform, handle: string) {
+    const clean = handle.replace(/^@/, "");
+    switch (p) {
+      case "tiktok":
+        return `https://www.tiktok.com/@${clean}`;
+      case "reels":
+        return `https://www.instagram.com/${clean}`;
+      case "shorts":
+        return `https://www.youtube.com/@${clean}`;
+    }
+  }
+
+  // Dynamic metrics per platform & range
+  const metricsData = {
+    tiktok: {
+      "7d": { views: "64,280", viewsGrowth: "+31.2%", likes: "4,910", engagementRate: "19.4%", followers: "+940", retention: "81.2%" },
+      "30d": { views: "248,920", viewsGrowth: "+24.5%", likes: "18,430", engagementRate: "18.2%", followers: "+3,820", retention: "78.4%" },
+      "90d": { views: "682,100", viewsGrowth: "+42.8%", likes: "51,200", engagementRate: "17.6%", followers: "+11,400", retention: "76.9%" },
+      all: { views: "1,240,500", viewsGrowth: "+115.4%", likes: "94,300", engagementRate: "18.0%", followers: "+28,400", retention: "77.5%" },
     },
-    "30d": {
-      views: "248,920",
-      viewsGrowth: "+24.5%",
-      likes: "18,430",
-      engagementRate: "18.2%",
-      followers: "+3,820",
-      totalFollowers: tiktokAccount.followers,
-      retention: "78.4%",
+    reels: {
+      "7d": { views: "41,100", viewsGrowth: "+18.4%", likes: "3,150", engagementRate: "16.8%", followers: "+520", retention: "72.4%" },
+      "30d": { views: "162,400", viewsGrowth: "+21.1%", likes: "12,900", engagementRate: "17.1%", followers: "+2,140", retention: "70.8%" },
+      "90d": { views: "448,000", viewsGrowth: "+35.5%", likes: "36,200", engagementRate: "16.5%", followers: "+6,800", retention: "69.2%" },
+      all: { views: "812,000", viewsGrowth: "+88.0%", likes: "65,400", engagementRate: "16.9%", followers: "+14,800", retention: "71.0%" },
     },
-    "90d": {
-      views: "682,100",
-      viewsGrowth: "+42.8%",
-      likes: "51,200",
-      engagementRate: "17.6%",
-      followers: "+11,400",
-      totalFollowers: tiktokAccount.followers,
-      retention: "76.9%",
+    shorts: {
+      "7d": { views: "29,400", viewsGrowth: "+22.9%", likes: "2,040", engagementRate: "14.2%", followers: "+310", retention: "74.8%" },
+      "30d": { views: "118,500", viewsGrowth: "+26.4%", likes: "8,750", engagementRate: "15.0%", followers: "+1,450", retention: "73.2%" },
+      "90d": { views: "325,000", viewsGrowth: "+41.2%", likes: "24,800", engagementRate: "14.8%", followers: "+4,600", retention: "72.0%" },
+      all: { views: "594,000", viewsGrowth: "+94.5%", likes: "45,100", engagementRate: "14.9%", followers: "+9,200", retention: "72.8%" },
     },
-    all: {
-      views: "1,240,500",
-      viewsGrowth: "+115.4%",
-      likes: "94,300",
-      engagementRate: "18.0%",
-      followers: "+28,400",
-      totalFollowers: tiktokAccount.followers,
-      retention: "77.5%",
-    },
-  }[timeRange];
+  }[activePlatform][timeRange];
+
+  // Platform traffic sources breakdown
+  const trafficSources = {
+    tiktok: [
+      { label: "For You Page (FYP)", pct: 88, color: "bg-[#cf6613]" },
+      { label: "Personal Profile", pct: 6, color: "bg-neutral-500" },
+      { label: "Following Feed", pct: 4, color: "bg-sky-400" },
+      { label: "Search & Sound", pct: 2, color: "bg-purple-400" },
+    ],
+    reels: [
+      { label: "Reels Tab Discovery", pct: 76, color: "bg-[#cf6613]" },
+      { label: "Explore Grid", pct: 14, color: "bg-neutral-500" },
+      { label: "Feed / Home", pct: 7, color: "bg-sky-400" },
+      { label: "Audio Page", pct: 3, color: "bg-purple-400" },
+    ],
+    shorts: [
+      { label: "Shorts Algorithm Feed", pct: 84, color: "bg-[#cf6613]" },
+      { label: "YouTube Search", pct: 9, color: "bg-neutral-500" },
+      { label: "Channel Pages", pct: 5, color: "bg-sky-400" },
+      { label: "Suggested Videos", pct: 2, color: "bg-purple-400" },
+    ],
+  }[activePlatform];
 
   // Daily views activity distribution
   const activityDays = [
@@ -180,38 +317,90 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
       {/* 1. PINNED COMPACT HEADER (Never scrolls, not full height, no emerald green) */}
       <div className="shrink-0 border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-4 py-2.5 z-20">
         <div className="max-w-4xl mx-auto space-y-2">
-          {/* Row 1: Title, Account Status Pill, Connect & Sync Buttons */}
+          {/* Row 1: Platform Switcher, Account Pill with Avatar, Sync & Profile Buttons */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2 min-w-0">
-              <h1 className="text-base sm:text-lg font-bold tracking-tight text-[var(--text-primary)] truncate">
-                TikTok Analytics
-              </h1>
+            <div className="flex items-center gap-2 min-w-0 flex-wrap sm:flex-nowrap">
+              {/* Platform Tabs Pill */}
+              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setActivePlatform("tiktok")}
+                  className={cn(
+                    "px-2 py-1 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer",
+                    activePlatform === "tiktok"
+                      ? "bg-[#cf6613] text-white shadow-sm"
+                      : "text-[var(--text-secondary)] hover:text-white"
+                  )}
+                  title="TikTok (P0 Priority Focus)"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>TikTok (P0)</span>
+                </button>
 
-              {/* Connected TikTok Account Capsule */}
+                <button
+                  type="button"
+                  onClick={() => setActivePlatform("reels")}
+                  className={cn(
+                    "px-2 py-1 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer",
+                    activePlatform === "reels"
+                      ? "bg-[#cf6613] text-white shadow-sm"
+                      : "text-[var(--text-secondary)] hover:text-white"
+                  )}
+                  title="Instagram Reels"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Reels</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActivePlatform("shorts")}
+                  className={cn(
+                    "px-2 py-1 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer",
+                    activePlatform === "shorts"
+                      ? "bg-[#cf6613] text-white shadow-sm"
+                      : "text-[var(--text-secondary)] hover:text-white"
+                  )}
+                  title="YouTube Shorts"
+                >
+                  <Video className="w-3.5 h-3.5" />
+                  <span>Shorts</span>
+                </button>
+              </div>
+
+              {/* Connected Account Capsule with Real Avatar Photo */}
               <button
                 type="button"
                 onClick={() => {
-                  setDraftHandle(tiktokAccount.handle);
-                  setDraftDisplayName(tiktokAccount.displayName);
-                  setIsAccountModalOpen(true);
+                  setProfileModalTab("profile");
+                  setIsProfileModalOpen(true);
                 }}
                 className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-mono transition-colors cursor-pointer",
+                  "flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full border text-[11px] font-mono transition-colors cursor-pointer shrink-0 max-w-[220px]",
                   isConnected
                     ? "bg-[var(--bg-card)] border-[var(--border-color)] hover:border-amber-400/50 text-[var(--text-primary)]"
                     : "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
                 )}
-                title="Click to view or connect TikTok account"
+                title="Click to view creator profile card and photo"
               >
-                <span
-                  className={cn(
-                    "w-1.5 h-1.5 rounded-full",
-                    isConnected ? "bg-amber-400 animate-pulse" : "bg-neutral-500"
+                {/* Circular Profile Avatar Photo */}
+                <div className="w-5 h-5 rounded-full overflow-hidden border border-[var(--border-color)] bg-[var(--bg-input)] shrink-0 flex items-center justify-center">
+                  {currentAccount.avatarUrl ? (
+                    <img
+                      src={currentAccount.avatarUrl}
+                      alt={currentAccount.handle}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-[9px] font-bold text-[var(--text-secondary)]">
+                      {currentAccount.handle.slice(1, 2).toUpperCase()}
+                    </span>
                   )}
-                />
-                <span className="font-semibold">{isConnected ? tiktokAccount.handle : "No Account Connected"}</span>
+                </div>
+
+                <span className="font-semibold truncate">{isConnected ? currentAccount.handle : "No Account"}</span>
                 {isConnected && (
-                  <span className="text-[var(--text-muted)] text-[10px]">({tiktokAccount.followers})</span>
+                  <span className="text-[var(--text-muted)] text-[10px] shrink-0">({currentAccount.followers})</span>
                 )}
               </button>
             </div>
@@ -222,7 +411,7 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
                 onClick={handleSyncMetrics}
                 disabled={isSyncing}
                 className="h-7 px-2.5 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer text-[var(--text-secondary)] hover:text-white disabled:opacity-50"
-                title="Sync latest TikTok metrics via API"
+                title="Sync latest live telemetry via API"
               >
                 <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin text-amber-400")} />
                 <span>{isSyncing ? "Syncing..." : "Sync"}</span>
@@ -231,14 +420,13 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setDraftHandle(tiktokAccount.handle);
-                  setDraftDisplayName(tiktokAccount.displayName);
-                  setIsAccountModalOpen(true);
+                  setProfileModalTab("profile");
+                  setIsProfileModalOpen(true);
                 }}
                 className="h-7 px-3 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-sm cursor-pointer"
               >
-                <Link2 className="w-3.5 h-3.5" />
-                <span>{isConnected ? "Account Settings" : "Connect TikTok"}</span>
+                <Users className="w-3.5 h-3.5" />
+                <span>View Profile</span>
               </button>
             </div>
           </div>
@@ -271,7 +459,7 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
             </div>
 
             <span className="text-[10px] text-[var(--text-muted)] font-mono">
-              TikTok API v2 • Synced: {tiktokAccount.lastSync}
+              {getPlatformLabel(activePlatform)} API v2 • Synced: {currentAccount.lastSync}
             </span>
           </div>
         </div>
@@ -290,11 +478,11 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
               </div>
               <div className="mt-1.5">
                 <div className="text-xl sm:text-2xl font-bold font-mono text-[var(--text-primary)]">
-                  {metrics.views}
+                  {metricsData.views}
                 </div>
                 <div className="text-[11px] text-[var(--text-secondary)] font-semibold mt-0.5 flex items-center gap-1">
                   <ArrowUpRight className="w-3 h-3 text-amber-400" />
-                  <span>{metrics.viewsGrowth} vs last cycle</span>
+                  <span>{metricsData.viewsGrowth} vs last cycle</span>
                 </div>
               </div>
             </div>
@@ -307,11 +495,11 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
               </div>
               <div className="mt-1.5">
                 <div className="text-xl sm:text-2xl font-bold font-mono text-[var(--text-primary)]">
-                  {metrics.likes}
+                  {metricsData.likes}
                 </div>
                 <div className="text-[11px] text-[var(--text-secondary)] font-semibold mt-0.5 flex items-center gap-1">
                   <ArrowUpRight className="w-3 h-3 text-amber-400" />
-                  <span>{metrics.engagementRate} engagement</span>
+                  <span>{metricsData.engagementRate} engagement</span>
                 </div>
               </div>
             </div>
@@ -324,10 +512,10 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
               </div>
               <div className="mt-1.5">
                 <div className="text-xl sm:text-2xl font-bold font-mono text-[var(--text-primary)]">
-                  {metrics.followers}
+                  {metricsData.followers}
                 </div>
                 <div className="text-[11px] text-[var(--text-muted)] mt-0.5 font-mono">
-                  Total: {metrics.totalFollowers}
+                  Total: {currentAccount.followers}
                 </div>
               </div>
             </div>
@@ -340,10 +528,10 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
               </div>
               <div className="mt-1.5">
                 <div className="text-xl sm:text-2xl font-bold font-mono text-amber-400">
-                  {metrics.retention}
+                  {metricsData.retention}
                 </div>
                 <div className="text-[10.5px] text-[var(--text-muted)] mt-0.5 font-mono">
-                  High viral benchmark
+                  {activePlatform === "tiktok" ? "High TikTok FYP benchmark" : "High short-form retention"}
                 </div>
               </div>
             </div>
@@ -356,7 +544,7 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
-                    Weekly Views Velocity
+                    Weekly Views Velocity ({getPlatformLabel(activePlatform)})
                   </h3>
                   <p className="text-[11px] text-[var(--text-muted)]">
                     Peak viewing hours concentrated between 18:00 - 21:00 WIB
@@ -401,17 +589,12 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
                   Traffic Sources
                 </h3>
                 <p className="text-[11px] text-[var(--text-muted)]">
-                  Algorithmic FYP distribution ratio
+                  Algorithmic discovery distribution ratio
                 </p>
               </div>
 
               <div className="space-y-2 pt-1">
-                {[
-                  { label: "For You Page (FYP)", pct: 88, color: "bg-[#cf6613]" },
-                  { label: "Personal Profile", pct: 6, color: "bg-neutral-500" },
-                  { label: "Following Feed", pct: 4, color: "bg-sky-400" },
-                  { label: "Search & Sound", pct: 2, color: "bg-purple-400" },
-                ].map((src) => (
+                {trafficSources.map((src) => (
                   <div key={src.label} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-[var(--text-secondary)]">{src.label}</span>
@@ -432,7 +615,7 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
               <div className="p-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] leading-relaxed mt-2 flex items-start gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
                 <span>
-                  88% FYP ratio indicates strong algorithmic push and hook retention rate.
+                  High recommendation ratio confirms viral hook retention and watch completion on {getPlatformLabel(activePlatform)}.
                 </span>
               </div>
             </div>
@@ -443,7 +626,7 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
             <div className="flex items-center justify-between">
               <h3 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
                 <Award className="w-4 h-4 text-amber-400" />
-                <span>Top Performing TikTok Videos</span>
+                <span>Top Performing {getPlatformLabel(activePlatform)} Videos</span>
               </h3>
               <span className="text-[10px] font-mono text-[var(--text-muted)]">
                 Ranked by total views & watch completion
@@ -542,153 +725,301 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
         </div>
       </div>
 
-      {/* 3. TIKTOK ACCOUNT CONNECTION MODAL */}
-      {isAccountModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-            {/* Modal Header */}
-            <div className="px-5 py-4 border-b border-[var(--border-color)] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] flex items-center justify-center text-amber-400">
-                  <Smartphone className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                    TikTok Account Connection
-                  </h3>
-                  <p className="text-[11px] text-[var(--text-muted)]">
-                    Link account for auto-posting & live analytics
-                  </p>
-                </div>
-              </div>
+      {/* 3. CREATOR PROFILE CARD & ACCOUNT MODAL */}
+      {isProfileModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Modal Header Cover with Profile Photo */}
+            <div className="relative bg-gradient-to-r from-neutral-900 via-neutral-850 to-neutral-900 border-b border-[var(--border-color)] pt-8 pb-4 px-6">
+              {/* Close Button */}
               <button
                 type="button"
-                onClick={() => setIsAccountModalOpen(false)}
-                className="w-7 h-7 rounded-lg hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                onClick={() => setIsProfileModalOpen(false)}
+                className="absolute top-3 right-3 w-7 h-7 rounded-lg bg-black/40 hover:bg-black/70 text-[var(--text-muted)] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
+
+              {/* Profile Avatar & Details */}
+              <div className="flex items-start gap-4">
+                {/* Large Avatar Photo with Camera Picker */}
+                <div className="relative group shrink-0">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-amber-400/80 bg-black shadow-lg">
+                    {draftAvatarUrl ? (
+                      <img
+                        src={draftAvatarUrl}
+                        alt={draftHandle}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xl font-bold text-white bg-neutral-800">
+                        {draftHandle.slice(1, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Camera Upload Overlay */}
+                  <label
+                    className="absolute inset-0 rounded-full bg-black/60 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-[10px] font-semibold"
+                    title="Upload custom profile photo from computer"
+                  >
+                    <Camera className="w-5 h-5 mb-0.5" />
+                    <span>Upload</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarFileChange}
+                    />
+                  </label>
+                </div>
+
+                {/* Profile Identity */}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-base sm:text-lg font-bold text-white truncate">
+                      {draftDisplayName || "Creator"}
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[10px] font-bold font-mono uppercase flex items-center gap-1">
+                      <Radio className="w-2.5 h-2.5 animate-pulse text-amber-400" />
+                      <span>{getPlatformLabel(activePlatform)} Verified</span>
+                    </span>
+                  </div>
+
+                  <p className="text-xs font-mono text-[var(--text-secondary)] font-semibold">
+                    {draftHandle}
+                  </p>
+
+                  <p className="text-[11px] text-[var(--text-muted)] line-clamp-2 leading-relaxed">
+                    {draftBio}
+                  </p>
+                </div>
+              </div>
+
+              {/* 4 Profile Metric Counters */}
+              <div className="grid grid-cols-4 gap-2 mt-4 pt-3 border-t border-[var(--border-color)] text-center">
+                <div className="p-1.5 rounded-lg bg-black/40 border border-white/5">
+                  <div className="text-xs sm:text-sm font-bold font-mono text-white">
+                    {currentAccount.followers}
+                  </div>
+                  <div className="text-[9.5px] text-[var(--text-muted)] uppercase tracking-wider">
+                    Followers
+                  </div>
+                </div>
+
+                <div className="p-1.5 rounded-lg bg-black/40 border border-white/5">
+                  <div className="text-xs sm:text-sm font-bold font-mono text-white">
+                    {currentAccount.likes}
+                  </div>
+                  <div className="text-[9.5px] text-[var(--text-muted)] uppercase tracking-wider">
+                    Likes
+                  </div>
+                </div>
+
+                <div className="p-1.5 rounded-lg bg-black/40 border border-white/5">
+                  <div className="text-xs sm:text-sm font-bold font-mono text-white">
+                    {currentAccount.following}
+                  </div>
+                  <div className="text-[9.5px] text-[var(--text-muted)] uppercase tracking-wider">
+                    Following
+                  </div>
+                </div>
+
+                <div className="p-1.5 rounded-lg bg-black/40 border border-white/5">
+                  <div className="text-xs sm:text-sm font-bold font-mono text-amber-400">
+                    {currentAccount.totalVideos}
+                  </div>
+                  <div className="text-[9.5px] text-[var(--text-muted)] uppercase tracking-wider">
+                    Videos
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Modal Form */}
-            <form onSubmit={handleSaveAccount} className="p-5 space-y-4">
-              {/* Account Handle */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                  TikTok Username / Handle
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono text-[var(--text-muted)]">
-                    @
-                  </span>
-                  <input
-                    type="text"
-                    required
-                    value={draftHandle.replace(/^@/, "")}
-                    onChange={(e) => setDraftHandle(e.target.value)}
-                    placeholder="yourbrand.official"
-                    className="w-full pl-7 pr-3 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] font-mono outline-none focus:border-amber-400"
-                  />
-                </div>
-              </div>
+            {/* Modal Tabs Navigation */}
+            <div className="flex border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-6 pt-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setProfileModalTab("profile")}
+                className={cn(
+                  "pb-2 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer",
+                  profileModalTab === "profile"
+                    ? "border-[#cf6613] text-white"
+                    : "border-transparent text-[var(--text-muted)] hover:text-white"
+                )}
+              >
+                Profile & Bio
+              </button>
+              <button
+                type="button"
+                onClick={() => setProfileModalTab("settings")}
+                className={cn(
+                  "pb-2 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer",
+                  profileModalTab === "settings"
+                    ? "border-[#cf6613] text-white"
+                    : "border-transparent text-[var(--text-muted)] hover:text-white"
+                )}
+              >
+                API & Auto-Publish Settings
+              </button>
+            </div>
 
-              {/* Display Name */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                  Creator / Channel Label
-                </label>
-                <input
-                  type="text"
-                  value={draftDisplayName}
-                  onChange={(e) => setDraftDisplayName(e.target.value)}
-                  placeholder="e.g. Daily Productivity Hub"
-                  className="w-full px-3 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] outline-none focus:border-amber-400"
-                />
-              </div>
-
-              {/* Connection Mode Selection */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                  Authentication & API Protocol
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDraftMethod("oauth")}
-                    className={cn(
-                      "p-2.5 rounded-lg border text-left transition-colors cursor-pointer space-y-1",
-                      draftMethod === "oauth"
-                        ? "bg-[#cf6613]/15 border-[#cf6613] text-white"
-                        : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white"
-                    )}
-                  >
-                    <div className="text-[11px] font-bold flex items-center justify-between">
-                      <span>OAuth 2.0 (Official)</span>
-                      {draftMethod === "oauth" && <Check className="w-3 h-3 text-[#cf6613]" />}
+            {/* Modal Body Form */}
+            <form onSubmit={handleSaveProfile} className="p-6 overflow-y-auto space-y-4">
+              {profileModalTab === "profile" ? (
+                <>
+                  {/* Handle & Display Name */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                        Account Handle
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={draftHandle}
+                        onChange={(e) => setDraftHandle(e.target.value)}
+                        placeholder="@username"
+                        className="w-full px-3 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] font-mono outline-none focus:border-amber-400"
+                      />
                     </div>
-                    <p className="text-[10px] text-[var(--text-muted)] leading-tight">
-                      TikTok Login Kit & Content Posting API v2
-                    </p>
-                  </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setDraftMethod("creator_token")}
-                    className={cn(
-                      "p-2.5 rounded-lg border text-left transition-colors cursor-pointer space-y-1",
-                      draftMethod === "creator_token"
-                        ? "bg-[#cf6613]/15 border-[#cf6613] text-white"
-                        : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white"
-                    )}
-                  >
-                    <div className="text-[11px] font-bold flex items-center justify-between">
-                      <span>Creator Token</span>
-                      {draftMethod === "creator_token" && <Check className="w-3 h-3 text-[#cf6613]" />}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                        Channel / Creator Name
+                      </label>
+                      <input
+                        type="text"
+                        value={draftDisplayName}
+                        onChange={(e) => setDraftDisplayName(e.target.value)}
+                        placeholder="e.g. Daily Tech Blueprint"
+                        className="w-full px-3 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] outline-none focus:border-amber-400"
+                      />
                     </div>
-                    <p className="text-[10px] text-[var(--text-muted)] leading-tight">
-                      Direct session / access token from creator portal
-                    </p>
-                  </button>
-                </div>
-              </div>
+                  </div>
 
-              {/* API Key / Access Token Input */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                  {draftMethod === "oauth" ? "Client Key / App ID" : "Creator Access Token"}
-                </label>
-                <input
-                  type="password"
-                  value={draftKey}
-                  onChange={(e) => setDraftKey(e.target.value)}
-                  placeholder="Paste TikTok credentials..."
-                  className="w-full px-3 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] font-mono outline-none focus:border-amber-400"
-                />
-              </div>
+                  {/* Bio */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                      Bio / Profile Description
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={draftBio}
+                      onChange={(e) => setDraftBio(e.target.value)}
+                      placeholder="Short bio shown on channel..."
+                      className="w-full p-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] outline-none focus:border-amber-400 resize-none leading-relaxed"
+                    />
+                  </div>
 
-              {/* Toggles */}
-              <div className="pt-1 space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--text-secondary)]">
-                  <input
-                    type="checkbox"
-                    checked={draftAutoSync}
-                    onChange={(e) => setDraftAutoSync(e.target.checked)}
-                    className="rounded border-[var(--border-color)] bg-[var(--bg-input)] text-[#cf6613] focus:ring-0"
-                  />
-                  <span>Auto-sync video view metrics & FYP velocity daily</span>
-                </label>
-              </div>
+                  {/* Direct Link to View Online Profile */}
+                  <div className="p-3 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-semibold text-[var(--text-primary)]">
+                        Live Profile on {getPlatformLabel(activePlatform)}
+                      </div>
+                      <div className="text-[11px] font-mono text-[var(--text-muted)] truncate max-w-[280px]">
+                        {getPlatformExternalUrl(activePlatform, draftHandle)}
+                      </div>
+                    </div>
 
-              {/* Notice */}
-              <div className="p-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] flex items-start gap-2 text-[11px] text-[var(--text-muted)]">
-                <Shield className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
-                <span>
-                  Credentials are encrypted and stored in local Windows app storage. Videos rendered locally will directly upload to this account upon publishing.
-                </span>
-              </div>
+                    <a
+                      href={getPlatformExternalUrl(activePlatform, draftHandle)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-7 px-2.5 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5 transition-colors shrink-0"
+                    >
+                      <span>Open Link</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Protocol Selection */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                      Authentication & API Protocol
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDraftMethod("oauth")}
+                        className={cn(
+                          "p-2.5 rounded-lg border text-left transition-colors cursor-pointer space-y-1",
+                          draftMethod === "oauth"
+                            ? "bg-[#cf6613]/15 border-[#cf6613] text-white"
+                            : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white"
+                        )}
+                      >
+                        <div className="text-[11px] font-bold flex items-center justify-between">
+                          <span>OAuth 2.0 (Official)</span>
+                          {draftMethod === "oauth" && <Check className="w-3 h-3 text-[#cf6613]" />}
+                        </div>
+                        <p className="text-[10px] text-[var(--text-muted)] leading-tight">
+                          Content Posting API & Audience Telemetry v2
+                        </p>
+                      </button>
 
-              {/* Actions */}
-              <div className="pt-2 flex items-center justify-between gap-2 border-t border-[var(--border-color)]">
+                      <button
+                        type="button"
+                        onClick={() => setDraftMethod("creator_token")}
+                        className={cn(
+                          "p-2.5 rounded-lg border text-left transition-colors cursor-pointer space-y-1",
+                          draftMethod === "creator_token"
+                            ? "bg-[#cf6613]/15 border-[#cf6613] text-white"
+                            : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white"
+                        )}
+                      >
+                        <div className="text-[11px] font-bold flex items-center justify-between">
+                          <span>Creator Token</span>
+                          {draftMethod === "creator_token" && <Check className="w-3 h-3 text-[#cf6613]" />}
+                        </div>
+                        <p className="text-[10px] text-[var(--text-muted)] leading-tight">
+                          Direct creator session token from portal
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* API Key */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                      {draftMethod === "oauth" ? "Client Key / App ID" : "Creator Access Token"}
+                    </label>
+                    <input
+                      type="password"
+                      value={draftKey}
+                      onChange={(e) => setDraftKey(e.target.value)}
+                      placeholder="Paste API credentials..."
+                      className="w-full px-3 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] font-mono outline-none focus:border-amber-400"
+                    />
+                  </div>
+
+                  {/* Auto-sync */}
+                  <div className="pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--text-secondary)]">
+                      <input
+                        type="checkbox"
+                        checked={draftAutoSync}
+                        onChange={(e) => setDraftAutoSync(e.target.checked)}
+                        className="rounded border-[var(--border-color)] bg-[var(--bg-input)] text-[#cf6613] focus:ring-0"
+                      />
+                      <span>Auto-sync video view metrics & FYP velocity daily</span>
+                    </label>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] flex items-start gap-2 text-[11px] text-[var(--text-muted)]">
+                    <Shield className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
+                    <span>
+                      Credentials stored locally on this machine. Videos rendered in Stock Vault will publish directly to this connected channel.
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {/* Actions Footer */}
+              <div className="pt-3 flex items-center justify-between gap-2 border-t border-[var(--border-color)]">
                 {isConnected ? (
                   <button
                     type="button"
@@ -704,7 +1035,7 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsAccountModalOpen(false)}
+                    onClick={() => setIsProfileModalOpen(false)}
                     className="h-8 px-3 rounded-lg hover:bg-[var(--bg-hover)] text-xs font-semibold text-[var(--text-secondary)] transition-colors cursor-pointer"
                   >
                     Cancel
@@ -714,7 +1045,7 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
                     className="h-8 px-4 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-sm cursor-pointer"
                   >
                     <Check className="w-3.5 h-3.5" />
-                    <span>Connect & Save</span>
+                    <span>Save Profile</span>
                   </button>
                 </div>
               </div>
