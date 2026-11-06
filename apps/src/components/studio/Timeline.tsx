@@ -910,25 +910,7 @@ export const Timeline: React.FC<TimelineProps> = ({
         onZoomChange={setTimelineZoom}
       />
 
-      {/* Sub-strip: Selected Clip Quick Telemetry (if clip selected) */}
-      {selectedLayer && (
-        <div
-          onClick={() => setModalLayer(selectedLayer)}
-          className="h-6 px-3 bg-[var(--bg-card)] border-b border-[var(--border-color)] flex items-center justify-between text-[10px] font-mono text-[var(--text-secondary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors select-none shrink-0"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-amber-400 font-bold">{selectedLayer.trackCode}</span>
-            <span className="text-[var(--text-primary)] font-medium">{selectedLayer.label}</span>
-            <span className="text-[var(--text-muted)]">•</span>
-            <span className="text-emerald-400 font-semibold">
-              {selectedLayer.from}f–{selectedLayer.from + selectedLayer.durationInFrames}f ({((selectedLayer.durationInFrames) / fps).toFixed(2)}s)
-            </span>
-          </div>
-          <span className="text-[9px] text-[var(--text-muted)]">
-            Klik untuk edit konten, warna & durasi klip
-          </span>
-        </div>
-      )}
+
       {/* 2. Premiere-Style Multi-Track Body */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Left Column: Track Code (V12..V1) + Component Name + Edit/Visibility */}
