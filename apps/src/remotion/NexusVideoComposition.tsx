@@ -139,8 +139,9 @@ function resolveThemePalette(themeColor?: string) {
 const HookTitleAnimated: React.FC<{
   hookText: string;
   color?: string;
+  textColor?: string;
   offset?: { x: number; y: number };
-}> = ({ hookText, color, offset }) => {
+}> = ({ hookText, color, textColor, offset }) => {
   const localFrame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -156,6 +157,7 @@ const HookTitleAnimated: React.FC<{
   const offX = offset?.x || 0;
   const offY = offset?.y || 0;
   const titleHex = color ? resolveColorToHex(color, "#cbd5e1") : "#cbd5e1";
+  const textHex = textColor ? resolveColorToHex(textColor, "#ffffff") : "#ffffff";
 
   return (
     <div
@@ -177,7 +179,7 @@ const HookTitleAnimated: React.FC<{
           textShadow: `0 4px 30px rgba(0,0,0,0.8), 0 0 24px ${titleHex}40`,
           transform: `scale(${hookSpring})`,
           opacity: hookOpacity,
-          background: `linear-gradient(180deg, #ffffff 15%, ${titleHex} 100%)`,
+          background: `linear-gradient(180deg, ${textHex} 15%, ${titleHex} 100%)`,
           WebkitBackgroundClip: "text",
           WebkitTextFillColor: "transparent",
         }}
@@ -192,10 +194,12 @@ const BulletCardAnimated: React.FC<{
   line: string;
   accent: string;
   color?: string;
+  textColor?: string;
+  cardBg?: string;
   layerId?: string;
   layerName?: string;
   offset?: { x: number; y: number };
-}> = ({ line, accent, color, layerId, layerName, offset }) => {
+}> = ({ line, accent, color, textColor, cardBg, layerId, layerName, offset }) => {
   const localFrame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -213,6 +217,22 @@ const BulletCardAnimated: React.FC<{
   const offX = offset?.x || 0;
   const offY = offset?.y || 0;
   const cardAccent = color ? resolveColorToHex(color, accent) : accent;
+  const textCol = textColor
+    ? resolveColorToHex(textColor, "#f1f5f9")
+    : color
+    ? resolveColorToHex(color, "#f1f5f9")
+    : "#f1f5f9";
+  const bgCol = cardBg
+    ? cardBg === "transparent"
+      ? "transparent"
+      : cardBg === "solid"
+      ? "#0a0a0c"
+      : cardBg.startsWith("tint")
+      ? `${cardAccent}1c`
+      : cardBg.startsWith("#")
+      ? cardBg
+      : "rgba(10, 10, 10, 0.88)"
+    : "rgba(10, 10, 10, 0.88)";
 
   return (
     <div
@@ -222,7 +242,7 @@ const BulletCardAnimated: React.FC<{
         display: "flex",
         alignItems: "flex-start",
         gap: "20px",
-        background: "rgba(10, 10, 10, 0.88)",
+        background: bgCol,
         border: `1px solid ${cardAccent}50`,
         boxShadow: `0 0 25px ${cardAccent}1a`,
         padding: "24px 32px",
@@ -249,7 +269,7 @@ const BulletCardAnimated: React.FC<{
           fontSize: "30px",
           lineHeight: 1.4,
           fontWeight: 600,
-          color: "#f1f5f9",
+          color: textCol,
           margin: 0,
         }}
       >
@@ -277,6 +297,34 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
   const layerMap = new Map(layers.map((l) => [l.id, l]));
 
   const layerColors = props.layerColors || {};
+  const layerTextColors = props.layerTextColors || {};
+  const layerBgColors = props.layerBgColors || {};
+  const bgStyle = props.bgStyle || "radial";
+
+  const getBgStyleCss = () => {
+    const baseColorInput = layerBgColors["bg-base"] || layerColors["bg-base"];
+    const baseHex = baseColorInput
+      ? resolveColorToHex(baseColorInput)
+      : currentTheme.accent;
+    const pal = baseColorInput
+      ? resolveThemePalette(baseColorInput)
+      : currentTheme;
+
+    switch (bgStyle) {
+      case "linear":
+        return `linear-gradient(180deg, ${baseHex}44 0%, #0a0f1d 55%, #050b14 100%)`;
+      case "vignette":
+        return `radial-gradient(ellipse at center, ${baseHex}48 0%, #070b14 65%, #000000 100%)`;
+      case "solid":
+        return baseColorInput ? `${baseHex}28` : "#0a0c14";
+      case "cyberpunk":
+        return `linear-gradient(135deg, ${baseHex}42 0%, #050b14 50%, #1e1b4b 100%)`;
+      case "radial":
+      default:
+        return pal.bg;
+    }
+  };
+
   const currentTheme = resolveThemePalette(themeColor);
   const bodyLines = (bodyText || "")
     .split("\n")
@@ -339,9 +387,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
         >
           <AbsoluteFill
             style={{
-              background: layerColors["bg-base"]
-                ? resolveThemePalette(layerColors["bg-base"]).bg
-                : currentTheme.bg,
+              background: getBgStyleCss(),
               zIndex: 0,
             }}
           />
@@ -420,7 +466,9 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "12px",
-                  background: "rgba(10, 10, 10, 0.75)",
+                  background: layerBgColors["hud-category"]
+                    ? resolveColorToHex(layerBgColors["hud-category"])
+                    : "rgba(10, 10, 10, 0.75)",
                   border: `1.5px solid ${layerColors["hud-category"] ? resolveThemePalette(layerColors["hud-category"]).border : currentTheme.border}`,
                   padding: "10px 24px",
                   borderRadius: "0px",
@@ -443,7 +491,9 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                     fontWeight: 800,
                     textTransform: "uppercase",
                     letterSpacing: "3px",
-                    color: "#f8fafc",
+                    color: layerTextColors["hud-category"]
+                      ? resolveColorToHex(layerTextColors["hud-category"])
+                      : "#f8fafc",
                     fontFamily: "'JetBrains Mono', monospace",
                   }}
                 >
@@ -468,7 +518,11 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                 style={{
                   fontSize: "18px",
                   fontWeight: 600,
-                  color: layerColors["hud-subcategory"] ? resolveColorToHex(layerColors["hud-subcategory"]) : "rgba(255, 255, 255, 0.55)",
+                  color: layerTextColors["hud-subcategory"]
+                    ? resolveColorToHex(layerTextColors["hud-subcategory"])
+                    : layerColors["hud-subcategory"]
+                    ? resolveColorToHex(layerColors["hud-subcategory"])
+                    : "rgba(255, 255, 255, 0.55)",
                   fontFamily: "'JetBrains Mono', monospace",
                   letterSpacing: "2px",
                   textTransform: "uppercase",
@@ -502,6 +556,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
             <HookTitleAnimated
               hookText={hookText}
               color={layerColors["text-hook"]}
+              textColor={layerTextColors["text-hook"]}
               offset={getOffset("text-hook")}
             />
           </Sequence>
@@ -529,6 +584,8 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                   line={line}
                   accent={currentTheme.accent}
                   color={layerColors[bulletLayer.id]}
+                  textColor={layerTextColors[bulletLayer.id]}
+                  cardBg={layerBgColors[bulletLayer.id]}
                   layerId={bulletLayer.id}
                   layerName={`Bullet #${idx + 1}`}
                   offset={getOffset(bulletLayer.id)}
@@ -551,6 +608,8 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                   line={customLayer.content || customLayer.label}
                   accent={currentTheme.accent}
                   color={layerColors[customLayer.id] || customLayer.color}
+                  textColor={layerTextColors[customLayer.id]}
+                  cardBg={layerBgColors[customLayer.id]}
                   layerId={customLayer.id}
                   layerName={customLayer.label}
                   offset={getOffset(customLayer.id)}
@@ -623,7 +682,11 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                   style={{
                     fontSize: "26px",
                     fontWeight: 800,
-                    color: layerColors["footer-author"] ? resolveColorToHex(layerColors["footer-author"]) : "#ffffff",
+                    color: layerTextColors["footer-author"]
+                      ? resolveColorToHex(layerTextColors["footer-author"])
+                      : layerColors["footer-author"]
+                      ? resolveColorToHex(layerColors["footer-author"])
+                      : "#ffffff",
                     fontFamily: "'JetBrains Mono', monospace",
                   }}
                 >
@@ -657,10 +720,16 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                 style={{
                   fontSize: "18px",
                   fontWeight: 800,
-                  color: layerColors["footer-tag"] ? resolveColorToHex(layerColors["footer-tag"]) : currentTheme.accent,
+                  color: layerTextColors["footer-tag"]
+                    ? resolveColorToHex(layerTextColors["footer-tag"])
+                    : layerColors["footer-tag"]
+                    ? resolveColorToHex(layerColors["footer-tag"])
+                    : currentTheme.accent,
                   border: `1px solid ${layerColors["footer-tag"] ? resolveThemePalette(layerColors["footer-tag"]).border : currentTheme.border}`,
                   boxShadow: layerColors["footer-tag"] ? `0 0 15px ${resolveThemePalette(layerColors["footer-tag"]).glow}` : undefined,
-                  background: "rgba(10, 10, 10, 0.6)",
+                  background: layerBgColors["footer-tag"]
+                    ? resolveColorToHex(layerBgColors["footer-tag"])
+                    : "rgba(10, 10, 10, 0.6)",
                   padding: "8px 20px",
                   fontFamily: "'JetBrains Mono', monospace",
                   letterSpacing: "2px",

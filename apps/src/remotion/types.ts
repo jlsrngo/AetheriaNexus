@@ -88,6 +88,12 @@ export interface NexusVideoProps extends Record<string, unknown> {
   layerLabels?: Record<string, string>;
   /** Optional per-layer custom timeline color override (e.g. 'amber', 'rose', 'cyan') */
   layerColors?: Record<string, string>;
+  /** Optional per-layer custom text font color override (e.g. '#ffffff', '#f59e0b') */
+  layerTextColors?: Record<string, string>;
+  /** Optional per-layer custom background color / style override */
+  layerBgColors?: Record<string, string>;
+  /** Composition video background style */
+  bgStyle?: "radial" | "linear" | "vignette" | "solid" | "cyberpunk";
   /** Per-layer manual position offsets { x: number, y: number } in composition pixels */
   layerOffsets?: Record<string, LayerOffset>;
   /** Visual effect controls for background & ambient pattern layers */
