@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  Check,
   Pause,
   Play,
   Eye,
@@ -24,6 +26,9 @@ import {
   Undo2,
   Redo2,
   Smartphone,
+  Monitor,
+  Repeat,
+  Maximize2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
@@ -76,6 +81,49 @@ export const Timeline: React.FC<TimelineProps> = ({
   const [dragOverride, setDragOverride] = useState<DragOverride | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isSnapping, setIsSnapping] = useState<boolean>(true);
+  const [isRatioOpen, setIsRatioOpen] = useState<boolean>(false);
+  const ratioDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isRatioOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (
+        ratioDropdownRef.current &&
+        !ratioDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsRatioOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handleOutsideClick);
+    return () => window.removeEventListener("mousedown", handleOutsideClick);
+  }, [isRatioOpen]);
+
+  const RATIO_OPTIONS = [
+    {
+      value: "9:16",
+      label: "9:16",
+      sub: "TikTok, Reels, Shorts (1080×1920)",
+      icon: Smartphone,
+    },
+    {
+      value: "1:1",
+      label: "1:1",
+      sub: "Square Post (1080×1080)",
+      icon: Monitor,
+    },
+    {
+      value: "16:9",
+      label: "16:9",
+      sub: "YouTube Landscape (1920×1080)",
+      icon: Monitor,
+    },
+    {
+      value: "4:5",
+      label: "4:5",
+      sub: "Instagram Portrait (1080×1350)",
+      icon: Smartphone,
+    },
+  ] as const;
 
   // Zoom scale: negative = compact frames (down to 0.15x), 0% = 1.0x (fit), positive = stretch up to 25.0x
   const zoomMultiplier =
@@ -108,6 +156,11 @@ export const Timeline: React.FC<TimelineProps> = ({
         : l
     );
   }, [baseLayers, dragOverride]);
+
+  const selectedLayer = useMemo(
+    () => layers.find((l) => l.id === selectedLayerId),
+    [layers, selectedLayerId]
+  );
 
   const seekFromClientX = useCallback(
     (clientX: number) => {
@@ -820,12 +873,12 @@ export const Timeline: React.FC<TimelineProps> = ({
         title="Drag to resize Timeline height"
       />
 
-      {/* 1. Premiere-Style Compact Unified Transport & Options Toolbar */}
-      <div className="bg-[var(--bg-panel)] border-b border-[var(--border-color)] px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 shrink-0">
-        {/* Left Section: Playback Transport, Timecode, Markers & Tracks */}
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* Row 1: Playback Transport, Timecode, Markers & Zoom/Export Controls */}
+      <div className="h-8 px-3 flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-panel)] gap-2 shrink-0">
+        {/* Left Section: Transport pill, Timecode, In/Out markers, Tracks count */}
+        <div className="flex items-center gap-2 shrink-0">
           {/* Transport Pill (<  (Play)  >) */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-sm shrink-0">
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-sm shrink-0">
             <button
               type="button"
               onClick={() => step(-1)}
@@ -839,12 +892,12 @@ export const Timeline: React.FC<TimelineProps> = ({
               type="button"
               onClick={onTogglePlay}
               title={isPlaying ? "Pause (Space)" : "Play (Space)"}
-              className="w-7 h-7 rounded-full flex items-center justify-center bg-[#cf6613] hover:bg-[#b8580f] text-white border border-[#e07b27] shadow transition-all cursor-pointer"
+              className="w-6 h-6 rounded-full flex items-center justify-center bg-[#cf6613] hover:bg-[#b8580f] text-white border border-[#e07b27] shadow transition-all cursor-pointer"
             >
               {isPlaying ? (
-                <Pause className="w-3 h-3 fill-current" />
+                <Pause className="w-2.5 h-2.5 fill-current" />
               ) : (
-                <Play className="w-3 h-3 fill-current ml-0.5" />
+                <Play className="w-2.5 h-2.5 fill-current ml-0.5" />
               )}
             </button>
 
@@ -929,110 +982,8 @@ export const Timeline: React.FC<TimelineProps> = ({
           </span>
         </div>
 
-        {/* Center Section: Video Editing Actions (Cut/Split, Duplicate, Delete, Snapping, Undo, Redo) */}
-        <div className="flex items-center gap-1 flex-wrap">
-          <button
-            type="button"
-            onClick={handleSplitClip}
-            title="Split / Cut Clip at Playhead Frame (S or C)"
-            className="h-6 px-2 rounded-md bg-[var(--bg-card)] hover:bg-[#cf6613] hover:text-white border border-[var(--border-strong)] hover:border-[#e07b27] text-[10px] font-medium text-[var(--text-secondary)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
-          >
-            <Scissors className="w-3 h-3" />
-            <span>Split</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleDuplicateLayer}
-            title="Duplicate Selected Layer (Ctrl+D)"
-            className="h-6 px-2 rounded-md bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
-          >
-            <Copy className="w-3 h-3" />
-            <span>Duplicate</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleDeleteSelectedLayer}
-            title="Delete Selected Layer (Delete)"
-            className="h-6 px-2 rounded-md bg-[var(--bg-card)] hover:bg-rose-900/60 hover:text-rose-200 border border-[var(--border-strong)] hover:border-rose-700/60 text-[10px] font-medium text-[var(--text-secondary)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
-          >
-            <Trash2 className="w-3 h-3" />
-            <span>Delete</span>
-          </button>
-
-          <div className="w-px h-4 bg-[var(--border-color)] mx-0.5" />
-
-          {/* Snapping Magnet */}
-          <button
-            type="button"
-            onClick={() => setIsSnapping((s) => !s)}
-            title={
-              isSnapping
-                ? "Snapping ON (Magnetic snap to playhead, markers & clip edges)"
-                : "Snapping OFF"
-            }
-            className={cn(
-              "h-6 px-2 rounded-md border text-[10px] font-medium flex items-center gap-1 cursor-pointer transition-colors shrink-0",
-              isSnapping
-                ? "bg-[#cf6613]/20 border-[#cf6613] text-[#f97316]"
-                : "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-            )}
-          >
-            <Magnet className="w-3 h-3" />
-            <span>Snap</span>
-          </button>
-
-          {/* Undo Button */}
-          <button
-            type="button"
-            disabled={undoStack.length === 0}
-            onClick={() => {
-              actions.undoProps();
-              toast.info("Undo: Reverted change", { duration: 1200 });
-            }}
-            title="Undo (Ctrl+Z)"
-            className="w-6 h-6 rounded-md bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center cursor-pointer transition-colors shrink-0"
-          >
-            <Undo2 className="w-3 h-3" />
-          </button>
-
-          {/* Redo Button */}
-          <button
-            type="button"
-            disabled={redoStack.length === 0}
-            onClick={() => {
-              actions.redoProps();
-              toast.info("Redo: Reapplied change", { duration: 1200 });
-            }}
-            title="Redo (Ctrl+Y / Ctrl+Shift+Z)"
-            className="w-6 h-6 rounded-md bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center cursor-pointer transition-colors shrink-0"
-          >
-            <Redo2 className="w-3 h-3" />
-          </button>
-        </div>
-
-        {/* Right Section: Aspect Ratio, Zoom Slider (Minus/Plus), Speed, FPS, Add Layer, Quick Export */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Aspect Ratio Selector (User Request) */}
-          <div
-            className="h-6 px-1.5 flex items-center gap-1 border border-[var(--border-strong)] bg-[var(--bg-card)] rounded-md text-[10px] font-mono shrink-0"
-            title="Aspect Ratio"
-          >
-            <Smartphone className="w-3 h-3 text-[var(--text-muted)]" />
-            <select
-              value={activeComposition.ratio}
-              onChange={(e) => handleRatioChange(e.target.value)}
-              className="bg-transparent border-0 text-[10px] font-mono font-semibold text-amber-400 outline-none cursor-pointer p-0"
-              title="Change Composition Aspect Ratio"
-            >
-              <option value="9:16">9:16 (TikTok)</option>
-              <option value="1:1">1:1 (Square)</option>
-              <option value="16:9">16:9 (Landscape)</option>
-              <option value="4:5">4:5 (Portrait)</option>
-            </select>
-          </div>
-
+        {/* Right Section: Zoom Slider, Speed, FPS, Add Layer, Quick Export */}
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Timeline Horizontal Zoom Slider Bar (Minus zooms out / compacts frames, Plus zooms in / stretches) */}
           <div
             className="h-6 px-2 flex items-center gap-1.5 border border-[var(--border-strong)] bg-[var(--bg-card)] rounded-md text-[10px] font-mono shrink-0"
@@ -1078,7 +1029,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             </button>
           </div>
 
-          {/* Playback Speed */}
+          {/* Playback Speed (Styled with dark options) */}
           <select
             value={canvas.playbackRate}
             onChange={(e) =>
@@ -1089,13 +1040,13 @@ export const Timeline: React.FC<TimelineProps> = ({
             className="h-6 px-1.5 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer shrink-0"
             title="Playback Speed"
           >
-            <option value={0.5}>0.5x</option>
-            <option value={1}>1.0x</option>
-            <option value={1.5}>1.5x</option>
-            <option value={2}>2.0x</option>
+            <option value={0.5} className="bg-[#121215] text-[#FAFAFA]">0.5x</option>
+            <option value={1} className="bg-[#121215] text-[#FAFAFA]">1.0x</option>
+            <option value={1.5} className="bg-[#121215] text-[#FAFAFA]">1.5x</option>
+            <option value={2} className="bg-[#121215] text-[#FAFAFA]">2.0x</option>
           </select>
 
-          {/* FPS Selector */}
+          {/* FPS Selector (Styled with dark options) */}
           <select
             value={fps}
             onChange={(e) => {
@@ -1106,11 +1057,11 @@ export const Timeline: React.FC<TimelineProps> = ({
             className="h-6 px-1.5 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer shrink-0"
             title="Frame Rate (FPS)"
           >
-            <option value={24}>24 FPS</option>
-            <option value={25}>25 FPS</option>
-            <option value={30}>30 FPS</option>
-            <option value={50}>50 FPS</option>
-            <option value={60}>60 FPS</option>
+            <option value={24} className="bg-[#121215] text-[#FAFAFA]">24 FPS</option>
+            <option value={25} className="bg-[#121215] text-[#FAFAFA]">25 FPS</option>
+            <option value={30} className="bg-[#121215] text-[#FAFAFA]">30 FPS</option>
+            <option value={50} className="bg-[#121215] text-[#FAFAFA]">50 FPS</option>
+            <option value={60} className="bg-[#121215] text-[#FAFAFA]">60 FPS</option>
           </select>
 
           {/* Add Layer Button */}
@@ -1137,6 +1088,209 @@ export const Timeline: React.FC<TimelineProps> = ({
             ) : (
               <Download className="w-3.5 h-3.5" />
             )}
+          </button>
+        </div>
+      </div>
+
+      {/* Row 2: Aspect Ratio Popover, Editing Tools & Live Clip Telemetry */}
+      <div className="h-8 px-3 flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-card)]/40 gap-2 shrink-0">
+        {/* Left Section: Custom Aspect Ratio Popover + Editing Actions */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Custom Styled Aspect Ratio Popover (Anti-native white dropdown!) */}
+          <div ref={ratioDropdownRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setIsRatioOpen((v) => !v)}
+              className={cn(
+                "h-6 px-2 flex items-center gap-1.5 rounded-md border text-[10px] font-mono transition-colors cursor-pointer",
+                isRatioOpen
+                  ? "bg-[#cf6613]/20 border-[#cf6613] text-amber-400 font-semibold"
+                  : "bg-[var(--bg-panel)] border-[var(--border-strong)] text-amber-400 hover:bg-[var(--bg-hover)]"
+              )}
+              title="Select Composition Aspect Ratio"
+            >
+              <Smartphone className="w-3 h-3 text-[var(--text-muted)]" />
+              <span>{activeComposition.ratio}</span>
+              <span className="text-[9px] text-[var(--text-secondary)] font-normal">
+                ({activeComposition.ratio === "9:16" ? "TikTok" : activeComposition.ratio === "1:1" ? "Square" : activeComposition.ratio === "16:9" ? "Landscape" : "Portrait"})
+              </span>
+              <ChevronDown className={cn("w-3 h-3 text-[var(--text-secondary)] transition-transform", isRatioOpen && "rotate-180")} />
+            </button>
+
+            {isRatioOpen && (
+              <div className="absolute top-full left-0 mt-1 w-64 py-1 rounded-lg bg-[#141418] border border-[#2A2A33] shadow-2xl shadow-black/90 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-muted)] border-b border-[#222228] mb-1">
+                  Aspect Ratio
+                </div>
+                {RATIO_OPTIONS.map((opt) => {
+                  const isSelected = activeComposition.ratio === opt.value;
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        handleRatioChange(opt.value);
+                        setIsRatioOpen(false);
+                      }}
+                      className={cn(
+                        "w-full px-2.5 py-1.5 flex items-center justify-between text-left transition-colors cursor-pointer",
+                        isSelected
+                          ? "bg-[#cf6613]/15 text-amber-400 font-semibold"
+                          : "text-[var(--text-primary)] hover:bg-[#1E1E26] hover:text-white"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Icon className={cn("w-3.5 h-3.5 shrink-0", isSelected ? "text-amber-400" : "text-[var(--text-secondary)]")} />
+                        <div className="min-w-0">
+                          <div className="text-[11px] leading-tight flex items-center gap-1.5">
+                            <span>{opt.label}</span>
+                            {isSelected && (
+                              <span className="text-[8px] px-1 rounded bg-[#cf6613] text-white font-mono">
+                                ACTIVE
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[9px] text-[var(--text-secondary)] font-mono leading-tight truncate">
+                            {opt.sub}
+                          </div>
+                        </div>
+                      </div>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-amber-400 shrink-0 ml-1" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="w-px h-3.5 bg-[var(--border-color)] mx-0.5" />
+
+          {/* Split / Cut */}
+          <button
+            type="button"
+            onClick={handleSplitClip}
+            title="Split / Cut Clip at Playhead Frame (S or C)"
+            className="h-6 px-2 rounded-md bg-[var(--bg-panel)] hover:bg-[#cf6613] hover:text-white border border-[var(--border-strong)] hover:border-[#e07b27] text-[10px] font-medium text-[var(--text-secondary)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+          >
+            <Scissors className="w-3 h-3" />
+            <span>Split</span>
+          </button>
+
+          {/* Duplicate */}
+          <button
+            type="button"
+            onClick={handleDuplicateLayer}
+            title="Duplicate Selected Layer (Ctrl+D)"
+            className="h-6 px-2 rounded-md bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+          >
+            <Copy className="w-3 h-3" />
+            <span>Duplicate</span>
+          </button>
+
+          {/* Delete */}
+          <button
+            type="button"
+            onClick={handleDeleteSelectedLayer}
+            title="Delete Selected Layer (Delete)"
+            className="h-6 px-2 rounded-md bg-[var(--bg-panel)] hover:bg-rose-900/60 hover:text-rose-200 border border-[var(--border-strong)] hover:border-rose-700/60 text-[10px] font-medium text-[var(--text-secondary)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+          >
+            <Trash2 className="w-3 h-3" />
+            <span>Delete</span>
+          </button>
+
+          <div className="w-px h-3.5 bg-[var(--border-color)] mx-0.5" />
+
+          {/* Snapping Magnet */}
+          <button
+            type="button"
+            onClick={() => setIsSnapping((s) => !s)}
+            title={
+              isSnapping
+                ? "Snapping ON (Magnetic snap to playhead, markers & clip edges)"
+                : "Snapping OFF"
+            }
+            className={cn(
+              "h-6 px-2 rounded-md border text-[10px] font-medium flex items-center gap-1 cursor-pointer transition-colors shrink-0",
+              isSnapping
+                ? "bg-[#cf6613]/20 border-[#cf6613] text-[#f97316]"
+                : "bg-[var(--bg-panel)] border-[var(--border-strong)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+            )}
+          >
+            <Magnet className="w-3 h-3" />
+            <span>Snap</span>
+          </button>
+
+          {/* Undo */}
+          <button
+            type="button"
+            disabled={undoStack.length === 0}
+            onClick={() => {
+              actions.undoProps();
+              toast.info("Undo: Reverted change", { duration: 1200 });
+            }}
+            title="Undo (Ctrl+Z)"
+            className="w-6 h-6 rounded-md bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center cursor-pointer transition-colors shrink-0"
+          >
+            <Undo2 className="w-3 h-3" />
+          </button>
+
+          {/* Redo */}
+          <button
+            type="button"
+            disabled={redoStack.length === 0}
+            onClick={() => {
+              actions.redoProps();
+              toast.info("Redo: Reapplied change", { duration: 1200 });
+            }}
+            title="Redo (Ctrl+Y / Ctrl+Shift+Z)"
+            className="w-6 h-6 rounded-md bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center cursor-pointer transition-colors shrink-0"
+          >
+            <Redo2 className="w-3 h-3" />
+          </button>
+        </div>
+
+        {/* Right Section: Live Selected Clip Telemetry & View Controls (Fills empty space!) */}
+        <div className="flex items-center gap-2 shrink-0">
+          {selectedLayer ? (
+            <div className="h-6 px-2 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center gap-1.5 text-[10px] font-mono text-[var(--text-secondary)]">
+              <span className="text-amber-400 font-semibold">{selectedLayer.trackCode}</span>
+              <span className="text-[var(--text-primary)] max-w-[130px] sm:max-w-[180px] truncate">{selectedLayer.label}</span>
+              <span className="text-[var(--text-muted)]">|</span>
+              <span>{selectedLayer.from}f–{selectedLayer.from + selectedLayer.durationInFrames}f</span>
+              <span className="text-[var(--text-muted)]">({(selectedLayer.durationInFrames / fps).toFixed(2)}s)</span>
+            </div>
+          ) : (
+            <div className="h-6 px-2 rounded-md bg-[var(--bg-panel)]/50 border border-[var(--border-color)]/60 flex items-center text-[10px] font-mono text-[var(--text-muted)]">
+              No clip selected
+            </div>
+          )}
+
+          {/* Fit Timeline Zoom to 0% */}
+          <button
+            type="button"
+            onClick={() => setTimelineZoom(0)}
+            title="Fit Timeline to Screen (Reset Zoom to 0%)"
+            className="h-6 px-2 rounded-md bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+          >
+            <Maximize2 className="w-2.5 h-2.5" />
+            <span>Fit</span>
+          </button>
+
+          {/* Loop Toggle */}
+          <button
+            type="button"
+            onClick={() => updateCanvas({ loop: !canvas.loop })}
+            title={canvas.loop ? "Loop Playback ON" : "Loop Playback OFF"}
+            className={cn(
+              "h-6 px-2 rounded-md border text-[10px] font-medium flex items-center gap-1 cursor-pointer transition-colors shrink-0",
+              canvas.loop
+                ? "bg-[#cf6613]/20 border-[#cf6613] text-[#f97316]"
+                : "bg-[var(--bg-panel)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+            )}
+          >
+            <Repeat className="w-2.5 h-2.5" />
+            <span>Loop</span>
           </button>
         </div>
       </div>
