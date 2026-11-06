@@ -56,6 +56,8 @@ export interface NexusVideoProps extends Record<string, unknown> {
   layerDuration?: Record<string, number>;
   /** Optional custom label override for pattern/icon/background tracks */
   layerLabels?: Record<string, string>;
+  /** Optional per-layer custom timeline color override (e.g. 'amber', 'rose', 'cyan') */
+  layerColors?: Record<string, string>;
   /** Per-layer manual position offsets { x: number, y: number } in composition pixels */
   layerOffsets?: Record<string, LayerOffset>;
 }
@@ -80,6 +82,7 @@ export const defaultNexusVideoProps: NexusVideoProps = {
   layerStartFrame: {},
   layerDuration: {},
   layerOffsets: {},
+  layerColors: {},
 };
 
 export const defaultTikTokProps: NexusVideoProps = defaultNexusVideoProps;
@@ -106,6 +109,7 @@ export function buildCompositionLayers(
   const starts = props.layerStartFrame || {};
   const durations = props.layerDuration || {};
   const customLabels = props.layerLabels || {};
+  const layerColors = props.layerColors || {};
   const showBg = props.showBackground !== false;
   const showTxt = props.showText !== false;
 
@@ -149,7 +153,7 @@ export function buildCompositionLayers(
       label: custom.label || `Custom Layer #${idx + 1}`,
       kind: custom.kind || "text",
       content: custom.content ?? custom.label,
-      color: custom.color,
+      color: layerColors[id] ?? custom.color ?? "violet",
       ...resolveTiming(id, defaultStart, custom.durationInFrames),
       visible: isLayerVisible(id, showTxt, custom.visible ?? true),
       isCustom: true,
@@ -163,6 +167,7 @@ export function buildCompositionLayers(
       label: `Left Badge: // ${props.category}`,
       content: props.category,
       kind: "icon",
+      color: layerColors["hud-category"] ?? "violet",
       ...resolveTiming("hud-category", 0),
       visible: isLayerVisible("hud-category", showTxt),
     });
@@ -175,6 +180,7 @@ export function buildCompositionLayers(
       label: `Right Label: [ ${props.subCategory} ]`,
       content: props.subCategory,
       kind: "text",
+      color: layerColors["hud-subcategory"] ?? "cyan",
       ...resolveTiming("hud-subcategory", 4),
       visible: isLayerVisible("hud-subcategory", showTxt),
     });
@@ -187,6 +193,7 @@ export function buildCompositionLayers(
       label: `Hook Title: "${props.hookText.slice(0, 24)}..."`,
       content: props.hookText,
       kind: "text",
+      color: layerColors["text-hook"] ?? "rose",
       ...resolveTiming("text-hook", 8),
       visible: isLayerVisible("text-hook", showTxt),
     });
@@ -196,11 +203,13 @@ export function buildCompositionLayers(
   bodyLines.forEach((line, idx) => {
     const id = `text-bullet-${idx}`;
     const defaultStart = Math.min(totalFrames - 15, 20 + idx * 14);
+    const bulletDefault = idx === 0 ? "amber" : idx === 1 ? "sky" : "fuchsia";
     rawLayers.push({
       id,
       label: `Point #${idx + 1}: ${line.slice(0, 26)}`,
       kind: "text",
       content: line,
+      color: layerColors[id] ?? bulletDefault,
       ...resolveTiming(id, defaultStart),
       visible: isLayerVisible(id, showTxt),
     });
@@ -213,6 +222,7 @@ export function buildCompositionLayers(
       label: customLabels["footer-icon"] || "Avatar Icon: [⚡] Box",
       content: customLabels["footer-icon"] || "Avatar Icon: [⚡] Box",
       kind: "icon",
+      color: layerColors["footer-icon"] ?? "orange",
       ...resolveTiming("footer-icon", 32),
       visible: isLayerVisible("footer-icon", showTxt),
     });
@@ -221,6 +231,7 @@ export function buildCompositionLayers(
       label: `Author: ${props.authorHandle}`,
       content: props.authorHandle,
       kind: "text",
+      color: layerColors["footer-author"] ?? "indigo",
       ...resolveTiming("footer-author", 36),
       visible: isLayerVisible("footer-author", showTxt),
     });
@@ -233,6 +244,7 @@ export function buildCompositionLayers(
       label: `Footer Badge: ${props.editorialTag}`,
       content: props.editorialTag,
       kind: "icon",
+      color: layerColors["footer-tag"] ?? "pink",
       ...resolveTiming("footer-tag", 40),
       visible: isLayerVisible("footer-tag", showTxt),
     });
@@ -245,6 +257,7 @@ export function buildCompositionLayers(
       label: customLabels["bg-grid-pattern"] || "Pattern: Blueprint Grid",
       content: customLabels["bg-grid-pattern"] || "Pattern: Blueprint Grid",
       kind: "pattern",
+      color: layerColors["bg-grid-pattern"] ?? "blue",
       ...resolveTiming("bg-grid-pattern", 0),
       visible: isLayerVisible("bg-grid-pattern", showBg),
     },
@@ -253,6 +266,7 @@ export function buildCompositionLayers(
       label: customLabels["bg-orb-pattern"] || "Pattern: Ambient Glow Orb",
       content: customLabels["bg-orb-pattern"] || "Pattern: Ambient Glow Orb",
       kind: "pattern",
+      color: layerColors["bg-orb-pattern"] ?? "purple",
       ...resolveTiming("bg-orb-pattern", 0),
       visible: isLayerVisible("bg-orb-pattern", showBg),
     },
@@ -261,6 +275,7 @@ export function buildCompositionLayers(
       label: customLabels["bg-base"] || "Background: Radial Gradient",
       content: customLabels["bg-base"] || "Background: Radial Gradient",
       kind: "background",
+      color: layerColors["bg-base"] ?? "slate",
       ...resolveTiming("bg-base", 0),
       visible: isLayerVisible("bg-base", showBg),
     }

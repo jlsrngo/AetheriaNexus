@@ -42,6 +42,7 @@ const GRID_PRESETS = [
 
 export const StudioPreview: React.FC = () => {
   const playerRef = useRef<PlayerRef>(null);
+  const [playerInstance, setPlayerInstance] = useState<PlayerRef | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewportDim, setViewportDim] = useState<{ w: number; h: number }>({
     w: 800,
@@ -108,6 +109,29 @@ export const StudioPreview: React.FC = () => {
   const handleTogglePlay = useCallback(() => {
     playerRef.current?.toggle();
   }, []);
+
+  // Synchronize Remotion Player playback events with global Studio store & timeline
+  useEffect(() => {
+    if (!playerInstance) return;
+
+    const handleFrame = (event: { detail: { frame: number } }) => {
+      actions.setCurrentFrame(event.detail.frame);
+    };
+    const handlePlay = () => actions.setIsPlaying(true);
+    const handlePause = () => actions.setIsPlaying(false);
+
+    playerInstance.addEventListener("frameupdate", handleFrame as any);
+    playerInstance.addEventListener("play", handlePlay);
+    playerInstance.addEventListener("pause", handlePause);
+    playerInstance.addEventListener("seeked", handleFrame as any);
+
+    return () => {
+      playerInstance.removeEventListener("frameupdate", handleFrame as any);
+      playerInstance.removeEventListener("play", handlePlay);
+      playerInstance.removeEventListener("pause", handlePause);
+      playerInstance.removeEventListener("seeked", handleFrame as any);
+    };
+  }, [playerInstance, actions]);
 
   // Global Video Player Spacebar Shortcut (Universal Play/Pause UX)
   useEffect(() => {
@@ -1116,7 +1140,12 @@ export const StudioPreview: React.FC = () => {
             <div className="w-full h-full flex items-center justify-center relative select-none">
               <Player
                 key={`${activeComposition.id}-${activeComposition.width}x${activeComposition.height}-${activeComposition.fps}`}
-                ref={playerRef}
+                ref={(ref) => {
+                  playerRef.current = ref;
+                  if (ref !== playerInstance) {
+                    setPlayerInstance(ref);
+                  }
+                }}
                 component={NexusVideoComposition}
                 inputProps={activeComposition.props}
                 durationInFrames={durationInFrames}

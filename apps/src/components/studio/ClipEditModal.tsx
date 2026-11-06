@@ -1,7 +1,31 @@
 import React, { useState, useEffect } from "react";
-import { X, Save, Eye, EyeOff, Clock, Trash2, Layers } from "lucide-react";
+import { X, Save, Eye, EyeOff, Clock, Trash2, Layers, Palette, Check } from "lucide-react";
 import { cn } from "../../lib/utils";
 import type { VideoLayerSpec } from "../../remotion/types";
+
+export interface ClipColorOption {
+  key: string;
+  name: string;
+  hex: string;
+  badgeClass: string;
+  dotClass: string;
+}
+
+export const CLIP_COLOR_OPTIONS: ClipColorOption[] = [
+  { key: "amber", name: "Amber", hex: "#F59E0B", badgeClass: "bg-[#F59E0B] text-black", dotClass: "bg-[#F59E0B]" },
+  { key: "orange", name: "Orange", hex: "#F97316", badgeClass: "bg-[#F97316] text-white", dotClass: "bg-[#F97316]" },
+  { key: "rose", name: "Rose", hex: "#F43F5E", badgeClass: "bg-[#F43F5E] text-white", dotClass: "bg-[#F43F5E]" },
+  { key: "pink", name: "Pink", hex: "#EC4899", badgeClass: "bg-[#EC4899] text-white", dotClass: "bg-[#EC4899]" },
+  { key: "fuchsia", name: "Fuchsia", hex: "#D946EF", badgeClass: "bg-[#D946EF] text-white", dotClass: "bg-[#D946EF]" },
+  { key: "purple", name: "Purple", hex: "#A855F7", badgeClass: "bg-[#A855F7] text-white", dotClass: "bg-[#A855F7]" },
+  { key: "violet", name: "Violet", hex: "#7C3AED", badgeClass: "bg-[#7C3AED] text-white", dotClass: "bg-[#7C3AED]" },
+  { key: "indigo", name: "Indigo", hex: "#6366F1", badgeClass: "bg-[#6366F1] text-white", dotClass: "bg-[#6366F1]" },
+  { key: "blue", name: "Blue", hex: "#3B82F6", badgeClass: "bg-[#3B82F6] text-white", dotClass: "bg-[#3B82F6]" },
+  { key: "sky", name: "Sky", hex: "#0EA5E9", badgeClass: "bg-[#0EA5E9] text-white", dotClass: "bg-[#0EA5E9]" },
+  { key: "cyan", name: "Cyan", hex: "#06B6D4", badgeClass: "bg-[#06B6D4] text-black", dotClass: "bg-[#06B6D4]" },
+  { key: "emerald", name: "Emerald", hex: "#10B981", badgeClass: "bg-[#10B981] text-white", dotClass: "bg-[#10B981]" },
+  { key: "slate", name: "Slate", hex: "#64748B", badgeClass: "bg-[#64748B] text-white", dotClass: "bg-[#64748B]" },
+];
 
 export interface ClipEditModalProps {
   isOpen: boolean;
@@ -11,6 +35,7 @@ export interface ClipEditModalProps {
   onClose: () => void;
   onSaveContent: (layer: VideoLayerSpec, newContent: string) => void;
   onSaveTiming: (layer: VideoLayerSpec, from: number, duration: number) => void;
+  onSaveColor?: (layer: VideoLayerSpec, newColor: string) => void;
   onToggleVisibility?: (layer: VideoLayerSpec) => void;
   onDeleteCustom?: (layerId: string) => void;
 }
@@ -23,18 +48,21 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
   onClose,
   onSaveContent,
   onSaveTiming,
+  onSaveColor,
   onToggleVisibility,
   onDeleteCustom,
 }) => {
   const [contentDraft, setContentDraft] = useState("");
   const [fromDraft, setFromDraft] = useState(0);
   const [durationDraft, setDurationDraft] = useState(30);
+  const [colorDraft, setColorDraft] = useState("violet");
 
   useEffect(() => {
     if (layer) {
       setContentDraft(layer.content ?? layer.label);
       setFromDraft(layer.from);
       setDurationDraft(layer.durationInFrames);
+      setColorDraft(layer.color || "violet");
     }
   }, [layer]);
 
@@ -52,6 +80,9 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
     const safeFrom = Math.max(0, Math.min(durationInFrames - 1, fromDraft));
     const safeDur = Math.max(1, Math.min(durationInFrames - safeFrom, durationDraft));
     onSaveTiming(layer, safeFrom, safeDur);
+    if (onSaveColor && colorDraft) {
+      onSaveColor(layer, colorDraft);
+    }
     onClose();
   };
 
@@ -64,6 +95,8 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
       handleSave();
     }
   };
+
+  const activeColorObj = CLIP_COLOR_OPTIONS.find((c) => c.key === colorDraft) || CLIP_COLOR_OPTIONS[0];
 
   return (
     <div
@@ -79,7 +112,12 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
         {/* Header */}
         <div className="h-11 px-4 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#cf6613] text-white shrink-0">
+            <span
+              className={cn(
+                "px-2 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 transition-colors shadow-sm",
+                activeColorObj.badgeClass
+              )}
+            >
               {layer.trackCode}
             </span>
             <span className="text-xs font-semibold truncate text-[var(--text-primary)]">
@@ -97,7 +135,7 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <div className="p-4 space-y-3.5 text-xs">
+        <div className="p-4 space-y-3.5 text-xs overflow-y-auto max-h-[75vh]">
           {/* Content / Label text */}
           <div className="space-y-1">
             <label className="text-[11px] font-medium text-[var(--text-secondary)] block">
@@ -111,6 +149,44 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
               placeholder="Enter clip content text..."
               className="w-full p-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] outline-none focus:border-amber-400 resize-none font-sans"
             />
+          </div>
+
+          {/* Color Palette Selector (Premiere Pro / CapCut Style) */}
+          <div className="p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5 text-amber-400" />
+                <span>Timeline Clip Color Tag</span>
+              </span>
+              <span className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider">
+                {activeColorObj.name}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-6 sm:grid-cols-7 gap-1.5 pt-1">
+              {CLIP_COLOR_OPTIONS.map((opt) => {
+                const isSelected = colorDraft === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setColorDraft(opt.key)}
+                    title={`Tag as ${opt.name}`}
+                    style={{ backgroundColor: opt.hex }}
+                    className={cn(
+                      "h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer relative",
+                      isSelected
+                        ? "ring-2 ring-white ring-offset-2 ring-offset-[#141418] scale-105 shadow-lg"
+                        : "opacity-80 hover:opacity-100 hover:scale-105"
+                    )}
+                  >
+                    {isSelected && (
+                      <Check className="w-3.5 h-3.5 text-white stroke-[3] drop-shadow-md" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Timing Section */}
