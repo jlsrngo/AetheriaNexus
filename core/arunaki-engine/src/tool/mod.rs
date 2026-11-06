@@ -13,6 +13,7 @@ pub mod step_formatter;
 pub mod tasks;
 pub mod todo;
 pub mod truncator;
+pub mod voicebox;
 pub mod websearch;
 pub mod write;
 
@@ -30,6 +31,7 @@ pub fn should_attach_document_tools(_prompt_text: &str, _history: &[Value]) -> b
 pub fn build_tool_definitions() -> Vec<Value> {
     vec![
         render::render_video_tool_definition(),
+        voicebox::voicebox_tool_definition(),
         read::read_tool_definition(),
         write::write_tool_definition(),
         edit::edit_tool_definition(),
@@ -76,6 +78,9 @@ pub async fn execute_tool_call(
     match name {
         "render_video" | "remotion_render" | "export_video" | "render_nexus_video" => {
             render::execute_render_video(session_id, workspace_dir, arguments)
+        }
+        "voicebox_speak" | "voicebox" | "generate_speech" | "tts" => {
+            voicebox::execute_voicebox(workspace_dir, arguments)
         }
         "read" | "read_file" => read::execute_read(workspace_dir, arguments),
         "write" | "write_file" | "create_file" => {

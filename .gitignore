@@ -95,3 +95,7 @@ WORKFLOW.md
 
 
 
+
+# MotionCraft & Voicebox local model caches
+.motioncraft/
+core/voicebox/models/

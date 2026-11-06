@@ -42,6 +42,10 @@ pub fn classify_tool_icon_type(tool_name: &str, label: &str) -> &'static str {
         }
     }
 
+    if t.contains("voicebox") || t.contains("speak") || t.contains("tts") || t.contains("audio") {
+        return "mic";
+    }
+
     if t.contains("render") || t.contains("video") || t.contains("remotion") {
         return "video";
     }

@@ -33,6 +33,8 @@
     "turbo": "2.10.2"
   },
   "dependencies": {
+    "@remotion/google-fonts": "^4.0.541",
+    "@remotion/layout-utils": "^4.0.541",
     "iterare": "^1.2.1",
     "pdf-lib": "^1.17.1",
     "puppeteer": "^25.10.0",

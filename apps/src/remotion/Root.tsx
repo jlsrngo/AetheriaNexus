@@ -19,7 +19,7 @@ export const NexusVideoRoot: React.FC = () => {
       <Composition
         id="RustBlueprintStory"
         component={RustBlueprintStoryComposition}
-        durationInFrames={1175}
+        durationInFrames={1800}
         fps={30}
         width={1080}
         height={1920}

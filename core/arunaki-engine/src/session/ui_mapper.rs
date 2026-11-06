@@ -177,6 +177,15 @@ pub fn format_tool_step_label(tool_name: &str, args_or_target: &Value, is_finish
 
     let file_name = if is_internal { "" } else { &raw_file_name };
 
+    // Voicebox TTS
+    if t.contains("voicebox") || t.contains("speak") || t.contains("tts") {
+        return if is_finished {
+            "Synthesized voiceover audio (Voicebox)".to_string()
+        } else {
+            "Synthesizing voiceover audio (Voicebox)...".to_string()
+        };
+    }
+
     // Video Rendering
     if t.contains("render") || t.contains("video") || t.contains("remotion") {
         let hook = args_or_target
