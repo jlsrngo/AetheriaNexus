@@ -876,6 +876,10 @@ export const Timeline: React.FC<TimelineProps> = ({
           toast.info("Redo: Reapplied change", { duration: 1200 });
         }}
         onRatioChange={handleRatioChange}
+        onFpsChange={(newFps) => {
+          actions.updateActiveMetadata({ fps: newFps });
+          toast.success(`Frame rate: ${newFps} FPS`);
+        }}
         onFit={() => setTimelineZoom(0)}
         onTrimIn={() => {
           updateCanvas({
