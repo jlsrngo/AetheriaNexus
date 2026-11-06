@@ -123,9 +123,10 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
   }, []);
 
   // Adaptive breakpoints
-  const isCompact = containerWidth < 820;
-  const isMedium = containerWidth >= 820 && containerWidth < 1050;
-  const isWide = containerWidth >= 1050;
+  const isTiny = containerWidth < 680;
+  const isCompact = containerWidth < 880;
+  const isMedium = containerWidth >= 880 && containerWidth < 1150;
+  const isWide = containerWidth >= 1150;
 
   // Close dropdowns on outside click or Escape
   useEffect(() => {
@@ -171,12 +172,12 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
   // Dynamic responsive tool button classes
   const toolBtnClass = cn(
     "flex-1 min-w-0 max-w-[54px] sm:max-w-[60px] h-10 flex flex-col items-center justify-center rounded-lg transition-all cursor-pointer group text-center select-none shrink",
-    isCompact ? "p-0.5" : "px-1 py-0.5"
+    isTiny ? "h-9 p-0 max-w-[36px]" : isCompact ? "h-9 p-0.5 max-w-[46px]" : "px-1 py-0.5"
   );
-  const toolIconClass = isCompact ? "w-3 h-3" : "w-3.5 h-3.5";
+  const toolIconClass = isTiny ? "w-3 h-3" : "w-3.5 h-3.5";
   const toolLabelClass = cn(
     "tracking-tight leading-none mt-0.5 truncate max-w-full",
-    isCompact ? "text-[7.5px]" : "text-[8.5px]"
+    isTiny ? "text-[6.5px]" : isCompact ? "text-[7.5px]" : "text-[8.5px]"
   );
 
   return (
@@ -255,10 +256,15 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
       </div>
 
       {/* 2. CENTER SECTION: Fluid Responsive Tools (Adjusts & Expands to Fill Space) */}
-      <div className="flex-1 min-w-0 flex items-center justify-center gap-0.5 sm:gap-1 px-0.5 max-w-4xl mx-auto overflow-hidden">
+      <div
+        className={cn(
+          "flex-1 min-w-0 flex items-center gap-0.5 sm:gap-1 px-0.5 max-w-4xl overflow-hidden",
+          isCompact ? "justify-between" : "justify-center mx-auto"
+        )}
+      >
         {/* --- GROUP 1: Composition Settings (Ratio, Speed, FPS) --- */}
         {/* Rasio Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={ratioRef} className="relative flex-1 min-w-0 max-w-[54px] sm:max-w-[60px] shrink">
+        <div ref={ratioRef} className={cn("relative flex-1 min-w-0 shrink", isTiny ? "max-w-[36px]" : isCompact ? "max-w-[46px]" : "max-w-[54px] sm:max-w-[60px]")}>
           <button
             type="button"
             onClick={() => {
@@ -268,7 +274,8 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
             }}
             title="Pilih Rasio Layar Video"
             className={cn(
-              "w-full h-10 flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
+              "w-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
+              isCompact ? "h-9 p-0.5" : "h-10 p-1",
               isRatioOpen
                 ? "bg-[var(--bg-hover)] border-amber-400/80 text-amber-400 shadow-sm shadow-amber-500/10"
                 : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
@@ -319,7 +326,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
         </div>
 
         {/* Speed Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={speedRef} className="relative flex-1 min-w-0 max-w-[54px] sm:max-w-[60px] shrink">
+        <div ref={speedRef} className={cn("relative flex-1 min-w-0 shrink", isTiny ? "max-w-[36px]" : isCompact ? "max-w-[46px]" : "max-w-[54px] sm:max-w-[60px]")}>
           <button
             type="button"
             onClick={() => {
@@ -329,7 +336,8 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
             }}
             title="Pilih Kecepatan Putar Preview"
             className={cn(
-              "w-full h-10 flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
+              "w-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
+              isCompact ? "h-9 p-0.5" : "h-10 p-1",
               isSpeedOpen
                 ? "bg-[var(--bg-hover)] border-amber-400/80 text-amber-400 shadow-sm shadow-amber-500/10"
                 : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
@@ -370,7 +378,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
         </div>
 
         {/* Frame Rate (FPS) Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={fpsRef} className="relative flex-1 min-w-0 max-w-[54px] sm:max-w-[60px] shrink">
+        <div ref={fpsRef} className={cn("relative flex-1 min-w-0 shrink", isTiny ? "max-w-[36px]" : isCompact ? "max-w-[46px]" : "max-w-[54px] sm:max-w-[60px]")}>
           <button
             type="button"
             onClick={() => {
@@ -380,7 +388,8 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
             }}
             title="Pilih Frame Rate Komposisi (FPS)"
             className={cn(
-              "w-full h-10 flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
+              "w-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
+              isCompact ? "h-9 p-0.5" : "h-10 p-1",
               isFpsOpen
                 ? "bg-[var(--bg-hover)] border-amber-400/80 text-amber-400 shadow-sm shadow-amber-500/10"
                 : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
