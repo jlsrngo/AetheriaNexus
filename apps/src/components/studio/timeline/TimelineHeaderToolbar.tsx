@@ -123,7 +123,6 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
   }, []);
 
   // Adaptive breakpoints
-  const isTiny = containerWidth < 680;
   const isCompact = containerWidth < 880;
   const isMedium = containerWidth >= 880 && containerWidth < 1150;
   const isWide = containerWidth >= 1150;
@@ -171,14 +170,13 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
 
   // Dynamic responsive tool button classes
   const toolBtnClass = cn(
-    "flex-1 min-w-0 max-w-[54px] sm:max-w-[60px] h-10 flex flex-col items-center justify-center rounded-lg transition-all cursor-pointer group text-center select-none shrink",
-    isTiny ? "h-9 p-0 max-w-[36px]" : isCompact ? "h-9 p-0.5 max-w-[46px]" : "px-1 py-0.5"
+    "flex items-center justify-center rounded-lg transition-all cursor-pointer group text-center select-none shrink-0",
+    isCompact
+      ? "w-8 h-8 p-0"
+      : "flex-1 min-w-0 max-w-[54px] sm:max-w-[60px] h-10 flex-col px-1 py-0.5 shrink"
   );
-  const toolIconClass = isTiny ? "w-3 h-3" : "w-3.5 h-3.5";
-  const toolLabelClass = cn(
-    "tracking-tight leading-none mt-0.5 truncate max-w-full",
-    isTiny ? "text-[6.5px]" : isCompact ? "text-[7.5px]" : "text-[8.5px]"
-  );
+  const toolIconClass = isCompact ? "w-4 h-4" : "w-3.5 h-3.5";
+  const toolLabelClass = "tracking-tight leading-none mt-0.5 truncate max-w-full text-[8.5px]";
 
   return (
     <div
@@ -264,7 +262,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
       >
         {/* --- GROUP 1: Composition Settings (Ratio, Speed, FPS) --- */}
         {/* Rasio Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={ratioRef} className={cn("relative flex-1 min-w-0 shrink", isTiny ? "max-w-[36px]" : isCompact ? "max-w-[46px]" : "max-w-[54px] sm:max-w-[60px]")}>
+        <div ref={ratioRef} className={cn("relative shrink-0", isCompact ? "w-8 h-8" : "flex-1 min-w-0 max-w-[54px] sm:max-w-[60px]")}>
           <button
             type="button"
             onClick={() => {
@@ -274,15 +272,15 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
             }}
             title="Pilih Rasio Layar Video"
             className={cn(
-              "w-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
-              isCompact ? "h-9 p-0.5" : "h-10 p-1",
+              "w-full h-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
               isRatioOpen
                 ? "bg-[var(--bg-hover)] border-amber-400/80 text-amber-400 shadow-sm shadow-amber-500/10"
-                : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
+                : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]",
+              isCompact ? "p-0" : "p-1"
             )}
           >
-            <LayoutTemplate className={cn(toolIconClass, "text-amber-400 transition-colors")} />
-            <span className={cn("font-mono font-semibold", toolLabelClass)}>
+            <LayoutTemplate className={cn(isCompact ? "w-3 h-3" : toolIconClass, "text-amber-400 transition-colors")} />
+            <span className={cn("font-mono font-semibold", isCompact ? "text-[7.5px] leading-none mt-0.5" : toolLabelClass)}>
               {activeRatio || "9:16"}
             </span>
           </button>
@@ -326,7 +324,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
         </div>
 
         {/* Speed Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={speedRef} className={cn("relative flex-1 min-w-0 shrink", isTiny ? "max-w-[36px]" : isCompact ? "max-w-[46px]" : "max-w-[54px] sm:max-w-[60px]")}>
+        <div ref={speedRef} className={cn("relative shrink-0", isCompact ? "w-8 h-8" : "flex-1 min-w-0 max-w-[54px] sm:max-w-[60px]")}>
           <button
             type="button"
             onClick={() => {
@@ -336,15 +334,15 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
             }}
             title="Pilih Kecepatan Putar Preview"
             className={cn(
-              "w-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
-              isCompact ? "h-9 p-0.5" : "h-10 p-1",
-              isSpeedOpen
+              "w-full h-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
+              isRatioOpen
                 ? "bg-[var(--bg-hover)] border-amber-400/80 text-amber-400 shadow-sm shadow-amber-500/10"
-                : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
+                : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]",
+              isCompact ? "p-0" : "p-1"
             )}
           >
-            <Gauge className={cn(toolIconClass, "text-amber-400 transition-colors")} />
-            <span className={cn("font-mono font-semibold", toolLabelClass)}>
+            <Gauge className={cn(isCompact ? "w-3 h-3" : toolIconClass, "text-amber-400 transition-colors")} />
+            <span className={cn("font-mono font-semibold", isCompact ? "text-[7.5px] leading-none mt-0.5" : toolLabelClass)}>
               {playbackRate}x
             </span>
           </button>
@@ -378,7 +376,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
         </div>
 
         {/* Frame Rate (FPS) Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={fpsRef} className={cn("relative flex-1 min-w-0 shrink", isTiny ? "max-w-[36px]" : isCompact ? "max-w-[46px]" : "max-w-[54px] sm:max-w-[60px]")}>
+        <div ref={fpsRef} className={cn("relative shrink-0", isCompact ? "w-8 h-8" : "flex-1 min-w-0 max-w-[54px] sm:max-w-[60px]")}>
           <button
             type="button"
             onClick={() => {
@@ -388,15 +386,15 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
             }}
             title="Pilih Frame Rate Komposisi (FPS)"
             className={cn(
-              "w-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
-              isCompact ? "h-9 p-0.5" : "h-10 p-1",
+              "w-full h-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
               isFpsOpen
                 ? "bg-[var(--bg-hover)] border-amber-400/80 text-amber-400 shadow-sm shadow-amber-500/10"
-                : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
+                : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]",
+              isCompact ? "p-0" : "p-1"
             )}
           >
-            <Film className={cn(toolIconClass, "text-amber-400 transition-colors")} />
-            <span className={cn("font-mono font-semibold", toolLabelClass)}>
+            <Film className={cn(isCompact ? "w-3 h-3" : toolIconClass, "text-amber-400 transition-colors")} />
+            <span className={cn("font-mono font-semibold", isCompact ? "text-[7.5px] leading-none mt-0.5" : toolLabelClass)}>
               {fps}f
             </span>
           </button>
@@ -445,7 +443,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           )}
         >
           <RotateCcw className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
-          <span className={cn("font-medium", toolLabelClass)}>Undo</span>
+          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Undo</span>}
         </button>
 
         {/* Redo */}
@@ -460,7 +458,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           )}
         >
           <RotateCw className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
-          <span className={cn("font-medium", toolLabelClass)}>Redo</span>
+          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Redo</span>}
         </button>
 
         {/* Group Divider */}
@@ -478,7 +476,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           )}
         >
           <Crop className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
-          <span className={cn("font-medium", toolLabelClass)}>Crop</span>
+          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Crop</span>}
         </button>
 
         {/* Trim */}
@@ -492,7 +490,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           )}
         >
           <FoldHorizontal className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
-          <span className={cn("font-medium", toolLabelClass)}>Trim</span>
+          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Trim</span>}
         </button>
 
         {/* Cut / Split */}
@@ -506,7 +504,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           )}
         >
           <Scissors className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
-          <span className={cn("font-medium", toolLabelClass)}>Cut</span>
+          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Cut</span>}
         </button>
 
         {/* Mirror / Duplicate */}
@@ -520,7 +518,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           )}
         >
           <Copy className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
-          <span className={cn("font-medium", toolLabelClass)}>Mirror</span>
+          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Mirror</span>}
         </button>
 
         {/* Volume */}
@@ -540,9 +538,11 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           ) : (
             <Volume2 className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
           )}
-          <span className={cn("font-medium", toolLabelClass)}>
-            {isMuted ? "Muted" : "Volume"}
-          </span>
+          {!isCompact && (
+            <span className={cn("font-medium", toolLabelClass)}>
+              {isMuted ? "Muted" : "Volume"}
+            </span>
+          )}
         </button>
 
         {/* Delete */}
@@ -556,7 +556,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           )}
         >
           <Trash2 className={cn(toolIconClass, "transition-colors group-hover:text-rose-400")} />
-          <span className={cn("font-medium", toolLabelClass)}>Delete</span>
+          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Delete</span>}
         </button>
 
         {/* Group Divider */}
@@ -576,7 +576,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           )}
         >
           <Magnet className={cn(toolIconClass, "transition-colors")} />
-          <span className={cn("font-medium", toolLabelClass)}>Snap</span>
+          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Snap</span>}
         </button>
 
         {/* Add Layer Track */}
@@ -590,7 +590,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           )}
         >
           <Plus className={cn(toolIconClass, "transition-colors")} />
-          <span className={cn("font-semibold", toolLabelClass)}>Layer</span>
+          {!isCompact && <span className={cn("font-semibold", toolLabelClass)}>Layer</span>}
         </button>
       </div>
 
