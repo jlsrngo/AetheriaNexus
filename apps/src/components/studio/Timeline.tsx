@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -18,6 +18,12 @@ import {
   Loader2,
   ZoomIn,
   ZoomOut,
+  Scissors,
+  Copy,
+  Magnet,
+  Undo2,
+  Redo2,
+  Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
@@ -51,7 +57,15 @@ export const Timeline: React.FC<TimelineProps> = ({
   onSeek,
   onTogglePlay,
 }) => {
-  const { activeComposition, canvas, subtitleCues, renderJobs, actions } = useStudioStore();
+  const {
+    activeComposition,
+    canvas,
+    subtitleCues,
+    renderJobs,
+    undoStack,
+    redoStack,
+    actions,
+  } = useStudioStore();
   const updateCanvas = actions.updateCanvas;
   const subtitles = subtitleCues;
 
@@ -61,6 +75,7 @@ export const Timeline: React.FC<TimelineProps> = ({
   const [modalLayer, setModalLayer] = useState<VideoLayerSpec | null>(null);
   const [dragOverride, setDragOverride] = useState<DragOverride | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isSnapping, setIsSnapping] = useState<boolean>(true);
 
   // Zoom scale: negative = compact frames (down to 0.15x), 0% = 1.0x (fit), positive = stretch up to 25.0x
   const zoomMultiplier =
@@ -240,6 +255,189 @@ export const Timeline: React.FC<TimelineProps> = ({
     });
   };
 
+  const handleSplitClip = () => {
+    let target = layers.find((l) => l.id === selectedLayerId);
+    if (
+      !target ||
+      currentFrame <= target.from ||
+      currentFrame >= target.from + target.durationInFrames
+    ) {
+      target = layers.find(
+        (l) => currentFrame > l.from && currentFrame < l.from + l.durationInFrames
+      );
+    }
+    if (!target) {
+      toast.error("Place playhead inside a clip to split/cut");
+      return;
+    }
+
+    const splitFrame = currentFrame;
+    const origFrom = target.from;
+    const origDur = target.durationInFrames;
+    const firstPartDur = splitFrame - origFrom;
+    const secondPartDur = origDur - firstPartDur;
+
+    if (firstPartDur < 1 || secondPartDur < 1) {
+      toast.error("Split point is too close to clip boundary");
+      return;
+    }
+
+    const currentCustom = Array.isArray(activeComposition.props.customLayers)
+      ? [...activeComposition.props.customLayers]
+      : [];
+    const newId = `custom-layer-${Date.now().toString(36)}`;
+
+    if (target.isCustom) {
+      const updatedCustom = currentCustom.map((c) =>
+        c.id === target.id ? { ...c, durationInFrames: firstPartDur } : c
+      );
+      const newPart = {
+        id: newId,
+        label: `${target.label} (Part 2)`,
+        kind: target.kind,
+        content: target.content,
+        color: target.color || "violet",
+        from: splitFrame,
+        durationInFrames: secondPartDur,
+        visible: true,
+      };
+      actions.updateActiveProps({
+        customLayers: [...updatedCustom, newPart],
+      });
+      setSelectedLayerId(newId);
+      toast.success(`Split "${target.label}" at frame ${splitFrame}`);
+    } else {
+      const nextDurs = { ...(activeComposition.props.layerDuration || {}) };
+      nextDurs[target.id] = firstPartDur;
+      const newPart = {
+        id: newId,
+        label: `${target.label} (Part 2)`,
+        kind: target.kind,
+        content: target.content,
+        color: target.color || "rose",
+        from: splitFrame,
+        durationInFrames: secondPartDur,
+        visible: true,
+      };
+      actions.updateActiveProps({
+        layerDuration: nextDurs,
+        customLayers: [...currentCustom, newPart],
+      });
+      setSelectedLayerId(newId);
+      toast.success(`Split "${target.label}" at frame ${splitFrame}`);
+    }
+  };
+
+  const handleDuplicateLayer = () => {
+    const target = layers.find((l) => l.id === selectedLayerId) || layers[0];
+    if (!target) return;
+    const currentCustom = Array.isArray(activeComposition.props.customLayers)
+      ? [...activeComposition.props.customLayers]
+      : [];
+    const newId = `custom-layer-${Date.now().toString(36)}`;
+    const newFrom = Math.min(lastFrame - 15, target.from + 5);
+    const newLayer = {
+      id: newId,
+      label: `${target.label} (Copy)`,
+      kind: target.kind,
+      content: target.content || target.label,
+      color: target.color || "cyan",
+      from: newFrom,
+      durationInFrames: Math.max(15, target.durationInFrames),
+      visible: true,
+    };
+    actions.updateActiveProps({
+      customLayers: [...currentCustom, newLayer],
+    });
+    setSelectedLayerId(newId);
+    toast.success(`Duplicated "${target.label}"`);
+  };
+
+  const handleDeleteSelectedLayer = () => {
+    if (!selectedLayerId) return;
+    const target = layers.find((l) => l.id === selectedLayerId);
+    if (!target) return;
+    if (target.isCustom) {
+      handleRemoveCustomLayer(target.id);
+      setSelectedLayerId(null);
+      toast.success(`Deleted layer "${target.label}"`);
+    } else {
+      handleToggleLayerVisibility(target);
+      toast.info(`Toggled visibility for "${target.label}"`);
+    }
+  };
+
+  const handleRatioChange = (ratioVal: string) => {
+    const dims: Record<string, { width: number; height: number }> = {
+      "9:16": { width: 1080, height: 1920 },
+      "1:1": { width: 1080, height: 1080 },
+      "16:9": { width: 1920, height: 1080 },
+      "4:5": { width: 1080, height: 1350 },
+    };
+    const dim = dims[ratioVal] || dims["9:16"];
+    actions.updateActiveMetadata({
+      ratio: ratioVal as "9:16" | "1:1" | "16:9",
+      width: dim.width,
+      height: dim.height,
+    });
+    actions.updateCanvas({ zoom: "fit", panX: 0, panY: 0 });
+    toast.success(`Aspect ratio changed to ${ratioVal} (${dim.width}×${dim.height})`);
+  };
+
+  useEffect(() => {
+    const handleTimelineKeys = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+
+      if (isCtrlOrMeta && !e.shiftKey && (e.key === "z" || e.key === "Z")) {
+        e.preventDefault();
+        actions.undoProps();
+        toast.info("Undo: Reverted change", { duration: 1200 });
+        return;
+      }
+
+      if (
+        (isCtrlOrMeta && (e.key === "y" || e.key === "Y")) ||
+        (isCtrlOrMeta && e.shiftKey && (e.key === "z" || e.key === "Z"))
+      ) {
+        e.preventDefault();
+        actions.redoProps();
+        toast.info("Redo: Reapplied change", { duration: 1200 });
+        return;
+      }
+
+      if (isCtrlOrMeta && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        handleDuplicateLayer();
+        return;
+      }
+
+      if (
+        !isCtrlOrMeta &&
+        (e.key === "s" || e.key === "S" || e.key === "c" || e.key === "C")
+      ) {
+        e.preventDefault();
+        handleSplitClip();
+        return;
+      }
+
+      if (e.key === "Delete") {
+        e.preventDefault();
+        handleDeleteSelectedLayer();
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleTimelineKeys);
+    return () => window.removeEventListener("keydown", handleTimelineKeys);
+  }, [actions, currentFrame, layers, selectedLayerId, activeComposition.props]);
+
   const handleUpdateLayerContent = (layer: VideoLayerSpec, nextValue: string) => {
     const props = activeComposition.props;
     if (layer.id === "text-hook") {
@@ -337,24 +535,55 @@ export const Timeline: React.FC<TimelineProps> = ({
     let latestDur = origDur;
     let rafId: number | null = null;
 
+    const snapCandidates: number[] = [0, currentFrame, lastFrame];
+    if (canvas.inFrame !== null) snapCandidates.push(canvas.inFrame);
+    if (canvas.outFrame !== null) snapCandidates.push(canvas.outFrame);
+    layers.forEach((l) => {
+      if (l.id !== layer.id) {
+        snapCandidates.push(l.from);
+        snapCandidates.push(l.from + l.durationInFrames);
+      }
+    });
+
+    const snapVal = (val: number, threshold = 2): number => {
+      if (!isSnapping) return val;
+      for (const t of snapCandidates) {
+        if (Math.abs(val - t) <= threshold) return t;
+      }
+      return val;
+    };
+
     const onMove = (moveEvent: MouseEvent) => {
       const deltaPx = moveEvent.clientX - startX;
       const deltaFrames = Math.round((deltaPx / trackWidth) * durationInFrames);
 
       if (mode === "move") {
-        latestFrom = Math.max(
+        let candidateFrom = Math.max(
           0,
           Math.min(durationInFrames - origDur, origFrom + deltaFrames)
         );
+        candidateFrom = snapVal(candidateFrom);
+        const snappedEnd = snapVal(candidateFrom + origDur);
+        if (snappedEnd !== candidateFrom + origDur) {
+          candidateFrom = Math.max(0, snappedEnd - origDur);
+        }
+        latestFrom = candidateFrom;
         latestDur = origDur;
       } else if (mode === "trim-start") {
-        latestFrom = Math.max(0, Math.min(origEnd - 1, origFrom + deltaFrames));
+        let candidateFrom = Math.max(
+          0,
+          Math.min(origEnd - 1, origFrom + deltaFrames)
+        );
+        candidateFrom = snapVal(candidateFrom);
+        latestFrom = candidateFrom;
         latestDur = Math.max(1, origEnd - latestFrom);
       } else if (mode === "trim-end") {
         latestFrom = origFrom;
+        let candidateEnd = origEnd + deltaFrames;
+        candidateEnd = snapVal(candidateEnd);
         latestDur = Math.max(
           1,
-          Math.min(durationInFrames - origFrom, origDur + deltaFrames)
+          Math.min(durationInFrames - origFrom, candidateEnd - origFrom)
         );
       }
 
@@ -700,8 +929,110 @@ export const Timeline: React.FC<TimelineProps> = ({
           </span>
         </div>
 
-        {/* Right Section: Zoom Slider (Minus/Plus), Speed, FPS, Add Layer, Quick Export */}
+        {/* Center Section: Video Editing Actions (Cut/Split, Duplicate, Delete, Snapping, Undo, Redo) */}
+        <div className="flex items-center gap-1 flex-wrap">
+          <button
+            type="button"
+            onClick={handleSplitClip}
+            title="Split / Cut Clip at Playhead Frame (S or C)"
+            className="h-6 px-2 rounded-md bg-[var(--bg-card)] hover:bg-[#cf6613] hover:text-white border border-[var(--border-strong)] hover:border-[#e07b27] text-[10px] font-medium text-[var(--text-secondary)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+          >
+            <Scissors className="w-3 h-3" />
+            <span>Split</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDuplicateLayer}
+            title="Duplicate Selected Layer (Ctrl+D)"
+            className="h-6 px-2 rounded-md bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+          >
+            <Copy className="w-3 h-3" />
+            <span>Duplicate</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDeleteSelectedLayer}
+            title="Delete Selected Layer (Delete)"
+            className="h-6 px-2 rounded-md bg-[var(--bg-card)] hover:bg-rose-900/60 hover:text-rose-200 border border-[var(--border-strong)] hover:border-rose-700/60 text-[10px] font-medium text-[var(--text-secondary)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+          >
+            <Trash2 className="w-3 h-3" />
+            <span>Delete</span>
+          </button>
+
+          <div className="w-px h-4 bg-[var(--border-color)] mx-0.5" />
+
+          {/* Snapping Magnet */}
+          <button
+            type="button"
+            onClick={() => setIsSnapping((s) => !s)}
+            title={
+              isSnapping
+                ? "Snapping ON (Magnetic snap to playhead, markers & clip edges)"
+                : "Snapping OFF"
+            }
+            className={cn(
+              "h-6 px-2 rounded-md border text-[10px] font-medium flex items-center gap-1 cursor-pointer transition-colors shrink-0",
+              isSnapping
+                ? "bg-[#cf6613]/20 border-[#cf6613] text-[#f97316]"
+                : "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+            )}
+          >
+            <Magnet className="w-3 h-3" />
+            <span>Snap</span>
+          </button>
+
+          {/* Undo Button */}
+          <button
+            type="button"
+            disabled={undoStack.length === 0}
+            onClick={() => {
+              actions.undoProps();
+              toast.info("Undo: Reverted change", { duration: 1200 });
+            }}
+            title="Undo (Ctrl+Z)"
+            className="w-6 h-6 rounded-md bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center cursor-pointer transition-colors shrink-0"
+          >
+            <Undo2 className="w-3 h-3" />
+          </button>
+
+          {/* Redo Button */}
+          <button
+            type="button"
+            disabled={redoStack.length === 0}
+            onClick={() => {
+              actions.redoProps();
+              toast.info("Redo: Reapplied change", { duration: 1200 });
+            }}
+            title="Redo (Ctrl+Y / Ctrl+Shift+Z)"
+            className="w-6 h-6 rounded-md bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center cursor-pointer transition-colors shrink-0"
+          >
+            <Redo2 className="w-3 h-3" />
+          </button>
+        </div>
+
+        {/* Right Section: Aspect Ratio, Zoom Slider (Minus/Plus), Speed, FPS, Add Layer, Quick Export */}
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Aspect Ratio Selector (User Request) */}
+          <div
+            className="h-6 px-1.5 flex items-center gap-1 border border-[var(--border-strong)] bg-[var(--bg-card)] rounded-md text-[10px] font-mono shrink-0"
+            title="Aspect Ratio"
+          >
+            <Smartphone className="w-3 h-3 text-[var(--text-muted)]" />
+            <select
+              value={activeComposition.ratio}
+              onChange={(e) => handleRatioChange(e.target.value)}
+              className="bg-transparent border-0 text-[10px] font-mono font-semibold text-amber-400 outline-none cursor-pointer p-0"
+              title="Change Composition Aspect Ratio"
+            >
+              <option value="9:16">9:16 (TikTok)</option>
+              <option value="1:1">1:1 (Square)</option>
+              <option value="16:9">16:9 (Landscape)</option>
+              <option value="4:5">4:5 (Portrait)</option>
+            </select>
+          </div>
+
           {/* Timeline Horizontal Zoom Slider Bar (Minus zooms out / compacts frames, Plus zooms in / stretches) */}
           <div
             className="h-6 px-2 flex items-center gap-1.5 border border-[var(--border-strong)] bg-[var(--bg-card)] rounded-md text-[10px] font-mono shrink-0"
@@ -930,20 +1261,28 @@ export const Timeline: React.FC<TimelineProps> = ({
 
         {/* Right Column: Horizontally Zoomable Time Ruler + Draggable/Trimmable/Editable Clip Lanes */}
         <div
-          className="flex-1 relative flex flex-col min-h-0 overflow-x-auto overflow-y-hidden"
+          className="flex-1 relative flex flex-col min-h-0 overflow-x-auto overflow-y-hidden bg-[#0A0A0C]"
           onWheel={(e) => {
             if (e.ctrlKey || e.altKey) {
               e.preventDefault();
               const delta = e.deltaY < 0 ? 5 : -5;
-              setTimelineZoom((z) => Math.max(0, Math.min(100, z + delta)));
+              setTimelineZoom((z) => Math.max(-100, Math.min(100, z + delta)));
+            }
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && zoomMultiplier < 1) {
+              onSeek(lastFrame);
             }
           }}
         >
           <div
-            className="relative flex-1 flex flex-col min-h-0"
+            className={cn(
+              "relative flex-1 flex flex-col min-h-0",
+              zoomMultiplier < 1 && "border-r-2 border-amber-500/60 shadow-lg"
+            )}
             style={{
               width: `${zoomMultiplier * 100}%`,
-              minWidth: "100%",
+              minWidth: zoomMultiplier >= 1 ? "100%" : `${zoomMultiplier * 100}%`,
             }}
           >
             {/* In/Out Highlight Region */}
@@ -978,6 +1317,8 @@ export const Timeline: React.FC<TimelineProps> = ({
                 else if (timelineZoom >= 50) frameStep = 2; // 2 frames per tick
                 else if (timelineZoom >= 30) frameStep = 5; // 5 frames per tick
                 else if (timelineZoom >= 15) frameStep = Math.max(1, Math.round(fps / 2)); // half second
+                else if (timelineZoom <= -60) frameStep = fps * 4; // every 4 seconds when heavily compacted
+                else if (timelineZoom <= -30) frameStep = fps * 2; // every 2 seconds
                 else frameStep = fps; // 1 second
 
                 const totalTicks = Math.ceil(durationInFrames / frameStep);

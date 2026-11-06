@@ -248,10 +248,18 @@ export const studioActions = {
     listeners.forEach((l) => l());
   },
 
-  updateActiveProps(partial: Partial<NexusVideoProps>) {
-    const active = state.compositions.find((c) => c.id === state.activeCompositionId) ?? state.compositions[0];
+  updateActiveProps(
+    partial: Partial<NexusVideoProps>,
+    options?: { recordHistory?: boolean; customPrevProps?: NexusVideoProps }
+  ) {
+    const active =
+      state.compositions.find((c) => c.id === state.activeCompositionId) ??
+      state.compositions[0];
     if (!active) return;
-    const prevProps = { ...active.props };
+    const recordHistory = options?.recordHistory ?? true;
+    const prevProps = options?.customPrevProps
+      ? (JSON.parse(JSON.stringify(options.customPrevProps)) as NexusVideoProps)
+      : (JSON.parse(JSON.stringify(active.props)) as NexusVideoProps);
     const nextProps: NexusVideoProps = { ...active.props, ...partial };
     const nextComps = state.compositions.map((c) =>
       c.id === active.id ? { ...c, props: nextProps } : c
@@ -259,8 +267,10 @@ export const studioActions = {
     state = {
       ...state,
       compositions: nextComps,
-      undoStack: [...state.undoStack.slice(-19), prevProps],
-      redoStack: [],
+      undoStack: recordHistory
+        ? [...state.undoStack.slice(-29), prevProps]
+        : state.undoStack,
+      redoStack: recordHistory ? [] : state.redoStack,
     };
     emit();
 
@@ -293,11 +303,12 @@ export const studioActions = {
     const active = state.compositions.find((c) => c.id === state.activeCompositionId);
     if (!active) return;
     const prev = state.undoStack[state.undoStack.length - 1];
+    const currentCloned = JSON.parse(JSON.stringify(active.props)) as NexusVideoProps;
     state = {
       ...state,
       compositions: state.compositions.map((c) => (c.id === active.id ? { ...c, props: prev } : c)),
       undoStack: state.undoStack.slice(0, -1),
-      redoStack: [active.props, ...state.redoStack.slice(0, 19)],
+      redoStack: [currentCloned, ...state.redoStack.slice(0, 29)],
     };
     emit();
   },
@@ -307,10 +318,11 @@ export const studioActions = {
     const active = state.compositions.find((c) => c.id === state.activeCompositionId);
     if (!active) return;
     const next = state.redoStack[0];
+    const currentCloned = JSON.parse(JSON.stringify(active.props)) as NexusVideoProps;
     state = {
       ...state,
       compositions: state.compositions.map((c) => (c.id === active.id ? { ...c, props: next } : c)),
-      undoStack: [...state.undoStack, active.props],
+      undoStack: [...state.undoStack, currentCloned],
       redoStack: state.redoStack.slice(1),
     };
     emit();

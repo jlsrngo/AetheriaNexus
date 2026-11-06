@@ -13,11 +13,13 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useStudioStore } from "../../hooks/useStudioStore";
 import { cn } from "../../lib/utils";
 import { NexusVideoComposition } from "../../remotion/NexusVideoComposition";
 import {
   buildCompositionLayers,
+  type NexusVideoProps,
   type VideoLayerSpec,
 } from "../../remotion/types";
 import { ErrorBoundary } from "../common/ErrorBoundary";
@@ -262,13 +264,35 @@ export const StudioPreview: React.FC = () => {
     activeComposition.props,
   ]);
 
-  // Keyboard Nudge (Pixel-by-pixel micro alignment with arrow keys, Esc to deselect)
+  // Global Shortcuts: Undo (Ctrl+Z), Redo (Ctrl+Y / Ctrl+Shift+Z), Keyboard Nudge, Esc to deselect
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
         e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
       ) {
+        return;
+      }
+
+      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+
+      // Ctrl+Z (Undo)
+      if (isCtrlOrMeta && !e.shiftKey && (e.key === "z" || e.key === "Z")) {
+        e.preventDefault();
+        actions.undoProps();
+        toast.info("Undo: Reverted change", { duration: 1200 });
+        return;
+      }
+
+      // Ctrl+Y or Ctrl+Shift+Z (Redo)
+      if (
+        (isCtrlOrMeta && (e.key === "y" || e.key === "Y")) ||
+        (isCtrlOrMeta && e.shiftKey && (e.key === "z" || e.key === "Z"))
+      ) {
+        e.preventDefault();
+        actions.redoProps();
+        toast.info("Redo: Reapplied change", { duration: 1200 });
         return;
       }
 
@@ -334,13 +358,16 @@ export const StudioPreview: React.FC = () => {
     window.addEventListener("pointercancel", onUp);
   };
 
-  // Start interactive layer drag with precision scaling
+  // Start interactive layer drag with precision scaling & single undo step
   const startLayerDrag = (
     layerId: string,
     startClientX: number,
     startClientY: number
   ) => {
     setSelectedLayerId(layerId);
+    const initialProps = JSON.parse(
+      JSON.stringify(activeComposition.props)
+    ) as NexusVideoProps;
     const currentOffsets = activeComposition.props.layerOffsets || {};
     const orig = currentOffsets[layerId] || { x: 0, y: 0 };
     const startOffX = orig.x;
@@ -359,12 +386,15 @@ export const StudioPreview: React.FC = () => {
       if (rafId === null) {
         rafId = requestAnimationFrame(() => {
           rafId = null;
-          actions.updateActiveProps({
-            layerOffsets: {
-              ...activeComposition.props.layerOffsets,
-              [layerId]: { x: latestX, y: latestY },
+          actions.updateActiveProps(
+            {
+              layerOffsets: {
+                ...activeComposition.props.layerOffsets,
+                [layerId]: { x: latestX, y: latestY },
+              },
             },
-          });
+            { recordHistory: false }
+          );
         });
       }
     };
@@ -374,12 +404,17 @@ export const StudioPreview: React.FC = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
-      actions.updateActiveProps({
-        layerOffsets: {
-          ...activeComposition.props.layerOffsets,
-          [layerId]: { x: latestX, y: latestY },
-        },
-      });
+      if (latestX !== startOffX || latestY !== startOffY) {
+        actions.updateActiveProps(
+          {
+            layerOffsets: {
+              ...activeComposition.props.layerOffsets,
+              [layerId]: { x: latestX, y: latestY },
+            },
+          },
+          { recordHistory: true, customPrevProps: initialProps }
+        );
+      }
     };
 
     window.addEventListener("pointermove", onMove);
