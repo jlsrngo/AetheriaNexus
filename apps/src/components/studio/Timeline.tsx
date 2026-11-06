@@ -755,6 +755,7 @@ export const Timeline: React.FC<TimelineProps> = ({
     selected: string;
     dot: string;
     handle: string;
+    customHex?: string;
   }
 
   const PREMIERE_PALETTES: Record<string, PremiereClipPalette> = {
@@ -886,6 +887,17 @@ export const Timeline: React.FC<TimelineProps> = ({
     if (key && PREMIERE_PALETTES[key]) {
       return PREMIERE_PALETTES[key];
     }
+    if (key && key.startsWith("#")) {
+      return {
+        badge: "text-white bg-black/60 border-white/40",
+        icon: "text-white",
+        clip: "text-white border-white/40",
+        selected: "ring-1 ring-white border-white",
+        dot: "bg-white",
+        handle: "bg-white/40 hover:bg-white/80",
+        customHex: key,
+      };
+    }
     const byId: Record<string, keyof typeof PREMIERE_PALETTES> = {
       "hud-category": "violet",
       "hud-subcategory": "cyan",
@@ -934,7 +946,7 @@ export const Timeline: React.FC<TimelineProps> = ({
       />
 
       {/* Row 1: Playback Transport, Timecode, Markers, Zoom & Viewport Controls */}
-      <div className="h-8 px-2 flex items-center justify-between gap-1.5 border-b border-[var(--border-color)] bg-[var(--bg-panel)] shrink-0 overflow-hidden">
+      <div className="h-8 px-2 flex items-center justify-between gap-1.5 border-b border-[var(--border-color)] bg-[var(--bg-panel)] shrink-0 relative z-20">
         {/* Left Section: Transport + Timecode + Markers + Track Count */}
         <div className="flex items-center gap-1 shrink-0">
           {/* Transport Pill (< ▶ >) */}
@@ -1192,9 +1204,9 @@ export const Timeline: React.FC<TimelineProps> = ({
       </div>
 
       {/* Row 2: Aspect Ratio Popover, Editing Tools, Layer Operations & Fluid Clip Telemetry */}
-      <div className="h-8 px-2 flex items-center gap-1.5 border-b border-[var(--border-color)] bg-[var(--bg-card)]/40 shrink-0 overflow-hidden">
+      <div className="h-8 px-2 flex items-center gap-1.5 border-b border-[var(--border-color)] bg-[var(--bg-card)]/40 shrink-0 relative z-30">
         {/* Left Section: Aspect Ratio Popover */}
-        <div ref={ratioDropdownRef} className="relative shrink-0">
+        <div ref={ratioDropdownRef} className="relative shrink-0 z-50">
           <button
             type="button"
             onClick={() => setIsRatioOpen((v) => !v)}
@@ -1217,7 +1229,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           </button>
 
           {isRatioOpen && (
-            <div className="absolute top-full left-0 mt-1 w-64 py-1 rounded-lg bg-[#141418] border border-[#2A2A33] shadow-2xl shadow-black/90 z-50 animate-in fade-in zoom-in-95 duration-100">
+            <div className="absolute top-full left-0 mt-1.5 w-64 py-1.5 rounded-xl bg-[#141418] border border-[#2A2A33] shadow-2xl shadow-black/95 z-50 animate-in fade-in zoom-in-95 duration-100 backdrop-blur-md">
               <div className="px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-muted)] border-b border-[#222228] mb-1">
                 Aspect Ratio
               </div>
@@ -1452,6 +1464,15 @@ export const Timeline: React.FC<TimelineProps> = ({
                           ? palette.badge
                           : "text-[var(--text-muted)] bg-[var(--bg-card)] border-[var(--border-color)] opacity-50"
                       )}
+                      style={
+                        palette.customHex && layer.visible
+                          ? {
+                              backgroundColor: `${palette.customHex}25`,
+                              borderColor: `${palette.customHex}80`,
+                              color: palette.customHex,
+                            }
+                          : undefined
+                      }
                     >
                       {layer.trackCode}
                     </span>
@@ -1656,7 +1677,19 @@ export const Timeline: React.FC<TimelineProps> = ({
                   >
                     {/* Draggable, Trimmable & Double-Click Modal Editable Premiere Clip Bar */}
                     <div
-                      style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                      style={{
+                        left: `${leftPct}%`,
+                        width: `${widthPct}%`,
+                        ...(palette.customHex && layer.visible
+                          ? {
+                              backgroundColor: `${palette.customHex}33`,
+                              borderColor: `${palette.customHex}99`,
+                              boxShadow: isSelected
+                                ? `0 0 0 1px ${palette.customHex}`
+                                : undefined,
+                            }
+                          : {}),
+                      }}
                       onMouseDown={(e) => {
                         startClipDrag(e, layer, "move");
                       }}
@@ -1692,6 +1725,11 @@ export const Timeline: React.FC<TimelineProps> = ({
                               "w-1.5 h-1.5 rounded-full shrink-0",
                               layer.visible ? palette.dot : "bg-[var(--text-muted)]"
                             )}
+                            style={
+                              palette.customHex && layer.visible
+                                ? { backgroundColor: palette.customHex }
+                                : undefined
+                            }
                           />
                           {layer.content ?? layer.label}
                         </span>

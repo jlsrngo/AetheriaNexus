@@ -35,6 +35,36 @@ export interface LayerOffset {
   y: number;
 }
 
+export const COLOR_HEX_MAP: Record<string, string> = {
+  amber: "#F59E0B",
+  orange: "#F97316",
+  rose: "#F43F5E",
+  pink: "#EC4899",
+  fuchsia: "#D946EF",
+  purple: "#A855F7",
+  violet: "#7C3AED",
+  indigo: "#6366F1",
+  blue: "#3B82F6",
+  sky: "#0EA5E9",
+  cyan: "#06B6D4",
+  emerald: "#10B981",
+  slate: "#64748B",
+};
+
+export function resolveColorToHex(input?: string, fallback = "#F97316"): string {
+  if (!input) return fallback;
+  const str = input.trim();
+  if (str.startsWith("#")) {
+    if (str.length === 4) {
+      return `#${str[1]}${str[1]}${str[2]}${str[2]}${str[3]}${str[3]}`.toUpperCase();
+    }
+    return str.toUpperCase();
+  }
+  const lower = str.toLowerCase();
+  if (COLOR_HEX_MAP[lower]) return COLOR_HEX_MAP[lower];
+  return fallback;
+}
+
 export interface NexusVideoProps extends Record<string, unknown> {
   hookText: string;
   bodyText: string;

@@ -563,6 +563,52 @@ export const StudioPreview: React.FC = () => {
     });
   };
 
+  const handleUpdateLayerColor = (layer: VideoLayerSpec, newColor: string) => {
+    const currentColors = { ...(activeComposition.props.layerColors || {}) };
+    currentColors[layer.id] = newColor;
+    if (layer.isCustom) {
+      const currentCustom = Array.isArray(activeComposition.props.customLayers)
+        ? activeComposition.props.customLayers
+        : [];
+      actions.updateActiveProps({
+        layerColors: currentColors,
+        customLayers: currentCustom.map((item) =>
+          item.id === layer.id ? { ...item, color: newColor } : item
+        ),
+      });
+      return;
+    }
+    actions.updateActiveProps({ layerColors: currentColors });
+  };
+
+  const handleToggleLayerVisibility = (layer: VideoLayerSpec) => {
+    const currentVis = { ...(activeComposition.props.layerVisibility || {}) };
+    currentVis[layer.id] = !layer.visible;
+    if (layer.isCustom) {
+      const currentCustom = Array.isArray(activeComposition.props.customLayers)
+        ? activeComposition.props.customLayers
+        : [];
+      actions.updateActiveProps({
+        layerVisibility: currentVis,
+        customLayers: currentCustom.map((item) =>
+          item.id === layer.id ? { ...item, visible: !layer.visible } : item
+        ),
+      });
+      return;
+    }
+    actions.updateActiveProps({ layerVisibility: currentVis });
+  };
+
+  const handleRemoveCustomLayer = (layerId: string) => {
+    const currentCustom = Array.isArray(activeComposition.props.customLayers)
+      ? activeComposition.props.customLayers
+      : [];
+    actions.updateActiveProps({
+      customLayers: currentCustom.filter((item) => item.id !== layerId),
+    });
+    setModalLayer(null);
+  };
+
   const scaleStyle: React.CSSProperties =
     canvas.zoom === "fit"
       ? { width: "100%", height: "100%" }
@@ -1334,6 +1380,9 @@ export const StudioPreview: React.FC = () => {
           onClose={() => setModalLayer(null)}
           onSaveContent={handleUpdateLayerContent}
           onSaveTiming={handleUpdateLayerTiming}
+          onSaveColor={handleUpdateLayerColor}
+          onToggleVisibility={handleToggleLayerVisibility}
+          onDeleteCustom={handleRemoveCustomLayer}
           durationInFrames={durationInFrames}
           fps={activeComposition.fps}
         />
