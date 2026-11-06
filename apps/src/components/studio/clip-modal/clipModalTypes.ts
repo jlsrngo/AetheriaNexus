@@ -26,72 +26,71 @@ export function getFieldInfo(id: string): ClipFieldInfo {
       return {
         contentLabel: "Hook Headline Text",
         placeholder: "Enter main hook headline...",
-        textDesc: "Mengubah teks judul headline video.",
-        accentDesc: "Mengubah gradasi aksen dan pantulan glow teks headline.",
+        textDesc: "Modify the main video headline text.",
+        accentDesc: "Change the gradient accent and headline text glow.",
       };
     case "hud-category":
       return {
         contentLabel: "Category Badge Text",
         placeholder: "e.g. PRODUCTIVITY",
-        textDesc: "Mengubah teks pada badge kategori sudut kiri atas.",
-        accentDesc: "Mengubah warna border dan lampu indikator badge.",
+        textDesc: "Change the category badge text in the top left corner.",
+        accentDesc: "Change badge border and indicator light color.",
       };
     case "hud-subcategory":
       return {
         contentLabel: "Subcategory Title Text",
         placeholder: "e.g. EXECUTIVE HABITS",
-        textDesc: "Mengubah teks subkategori sudut kanan atas.",
-        accentDesc: "Mengubah warna font subkategori.",
+        textDesc: "Change the subcategory text in the top right corner.",
+        accentDesc: "Change subcategory text and border color.",
       };
     case "footer-author":
       return {
         contentLabel: "Author Handle / Name",
         placeholder: "e.g. @nexus.creative",
-        textDesc: "Mengubah nama author / kreator di footer video.",
-        accentDesc: "Mengubah warna font nama author.",
+        textDesc: "Change author / creator handle in the video footer.",
+        accentDesc: "Change author handle font color.",
       };
     case "footer-tag":
       return {
         contentLabel: "Editorial Tag Text",
         placeholder: "e.g. NEXUS // EDITORIAL SHORT",
-        textDesc: "Mengubah teks badge editorial di footer kanan.",
-        accentDesc: "Mengubah warna border dan aksen badge editorial.",
+        textDesc: "Change editorial badge text in the bottom right footer.",
+        accentDesc: "Change border and accent color of the editorial badge.",
       };
     case "footer-icon":
       return {
         contentLabel: "Footer Avatar / Icon Symbol",
         placeholder: "e.g. ⚡",
-        textDesc: "Simbol ikon avatar di footer video.",
-        accentDesc: "Warna background dan glow kotak ikon avatar.",
+        textDesc: "Avatar icon symbol in the video footer.",
+        accentDesc: "Background and glow color for the avatar icon box.",
       };
     case "bg-base":
       return {
         contentLabel: "Background Layer Name",
         placeholder: "Background: Radial Gradient",
-        textDesc: "Latar belakang utama seluruh video.",
-        accentDesc: "Warna tema gradien latar belakang video.",
+        textDesc: "Primary background for the entire video.",
+        accentDesc: "Gradient theme and base canvas color.",
       };
     case "bg-orb-pattern":
       return {
         contentLabel: "Glow Orb Pattern Name",
         placeholder: "Pattern: Ambient Glow Orb",
-        textDesc: "Efek bola cahaya ambient mengambang.",
-        accentDesc: "Warna pendaran cahaya bola ambient di video.",
+        textDesc: "Floating ambient glow light effect.",
+        accentDesc: "Color and glow intensity of the ambient orb.",
       };
     case "bg-grid-pattern":
       return {
         contentLabel: "Grid Pattern Name",
         placeholder: "Pattern: Blueprint Grid",
-        textDesc: "Efek garis grid blueprint latar belakang.",
-        accentDesc: "Warna garis-garis grid blueprint di video.",
+        textDesc: "Blueprint grid line background effect.",
+        accentDesc: "Color of the background blueprint grid lines.",
       };
     default:
       return {
         contentLabel: "Bullet Point Content Text",
         placeholder: "Enter bullet point text...",
-        textDesc: "Mengubah teks poin bullet yang tampil di layar video.",
-        accentDesc: "Mengubah warna simbol garis // dan border kartu di video.",
+        textDesc: "Change bullet point text displayed on the video canvas.",
+        accentDesc: "Change line accent symbol // and card border color.",
       };
   }
 }
-

@@ -53,7 +53,7 @@ export const ColorPickerField: React.FC<ColorPickerFieldProps> = ({
         <label
           className="relative flex items-center justify-center w-8 h-8 rounded-lg border border-white/20 cursor-pointer overflow-hidden shadow-md shrink-0 hover:scale-105 transition-transform"
           style={{ backgroundColor: cleanVal }}
-          title="Buka sistem color picker / eyedropper"
+          title="Open color picker / eyedropper"
         >
           <input
             type="color"

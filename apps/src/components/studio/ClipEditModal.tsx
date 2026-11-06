@@ -217,17 +217,17 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                 <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <div className="space-y-1 text-xs">
                   <div className="font-semibold text-amber-300 flex items-center gap-1.5">
-                    <span>Efek Visual & Latar Belakang Video</span>
+                    <span>Visual Effects & Video Background</span>
                     <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-200 font-mono">
-                      GRAFIS / BACKGROUND
+                      GRAPHICS / BACKGROUND
                     </span>
                   </div>
                   <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
                     {isOrbLayer
-                      ? "Layer ini adalah efek bola cahaya ambient di belakang teks video (elemen grafis, bukan teks). Mengatur warna dan parameter di bawah ini langsung mengubah visual cahaya di video player."
+                      ? "This layer is an ambient glow orb effect behind video text (graphic element, not text). Adjusting color and parameters below immediately updates the lighting visual in the video player."
                       : isGridLayer
-                      ? "Layer ini adalah efek pola garis blueprint di belakang video (elemen grafis, bukan teks). Mengatur warna dan ukuran di bawah ini langsung mengubah garis grid di video."
-                      : "Layer ini adalah latar belakang dasar video. Anda dapat memilih style gradasi dan warna dasarnya di bawah ini."}
+                      ? "This layer is a blueprint grid pattern behind the video (graphic element, not text). Adjusting color and size below immediately updates the grid lines in the video."
+                      : "This layer is the base video background. You can customize gradient styles and base colors below."}
                   </p>
                 </div>
               </div>
@@ -238,7 +238,7 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
                       <LayoutTemplate className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Pilihan Style Latar Belakang Video</span>
+                      <span>Video Background Style</span>
                     </span>
                     <span className="text-[9px] font-mono text-amber-400 font-bold uppercase">
                       {bgStyleDraft}
@@ -275,20 +275,20 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                 <div className="p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2.5">
                   <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Parameter Visual Ambient Glow Orb</span>
+                    <span>Ambient Glow Orb Parameters</span>
                   </span>
 
                   <div className="space-y-2 pt-1">
                     <div>
                       <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] mb-1">
-                        <span>Ukuran Bola Cahaya (Orb Scale)</span>
+                        <span>Orb Light Size (Scale)</span>
                         <span className="font-mono text-amber-400">{orbSizeDraft}px</span>
                       </div>
                       <div className="grid grid-cols-3 gap-1.5">
                         {[
-                          { val: 400, label: "400px (Kecil)" },
-                          { val: 600, label: "600px (Standar)" },
-                          { val: 800, label: "800px (Besar)" },
+                          { val: 400, label: "400px (Small)" },
+                          { val: 600, label: "600px (Default)" },
+                          { val: 800, label: "800px (Large)" },
                         ].map((opt) => (
                           <button
                             key={opt.val}
@@ -309,14 +309,14 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
 
                     <div>
                       <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] mb-1">
-                        <span>Kelembutan Cahaya (Glow Blur)</span>
+                        <span>Glow Softness (Blur)</span>
                         <span className="font-mono text-amber-400">{orbBlurDraft}px</span>
                       </div>
                       <div className="grid grid-cols-3 gap-1.5">
                         {[
-                          { val: 80, label: "80px (Tegas)" },
-                          { val: 140, label: "140px (Standar)" },
-                          { val: 220, label: "220px (Sangat Halus)" },
+                          { val: 80, label: "80px (Crisp)" },
+                          { val: 140, label: "140px (Default)" },
+                          { val: 220, label: "220px (Ultra Soft)" },
                         ].map((opt) => (
                           <button
                             key={opt.val}
@@ -343,20 +343,20 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                 <div className="p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2.5">
                   <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Parameter Visual Blueprint Grid</span>
+                    <span>Blueprint Grid Parameters</span>
                   </span>
 
                   <div className="space-y-2 pt-1">
                     <div>
                       <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] mb-1">
-                        <span>Kerapatan Garis Grid (Spacing)</span>
+                        <span>Grid Line Spacing</span>
                         <span className="font-mono text-amber-400">{gridSizeDraft}px</span>
                       </div>
                       <div className="grid grid-cols-3 gap-1.5">
                         {[
-                          { val: 20, label: "20px (Rapat)" },
-                          { val: 40, label: "40px (Standar)" },
-                          { val: 60, label: "60px (Lebar)" },
+                          { val: 20, label: "20px (Dense)" },
+                          { val: 40, label: "40px (Default)" },
+                          { val: 60, label: "60px (Wide)" },
                         ].map((opt) => (
                           <button
                             key={opt.val}
@@ -377,16 +377,16 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
 
                     <div>
                       <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] mb-1">
-                        <span>Opasitas Garis Grid</span>
+                        <span>Grid Line Opacity</span>
                         <span className="font-mono text-amber-400">
                           {Math.round(gridOpacityDraft * 100)}%
                         </span>
                       </div>
                       <div className="grid grid-cols-3 gap-1.5">
                         {[
-                          { val: 0.1, label: "10% (Tipis)" },
-                          { val: 0.22, label: "22% (Standar)" },
-                          { val: 0.45, label: "45% (Tegas)" },
+                          { val: 0.1, label: "10% (Subtle)" },
+                          { val: 0.22, label: "22% (Default)" },
+                          { val: 0.45, label: "45% (Sharp)" },
                         ].map((opt) => (
                           <button
                             key={opt.val}
@@ -411,7 +411,7 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
               {/* Compact Timeline Track Label (Optional rename) */}
               <div className="space-y-1">
                 <label className="text-[10px] text-[var(--text-muted)] block">
-                  Nama Label Track di Timeline Editor (Opsional)
+                  Timeline Track Label Name (Optional)
                 </label>
                 <input
                   type="text"
@@ -429,17 +429,17 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                 <Award className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
                 <div className="space-y-1 text-xs">
                   <div className="font-semibold text-orange-300">
-                    Kotak Avatar / Ikon Footer Video
+                    Footer Avatar / Icon Box
                   </div>
                   <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
-                    Pilih simbol ikon atau emoji yang ditampilkan di dalam kotak avatar sebelah kiri nama author.
+                    Choose the icon symbol or emoji displayed in the avatar box beside the author name.
                   </p>
                 </div>
               </div>
 
               <div className="p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2">
                 <label className="text-[11px] font-semibold text-[var(--text-secondary)] block">
-                  Pilih Simbol Avatar Ikon
+                  Select Avatar Icon Symbol
                 </label>
                 <div className="flex items-center gap-2">
                   <div className="w-10 h-10 rounded-lg bg-[var(--bg-input)] border border-amber-400/50 flex items-center justify-center text-xl font-bold text-amber-400 shrink-0 shadow">
@@ -457,7 +457,7 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
 
                 <div className="pt-1">
                   <span className="text-[9px] uppercase tracking-wider text-[var(--text-muted)] font-semibold block mb-1">
-                    Ikon Cepat
+                    Quick Icons
                   </span>
                   <div className="grid grid-cols-8 gap-1">
                     {["⚡", "🔥", "🚀", "✦", "★", "💎", "👑", "🎯"].map((sym) => (
@@ -500,7 +500,7 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                 className="w-full p-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] outline-none focus:border-amber-400 resize-none font-sans leading-relaxed shadow-inner"
               />
               <p className="text-[10px] text-[var(--text-muted)]">
-                Teks di atas langsung ditampilkan pada layar video canvas dan hasil render MP4.
+                The text above is immediately displayed on the video canvas and rendered MP4.
               </p>
             </div>
           )}
@@ -510,7 +510,7 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
             {/* Color Picker 1: Text Font Color (for text layers) */}
             {!isVisualEffectLayer && !isIconLayer && (
               <ColorPickerField
-                label="Warna Tulisan / Teks (Text Color)"
+                label="Text Color"
                 desc={fieldInfo.textDesc}
                 value={textColorDraft}
                 onChange={setTextColorDraft}
@@ -522,13 +522,13 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
               label={
                 isVisualEffectLayer
                   ? isBaseLayer
-                    ? "Warna Tema Latar Belakang (Base Color)"
+                    ? "Base Background Theme Color"
                     : isOrbLayer
-                    ? "Warna Cahaya Ambient Orb"
-                    : "Warna Garis Blueprint Grid"
+                    ? "Ambient Glow Orb Color"
+                    : "Blueprint Grid Line Color"
                   : isIconLayer
-                  ? "Warna Kotak Avatar Ikon"
-                  : "Warna Garis // & Aksen Border"
+                  ? "Avatar Icon Box Color"
+                  : "Accent & Border Color"
               }
               desc={fieldInfo.accentDesc}
               value={colorDraft}
@@ -541,7 +541,7 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
                     <Paintbrush className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Pilihan Latar Belakang Kartu (Background)</span>
+                    <span>Card Background Style</span>
                   </span>
                   <span className="text-[9px] font-mono text-amber-400 uppercase font-bold">
                     {cardBgDraft}
@@ -551,10 +551,10 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                 <div className="grid grid-cols-3 gap-1.5">
                   {[
                     { id: "glass", label: "Dark Glass" },
-                    { id: "tint", label: "Aksen Tint" },
-                    { id: "solid", label: "Solid Hitam" },
-                    { id: "transparent", label: "Transparan" },
-                    { id: "custom", label: "Custom Warna" },
+                    { id: "tint", label: "Accent Tint" },
+                    { id: "solid", label: "Solid Black" },
+                    { id: "transparent", label: "Transparent" },
+                    { id: "custom", label: "Custom Color" },
                   ].map((opt) => (
                     <button
                       key={opt.id}
@@ -572,12 +572,12 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                   ))}
                 </div>
 
-                {/* If Custom Warna is selected, show background color picker */}
+                {/* If Custom Color is selected, show background color picker */}
                 {cardBgDraft === "custom" && (
                   <div className="pt-1">
                     <ColorPickerField
-                      label="Custom Warna Background Kartu"
-                      desc="Pilih warna latar belakang kartu komponen ini."
+                      label="Custom Card Background Color"
+                      desc="Choose a custom background color for this component card."
                       value={customCardBgHex}
                       onChange={setCustomCardBgHex}
                     />

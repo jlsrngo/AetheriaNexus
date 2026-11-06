@@ -124,7 +124,8 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
   }, []);
 
   // Adaptive breakpoints
-  const isCompact = containerWidth < 880;
+  const showToolLabels = containerWidth >= 1320;
+  const isCompact = containerWidth < 820;
   const isWide = containerWidth >= 1150;
 
   // Close dropdowns on outside click or Escape
@@ -178,30 +179,27 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
   // Dynamic responsive tool button classes
   const toolBtnClass = cn(
     "flex items-center justify-center rounded-lg transition-all cursor-pointer group text-center select-none shrink-0",
-    isCompact
-      ? "w-8 h-8 p-0"
-      : "flex-1 min-w-[36px] max-w-[56px] h-10 flex-col px-1 py-0.5"
+    showToolLabels
+      ? "flex-1 min-w-[36px] max-w-[52px] h-9 flex-col px-1 py-0.5"
+      : "w-8 h-8 p-0"
   );
-  const toolIconClass = isCompact ? "w-4 h-4" : "w-3.5 h-3.5";
-  const toolLabelClass = "tracking-tight leading-none mt-0.5 truncate max-w-full text-[8.5px]";
+  const toolIconClass = "w-3.5 h-3.5";
+  const toolLabelClass = "tracking-tight leading-none mt-0.5 truncate max-w-full text-[8px]";
 
   return (
     <div
       ref={containerRef}
-      className="h-14 px-2 sm:px-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between gap-1.5 sm:gap-2 select-none shrink-0 relative z-40 w-full"
+      className="h-14 px-1.5 sm:px-2 border-b border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between gap-1 select-none shrink-0 relative z-40 w-full"
     >
       {/* 1. LEFT PINNED SECTION: Transport, Timecode, and Ratio/Speed/FPS Dropdowns */}
       <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 relative z-50">
-        {/* Transport: Step Back, Play/Pause, Step Forward */}
-        <div className="flex items-center gap-0.5 p-0.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm shrink-0">
+        {/* Transport: Step Back, Circular Play/Pause, Step Forward */}
+        <div className="flex items-center gap-1 px-1 py-0.5 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm shrink-0">
           <button
             type="button"
             onClick={() => onStep(-1)}
-            title="Frame Mundur (Panah Kiri)"
-            className={cn(
-              "rounded-lg hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-white flex items-center justify-center transition-colors cursor-pointer",
-              isCompact ? "w-5 h-6" : "w-6 h-6"
-            )}
+            title="Step Backward 1 Frame (Left Arrow)"
+            className="w-6 h-6 rounded-full hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
           </button>
@@ -209,27 +207,21 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           <button
             type="button"
             onClick={onTogglePlay}
-            title={isPlaying ? "Pause (Spasi)" : "Putar Video (Spasi)"}
-            className={cn(
-              "rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white flex items-center justify-center transition-colors cursor-pointer shadow-sm",
-              isCompact ? "w-6 h-6" : "w-7 h-6"
-            )}
+            title={isPlaying ? "Pause (Space)" : "Play Video (Space)"}
+            className="w-7 h-7 rounded-full bg-[#cf6613] hover:bg-[#b8580f] text-white flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md shadow-orange-950/40 cursor-pointer shrink-0"
           >
             {isPlaying ? (
-              <Pause className="w-3 h-3 fill-current" />
+              <Pause className="w-3.5 h-3.5 fill-current" />
             ) : (
-              <Play className="w-3 h-3 fill-current translate-x-0.5" />
+              <Play className="w-3.5 h-3.5 fill-current translate-x-0.5" />
             )}
           </button>
 
           <button
             type="button"
             onClick={() => onStep(1)}
-            title="Frame Maju (Panah Kanan)"
-            className={cn(
-              "rounded-lg hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-white flex items-center justify-center transition-colors cursor-pointer",
-              isCompact ? "w-5 h-6" : "w-6 h-6"
-            )}
+            title="Step Forward 1 Frame (Right Arrow)"
+            className="w-6 h-6 rounded-full hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
@@ -260,8 +252,8 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           )}
         </div>
 
-        {/* Rasio Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={ratioRef} className={cn("relative shrink-0", isCompact ? "w-8 h-8" : "w-11 h-10")}>
+        {/* Ratio Dropdown (NO chevron arrow, fully clickable) */}
+        <div ref={ratioRef} className="relative shrink-0 w-8.5 h-8">
           <button
             type="button"
             onClick={() => {
@@ -269,17 +261,16 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
               setIsSpeedOpen(false);
               setIsFpsOpen(false);
             }}
-            title="Pilih Rasio Layar Video"
+            title="Video Aspect Ratio"
             className={cn(
-              "w-full h-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
+              "w-full h-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none p-0.5",
               isRatioOpen
                 ? "bg-[var(--bg-hover)] border-amber-400/80 text-amber-400 shadow-sm shadow-amber-500/10"
-                : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]",
-              isCompact ? "p-0" : "p-1"
+                : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
             )}
           >
-            <LayoutTemplate className={cn(isCompact ? "w-3 h-3" : toolIconClass, "text-amber-400 transition-colors")} />
-            <span className={cn("font-mono font-semibold", isCompact ? "text-[7.5px] leading-none mt-0.5" : toolLabelClass)}>
+            <LayoutTemplate className="w-3 h-3 text-amber-400 transition-colors" />
+            <span className="font-mono font-semibold text-[7.5px] leading-none mt-0.5">
               {activeRatio || "9:16"}
             </span>
           </button>
@@ -287,7 +278,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           {isRatioOpen && (
             <div className="absolute top-full left-0 mt-1.5 w-60 py-1.5 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-strong)] shadow-2xl shadow-black/90 z-50 animate-in fade-in zoom-in-95 duration-100">
               <div className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border-color)] mb-1">
-                Pilih Rasio Aspek Video
+                Select Aspect Ratio
               </div>
               {ratioOptions.map((opt) => {
                 const isSelected = activeRatio === opt.value;
@@ -323,7 +314,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
         </div>
 
         {/* Speed Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={speedRef} className={cn("relative shrink-0", isCompact ? "w-8 h-8" : "w-11 h-10")}>
+        <div ref={speedRef} className="relative shrink-0 w-8.5 h-8">
           <button
             type="button"
             onClick={() => {
@@ -331,17 +322,16 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
               setIsRatioOpen(false);
               setIsFpsOpen(false);
             }}
-            title="Pilih Kecepatan Putar Preview"
+            title="Playback Speed"
             className={cn(
-              "w-full h-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
-              isRatioOpen
+              "w-full h-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none p-0.5",
+              isSpeedOpen
                 ? "bg-[var(--bg-hover)] border-amber-400/80 text-amber-400 shadow-sm shadow-amber-500/10"
-                : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]",
-              isCompact ? "p-0" : "p-1"
+                : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
             )}
           >
-            <Gauge className={cn(isCompact ? "w-3 h-3" : toolIconClass, "text-amber-400 transition-colors")} />
-            <span className={cn("font-mono font-semibold", isCompact ? "text-[7.5px] leading-none mt-0.5" : toolLabelClass)}>
+            <Gauge className="w-3 h-3 text-amber-400 transition-colors" />
+            <span className="font-mono font-semibold text-[7.5px] leading-none mt-0.5">
               {playbackRate}x
             </span>
           </button>
@@ -349,7 +339,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           {isSpeedOpen && (
             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 w-36 py-1.5 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-strong)] shadow-2xl shadow-black/90 z-50 animate-in fade-in zoom-in-95 duration-100">
               <div className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border-color)] mb-1">
-                Kecepatan Putar
+                Playback Speed
               </div>
               {speedOptions.map((rate) => (
                 <button
@@ -375,7 +365,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
         </div>
 
         {/* Frame Rate (FPS) Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={fpsRef} className={cn("relative shrink-0", isCompact ? "w-8 h-8" : "w-11 h-10")}>
+        <div ref={fpsRef} className="relative shrink-0 w-8.5 h-8">
           <button
             type="button"
             onClick={() => {
@@ -383,17 +373,16 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
               setIsRatioOpen(false);
               setIsSpeedOpen(false);
             }}
-            title="Pilih Frame Rate Komposisi (FPS)"
+            title="Composition Frame Rate (FPS)"
             className={cn(
-              "w-full h-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none",
+              "w-full h-full flex flex-col items-center justify-center rounded-lg border transition-all cursor-pointer group text-center select-none p-0.5",
               isFpsOpen
                 ? "bg-[var(--bg-hover)] border-amber-400/80 text-amber-400 shadow-sm shadow-amber-500/10"
-                : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]",
-              isCompact ? "p-0" : "p-1"
+                : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
             )}
           >
-            <Film className={cn(isCompact ? "w-3 h-3" : toolIconClass, "text-amber-400 transition-colors")} />
-            <span className={cn("font-mono font-semibold", isCompact ? "text-[7.5px] leading-none mt-0.5" : toolLabelClass)}>
+            <Film className="w-3 h-3 text-amber-400 transition-colors" />
+            <span className="font-mono font-semibold text-[7.5px] leading-none mt-0.5">
               {fps}f
             </span>
           </button>
@@ -429,11 +418,11 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
 
       <div className="w-px h-5 bg-[var(--border-color)] mx-0.5 shrink-0" />
 
-      {/* 2. CENTER SCROLLABLE SECTION: Action Tools, Zoom Slider, & Share (Scrolls horizontally on small screens) */}
+      {/* 2. CENTER SCROLLABLE SECTION: Action Tools, Zoom Slider, & Share */}
       <div
         ref={toolsScrollRef}
         onWheel={handleToolsWheel}
-        className="flex-1 min-w-0 flex items-center gap-1 sm:gap-1.5 px-1 overflow-x-auto no-scrollbar scroll-smooth"
+        className="flex-1 min-w-0 flex items-center gap-1 sm:gap-1.5 px-0.5 overflow-x-auto no-scrollbar scroll-smooth"
       >
         {/* --- GROUP 2: History (Undo, Redo) --- */}
         {/* Undo */}
@@ -441,14 +430,14 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           type="button"
           disabled={!canUndo}
           onClick={onUndo}
-          title="Undo Perubahan (Ctrl+Z)"
+          title="Undo (Ctrl+Z)"
           className={cn(
             toolBtnClass,
             "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)] disabled:opacity-20 disabled:pointer-events-none"
           )}
         >
           <RotateCcw className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
-          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Undo</span>}
+          {showToolLabels && <span className={cn("font-medium", toolLabelClass)}>Undo</span>}
         </button>
 
         {/* Redo */}
@@ -456,14 +445,14 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           type="button"
           disabled={!canRedo}
           onClick={onRedo}
-          title="Redo Perubahan (Ctrl+Y)"
+          title="Redo (Ctrl+Y)"
           className={cn(
             toolBtnClass,
             "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)] disabled:opacity-20 disabled:pointer-events-none"
           )}
         >
           <RotateCw className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
-          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Redo</span>}
+          {showToolLabels && <span className={cn("font-medium", toolLabelClass)}>Redo</span>}
         </button>
 
         <div className="w-px h-5 bg-[var(--border-color)] mx-0.5 shrink-0" />
@@ -473,63 +462,63 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
         <button
           type="button"
           onClick={onFit}
-          title="Fit Timeline Zoom ke Layar"
+          title="Fit Timeline Zoom to Screen"
           className={cn(
             toolBtnClass,
             "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
           )}
         >
           <Crop className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
-          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Crop</span>}
+          {showToolLabels && <span className={cn("font-medium", toolLabelClass)}>Crop</span>}
         </button>
 
         {/* Trim */}
         <button
           type="button"
           onClick={onTrimIn}
-          title="Trim In-Point di Playhead"
+          title="Trim In-Point at Playhead"
           className={cn(
             toolBtnClass,
             "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
           )}
         >
           <FoldHorizontal className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
-          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Trim</span>}
+          {showToolLabels && <span className={cn("font-medium", toolLabelClass)}>Trim</span>}
         </button>
 
         {/* Cut / Split */}
         <button
           type="button"
           onClick={onSplit}
-          title="Potong / Split Klip di Playhead (S atau C)"
+          title="Split Clip at Playhead (S or C)"
           className={cn(
             toolBtnClass,
             "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
           )}
         >
           <Scissors className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
-          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Cut</span>}
+          {showToolLabels && <span className={cn("font-medium", toolLabelClass)}>Cut</span>}
         </button>
 
         {/* Mirror / Duplicate */}
         <button
           type="button"
           onClick={onDuplicate}
-          title="Duplikasi Klip Aktif (Ctrl+D)"
+          title="Duplicate Clip (Ctrl+D)"
           className={cn(
             toolBtnClass,
             "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
           )}
         >
           <Copy className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
-          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Mirror</span>}
+          {showToolLabels && <span className={cn("font-medium", toolLabelClass)}>Mirror</span>}
         </button>
 
         {/* Volume */}
         <button
           type="button"
           onClick={() => setIsMuted((m) => !m)}
-          title={isMuted ? "Aktifkan Suara Audio" : "Bisukan Audio Preview"}
+          title={isMuted ? "Unmute Audio" : "Mute Audio"}
           className={cn(
             toolBtnClass,
             isMuted
@@ -542,7 +531,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           ) : (
             <Volume2 className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
           )}
-          {!isCompact && (
+          {showToolLabels && (
             <span className={cn("font-medium", toolLabelClass)}>
               {isMuted ? "Muted" : "Volume"}
             </span>
@@ -553,14 +542,14 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
         <button
           type="button"
           onClick={onDelete}
-          title="Hapus Klip / Layer Terpilih (Del)"
+          title="Delete Selected Clip (Del)"
           className={cn(
             toolBtnClass,
             "text-[var(--text-secondary)] hover:text-rose-400 hover:bg-rose-950/40"
           )}
         >
           <Trash2 className={cn(toolIconClass, "transition-colors group-hover:text-rose-400")} />
-          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Delete</span>}
+          {showToolLabels && <span className={cn("font-medium", toolLabelClass)}>Delete</span>}
         </button>
 
         <div className="w-px h-5 bg-[var(--border-color)] mx-0.5 shrink-0" />
@@ -570,7 +559,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
         <button
           type="button"
           onClick={onToggleSnap}
-          title={isSnapping ? "Magnetic Snapping AKTIF" : "Magnetic Snapping NONAKTIF"}
+          title={isSnapping ? "Magnetic Snapping ON" : "Magnetic Snapping OFF"}
           className={cn(
             toolBtnClass,
             isSnapping
@@ -579,21 +568,21 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           )}
         >
           <Magnet className={cn(toolIconClass, "transition-colors")} />
-          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Snap</span>}
+          {showToolLabels && <span className={cn("font-medium", toolLabelClass)}>Snap</span>}
         </button>
 
         {/* Add Layer Track */}
         <button
           type="button"
           onClick={onAddLayer}
-          title="Tambah Layer Track Baru"
+          title="Add Dynamic Layer Track"
           className={cn(
             toolBtnClass,
             "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
           )}
         >
           <Plus className={cn(toolIconClass, "transition-colors")} />
-          {!isCompact && <span className={cn("font-semibold", toolLabelClass)}>Layer</span>}
+          {showToolLabels && <span className={cn("font-semibold", toolLabelClass)}>Layer</span>}
         </button>
 
         <div className="w-px h-5 bg-[var(--border-color)] mx-0.5 shrink-0" />
@@ -615,7 +604,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
             step={5}
             value={timelineZoom}
             onChange={(e) => onZoomChange(Number(e.target.value))}
-            className="w-16 sm:w-20 md:w-24 h-1 accent-[#cf6613] bg-[var(--bg-input)] rounded-lg cursor-ew-resize outline-none"
+            className="w-14 sm:w-16 md:w-20 h-1 accent-[#cf6613] bg-[var(--bg-input)] rounded-lg cursor-ew-resize outline-none"
             title={`Timeline Zoom: ${timelineZoom > 0 ? `+${timelineZoom}%` : `${timelineZoom}%`}`}
           />
           <button
@@ -642,14 +631,14 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           onClick={() => {
             if (onShare) onShare();
           }}
-          title="Bagikan Konfigurasi Video (Copy JSON)"
+          title="Share Video Config (Copy JSON)"
           className={cn(
             toolBtnClass,
             "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
           )}
         >
           <Share2 className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
-          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Share</span>}
+          {showToolLabels && <span className={cn("font-medium", toolLabelClass)}>Share</span>}
         </button>
       </div>
 
@@ -661,7 +650,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           type="button"
           onClick={onExport}
           disabled={isExporting}
-          title="Render & Export Video MP4 (Lokal GPU)"
+          title="Render & Export Video MP4 (Local GPU)"
           className={cn(
             "rounded-full bg-[#cf6613] hover:bg-[#b8580f] active:scale-[0.98] border border-[#e07b27] text-white flex items-center justify-center font-semibold shadow-md shadow-orange-950/40 hover:scale-[1.02] transition-all cursor-pointer disabled:opacity-50 shrink-0",
             isCompact ? "w-8 h-8 p-0" : "h-8 px-3.5 text-xs gap-1.5"
