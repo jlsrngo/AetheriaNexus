@@ -6,8 +6,6 @@ import {
   EyeOff,
   Clock,
   Trash2,
-  Palette,
-  Pipette,
   Sparkles,
   Type,
   Award,
@@ -19,111 +17,8 @@ import { cn } from "../../lib/utils";
 import type { VideoLayerSpec } from "../../remotion/types";
 import { resolveColorToHex } from "../../remotion/types";
 import { useStudioStore } from "../../hooks/useStudioStore";
-
-interface ColorPickerFieldProps {
-  label: string;
-  desc?: string;
-  value: string;
-  onChange: (hex: string) => void;
-}
-
-const ColorPickerField: React.FC<ColorPickerFieldProps> = ({
-  label,
-  desc,
-  value,
-  onChange,
-}) => {
-  const [hexInput, setHexInput] = useState(value);
-
-  useEffect(() => {
-    setHexInput(value);
-  }, [value]);
-
-  const cleanVal = value.startsWith("#") ? value : resolveColorToHex(value);
-
-  return (
-    <div className="p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
-          <Palette className="w-3.5 h-3.5 text-amber-400" />
-          <span>{label}</span>
-        </span>
-        <span
-          className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border"
-          style={{
-            backgroundColor: `${cleanVal}20`,
-            borderColor: `${cleanVal}70`,
-            color: cleanVal,
-          }}
-        >
-          {cleanVal}
-        </span>
-      </div>
-
-      {desc && (
-        <p className="text-[10px] text-[var(--text-muted)] leading-relaxed">
-          {desc}
-        </p>
-      )}
-
-      <div className="flex items-center gap-2 pt-0.5">
-        {/* Native Eyedropper / Color Picker Button */}
-        <label
-          className="relative flex items-center justify-center w-8 h-8 rounded-lg border border-white/20 cursor-pointer overflow-hidden shadow-md shrink-0 hover:scale-105 transition-transform"
-          style={{ backgroundColor: cleanVal }}
-          title="Buka sistem color picker / eyedropper"
-        >
-          <input
-            type="color"
-            value={cleanVal.length === 7 ? cleanVal : "#F97316"}
-            onChange={(e) => {
-              const next = e.target.value.toUpperCase();
-              setHexInput(next);
-              onChange(next);
-            }}
-            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-          />
-          <Pipette className="w-3.5 h-3.5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] pointer-events-none" />
-        </label>
-
-        {/* Hex Input Box */}
-        <div className="flex-1 flex items-center gap-1 px-2.5 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] focus-within:border-amber-400 transition-colors">
-          <span className="text-[11px] font-mono text-[var(--text-muted)] font-semibold">#</span>
-          <input
-            type="text"
-            maxLength={6}
-            value={hexInput.replace("#", "")}
-            onChange={(e) => {
-              const cleaned = e.target.value.replace(/[^0-9A-Fa-f]/g, "").slice(0, 6).toUpperCase();
-              setHexInput(`#${cleaned}`);
-              if (cleaned.length === 6 || cleaned.length === 3) {
-                onChange(`#${cleaned}`);
-              }
-            }}
-            placeholder="F97316"
-            className="w-full bg-transparent text-xs font-mono text-[var(--text-primary)] outline-none uppercase font-semibold"
-          />
-        </div>
-
-        {/* Live Preview Pill */}
-        <div
-          className="h-8 px-3 rounded-lg border flex items-center gap-1.5 text-[10px] font-mono font-bold shrink-0 transition-colors"
-          style={{
-            backgroundColor: `${cleanVal}25`,
-            borderColor: cleanVal,
-            color: cleanVal,
-          }}
-        >
-          <span
-            className="w-2 h-2 rounded-full shadow-sm"
-            style={{ backgroundColor: cleanVal }}
-          />
-          <span>PREVIEW</span>
-        </div>
-      </div>
-    </div>
-  );
-};
+import { ColorPickerField } from "./clip-modal/ColorPickerField";
+import { getFieldInfo } from "./clip-modal/clipModalTypes";
 
 export interface ClipEditModalProps {
   isOpen: boolean;
@@ -220,81 +115,6 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
   const isIconLayer = layer.id === "footer-icon";
   const isBulletLayer = layer.id.startsWith("text-bullet-") || layer.isCustom;
   const hasCardBg = isBulletLayer || layer.id === "hud-category" || layer.id === "footer-tag";
-
-  const getFieldInfo = (id: string) => {
-    switch (id) {
-      case "text-hook":
-        return {
-          contentLabel: "Hook Headline Text",
-          placeholder: "Enter main hook headline...",
-          textDesc: "Mengubah teks judul headline video.",
-          accentDesc: "Mengubah gradasi aksen dan pantulan glow teks headline.",
-        };
-      case "hud-category":
-        return {
-          contentLabel: "Category Badge Text",
-          placeholder: "e.g. PRODUCTIVITY",
-          textDesc: "Mengubah teks pada badge kategori sudut kiri atas.",
-          accentDesc: "Mengubah warna border dan lampu indikator badge.",
-        };
-      case "hud-subcategory":
-        return {
-          contentLabel: "Subcategory Title Text",
-          placeholder: "e.g. EXECUTIVE HABITS",
-          textDesc: "Mengubah teks subkategori sudut kanan atas.",
-          accentDesc: "Mengubah warna font subkategori.",
-        };
-      case "footer-author":
-        return {
-          contentLabel: "Author Handle / Name",
-          placeholder: "e.g. @nexus.creative",
-          textDesc: "Mengubah nama author / kreator di footer video.",
-          accentDesc: "Mengubah warna font nama author.",
-        };
-      case "footer-tag":
-        return {
-          contentLabel: "Editorial Tag Text",
-          placeholder: "e.g. NEXUS // EDITORIAL SHORT",
-          textDesc: "Mengubah teks badge editorial di footer kanan.",
-          accentDesc: "Mengubah warna border dan aksen badge editorial.",
-        };
-      case "footer-icon":
-        return {
-          contentLabel: "Footer Avatar / Icon Symbol",
-          placeholder: "e.g. ⚡",
-          textDesc: "Simbol ikon avatar di footer video.",
-          accentDesc: "Warna background dan glow kotak ikon avatar.",
-        };
-      case "bg-base":
-        return {
-          contentLabel: "Background Layer Name",
-          placeholder: "Background: Radial Gradient",
-          textDesc: "Latar belakang utama seluruh video.",
-          accentDesc: "Warna tema gradien latar belakang video.",
-        };
-      case "bg-orb-pattern":
-        return {
-          contentLabel: "Glow Orb Pattern Name",
-          placeholder: "Pattern: Ambient Glow Orb",
-          textDesc: "Efek bola cahaya ambient mengambang.",
-          accentDesc: "Warna pendaran cahaya bola ambient di video.",
-        };
-      case "bg-grid-pattern":
-        return {
-          contentLabel: "Grid Pattern Name",
-          placeholder: "Pattern: Blueprint Grid",
-          textDesc: "Efek garis grid blueprint latar belakang.",
-          accentDesc: "Warna garis-garis grid blueprint di video.",
-        };
-      default:
-        return {
-          contentLabel: "Bullet Point Content Text",
-          placeholder: "Enter bullet point text...",
-          textDesc: "Mengubah teks poin bullet yang tampil di layar video.",
-          accentDesc: "Mengubah warna simbol garis // dan border kartu di video.",
-        };
-    }
-  };
 
   const fieldInfo = getFieldInfo(layer.id);
 

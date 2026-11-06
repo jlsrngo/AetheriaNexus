@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  Check,
-  Pause,
-  Play,
   Eye,
   EyeOff,
   Layers,
@@ -13,22 +7,7 @@ import {
   Type,
   Award,
   Captions,
-  RotateCcw,
-  Plus,
   Trash2,
-  Download,
-  Loader2,
-  ZoomIn,
-  ZoomOut,
-  Scissors,
-  Copy,
-  Magnet,
-  Undo2,
-  Redo2,
-  Smartphone,
-  Monitor,
-  Repeat,
-  Maximize2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
@@ -37,6 +16,7 @@ import { useStudioStore } from "../../hooks/useStudioStore";
 import { buildCompositionLayers, type VideoLayerSpec } from "../../remotion/types";
 import type { StudioRenderJob } from "../../types/studio";
 import { ClipEditModal } from "./ClipEditModal";
+import { TimelineHeaderToolbar } from "./timeline/TimelineHeaderToolbar";
 
 interface TimelineProps {
   compositionId: string;
@@ -81,70 +61,6 @@ export const Timeline: React.FC<TimelineProps> = ({
   const [dragOverride, setDragOverride] = useState<DragOverride | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isSnapping, setIsSnapping] = useState<boolean>(true);
-  const [isRatioOpen, setIsRatioOpen] = useState<boolean>(false);
-  const ratioDropdownRef = useRef<HTMLDivElement>(null);
-
-  const containerRef = useRef<HTMLElement>(null);
-  const [containerWidth, setContainerWidth] = useState<number>(1000);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        setContainerWidth(entry.contentRect.width);
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  const isCompact = containerWidth < 720;
-  const isMedium = containerWidth >= 720 && containerWidth < 960;
-  const isWide = containerWidth >= 960;
-  const isUltra = containerWidth >= 1200;
-
-  useEffect(() => {
-    if (!isRatioOpen) return;
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (
-        ratioDropdownRef.current &&
-        !ratioDropdownRef.current.contains(e.target as Node)
-      ) {
-        setIsRatioOpen(false);
-      }
-    };
-    window.addEventListener("mousedown", handleOutsideClick);
-    return () => window.removeEventListener("mousedown", handleOutsideClick);
-  }, [isRatioOpen]);
-
-  const RATIO_OPTIONS = [
-    {
-      value: "9:16",
-      label: "9:16",
-      sub: "TikTok, Reels, Shorts (1080×1920)",
-      icon: Smartphone,
-    },
-    {
-      value: "1:1",
-      label: "1:1",
-      sub: "Square Post (1080×1080)",
-      icon: Monitor,
-    },
-    {
-      value: "16:9",
-      label: "16:9",
-      sub: "YouTube Landscape (1920×1080)",
-      icon: Monitor,
-    },
-    {
-      value: "4:5",
-      label: "4:5",
-      sub: "Instagram Portrait (1080×1350)",
-      icon: Smartphone,
-    },
-  ] as const;
 
   // Zoom scale: negative = compact frames (down to 0.15x), 0% = 1.0x (fit), positive = stretch up to 25.0x
   const zoomMultiplier =
@@ -283,15 +199,6 @@ export const Timeline: React.FC<TimelineProps> = ({
         ...currentVis,
         [layer.id]: !layer.visible,
       },
-    });
-  };
-
-  const handleResetLayerTimings = () => {
-    setDragOverride(null);
-    actions.updateActiveProps({
-      layerStartFrame: {},
-      layerDuration: {},
-      layerVisibility: {},
     });
   };
 
@@ -934,7 +841,6 @@ export const Timeline: React.FC<TimelineProps> = ({
 
   return (
     <section
-      ref={containerRef}
       className="shrink-0 border-t border-[var(--border-color)] bg-[var(--bg-app)] flex flex-col select-none relative"
       style={{ height: timelineHeight }}
     >
@@ -945,478 +851,80 @@ export const Timeline: React.FC<TimelineProps> = ({
         title="Drag to resize Timeline height"
       />
 
-      {/* Row 1: Playback Transport, Timecode, Markers, Zoom & Viewport Controls */}
-      <div className="h-8 px-2 flex items-center justify-between gap-1.5 border-b border-[var(--border-color)] bg-[var(--bg-panel)] shrink-0 relative z-20">
-        {/* Left Section: Transport + Timecode + Markers + Track Count */}
-        <div className="flex items-center gap-1 shrink-0">
-          {/* Transport Pill (< ▶ >) */}
-          <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-sm shrink-0">
-            <button
-              type="button"
-              onClick={() => step(-1)}
-              title="Previous Frame (Left Arrow)"
-              className="w-5 h-5 rounded-full bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-            >
-              <ChevronLeft className="w-3 h-3" />
-            </button>
+      {/* Sleek Vertical Icon-and-Label Header Toolbar (Matching User Design) */}
+      <TimelineHeaderToolbar
+        currentFrame={currentFrame}
+        durationInFrames={durationInFrames}
+        fps={fps}
+        isPlaying={isPlaying}
+        playbackRate={canvas.playbackRate}
+        timelineZoom={timelineZoom}
+        isSnapping={isSnapping}
+        canUndo={undoStack.length > 0}
+        canRedo={redoStack.length > 0}
+        activeRatio={activeComposition.ratio}
+        selectedLayer={selectedLayer ?? null}
+        isExporting={isExporting}
+        onTogglePlay={onTogglePlay}
+        onStep={step}
+        onUndo={() => {
+          actions.undoProps();
+          toast.info("Undo: Reverted change", { duration: 1200 });
+        }}
+        onRedo={() => {
+          actions.redoProps();
+          toast.info("Redo: Reapplied change", { duration: 1200 });
+        }}
+        onRatioChange={handleRatioChange}
+        onFit={() => setTimelineZoom(0)}
+        onTrimIn={() => {
+          updateCanvas({
+            inFrame: canvas.inFrame === currentFrame ? null : currentFrame,
+          });
+          toast.info(`In-point: ${currentFrame}f`);
+        }}
+        onTrimOut={() => {
+          updateCanvas({
+            outFrame: canvas.outFrame === currentFrame ? null : currentFrame,
+          });
+          toast.info(`Out-point: ${currentFrame}f`);
+        }}
+        onSplit={handleSplitClip}
+        onSpeedChange={(speed) => {
+          updateCanvas({ playbackRate: speed });
+          toast.info(`Playback speed: ${speed}x`);
+        }}
+        onDuplicate={handleDuplicateLayer}
+        onDelete={handleDeleteSelectedLayer}
+        onToggleSnap={() => setIsSnapping((s) => !s)}
+        onAddLayer={handleAddCustomLayer}
+        onExport={() => void handleQuickExport()}
+        onShare={() => {
+          navigator.clipboard?.writeText(JSON.stringify(activeComposition.props, null, 2));
+          toast.success("JSON konfigurasi komposisi disalin ke clipboard!");
+        }}
+        onZoomChange={setTimelineZoom}
+      />
 
-            <button
-              type="button"
-              onClick={onTogglePlay}
-              title={isPlaying ? "Pause (Space)" : "Play (Space)"}
-              className="w-6 h-6 rounded-full flex items-center justify-center bg-[#cf6613] hover:bg-[#b8580f] text-white border border-[#e07b27] shadow transition-all cursor-pointer"
-            >
-              {isPlaying ? (
-                <Pause className="w-2.5 h-2.5 fill-current" />
-              ) : (
-                <Play className="w-2.5 h-2.5 fill-current ml-0.5" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => step(1)}
-              title="Next Frame (Right Arrow)"
-              className="w-5 h-5 rounded-full bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-            >
-              <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-
-          {/* Frame & Seconds Timecode */}
-          <button
-            type="button"
-            onClick={() => onSeek(canvas.inFrame ?? 0)}
-            title="Click to jump to in-frame"
-            className="h-6 px-1.5 rounded-md bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] flex items-center gap-1 text-[10px] font-mono text-[var(--text-secondary)] shrink-0 cursor-pointer"
-          >
-            {!isCompact && <span>FRAME</span>}
-            <span className="text-amber-400 font-semibold">
-              {String(currentFrame).padStart(3, "0")}
+      {/* Sub-strip: Selected Clip Quick Telemetry (if clip selected) */}
+      {selectedLayer && (
+        <div
+          onClick={() => setModalLayer(selectedLayer)}
+          className="h-6 px-3 bg-[var(--bg-card)] border-b border-[var(--border-color)] flex items-center justify-between text-[10px] font-mono text-[var(--text-secondary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors select-none shrink-0"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-amber-400 font-bold">{selectedLayer.trackCode}</span>
+            <span className="text-[var(--text-primary)] font-medium">{selectedLayer.label}</span>
+            <span className="text-[var(--text-muted)]">•</span>
+            <span className="text-emerald-400 font-semibold">
+              {selectedLayer.from}f–{selectedLayer.from + selectedLayer.durationInFrames}f ({((selectedLayer.durationInFrames) / fps).toFixed(2)}s)
             </span>
-            <span>/{durationInFrames}</span>
-            {isWide && (
-              <span className="text-[var(--text-muted)] ml-0.5">
-                ({(currentFrame / fps).toFixed(2)}s)
-              </span>
-            )}
-          </button>
-
-          {/* In / Out Markers & Reset */}
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={() =>
-                updateCanvas({
-                  inFrame: canvas.inFrame === currentFrame ? null : currentFrame,
-                })
-              }
-              title="Set In Point (I)"
-              className={cn(
-                "px-1.5 h-6 rounded-md text-[10px] font-mono border transition-colors cursor-pointer shrink-0",
-                canvas.inFrame !== null
-                  ? "bg-[#cf6613] border-[#e07b27] text-white font-semibold"
-                  : "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              )}
-            >
-              [I{canvas.inFrame !== null ? `:${canvas.inFrame}` : ""}
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                updateCanvas({
-                  outFrame:
-                    canvas.outFrame === currentFrame ? null : currentFrame,
-                })
-              }
-              title="Set Out Point (O)"
-              className={cn(
-                "px-1.5 h-6 rounded-md text-[10px] font-mono border transition-colors cursor-pointer shrink-0",
-                canvas.outFrame !== null
-                  ? "bg-[#cf6613] border-[#e07b27] text-white font-semibold"
-                  : "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              )}
-            >
-              {canvas.outFrame !== null ? `${canvas.outFrame}:` : ""}O]
-            </button>
-            <button
-              type="button"
-              onClick={handleResetLayerTimings}
-              title="Reset all clip timings"
-              className="px-1.5 h-6 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1 cursor-pointer shrink-0"
-            >
-              <RotateCcw className="w-2.5 h-2.5" />
-              {!isCompact && <span>Reset</span>}
-            </button>
           </div>
-
-          {/* Track Count Badge */}
-          <span className="h-6 px-1.5 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-amber-400 font-semibold text-[10px] font-mono flex items-center shrink-0">
-            {layers.length}{!isCompact ? <span className="ml-1">TRACKS</span> : <span>T</span>}
+          <span className="text-[9px] text-[var(--text-muted)]">
+            Klik untuk edit konten, warna & durasi klip
           </span>
         </div>
-
-        {/* Center / Flexible Section: Zoom Controls & Fluid Work Area Status */}
-        <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-center">
-          {/* Zoom Slider */}
-          <div
-            className="h-6 px-1.5 flex items-center gap-1 border border-[var(--border-strong)] bg-[var(--bg-card)] rounded-md text-[10px] font-mono shrink-0"
-            title="Drag slider to zoom Timeline frames horizontally"
-          >
-            <button
-              type="button"
-              onClick={() => setTimelineZoom((z) => Math.max(-100, z - 10))}
-              className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
-              title="Zoom Out (-10%)"
-            >
-              <ZoomOut className="w-3 h-3" />
-            </button>
-            <input
-              type="range"
-              min={-100}
-              max={100}
-              step={5}
-              value={timelineZoom}
-              onChange={(e) => setTimelineZoom(Number(e.target.value))}
-              className={cn(
-                "h-1 accent-[#cf6613] bg-[var(--bg-input)] rounded-lg cursor-ew-resize outline-none",
-                isCompact ? "w-12" : isMedium ? "w-16" : "w-20"
-              )}
-              title={`Timeline Zoom: ${timelineZoom > 0 ? `+${timelineZoom}%` : `${timelineZoom}%`}`}
-            />
-            <button
-              type="button"
-              onClick={() => setTimelineZoom((z) => Math.min(100, z + 10))}
-              className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
-              title="Zoom In (+10%)"
-            >
-              <ZoomIn className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setTimelineZoom(0)}
-              className="text-amber-400 font-semibold px-0.5 hover:underline cursor-pointer min-w-5 text-center"
-              title="Reset Zoom to 0%"
-            >
-              {timelineZoom > 0 ? `+${timelineZoom}%` : `${timelineZoom}%`}
-            </button>
-          </div>
-
-          {/* Fit */}
-          <button
-            type="button"
-            onClick={() => setTimelineZoom(0)}
-            title="Fit Timeline to Screen"
-            className="h-6 px-1.5 rounded-md bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
-          >
-            <Maximize2 className="w-2.5 h-2.5" />
-            {!isCompact && <span>Fit</span>}
-          </button>
-
-          {/* Loop */}
-          <button
-            type="button"
-            onClick={() => updateCanvas({ loop: !canvas.loop })}
-            title={canvas.loop ? "Loop Playback ON" : "Loop Playback OFF"}
-            className={cn(
-              "h-6 px-1.5 rounded-md border text-[10px] font-medium flex items-center gap-1 cursor-pointer transition-colors shrink-0",
-              canvas.loop
-                ? "bg-[#cf6613]/20 border-[#cf6613] text-[#f97316]"
-                : "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-            )}
-          >
-            <Repeat className="w-2.5 h-2.5" />
-            {!isCompact && <span>Loop</span>}
-          </button>
-
-          {/* Fluid Work Area Status Bar (Only shown when width is wide/ultra, fills all remaining center space!) */}
-          {isWide && (
-            <div className="flex-1 min-w-0 h-6 px-2.5 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] flex items-center justify-between text-[10px] font-mono text-[var(--text-secondary)] overflow-hidden">
-              <div className="flex items-center gap-1.5 truncate">
-                <span className="text-[var(--text-muted)]">Work Area:</span>
-                <span className="text-amber-400 font-semibold">{canvas.inFrame ?? 0}f – {canvas.outFrame ?? durationInFrames}f</span>
-                <span className="text-[var(--text-muted)]">({(((canvas.outFrame ?? durationInFrames) - (canvas.inFrame ?? 0)) / fps).toFixed(2)}s)</span>
-              </div>
-              {isUltra && (
-                <div className="flex items-center gap-2 text-[var(--text-muted)] text-[9px] shrink-0 ml-2">
-                  <span>Remotion 60fps</span>
-                  <span>•</span>
-                  <span className="text-emerald-400 font-semibold">Local GPU (Rp 0)</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Right Section: Speed + FPS + Export */}
-        <div className="flex items-center gap-1 shrink-0">
-          {/* Speed */}
-          <select
-            value={canvas.playbackRate}
-            onChange={(e) =>
-              updateCanvas({
-                playbackRate: Number(e.target.value) as 0.5 | 1 | 1.5 | 2,
-              })
-            }
-            className="h-6 px-1 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer shrink-0"
-            title="Playback Speed"
-          >
-            <option value={0.5} className="bg-[#121215] text-[#FAFAFA]">0.5x</option>
-            <option value={1} className="bg-[#121215] text-[#FAFAFA]">1.0x</option>
-            <option value={1.5} className="bg-[#121215] text-[#FAFAFA]">1.5x</option>
-            <option value={2} className="bg-[#121215] text-[#FAFAFA]">2.0x</option>
-          </select>
-
-          {/* FPS */}
-          <select
-            value={fps}
-            onChange={(e) => {
-              const nextFps = Number(e.target.value) || 30;
-              actions.updateActiveMetadata({ fps: nextFps });
-              toast.success(`Updated frame rate to ${nextFps} FPS`);
-            }}
-            className="h-6 px-1 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)] outline-none cursor-pointer shrink-0"
-            title="Frame Rate (FPS)"
-          >
-            <option value={24} className="bg-[#121215] text-[#FAFAFA]">24 FPS</option>
-            <option value={25} className="bg-[#121215] text-[#FAFAFA]">25 FPS</option>
-            <option value={30} className="bg-[#121215] text-[#FAFAFA]">30 FPS</option>
-            <option value={50} className="bg-[#121215] text-[#FAFAFA]">50 FPS</option>
-            <option value={60} className="bg-[#121215] text-[#FAFAFA]">60 FPS</option>
-          </select>
-
-          {/* Export Button */}
-          <button
-            type="button"
-            onClick={() => void handleQuickExport()}
-            disabled={isExporting}
-            title="Export / Render Video (MP4)"
-            className="h-6 px-2 rounded-md bg-[var(--bg-card)] hover:bg-[#cf6613] border border-[var(--border-strong)] hover:border-[#e07b27] text-[var(--text-primary)] hover:text-white flex items-center gap-1 text-[10px] font-medium cursor-pointer transition-colors disabled:opacity-60 shrink-0"
-          >
-            {isExporting ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <Download className="w-3 h-3" />
-            )}
-            {!isCompact && <span>Export</span>}
-          </button>
-        </div>
-      </div>
-
-      {/* Row 2: Aspect Ratio Popover, Editing Tools, Layer Operations & Fluid Clip Telemetry */}
-      <div className="h-8 px-2 flex items-center gap-1.5 border-b border-[var(--border-color)] bg-[var(--bg-card)]/40 shrink-0 relative z-30">
-        {/* Left Section: Aspect Ratio Popover */}
-        <div ref={ratioDropdownRef} className="relative shrink-0 z-50">
-          <button
-            type="button"
-            onClick={() => setIsRatioOpen((v) => !v)}
-            className={cn(
-              "h-6 px-2 flex items-center gap-1.5 rounded-md border text-[10px] font-mono transition-colors cursor-pointer shrink-0",
-              isRatioOpen
-                ? "bg-[#cf6613]/20 border-[#cf6613] text-amber-400 font-semibold"
-                : "bg-[var(--bg-panel)] border-[var(--border-strong)] text-amber-400 hover:bg-[var(--bg-hover)]"
-            )}
-            title="Select Composition Aspect Ratio"
-          >
-            <Smartphone className="w-3 h-3 text-[var(--text-muted)]" />
-            <span>{activeComposition.ratio}</span>
-            {!isCompact && (
-              <span className="text-[9px] text-[var(--text-secondary)] font-normal">
-                ({activeComposition.ratio === "9:16" ? "TikTok" : activeComposition.ratio === "1:1" ? "Square" : activeComposition.ratio === "16:9" ? "Landscape" : "Portrait"})
-              </span>
-            )}
-            <ChevronDown className={cn("w-3 h-3 text-[var(--text-secondary)] transition-transform", isRatioOpen && "rotate-180")} />
-          </button>
-
-          {isRatioOpen && (
-            <div className="absolute top-full left-0 mt-1.5 w-64 py-1.5 rounded-xl bg-[#141418] border border-[#2A2A33] shadow-2xl shadow-black/95 z-50 animate-in fade-in zoom-in-95 duration-100 backdrop-blur-md">
-              <div className="px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-muted)] border-b border-[#222228] mb-1">
-                Aspect Ratio
-              </div>
-              {RATIO_OPTIONS.map((opt) => {
-                const isSelected = activeComposition.ratio === opt.value;
-                const Icon = opt.icon;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => {
-                      handleRatioChange(opt.value);
-                      setIsRatioOpen(false);
-                    }}
-                    className={cn(
-                      "w-full px-2.5 py-1.5 flex items-center justify-between text-left transition-colors cursor-pointer",
-                      isSelected
-                        ? "bg-[#cf6613]/15 text-amber-400 font-semibold"
-                        : "text-[var(--text-primary)] hover:bg-[#1E1E26] hover:text-white"
-                    )}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Icon className={cn("w-3.5 h-3.5 shrink-0", isSelected ? "text-amber-400" : "text-[var(--text-secondary)]")} />
-                      <div className="min-w-0">
-                        <div className="text-[11px] leading-tight flex items-center gap-1.5">
-                          <span>{opt.label}</span>
-                          {isSelected && (
-                            <span className="text-[8px] px-1 rounded bg-[#cf6613] text-white font-mono">
-                              ACTIVE
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[9px] text-[var(--text-secondary)] font-mono leading-tight truncate">
-                          {opt.sub}
-                        </div>
-                      </div>
-                    </div>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-amber-400 shrink-0 ml-1" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="w-px h-3.5 bg-[var(--border-color)] mx-0.5 shrink-0" />
-
-        {/* Clip Action Buttons */}
-        <div className="flex items-center gap-1 shrink-0">
-          {/* Split */}
-          <button
-            type="button"
-            onClick={handleSplitClip}
-            title="Split / Cut Clip at Playhead Frame (S or C)"
-            className="h-6 px-1.5 rounded-md bg-[var(--bg-panel)] hover:bg-[#cf6613] hover:text-white border border-[var(--border-strong)] hover:border-[#e07b27] text-[10px] font-medium text-[var(--text-secondary)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
-          >
-            <Scissors className="w-3 h-3" />
-            {!isCompact && <span>Split</span>}
-          </button>
-
-          {/* Duplicate */}
-          <button
-            type="button"
-            onClick={handleDuplicateLayer}
-            title="Duplicate Selected Layer (Ctrl+D)"
-            className="h-6 px-1.5 rounded-md bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
-          >
-            <Copy className="w-3 h-3" />
-            {isWide ? <span>Duplicate</span> : !isCompact ? <span>Copy</span> : null}
-          </button>
-
-          {/* Delete */}
-          <button
-            type="button"
-            onClick={handleDeleteSelectedLayer}
-            title="Delete Selected Layer (Delete)"
-            className="h-6 px-1.5 rounded-md bg-[var(--bg-panel)] hover:bg-rose-900/60 hover:text-rose-200 border border-[var(--border-strong)] hover:border-rose-700/60 text-[10px] font-medium text-[var(--text-secondary)] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
-          >
-            <Trash2 className="w-3 h-3" />
-            {!isCompact && <span>Delete</span>}
-          </button>
-        </div>
-
-        <div className="w-px h-3.5 bg-[var(--border-color)] mx-0.5 shrink-0" />
-
-        {/* Magnet Snapping + Undo / Redo */}
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            type="button"
-            onClick={() => setIsSnapping((s) => !s)}
-            title={
-              isSnapping
-                ? "Snapping ON (Magnetic snap to playhead, markers & clip edges)"
-                : "Snapping OFF"
-            }
-            className={cn(
-              "h-6 px-1.5 rounded-md border text-[10px] font-medium flex items-center gap-1 cursor-pointer transition-colors shrink-0",
-              isSnapping
-                ? "bg-[#cf6613]/20 border-[#cf6613] text-[#f97316]"
-                : "bg-[var(--bg-panel)] border-[var(--border-strong)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-            )}
-          >
-            <Magnet className="w-3 h-3" />
-            {!isCompact && <span>Snap</span>}
-          </button>
-
-          <button
-            type="button"
-            disabled={undoStack.length === 0}
-            onClick={() => {
-              actions.undoProps();
-              toast.info("Undo: Reverted change", { duration: 1200 });
-            }}
-            title="Undo (Ctrl+Z)"
-            className="w-6 h-6 rounded-md bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center cursor-pointer transition-colors shrink-0"
-          >
-            <Undo2 className="w-3 h-3" />
-          </button>
-
-          <button
-            type="button"
-            disabled={redoStack.length === 0}
-            onClick={() => {
-              actions.redoProps();
-              toast.info("Redo: Reapplied change", { duration: 1200 });
-            }}
-            title="Redo (Ctrl+Y / Ctrl+Shift+Z)"
-            className="w-6 h-6 rounded-md bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center cursor-pointer transition-colors shrink-0"
-          >
-            <Redo2 className="w-3 h-3" />
-          </button>
-        </div>
-
-        <div className="w-px h-3.5 bg-[var(--border-color)] mx-0.5 shrink-0" />
-
-        {/* Add Layer Button */}
-        <button
-          type="button"
-          onClick={handleAddCustomLayer}
-          title="Add New Dynamic Layer"
-          className="px-2 h-6 rounded-md bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-[10px] font-semibold text-white flex items-center gap-1 cursor-pointer transition-colors shrink-0"
-        >
-          <Plus className="w-3 h-3" />
-          {!isCompact && <span>Layer</span>}
-        </button>
-
-        <div className="w-px h-3.5 bg-[var(--border-color)] mx-0.5 shrink-0" />
-
-        {/* Live Selected Clip Telemetry & Status Pill (Fluid space filler on any screen width!) */}
-        {selectedLayer ? (
-          <div
-            onClick={() => setModalLayer(selectedLayer)}
-            title="Click to edit clip content, color tag and timing"
-            className="flex-1 min-w-0 h-6 px-2.5 rounded-md bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] flex items-center justify-between text-[10px] font-mono text-[var(--text-secondary)] cursor-pointer transition-colors overflow-hidden"
-          >
-            <div className="flex items-center gap-1.5 min-w-0 truncate">
-              <span className="text-amber-400 font-bold shrink-0">{selectedLayer.trackCode}</span>
-              <span className="text-[var(--text-primary)] font-medium truncate">{selectedLayer.label}</span>
-              <span className="text-[var(--text-muted)] shrink-0">•</span>
-              <span className="text-amber-300 font-semibold shrink-0 capitalize">
-                {activeComposition.props.layerColors?.[selectedLayer.id] || selectedLayer.color || "violet"}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0 text-[var(--text-muted)] ml-2">
-              <span>{selectedLayer.from}f–{selectedLayer.from + selectedLayer.durationInFrames}f</span>
-              {!isCompact && (
-                <span>({(selectedLayer.durationInFrames / fps).toFixed(2)}s)</span>
-              )}
-              {isWide && (
-                <span className="text-amber-400/90">• Double-click to edit</span>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1 min-w-0 h-6 px-2.5 rounded-md bg-[var(--bg-panel)]/50 border border-[var(--border-color)]/60 flex items-center justify-between text-[10px] font-mono text-[var(--text-muted)] overflow-hidden">
-            <span className="truncate">
-              {isCompact ? "Click clip to inspect" : "Click a clip on timeline to inspect or customize color tag"}
-            </span>
-            {isWide && (
-              <span className="text-[9px] text-[var(--text-secondary)] shrink-0 ml-2">
-                Space: Play/Pause • S: Split • Del: Delete
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
+      )}
       {/* 2. Premiere-Style Multi-Track Body */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Left Column: Track Code (V12..V1) + Component Name + Edit/Visibility */}
