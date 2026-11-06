@@ -283,6 +283,17 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
     .map((l) => l.trim())
     .filter(Boolean);
 
+  const orbSize = props.orbSize ?? 600;
+  const orbBlur = props.orbBlur ?? 140;
+  const gridSize = props.gridSize ?? 40;
+  const gridOpacity = props.gridOpacity ?? 0.22;
+  const footerIconChar =
+    props.footerIconChar ||
+    (props.layerLabels?.["footer-icon"] &&
+    props.layerLabels["footer-icon"].length <= 3
+      ? props.layerLabels["footer-icon"]
+      : "⚡");
+
   const bgShift = Math.sin(frame / 20) * 15;
   const isCompactHeight = height <= 1150;
 
@@ -351,12 +362,12 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                 top: "15%",
                 left: "50%",
                 transform: `translateX(-50%) translateY(${bgShift}px)`,
-                width: "600px",
-                height: "600px",
+                width: `${orbSize}px`,
+                height: `${orbSize}px`,
                 background: layerColors["bg-orb-pattern"]
                   ? resolveThemePalette(layerColors["bg-orb-pattern"]).glow
                   : currentTheme.glow,
-                filter: "blur(140px)",
+                filter: `blur(${orbBlur}px)`,
                 borderRadius: "50%",
               }}
             />
@@ -374,9 +385,9 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
           <AbsoluteFill
             style={{
               backgroundImage: layerColors["bg-grid-pattern"]
-                ? `linear-gradient(to right, ${resolveColorToHex(layerColors["bg-grid-pattern"])}22 1px, transparent 1px), linear-gradient(to bottom, ${resolveColorToHex(layerColors["bg-grid-pattern"])}22 1px, transparent 1px)`
-                : "linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)",
-              backgroundSize: "40px 40px",
+                ? `linear-gradient(to right, ${resolveColorToHex(layerColors["bg-grid-pattern"])}${Math.max(16, Math.min(255, Math.round(gridOpacity * 255))).toString(16).padStart(2, "0")} 1px, transparent 1px), linear-gradient(to bottom, ${resolveColorToHex(layerColors["bg-grid-pattern"])}${Math.max(16, Math.min(255, Math.round(gridOpacity * 255))).toString(16).padStart(2, "0")} 1px, transparent 1px)`
+                : `linear-gradient(to right, rgba(255,255,255,${gridOpacity}) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,${gridOpacity}) 1px, transparent 1px)`,
+              backgroundSize: `${gridSize}px ${gridSize}px`,
               pointerEvents: "none",
               zIndex: 2,
             }}
@@ -588,7 +599,7 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
                   ...getOffsetStyle("footer-icon"),
                 }}
               >
-                ⚡
+                {footerIconChar}
               </div>
             </Sequence>
           )}

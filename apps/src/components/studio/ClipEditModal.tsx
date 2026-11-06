@@ -1,8 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { X, Save, Eye, EyeOff, Clock, Trash2, Layers, Palette, Check, Pipette } from "lucide-react";
+import {
+  X,
+  Save,
+  Eye,
+  EyeOff,
+  Clock,
+  Trash2,
+  Palette,
+  Check,
+  Pipette,
+  Sparkles,
+  Type,
+  Award,
+  Sliders,
+} from "lucide-react";
 import { cn } from "../../lib/utils";
 import type { VideoLayerSpec } from "../../remotion/types";
 import { resolveColorToHex } from "../../remotion/types";
+import { useStudioStore } from "../../hooks/useStudioStore";
 
 export interface ClipColorOption {
   key: string;
@@ -52,11 +67,19 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
   onToggleVisibility,
   onDeleteCustom,
 }) => {
+  const { activeComposition, actions } = useStudioStore();
   const [contentDraft, setContentDraft] = useState("");
   const [fromDraft, setFromDraft] = useState(0);
   const [durationDraft, setDurationDraft] = useState(30);
   const [colorDraft, setColorDraft] = useState("#F97316");
   const [hexInput, setHexInput] = useState("#F97316");
+
+  // Visual effect parameters for background & graphic pattern layers
+  const [orbSizeDraft, setOrbSizeDraft] = useState<number>(activeComposition.props.orbSize ?? 600);
+  const [orbBlurDraft, setOrbBlurDraft] = useState<number>(activeComposition.props.orbBlur ?? 140);
+  const [gridSizeDraft, setGridSizeDraft] = useState<number>(activeComposition.props.gridSize ?? 40);
+  const [gridOpacityDraft, setGridOpacityDraft] = useState<number>(activeComposition.props.gridOpacity ?? 0.22);
+  const [iconCharDraft, setIconCharDraft] = useState<string>(activeComposition.props.footerIconChar || "⚡");
 
   useEffect(() => {
     if (layer) {
@@ -66,14 +89,25 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
       const hex = resolveColorToHex(layer.color || "#F97316");
       setColorDraft(hex);
       setHexInput(hex);
+      setOrbSizeDraft(activeComposition.props.orbSize ?? 600);
+      setOrbBlurDraft(activeComposition.props.orbBlur ?? 140);
+      setGridSizeDraft(activeComposition.props.gridSize ?? 40);
+      setGridOpacityDraft(activeComposition.props.gridOpacity ?? 0.22);
+      setIconCharDraft(activeComposition.props.footerIconChar || "⚡");
     }
-  }, [layer]);
+  }, [layer, activeComposition.props]);
 
   if (!isOpen || !layer) return null;
 
   const endFrame = fromDraft + durationDraft;
   const startSec = (fromDraft / fps).toFixed(2);
   const endSec = (endFrame / fps).toFixed(2);
+
+  const isOrbLayer = layer.id === "bg-orb-pattern";
+  const isGridLayer = layer.id === "bg-grid-pattern";
+  const isBaseLayer = layer.id === "bg-base";
+  const isVisualEffectLayer = isOrbLayer || isGridLayer || isBaseLayer;
+  const isIconLayer = layer.id === "footer-icon";
 
   const getFieldInfo = (id: string) => {
     switch (id) {
@@ -114,10 +148,10 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
         };
       case "footer-icon":
         return {
-          contentLabel: "Footer Avatar / Icon Name",
-          placeholder: "e.g. Avatar Icon: [⚡] Box",
+          contentLabel: "Footer Avatar / Icon Symbol",
+          placeholder: "e.g. ⚡",
           colorLabel: "Footer Icon Box Accent Color",
-          colorDesc: "Sets the border, glow, and icon color for the footer avatar box.",
+          colorDesc: "Sets the border, glow, and background accent color for the footer avatar box.",
         };
       case "bg-base":
         return {
@@ -131,14 +165,14 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
           contentLabel: "Glow Orb Pattern Name",
           placeholder: "Pattern: Ambient Glow Orb",
           colorLabel: "Ambient Glow Orb Color",
-          colorDesc: "Sets the glowing color of the floating ambient orb behind the text.",
+          colorDesc: "Sets the glowing color of the floating ambient orb behind the text in the video.",
         };
       case "bg-grid-pattern":
         return {
           contentLabel: "Grid Pattern Name",
           placeholder: "Pattern: Blueprint Grid",
           colorLabel: "Blueprint Grid Lines Color",
-          colorDesc: "Sets the stroke tint of the background blueprint grid lines.",
+          colorDesc: "Sets the stroke tint of the background blueprint grid lines in the video.",
         };
       default:
         if (id.startsWith("text-bullet-")) {
@@ -170,6 +204,22 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
     onSaveTiming(layer, safeFrom, safeDur);
     if (onSaveColor && colorDraft) {
       onSaveColor(layer, colorDraft);
+    }
+    // Commit visual effect parameters directly
+    if (isOrbLayer) {
+      actions.updateActiveProps({
+        orbSize: orbSizeDraft,
+        orbBlur: orbBlurDraft,
+      });
+    } else if (isGridLayer) {
+      actions.updateActiveProps({
+        gridSize: gridSizeDraft,
+        gridOpacity: gridOpacityDraft,
+      });
+    } else if (isIconLayer) {
+      actions.updateActiveProps({
+        footerIconChar: iconCharDraft.slice(0, 4) || "⚡",
+      });
     }
     onClose();
   };
@@ -210,7 +260,11 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
               {layer.trackCode}
             </span>
             <span className="text-xs font-semibold truncate text-[var(--text-primary)]">
-              Edit Component: {layer.label}
+              {isVisualEffectLayer
+                ? `Edit Visual Effect: ${layer.label}`
+                : isIconLayer
+                ? `Edit Icon Box: ${layer.label}`
+                : `Edit Text Component: ${layer.label}`}
             </span>
           </div>
           <button
@@ -225,27 +279,265 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
 
         {/* Form Body */}
         <div className="p-4 space-y-3.5 text-xs overflow-y-auto max-h-[75vh]">
-          {/* Content / Label text */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-semibold text-[var(--text-secondary)]">
-                {fieldInfo.contentLabel}
-              </label>
-              <span className="text-[9px] font-mono text-[var(--text-muted)]">
-                Live Video Content
-              </span>
-            </div>
-            <textarea
-              rows={3}
-              autoFocus
-              value={contentDraft}
-              onChange={(e) => setContentDraft(e.target.value)}
-              placeholder={fieldInfo.placeholder}
-              className="w-full p-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] outline-none focus:border-amber-400 resize-none font-sans leading-relaxed"
-            />
-          </div>
+          {/* Section 1: Type-Specific Content or Visual Controls */}
+          {isVisualEffectLayer ? (
+            /* Visual Effect Layer Banner & Parameters */
+            <div className="space-y-3">
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5">
+                <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-xs">
+                  <div className="font-semibold text-amber-300 flex items-center gap-1.5">
+                    <span>Efek Visual & Latar Belakang Video</span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-200 font-mono">
+                      GRAFIS / BACKGROUND
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                    {isOrbLayer
+                      ? "Layer ini adalah efek bola cahaya ambient di belakang teks video (elemen grafis, bukan teks). Mengatur warna dan parameter di bawah ini langsung mengubah visual cahaya di video player."
+                      : isGridLayer
+                      ? "Layer ini adalah efek pola garis blueprint di belakang video (elemen grafis, bukan teks). Mengatur warna dan ukuran di bawah ini langsung mengubah garis grid di video."
+                      : "Layer ini adalah gradien warna dasar latar belakang video (elemen grafis, bukan teks). Mengatur warna di bawah ini langsung mengubah tema dasar video."}
+                  </p>
+                </div>
+              </div>
 
-          {/* Interactive Color Picker Section (Controls Video Component Styling) */}
+              {/* Orb Specific Visual Parameters */}
+              {isOrbLayer && (
+                <div className="p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2.5">
+                  <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Parameter Visual Ambient Glow Orb</span>
+                  </span>
+
+                  <div className="space-y-2 pt-1">
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] mb-1">
+                        <span>Ukuran Bola Cahaya (Orb Scale)</span>
+                        <span className="font-mono text-amber-400">{orbSizeDraft}px</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          { val: 400, label: "400px (Kecil)" },
+                          { val: 600, label: "600px (Standar)" },
+                          { val: 800, label: "800px (Besar)" },
+                        ].map((opt) => (
+                          <button
+                            key={opt.val}
+                            type="button"
+                            onClick={() => setOrbSizeDraft(opt.val)}
+                            className={cn(
+                              "h-6 px-2 rounded-md border text-[10px] font-mono transition-colors cursor-pointer",
+                              orbSizeDraft === opt.val
+                                ? "bg-[#cf6613] border-[#e07b27] text-white font-semibold"
+                                : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white"
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] mb-1">
+                        <span>Kelembutan Cahaya (Glow Blur)</span>
+                        <span className="font-mono text-amber-400">{orbBlurDraft}px</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          { val: 80, label: "80px (Tegas)" },
+                          { val: 140, label: "140px (Standar)" },
+                          { val: 220, label: "220px (Sangat Halus)" },
+                        ].map((opt) => (
+                          <button
+                            key={opt.val}
+                            type="button"
+                            onClick={() => setOrbBlurDraft(opt.val)}
+                            className={cn(
+                              "h-6 px-2 rounded-md border text-[10px] font-mono transition-colors cursor-pointer",
+                              orbBlurDraft === opt.val
+                                ? "bg-[#cf6613] border-[#e07b27] text-white font-semibold"
+                                : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white"
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Grid Specific Visual Parameters */}
+              {isGridLayer && (
+                <div className="p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2.5">
+                  <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Parameter Visual Blueprint Grid</span>
+                  </span>
+
+                  <div className="space-y-2 pt-1">
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] mb-1">
+                        <span>Kerapatan Garis Grid (Spacing)</span>
+                        <span className="font-mono text-amber-400">{gridSizeDraft}px</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          { val: 20, label: "20px (Rapat)" },
+                          { val: 40, label: "40px (Standar)" },
+                          { val: 60, label: "60px (Lebar)" },
+                        ].map((opt) => (
+                          <button
+                            key={opt.val}
+                            type="button"
+                            onClick={() => setGridSizeDraft(opt.val)}
+                            className={cn(
+                              "h-6 px-2 rounded-md border text-[10px] font-mono transition-colors cursor-pointer",
+                              gridSizeDraft === opt.val
+                                ? "bg-[#cf6613] border-[#e07b27] text-white font-semibold"
+                                : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white"
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] mb-1">
+                        <span>Opasitas Garis Grid</span>
+                        <span className="font-mono text-amber-400">
+                          {Math.round(gridOpacityDraft * 100)}%
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          { val: 0.1, label: "10% (Tipis)" },
+                          { val: 0.22, label: "22% (Standar)" },
+                          { val: 0.45, label: "45% (Tegas)" },
+                        ].map((opt) => (
+                          <button
+                            key={opt.val}
+                            type="button"
+                            onClick={() => setGridOpacityDraft(opt.val)}
+                            className={cn(
+                              "h-6 px-2 rounded-md border text-[10px] font-mono transition-colors cursor-pointer",
+                              gridOpacityDraft === opt.val
+                                ? "bg-[#cf6613] border-[#e07b27] text-white font-semibold"
+                                : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white"
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Compact Timeline Track Label (Optional rename) */}
+              <div className="space-y-1">
+                <label className="text-[10px] text-[var(--text-muted)] block">
+                  Nama Label Track di Timeline Editor (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={contentDraft}
+                  onChange={(e) => setContentDraft(e.target.value)}
+                  placeholder={fieldInfo.placeholder}
+                  className="w-full px-2.5 h-7 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-secondary)] outline-none focus:border-amber-400 font-sans"
+                />
+              </div>
+            </div>
+          ) : isIconLayer ? (
+            /* Icon Box Symbol & Character Editing */
+            <div className="space-y-3">
+              <div className="p-3 rounded-xl bg-orange-500/10 border border-orange-500/25 flex items-start gap-2.5">
+                <Award className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-xs">
+                  <div className="font-semibold text-orange-300">
+                    Kotak Avatar / Ikon Footer Video
+                  </div>
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                    Pilih simbol ikon atau emoji yang ditampilkan di dalam kotak avatar sebelah kiri nama author.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2">
+                <label className="text-[11px] font-semibold text-[var(--text-secondary)] block">
+                  Pilih Simbol Avatar Ikon
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-lg bg-[var(--bg-input)] border border-amber-400/50 flex items-center justify-center text-xl font-bold text-amber-400 shrink-0 shadow">
+                    {iconCharDraft}
+                  </div>
+                  <input
+                    type="text"
+                    maxLength={3}
+                    value={iconCharDraft}
+                    onChange={(e) => setIconCharDraft(e.target.value)}
+                    className="flex-1 px-3 h-10 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-sm font-bold text-[var(--text-primary)] outline-none focus:border-amber-400"
+                    placeholder="⚡"
+                  />
+                </div>
+
+                <div className="pt-1">
+                  <span className="text-[9px] uppercase tracking-wider text-[var(--text-muted)] font-semibold block mb-1">
+                    Ikon Cepat
+                  </span>
+                  <div className="grid grid-cols-8 gap-1">
+                    {["⚡", "🔥", "🚀", "✦", "★", "💎", "👑", "🎯"].map((sym) => (
+                      <button
+                        key={sym}
+                        type="button"
+                        onClick={() => setIconCharDraft(sym)}
+                        className={cn(
+                          "h-7 rounded-md border text-sm flex items-center justify-center cursor-pointer transition-colors",
+                          iconCharDraft === sym
+                            ? "bg-[#cf6613] border-[#e07b27] text-white"
+                            : "bg-[var(--bg-input)] border-[var(--border-color)] hover:bg-[var(--bg-hover)]"
+                        )}
+                      >
+                        {sym}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Text Content Layer (Hook headline, bullet points, category, subcategory, author, tag) */
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
+                  <Type className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{fieldInfo.contentLabel}</span>
+                </label>
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-semibold">
+                  LIVE VIDEO TEXT
+                </span>
+              </div>
+              <textarea
+                rows={3}
+                autoFocus
+                value={contentDraft}
+                onChange={(e) => setContentDraft(e.target.value)}
+                placeholder={fieldInfo.placeholder}
+                className="w-full p-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] outline-none focus:border-amber-400 resize-none font-sans leading-relaxed shadow-inner"
+              />
+              <p className="text-[10px] text-[var(--text-muted)]">
+                Teks di atas langsung ditampilkan pada layar video canvas dan hasil render MP4.
+              </p>
+            </div>
+          )}
+
+          {/* Section 2: Interactive Color Picker (Controls Video Component Styling) */}
           <div className="p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
@@ -268,7 +560,7 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
               {fieldInfo.colorDesc}
             </p>
 
-            {/* Interactive Color Picker Controls */}
+            {/* Interactive Color Controls */}
             <div className="flex items-center gap-2 pt-0.5">
               {/* Native Eyedropper / Color Picker Button */}
               <label
@@ -360,7 +652,7 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
             </div>
           </div>
 
-          {/* Timing Section */}
+          {/* Section 3: Timing Section */}
           <div className="p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
@@ -388,7 +680,7 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                       Math.max(0, Math.min(durationInFrames - 1, Number(e.target.value) || 0))
                     )
                   }
-                  className="w-full h-7 px-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-amber-400"
+                  className="w-full px-2.5 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-amber-400"
                 />
               </div>
 
@@ -399,7 +691,7 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                 <input
                   type="number"
                   min={1}
-                  max={durationInFrames - fromDraft}
+                  max={durationInFrames}
                   step={1}
                   value={durationDraft}
                   onChange={(e) =>
@@ -407,7 +699,7 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                       Math.max(1, Math.min(durationInFrames - fromDraft, Number(e.target.value) || 1))
                     )
                   }
-                  className="w-full h-7 px-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-amber-400"
+                  className="w-full px-2.5 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-amber-400"
                 />
               </div>
 
@@ -417,35 +709,35 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                 </label>
                 <input
                   type="number"
-                  min={fromDraft + 1}
-                  max={durationInFrames}
-                  step={1}
+                  disabled
                   value={endFrame}
-                  onChange={(e) => {
-                    const nextEnd = Number(e.target.value) || fromDraft + 1;
-                    setDurationDraft(
-                      Math.max(1, Math.min(durationInFrames - fromDraft, nextEnd - fromDraft))
-                    );
-                  }}
-                  className="w-full h-7 px-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-amber-400"
+                  className="w-full px-2.5 h-8 rounded-lg bg-[var(--bg-input)]/50 border border-[var(--border-color)] text-xs font-mono text-[var(--text-muted)] cursor-not-allowed opacity-75"
                 />
               </div>
             </div>
           </div>
 
-          {/* Quick Layer Settings */}
-          <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)]">
+          {/* Section 4: Visibility Toggle */}
+          <div className="p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Layers className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="text-[11px] font-medium text-[var(--text-secondary)]">
-                Layer Visibility in Video
-              </span>
+              <Eye className="w-4 h-4 text-sky-400" />
+              <div>
+                <div className="text-[11px] font-semibold text-[var(--text-primary)]">
+                  Layer Visibility in Video
+                </div>
+                <div className="text-[10px] text-[var(--text-muted)]">
+                  Toggle whether this layer is rendered in canvas & exported video
+                </div>
+              </div>
             </div>
+
             <button
               type="button"
-              onClick={() => onToggleVisibility?.(layer)}
+              onClick={() => {
+                if (onToggleVisibility) onToggleVisibility(layer);
+              }}
               className={cn(
-                "h-6 px-2.5 rounded-lg border text-[10px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer",
+                "h-7 px-3 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer",
                 layer.visible
                   ? "bg-[#0284c7] border-[#38bdf8] text-white"
                   : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-muted)]"

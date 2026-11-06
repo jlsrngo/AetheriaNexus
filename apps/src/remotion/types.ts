@@ -90,6 +90,12 @@ export interface NexusVideoProps extends Record<string, unknown> {
   layerColors?: Record<string, string>;
   /** Per-layer manual position offsets { x: number, y: number } in composition pixels */
   layerOffsets?: Record<string, LayerOffset>;
+  /** Visual effect controls for background & ambient pattern layers */
+  orbSize?: number;
+  orbBlur?: number;
+  gridSize?: number;
+  gridOpacity?: number;
+  footerIconChar?: string;
 }
 
 /**
