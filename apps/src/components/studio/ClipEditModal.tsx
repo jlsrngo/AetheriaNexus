@@ -484,10 +484,10 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
-                  <Type className="w-3.5 h-3.5 text-emerald-400" />
+                  <Type className="w-3.5 h-3.5 text-amber-400" />
                   <span>{fieldInfo.contentLabel}</span>
                 </label>
-                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-semibold">
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-muted)] font-semibold">
                   LIVE VIDEO TEXT
                 </span>
               </div>

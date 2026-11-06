@@ -236,22 +236,22 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
       ) : (
         /* Full Width Clean Login Form */
         <Card
-          className="w-full p-8 space-y-6 rounded-none border border-neutral-800 bg-neutral-900/90 text-neutral-100 font-mono"
+          className="w-full p-6 sm:p-8 space-y-6 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-primary)]"
         >
           <div className="flex items-center gap-3">
             <div
-              className="w-10 h-10 rounded-none flex items-center justify-center shrink-0 border border-neutral-700 bg-neutral-950 text-white"
+              className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border border-[var(--border-color)] bg-[var(--bg-input)] text-amber-400"
             >
-              <LogIn className="w-5 h-5 text-emerald-400" />
+              <LogIn className="w-5 h-5" />
             </div>
             <div>
               <h4
-                className="text-sm font-bold text-white uppercase tracking-wider"
+                className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider"
               >
                 {isRegisterMode ? t("createAccount") : t("signInAccount")}
               </h4>
               <p
-                className="text-xs mt-0.5 text-neutral-400"
+                className="text-xs mt-0.5 text-[var(--text-muted)]"
               >
                 {isRegisterMode ? t("createAccountDesc") : t("signInAccountDesc")}
               </p>
@@ -358,10 +358,10 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
           </form>
 
           {/* Clean Privacy Notice (No Emoji) */}
-          <div className="pt-4 border-t border-neutral-800 flex items-start gap-2.5 text-[11px] text-neutral-500 leading-relaxed font-mono">
-            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+          <div className="pt-4 border-t border-[var(--border-color)] flex items-start gap-2.5 text-[11px] text-[var(--text-muted)] leading-relaxed">
+            <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <span>
-              <strong className="text-white">{t("privacyGuaranteeTitle")}</strong> {t("privacyGuaranteeDesc")}
+              <strong className="text-[var(--text-primary)]">{t("privacyGuaranteeTitle")}</strong> {t("privacyGuaranteeDesc")}
             </span>
           </div>
         </Card>

@@ -117,14 +117,10 @@ export function SettingsPage() {
 
   return (
     <div className="flex-1 flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-y-auto select-none p-4 sm:p-6">
-      <div className="max-w-5xl w-full mx-auto flex-1 flex flex-col min-h-0 space-y-5">
+      <div className="max-w-4xl w-full mx-auto flex-1 flex flex-col min-h-0 space-y-4">
         {/* Header Title */}
-        <div className="border-b border-[var(--border-color)] pb-4">
-          <div className="flex items-center gap-2 text-[11px] font-mono text-emerald-400 font-semibold uppercase tracking-wider mb-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>NEXUS SYSTEM SETTINGS | CONFIGURATION</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+        <div className="border-b border-[var(--border-color)] pb-3">
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-[var(--text-primary)]">
             System Telemetry & Provider Routing
           </h1>
           <p className="text-xs text-[var(--text-secondary)] mt-0.5">

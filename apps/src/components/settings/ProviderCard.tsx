@@ -99,22 +99,22 @@ export const ProviderCard = memo(function ProviderCard({
                   : t("clickToTurnOnPrimary", "Click to turn ON as Primary API Provider")
               }
               className={cn(
-                "relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-none items-center p-0.5 border transition-none focus:outline-none",
+                "relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full items-center p-0.5 border transition-colors focus:outline-none",
                 p.active
-                  ? "bg-emerald-500 border-emerald-400"
-                  : "bg-neutral-950 border-neutral-700"
+                  ? "bg-[#cf6613] border-[#cf6613]"
+                  : "bg-neutral-900 border-[var(--border-color)]"
               )}
             >
               <span
                 className={cn(
-                  "pointer-events-none inline-block h-3.5 w-4 rounded-none transition-transform duration-100 ease-in-out",
-                  p.active ? "bg-black translate-x-4 font-bold" : "bg-neutral-500 translate-x-0"
+                  "pointer-events-none inline-block h-3.5 w-3.5 rounded-full transition-transform duration-150 ease-in-out shadow-sm",
+                  p.active ? "bg-white translate-x-5" : "bg-neutral-500 translate-x-0"
                 )}
               />
             </button>
             {p.active && (
               <span
-                className="text-[9px] font-bold px-1.5 py-0.5 rounded-none uppercase tracking-wider bg-white text-black font-mono"
+                className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-color)] font-mono"
               >
                 Primary
               </span>
