@@ -94,3 +94,4 @@ export function getFieldInfo(id: string): ClipFieldInfo {
       };
   }
 }
+
