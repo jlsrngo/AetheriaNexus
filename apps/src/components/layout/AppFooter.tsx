@@ -120,10 +120,10 @@ export const AppFooter = memo(function AppFooter({
                 isActive
                   ? isNeobrutalism
                     ? `${item.neoColor} text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] font-bold`
-                    : "bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] font-medium"
+                    : "bg-[#cf6613] text-white font-semibold shadow-sm shadow-orange-950/40"
                   : isNeobrutalism
                   ? `${item.neoInactive} text-[#141413] border border-[#141413]/35 ${item.neoHover} font-semibold`
-                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] font-medium"
+                  : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)] font-medium"
               )}
             >
               <Icon

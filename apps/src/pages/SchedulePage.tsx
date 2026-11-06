@@ -1,147 +1,582 @@
-import { memo, useState } from "react";
-import { Clock, Plus } from "lucide-react";
-import { CornerCrosses } from "../components/ui/CornerCrosses";
+import { memo, useState, useMemo } from "react";
+import {
+  Clock,
+  Plus,
+  Send,
+  X,
+  Calendar,
+  Sparkles,
+  CheckCircle2,
+  Film,
+  Zap,
+} from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "../lib/utils";
-
-interface ScheduledPost {
-  id: string;
-  videoTitle: string;
-  hook: string;
-  scheduledTime: string;
-  scheduledDate: string;
-  platform: "TikTok (P0)" | "Instagram Reels" | "YouTube Shorts";
-  status: "queued" | "posted" | "failed";
-  caption: string;
-  tags: string[];
-}
-
-const INITIAL_SCHEDULE: ScheduledPost[] = [
-  {
-    id: "sched-1",
-    videoTitle: "3 Morning Habits of High Performers",
-    hook: "The first 60 minutes decide your next 10 years.",
-    scheduledDate: "2026-11-03 (TODAY)",
-    scheduledTime: "18:00 WIB (Peak Audience)",
-    platform: "TikTok (P0)",
-    status: "queued",
-    caption: "The morning blueprint top 1% use daily. Save this before tomorrow morning! ⚡",
-    tags: ["#productivity", "#habits", "#successmindset", "#fyp"],
-  },
-  {
-    id: "sched-2",
-    videoTitle: "Why 99% Fail At Compound Interest",
-    hook: "If you invest $100 today, here is what banks hide.",
-    scheduledDate: "2026-11-04 (TOMORROW)",
-    scheduledTime: "12:30 WIB (Lunch Break)",
-    platform: "TikTok (P0)",
-    status: "queued",
-    caption: "The hidden truth about compound growth. Share with someone who needs this!",
-    tags: ["#finance", "#investing", "#wealth", "#moneytok"],
-  },
-  {
-    id: "sched-3",
-    videoTitle: "The 2-Minute Dopamine Reset",
-    hook: "Feeling constantly exhausted? Reset right now.",
-    scheduledDate: "2026-11-02 (YESTERDAY)",
-    scheduledTime: "20:00 WIB",
-    platform: "TikTok (P0)",
-    status: "posted",
-    caption: "Instant brain reset for chronic doom-scrollers.",
-    tags: ["#psychology", "#focus", "#dopaminedetox"],
-  },
-];
+import { useScheduleStore } from "../hooks/useScheduleStore";
+import { useVideoStock } from "../hooks/useVideoStock";
+import type { ScheduledPost, ScheduleStatus } from "../types/schedule";
 
 export const SchedulePage = memo(function SchedulePage() {
-  const [schedule] = useState<ScheduledPost[]>(INITIAL_SCHEDULE);
+  const { schedule, queuePost, updatePostTime, cancelPost, markPublished, autoScheduleStock } =
+    useScheduleStore();
+  const { stock, updateStockStatus } = useVideoStock();
+
+  const [statusFilter, setStatusFilter] = useState<"all" | ScheduleStatus>("all");
+  const [editingPost, setEditingPost] = useState<ScheduledPost | null>(null);
+  const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
+
+  // Edit time state
+  const [editDate, setEditDate] = useState("TODAY");
+  const [editTime, setEditTime] = useState("18:00 WIB (Peak Audience)");
+
+  // Queue from stock state
+  const [selectedStockId, setSelectedStockId] = useState<string>("");
+  const [newPostDate, setNewPostDate] = useState("TODAY");
+  const [newPostTime, setNewPostTime] = useState("18:00 WIB (Peak Audience)");
+
+  const readyStockVideos = useMemo(
+    () => stock.filter((v) => v.status === "ready"),
+    [stock]
+  );
+
+  const filteredSchedule = useMemo(() => {
+    if (statusFilter === "all") return schedule;
+    return schedule.filter((p) => p.status === statusFilter);
+  }, [schedule, statusFilter]);
+
+  const queuedCount = schedule.filter((p) => p.status === "queued").length;
+  const postedCount = schedule.filter((p) => p.status === "posted").length;
+
+  const handleOpenEdit = (post: ScheduledPost) => {
+    setEditingPost(post);
+    setEditDate(post.scheduledDate);
+    setEditTime(post.scheduledTime);
+  };
+
+  const handleSaveEditTime = () => {
+    if (!editingPost) return;
+    updatePostTime(editingPost.id, editDate, editTime);
+    toast.success(`Updated schedule for "${editingPost.videoTitle}"!`);
+    setEditingPost(null);
+  };
+
+  const handleCancel = (post: ScheduledPost) => {
+    cancelPost(post.id);
+    if (post.stockId) {
+      updateStockStatus(post.stockId, "ready");
+    }
+    toast.info(`Cancelled scheduled post "${post.videoTitle}"`);
+  };
+
+  const handlePublishNow = (post: ScheduledPost) => {
+    toast.loading(`Publishing "${post.videoTitle}" to TikTok...`, { id: `pub-${post.id}` });
+    setTimeout(() => {
+      markPublished(post.id);
+      if (post.stockId) {
+        updateStockStatus(post.stockId, "published");
+      }
+      toast.success(`Published to TikTok successfully!`, { id: `pub-${post.id}` });
+    }, 1200);
+  };
+
+  const handleAutoFill = () => {
+    if (readyStockVideos.length === 0) {
+      toast.error("No ready videos found in Stock Vault! Ingest or render videos first.");
+      return;
+    }
+    const added = autoScheduleStock(readyStockVideos);
+    readyStockVideos.slice(0, added.length).forEach((item) => {
+      updateStockStatus(item.id, "scheduled");
+    });
+    toast.success(`Auto-scheduled ${added.length} videos into peak audience slots!`);
+  };
+
+  const handleQueueFromStockSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const stockItem = stock.find((v) => v.id === selectedStockId);
+    if (!stockItem) {
+      toast.error("Please select a video from stock");
+      return;
+    }
+
+    queuePost({
+      stockId: stockItem.id,
+      videoTitle: stockItem.title,
+      hook: stockItem.hook,
+      scheduledDate: newPostDate,
+      scheduledTime: newPostTime,
+      platform: "TikTok (P0)",
+      status: "queued",
+      caption: stockItem.caption,
+      tags: stockItem.tags,
+      privacy: "public",
+      allowComments: true,
+      allowDuet: true,
+      allowStitch: true,
+    });
+
+    updateStockStatus(stockItem.id, "scheduled");
+    toast.success(`Queued "${stockItem.title}" for ${newPostDate} @ ${newPostTime}!`);
+    setIsQueueModalOpen(false);
+    setSelectedStockId("");
+  };
 
   return (
-    <div className="flex-1 flex flex-col h-full w-full bg-neutral-950 text-neutral-100 overflow-y-auto select-none p-6">
-      <div className="max-w-6xl w-full mx-auto flex-1 flex flex-col min-h-0 space-y-6">
+    <div className="flex-1 flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-y-auto select-none p-4 sm:p-6">
+      <div className="max-w-6xl w-full mx-auto flex-1 flex flex-col min-h-0 space-y-5">
         {/* Header */}
-        <div className="border-b border-neutral-800 pb-4 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border-color)] pb-4">
           <div>
-            <div className="flex items-center gap-2 font-mono text-[10px] text-emerald-400 uppercase tracking-widest mb-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
-              AUTO-SCHEDULER | DISTRIBUTION ENGINE
+            <div className="flex items-center gap-2 text-[11px] font-mono text-emerald-400 font-semibold uppercase tracking-wider mb-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>AUTO-SCHEDULER | TIKTOK DISTRIBUTION ENGINE</span>
             </div>
-            <h1 className="text-2xl font-mono font-extrabold uppercase tracking-tight text-white">
-              TIKTOK POSTING SCHEDULE & QUEUE
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+              TikTok Posting Schedule & Queue
             </h1>
-            <p className="text-xs font-mono text-neutral-400 mt-1">
-              Automated video publication queue timed at peak Indonesian audience hours (12:00, 18:00, 20:30 WIB).
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+              Automated video publication timed at peak Indonesian audience hours (12:30, 18:00, 20:30 WIB).
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="px-4 py-2 bg-white text-black font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-2 border border-white cursor-pointer hover:bg-neutral-200 transition-none"
+              onClick={handleAutoFill}
+              className="h-8 px-3 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer text-amber-400"
+              title="Auto-distribute ready stock videos into peak slots"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Auto-Schedule 3/Day</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsQueueModalOpen(true)}
+              className="h-8 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-sm cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              QUEUE NEXT VIDEO
+              <span>Queue Video</span>
             </button>
           </div>
         </div>
 
+        {/* Telemetry Stats Ribbon */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col justify-between">
+            <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+              <span className="font-medium">Active Queue</span>
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+            </div>
+            <div className="mt-2">
+              <div className="text-xl font-bold font-mono text-amber-400">
+                {queuedCount} POSTS
+              </div>
+              <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                Ready for automated upload
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col justify-between">
+            <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+              <span className="font-medium">Published Today</span>
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            </div>
+            <div className="mt-2">
+              <div className="text-xl font-bold font-mono text-emerald-400">
+                {postedCount} POSTED
+              </div>
+              <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                100% On-Time Delivery
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col justify-between">
+            <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+              <span className="font-medium">Target Cadence</span>
+              <Calendar className="w-3.5 h-3.5 text-sky-400" />
+            </div>
+            <div className="mt-2">
+              <div className="text-xl font-bold font-mono text-[var(--text-primary)]">
+                3 POSTS / DAY
+              </div>
+              <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                Indonesian Prime Slots
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col justify-between">
+            <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+              <span className="font-medium">Platform Priority</span>
+              <Sparkles className="w-3.5 h-3.5 text-rose-400" />
+            </div>
+            <div className="mt-2">
+              <div className="text-xl font-bold font-mono text-white">
+                TIKTOK (P0)
+              </div>
+              <div className="text-[11px] text-emerald-400 mt-0.5 font-medium">
+                Shorts & Reels Secondary
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filter Toolbar */}
+        <div className="p-2.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            {(["all", "queued", "posted", "failed"] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setStatusFilter(tab)}
+                className={cn(
+                  "h-7 px-3 rounded-full text-xs font-semibold capitalize transition-colors cursor-pointer shrink-0",
+                  statusFilter === tab
+                    ? "bg-[#cf6613] text-white"
+                    : "bg-[var(--bg-input)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)]"
+                )}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          <span className="text-xs text-[var(--text-muted)] font-mono">
+            SHOWING {filteredSchedule.length} OF {schedule.length} QUEUED
+          </span>
+        </div>
+
         {/* Schedule Queue Cards */}
         <div className="space-y-3">
-          {schedule.map((post) => (
-            <div
-              key={post.id}
-              className="relative bg-neutral-900/90 border border-neutral-800 p-5 font-mono flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-neutral-600 transition-none"
-            >
-              <CornerCrosses size="sm" className="text-neutral-700" />
+          {filteredSchedule.length === 0 ? (
+            <div className="p-8 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] text-center text-xs text-[var(--text-muted)] space-y-2">
+              <Clock className="w-8 h-8 mx-auto text-[var(--text-muted)] opacity-50" />
+              <div>No scheduled posts in this filter category.</div>
+            </div>
+          ) : (
+            filteredSchedule.map((post) => (
+              <div
+                key={post.id}
+                className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+              >
+                {/* Left: Timing & Video info */}
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[9.5px] px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold uppercase tracking-wider">
+                      {post.platform}
+                    </span>
 
-              <div className="space-y-1.5 flex-1">
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] px-2 py-0.5 border border-emerald-500/40 text-emerald-400 bg-emerald-950/30 font-bold uppercase tracking-wider">
-                    {post.platform}
-                  </span>
-                  <span className="text-xs text-neutral-300 flex items-center gap-1.5 font-bold">
-                    <Clock className="w-3.5 h-3.5 text-neutral-400" />
-                    {post.scheduledDate} @ {post.scheduledTime}
-                  </span>
-                  <span
-                    className={cn(
-                      "text-[10px] px-2 py-0.5 border font-bold uppercase tracking-wider ml-auto md:ml-0",
-                      post.status === "queued"
-                        ? "border-amber-500/40 text-amber-400 bg-amber-950/30"
-                        : "border-neutral-700 text-neutral-400 bg-neutral-800"
-                    )}
-                  >
-                    STATUS: {post.status}
-                  </span>
+                    <span className="text-xs text-amber-300 font-semibold flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{post.scheduledDate} @ {post.scheduledTime}</span>
+                    </span>
+
+                    <span
+                      className={cn(
+                        "text-[9.5px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ml-auto md:ml-0 flex items-center gap-1",
+                        post.status === "queued"
+                          ? "bg-amber-500/15 border border-amber-500/30 text-amber-400"
+                          : post.status === "posted"
+                          ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
+                          : "bg-rose-500/15 border border-rose-500/30 text-rose-400"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "w-1.5 h-1.5 rounded-full",
+                          post.status === "queued"
+                            ? "bg-amber-400 animate-pulse"
+                            : post.status === "posted"
+                            ? "bg-emerald-400"
+                            : "bg-rose-400"
+                        )}
+                      />
+                      <span>{post.status}</span>
+                    </span>
+                  </div>
+
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    {post.videoTitle}
+                  </h3>
+                  <p className="text-xs text-[var(--text-muted)] italic line-clamp-1">
+                    "{post.hook}"
+                  </p>
+                  <p className="text-xs text-[var(--text-secondary)] line-clamp-1">
+                    {post.caption}
+                  </p>
+
+                  <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                    {post.tags.slice(0, 5).map((t) => (
+                      <span key={t} className="text-[10px] font-mono text-emerald-400/80">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
                 </div>
 
-                <h3 className="text-sm font-bold text-white uppercase">{post.videoTitle}</h3>
-                <p className="text-xs text-neutral-400 italic">"{post.hook}"</p>
-                <div className="text-[11px] text-neutral-500 line-clamp-1">{post.caption}</div>
-                <div className="flex items-center gap-2 text-[10px] text-emerald-400 font-mono">
-                  {post.tags.map((t) => (
-                    <span key={t}>{t}</span>
+                {/* Right: Actions */}
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                  {post.status === "queued" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(post)}
+                        className="h-7 px-3 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Change Scheduled Date & Time Slot"
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Edit Time</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handlePublishNow(post)}
+                        className="h-7 px-3 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-transform hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
+                        title="Publish Immediately to TikTok"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Publish Now</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCancel(post)}
+                        className="h-7 px-2.5 rounded-lg bg-[var(--bg-input)] hover:bg-rose-950/40 border border-[var(--border-color)] hover:border-rose-500/50 text-[var(--text-muted)] hover:text-rose-400 text-xs transition-colors cursor-pointer"
+                        title="Cancel Scheduled Post & Return to Stock"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+
+                  {post.status === "posted" && (
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Live on TikTok</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* --- EDIT TIME MODAL --- */}
+      {editingPost && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setEditingPost(null)}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-2xl shadow-2xl overflow-hidden flex flex-col text-[var(--text-primary)]"
+          >
+            <div className="h-11 px-4 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between">
+              <span className="text-xs font-semibold">
+                Edit Schedule: {editingPost.videoTitle}
+              </span>
+              <button
+                type="button"
+                onClick={() => setEditingPost(null)}
+                className="w-7 h-7 rounded-lg bg-[var(--bg-input)] text-[var(--text-secondary)] hover:text-white flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3.5 text-xs">
+              <div>
+                <label className="text-[11px] font-semibold text-[var(--text-secondary)] block mb-1">
+                  Posting Day
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {["TODAY", "TOMORROW", "DAY AFTER"].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setEditDate(d)}
+                      className={cn(
+                        "h-8 rounded-lg border text-xs font-semibold transition-colors cursor-pointer",
+                        editDate === d
+                          ? "bg-[#cf6613] border-[#e07b27] text-white"
+                          : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white"
+                      )}
+                    >
+                      {d}
+                    </button>
                   ))}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div>
+                <label className="text-[11px] font-semibold text-[var(--text-secondary)] block mb-1">
+                  Peak Time Slot (WIB)
+                </label>
+                <div className="space-y-1.5">
+                  {[
+                    "18:00 WIB (Peak Audience)",
+                    "20:30 WIB (Night Prime)",
+                    "12:30 WIB (Lunch Break)",
+                  ].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setEditTime(t)}
+                      className={cn(
+                        "w-full p-2.5 rounded-lg border text-left transition-colors cursor-pointer flex items-center justify-between",
+                        editTime === t
+                          ? "bg-[#cf6613]/15 border-[#cf6613] text-amber-300"
+                          : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white"
+                      )}
+                    >
+                      <span className="font-semibold">{t}</span>
+                      <Clock className="w-3.5 h-3.5 text-amber-400" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[var(--border-color)]">
                 <button
                   type="button"
-                  className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white text-[11px] font-mono uppercase tracking-wider cursor-pointer"
+                  onClick={() => setEditingPost(null)}
+                  className="h-8 px-3 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs text-[var(--text-secondary)] cursor-pointer"
                 >
-                  EDIT TIME
+                  Cancel
                 </button>
                 <button
                   type="button"
-                  className="px-3 py-1.5 bg-neutral-800 hover:bg-rose-950 text-neutral-300 hover:text-rose-400 border border-neutral-700 hover:border-rose-800 text-[11px] font-mono uppercase tracking-wider cursor-pointer"
+                  onClick={handleSaveEditTime}
+                  className="h-8 px-4 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm"
                 >
-                  CANCEL
+                  <span>Save Changes</span>
                 </button>
               </div>
             </div>
-          ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* --- QUEUE FROM STOCK MODAL --- */}
+      {isQueueModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsQueueModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-2xl shadow-2xl overflow-hidden flex flex-col text-[var(--text-primary)]"
+          >
+            <div className="h-11 px-4 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between">
+              <span className="text-xs font-semibold">
+                Select Video from Stock Vault to Queue
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsQueueModalOpen(false)}
+                className="w-7 h-7 rounded-lg bg-[var(--bg-input)] text-[var(--text-secondary)] hover:text-white flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleQueueFromStockSubmit} className="p-4 space-y-3.5 text-xs">
+              <div>
+                <label className="text-[11px] font-semibold text-[var(--text-secondary)] block mb-1">
+                  Ready Stock Videos ({readyStockVideos.length} Available)
+                </label>
+                {readyStockVideos.length === 0 ? (
+                  <div className="p-4 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-center text-[var(--text-muted)]">
+                    No ready videos in stock vault. Ingest or render videos first.
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {readyStockVideos.map((item) => (
+                      <div
+                        key={item.id}
+                        onClick={() => setSelectedStockId(item.id)}
+                        className={cn(
+                          "p-2.5 rounded-lg border flex items-center justify-between cursor-pointer transition-colors",
+                          selectedStockId === item.id
+                            ? "bg-[#cf6613]/20 border-[#cf6613] text-amber-300"
+                            : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white"
+                        )}
+                      >
+                        <div className="min-w-0 pr-2">
+                          <div className="font-semibold text-xs text-[var(--text-primary)] truncate">
+                            {item.title}
+                          </div>
+                          <div className="text-[10px] text-[var(--text-muted)] font-mono">
+                            {item.niche} • {item.durationSec}s
+                          </div>
+                        </div>
+                        <Film className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-semibold text-[var(--text-secondary)] block mb-1">
+                    Posting Day
+                  </label>
+                  <select
+                    value={newPostDate}
+                    onChange={(e) => setNewPostDate(e.target.value)}
+                    className="w-full px-2.5 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] outline-none cursor-pointer"
+                  >
+                    <option value="TODAY">TODAY</option>
+                    <option value="TOMORROW">TOMORROW</option>
+                    <option value="DAY AFTER">DAY AFTER</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-[var(--text-secondary)] block mb-1">
+                    Peak Audience Slot
+                  </label>
+                  <select
+                    value={newPostTime}
+                    onChange={(e) => setNewPostTime(e.target.value)}
+                    className="w-full px-2.5 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] outline-none cursor-pointer"
+                  >
+                    <option value="18:00 WIB (Peak Audience)">18:00 WIB (Peak Audience)</option>
+                    <option value="20:30 WIB (Night Prime)">20:30 WIB (Night Prime)</option>
+                    <option value="12:30 WIB (Lunch Break)">12:30 WIB (Lunch Break)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[var(--border-color)]">
+                <button
+                  type="button"
+                  onClick={() => setIsQueueModalOpen(false)}
+                  className="h-8 px-3 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs text-[var(--text-secondary)] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!selectedStockId}
+                  className="h-8 px-4 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] disabled:opacity-40 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add to Queue</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 });
-

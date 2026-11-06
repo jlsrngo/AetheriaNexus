@@ -6,16 +6,15 @@ import { ModelProviderSettings, Provider, isCliProvider } from "../components/se
 import { SettingsCliConnectionsTab } from "../components/settings/SettingsCliConnectionsTab";
 import { SettingsAccountTab } from "../components/settings/SettingsAccountTab";
 import { SettingsMessagingTab } from "../components/settings/SettingsMessagingTab";
-import { CornerCrosses } from "../components/ui/CornerCrosses";
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState("models");
 
   const tabs = [
-    { id: "models", label: "MODEL PROVIDERS", icon: Cpu },
-    { id: "cli", label: "CLI BRIDGES", icon: Terminal },
-    { id: "messaging", label: "MESSAGING BOTS", icon: MessageSquare },
-    { id: "account", label: "ACCOUNT & TELEMETRY", icon: User },
+    { id: "models", label: "Model Providers", icon: Cpu },
+    { id: "cli", label: "CLI Bridges", icon: Terminal },
+    { id: "messaging", label: "Messaging Bots", icon: MessageSquare },
+    { id: "account", label: "Account & Telemetry", icon: User },
   ];
   const [providers, setProviders] = useState<Provider[]>([]);
   const [availableCatalogModels, setAvailableCatalogModels] = useState<Record<string, string[]>>({});
@@ -117,24 +116,24 @@ export function SettingsPage() {
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col h-full w-full bg-neutral-950 bg-[radial-gradient(#1f1f1f_1px,transparent_1px)] [background-size:16px_16px] text-neutral-100 overflow-y-auto overflow-x-hidden select-none p-6 transition-none">
-      <div className="max-w-5xl w-full mx-auto flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-y-auto select-none p-4 sm:p-6">
+      <div className="max-w-5xl w-full mx-auto flex-1 flex flex-col min-h-0 space-y-5">
         {/* Header Title */}
-        <div className="mb-6 border-b border-neutral-800 pb-4">
-          <div className="flex items-center gap-2 font-mono text-[11px] text-emerald-400 uppercase tracking-widest mb-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
-            NEXUS SYSTEM SETTINGS | CONFIGURATION
+        <div className="border-b border-[var(--border-color)] pb-4">
+          <div className="flex items-center gap-2 text-[11px] font-mono text-emerald-400 font-semibold uppercase tracking-wider mb-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>NEXUS SYSTEM SETTINGS | CONFIGURATION</span>
           </div>
-          <h1 className="text-xl font-mono font-extrabold tracking-tight text-white uppercase">
-            SYSTEM TELEMETRY & PROVIDER ROUTING
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+            System Telemetry & Provider Routing
           </h1>
-          <p className="text-xs font-mono text-neutral-400 mt-1">
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
             Manage AI model providers, CLI bridge ports (20288), messaging webhooks, and local hardware execution.
           </p>
         </div>
 
-        {/* Tab Navigation (Full width across container) */}
-        <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-1 border-b border-neutral-800 pb-3 mb-6 shrink-0">
+        {/* Tab Navigation Capsule */}
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] shrink-0 overflow-x-auto">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -144,23 +143,21 @@ export function SettingsPage() {
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "w-full flex items-center justify-center gap-2 px-3 py-2 rounded-none text-[11px] font-mono tracking-wider transition-none cursor-pointer whitespace-nowrap h-9 select-none border text-center",
+                  "flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap h-8 select-none",
                   isActive
-                    ? "bg-white text-black border-white font-bold"
-                    : "bg-neutral-900/60 text-neutral-400 border-neutral-800 hover:text-white hover:border-neutral-600"
+                    ? "bg-[#cf6613] text-white shadow-sm"
+                    : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
                 )}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{tab.label}</span>
+                <span>{tab.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Main Settings Panel Content with CornerCrosses */}
-        <div className="relative flex-1 w-full rounded-none p-6 overflow-y-auto min-h-0 bg-neutral-900/90 border border-neutral-800 shadow-2xl">
-          <CornerCrosses className="text-neutral-500" size="sm" />
-
+        {/* Main Settings Panel Content */}
+        <div className="relative flex-1 w-full rounded-2xl p-5 sm:p-6 overflow-y-auto min-h-0 bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xl">
           <div className={cn("w-full", activeTab !== "models" && "hidden")}>
             <ModelProviderSettings
               providers={providers}
