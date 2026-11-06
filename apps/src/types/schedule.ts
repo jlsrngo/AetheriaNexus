@@ -18,3 +18,4 @@ export interface ScheduledPost {
   allowStitch: boolean;
   postedAt?: string;
 }
+

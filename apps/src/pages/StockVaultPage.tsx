@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   Film,
   Play,
-  CheckCircle2,
-  Clock,
   Trash2,
   Send,
   Calendar,
@@ -12,11 +10,8 @@ import {
   Sparkles,
   Plus,
   X,
-  AlertTriangle,
-  HardDrive,
-  Cpu,
+  Clock,
   Eye,
-  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../lib/utils";
@@ -53,8 +48,7 @@ export const StockVaultPage = memo(function StockVaultPage() {
 
   const readyVideos = useMemo(() => stock.filter((v) => v.status === "ready"), [stock]);
   const readyCount = readyVideos.length;
-  const daysCoverage = (readyCount / 3).toFixed(1); // 3 videos/day target
-  const isLowStock = readyCount < 3;
+  const daysCoverage = (readyCount / 3).toFixed(1);
 
   const niches = useMemo(() => {
     const set = new Set<string>();
@@ -140,153 +134,79 @@ export const StockVaultPage = memo(function StockVaultPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-y-auto select-none p-4 sm:p-6">
-      <div className="max-w-6xl w-full mx-auto flex-1 flex flex-col min-h-0 space-y-5">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border-color)] pb-4">
-          <div>
-            <div className="flex items-center gap-2 text-[11px] font-mono text-emerald-400 font-semibold uppercase tracking-wider mb-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>INVENTORY VAULT | LOCAL MP4 REPOSITORY</span>
+    <div className="flex-1 flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] select-none overflow-hidden">
+      {/* 1. PINNED COMPACT HEADER (Never scrolls, not full height, no emerald green) */}
+      <div className="shrink-0 border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-4 py-2.5 z-20">
+        <div className="max-w-4xl mx-auto space-y-2">
+          {/* Row 1: Title, Quick Telemetry, Action Buttons */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-base sm:text-lg font-bold tracking-tight text-[var(--text-primary)] truncate">
+                Video Stock Vault
+              </h1>
+              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)]">
+                {readyCount} Ready ({daysCoverage}d Buffer)
+              </span>
+              <span className="hidden sm:inline-block text-[10px] font-mono text-[var(--text-muted)]">
+                • {stock.length} Files • Next: Today 18:00
+              </span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
-              Video Stock & Content Vault
-            </h1>
-            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-              Zero cloud cost. Local MP4 video inventory ready for scheduled automated TikTok publishing.
-            </p>
-          </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsAddModalOpen(true)}
-              className="h-8 px-3 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer text-[var(--text-primary)]"
-            >
-              <Plus className="w-3.5 h-3.5 text-amber-400" />
-              <span>Add Stock Asset</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="h-8 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-sm cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Open Studio Editor</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Telemetry Metric Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {/* Card 1: Buffer Health */}
-          <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-              <span className="font-medium">Buffer Coverage</span>
-              {isLowStock ? (
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-              ) : (
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              )}
-            </div>
-            <div className="mt-2">
-              <div className="text-xl font-bold font-mono text-[var(--text-primary)]">
-                {readyCount} VIDEOS
-              </div>
-              <div className="text-[11px] font-medium text-emerald-400 mt-0.5">
-                ~{daysCoverage} Days Coverage (3/day)
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: Total Inventory */}
-          <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-              <span className="font-medium">Total Inventory</span>
-              <HardDrive className="w-3.5 h-3.5 text-sky-400" />
-            </div>
-            <div className="mt-2">
-              <div className="text-xl font-bold font-mono text-[var(--text-primary)]">
-                {stock.length} FILES
-              </div>
-              <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                Local Drive (Rp 0 Cost)
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Scheduled Queue */}
-          <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-              <span className="font-medium">Upcoming Queue</span>
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
-            </div>
-            <div className="mt-2">
-              <div className="text-xl font-bold font-mono text-amber-400">
-                {stock.filter((v) => v.status === "scheduled").length} SCHEDULED
-              </div>
-              <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                Next: Today 18:00 WIB
-              </div>
-            </div>
-          </div>
-
-          {/* Card 4: Local Render Engine */}
-          <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-              <span className="font-medium">Hardware Engine</span>
-              <Cpu className="w-3.5 h-3.5 text-emerald-400" />
-            </div>
-            <div className="mt-2">
-              <div className="text-xl font-bold font-mono text-[var(--text-primary)]">
-                LOCAL H.264
-              </div>
-              <div className="text-[11px] text-emerald-400 mt-0.5 font-medium">
-                GPU Accelerated (Offline)
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Search & Filter Toolbar */}
-        <div className="p-2.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col sm:flex-row items-center justify-between gap-3">
-          {/* Search Bar */}
-          <div className="relative w-full sm:w-72">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search video title, hook, or niche..."
-              className="w-full pl-9 pr-3 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none focus:border-amber-400"
-            />
-          </div>
-
-          {/* Status Pills */}
-          <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto">
-            {(["all", "ready", "scheduled", "published"] as const).map((tab) => (
+            <div className="flex items-center gap-2 shrink-0">
               <button
-                key={tab}
                 type="button"
-                onClick={() => setStatusFilter(tab)}
-                className={cn(
-                  "h-7 px-3 rounded-full text-xs font-semibold capitalize transition-colors cursor-pointer shrink-0",
-                  statusFilter === tab
-                    ? "bg-[#cf6613] text-white"
-                    : "bg-[var(--bg-input)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)]"
-                )}
+                onClick={() => setIsAddModalOpen(true)}
+                className="h-7 px-2.5 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer text-[var(--text-primary)]"
               >
-                {tab}
+                <Plus className="w-3.5 h-3.5 text-amber-400" />
+                <span>Add Stock</span>
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => navigate("/")}
+                className="h-7 px-3 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-sm cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Studio</span>
+              </button>
+            </div>
+          </div>
 
-            {niches.length > 0 && (
-              <div className="flex items-center gap-1 pl-2 border-l border-[var(--border-color)]">
-                <SlidersHorizontal className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
+          {/* Row 2: Search Input & Status Filter Pills */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-0.5">
+            <div className="relative w-full sm:w-64">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search title, hook, or niche..."
+                className="w-full pl-8 pr-2.5 h-7 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none focus:border-amber-400"
+              />
+            </div>
+
+            <div className="flex items-center gap-1 w-full sm:w-auto overflow-x-auto">
+              {(["all", "ready", "scheduled", "published"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setStatusFilter(tab)}
+                  className={cn(
+                    "h-6 px-2.5 rounded-full text-[11px] font-semibold capitalize transition-colors cursor-pointer shrink-0",
+                    statusFilter === tab
+                      ? "bg-[#cf6613] text-white"
+                      : "bg-[var(--bg-card)] text-[var(--text-secondary)] hover:text-white border border-[var(--border-color)]"
+                  )}
+                >
+                  {tab}
+                </button>
+              ))}
+
+              {niches.length > 0 && (
                 <select
                   value={selectedNiche}
                   onChange={(e) => setSelectedNiche(e.target.value)}
-                  className="h-7 px-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-[11px] font-semibold text-[var(--text-secondary)] outline-none cursor-pointer"
+                  className="h-6 px-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-[11px] font-semibold text-[var(--text-secondary)] outline-none cursor-pointer ml-1"
                 >
                   <option value="all">All Niches</option>
                   {niches.map((n) => (
@@ -295,13 +215,15 @@ export const StockVaultPage = memo(function StockVaultPage() {
                     </option>
                   ))}
                 </select>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Video Stock Inventory List */}
-        <div className="space-y-2.5">
+      {/* 2. SCROLLABLE VIDEO LIST (Reduced width max-w-4xl, no emerald green) */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5">
+        <div className="max-w-4xl mx-auto space-y-2.5">
           {filteredStock.length === 0 ? (
             <div className="p-8 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] text-center text-xs text-[var(--text-muted)] space-y-2">
               <Film className="w-8 h-8 mx-auto text-[var(--text-muted)] opacity-50" />
@@ -322,70 +244,70 @@ export const StockVaultPage = memo(function StockVaultPage() {
             filteredStock.map((item) => (
               <div
                 key={item.id}
-                className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 group"
+                className="p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
               >
                 {/* Left: Thumbnail & Details */}
-                <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
                   {/* 9:16 Mockup Thumbnail */}
                   <div
                     onClick={() => setPreviewItem(item)}
-                    className="w-14 h-20 rounded-lg bg-black border border-[var(--border-color)] relative flex flex-col items-center justify-center shrink-0 cursor-pointer overflow-hidden group/thumb shadow-sm"
+                    className="w-12 h-16 rounded-lg bg-black border border-[var(--border-color)] relative flex flex-col items-center justify-center shrink-0 cursor-pointer overflow-hidden group/thumb shadow-sm"
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                     <Film className="w-4 h-4 text-amber-400 relative z-10 group-hover/thumb:scale-110 transition-transform" />
-                    <span className="text-[8px] font-mono text-[var(--text-muted)] font-bold relative z-10 mt-1">
+                    <span className="text-[7.5px] font-mono text-[var(--text-muted)] font-bold relative z-10 mt-0.5">
                       {item.ratio}
                     </span>
-                    <div className="absolute bottom-1 right-1 text-[8px] font-mono font-bold text-white px-1 rounded bg-black/60">
+                    <div className="absolute bottom-1 right-1 text-[7.5px] font-mono font-bold text-white px-1 rounded bg-black/60">
                       {item.durationSec}s
                     </div>
                   </div>
 
                   {/* Metadata */}
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[9.5px] px-2 py-0.5 rounded-full bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-secondary)] font-bold uppercase tracking-wider">
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-secondary)] font-bold uppercase tracking-wider">
                         {item.niche}
                       </span>
 
                       <span
                         className={cn(
-                          "text-[9.5px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1",
+                          "text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1",
                           item.status === "ready"
-                            ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
+                            ? "bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-primary)]"
                             : item.status === "scheduled"
                             ? "bg-amber-500/15 border border-amber-500/30 text-amber-400"
-                            : "bg-sky-500/15 border border-sky-500/30 text-sky-400"
+                            : "bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-muted)]"
                         )}
                       >
                         <span
                           className={cn(
                             "w-1.5 h-1.5 rounded-full",
                             item.status === "ready"
-                              ? "bg-emerald-400"
+                              ? "bg-white/80"
                               : item.status === "scheduled"
                               ? "bg-amber-400 animate-pulse"
-                              : "bg-sky-400"
+                              : "bg-neutral-500"
                           )}
                         />
                         <span>{item.status}</span>
                       </span>
 
-                      <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                      <span className="text-[9.5px] font-mono text-[var(--text-muted)]">
                         {item.fileSize} • {item.resolution}
                       </span>
                     </div>
 
-                    <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate">
+                    <h3 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] truncate">
                       {item.title}
                     </h3>
-                    <p className="text-xs text-[var(--text-muted)] italic line-clamp-1">
+                    <p className="text-[11px] text-[var(--text-muted)] italic line-clamp-1">
                       "{item.hook}"
                     </p>
 
                     <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
                       {item.tags.slice(0, 4).map((tag) => (
-                        <span key={tag} className="text-[10px] font-mono text-emerald-400/80">
+                        <span key={tag} className="text-[9.5px] font-mono text-[var(--text-muted)]">
                           {tag}
                         </span>
                       ))}
@@ -394,7 +316,7 @@ export const StockVaultPage = memo(function StockVaultPage() {
                 </div>
 
                 {/* Right: Actions */}
-                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
                   <button
                     type="button"
                     onClick={() => setPreviewItem(item)}
@@ -480,9 +402,8 @@ export const StockVaultPage = memo(function StockVaultPage() {
             {/* Video Canvas Simulation */}
             <div className="p-4 flex flex-col items-center bg-black/50">
               <div className="w-56 h-96 rounded-xl bg-neutral-900 border border-[var(--border-strong)] relative overflow-hidden flex flex-col justify-between p-4 shadow-xl">
-                {/* Simulated Content */}
                 <div className="space-y-1">
-                  <div className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold inline-block">
+                  <div className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-input)] text-[var(--text-secondary)] font-semibold inline-block">
                     {previewItem.niche}
                   </div>
                   <h4 className="text-sm font-bold text-white leading-tight">
@@ -496,13 +417,11 @@ export const StockVaultPage = memo(function StockVaultPage() {
                   </p>
                 </div>
 
-                {/* Footer author */}
                 <div className="flex items-center justify-between text-[10px] text-white/70">
                   <span>@nexus.creative</span>
                   <span>{previewItem.durationSec}s // 1080×1920</span>
                 </div>
 
-                {/* Play/Pause Overlay Button */}
                 <button
                   type="button"
                   onClick={() => setIsPreviewPlaying((v) => !v)}
@@ -517,11 +436,11 @@ export const StockVaultPage = memo(function StockVaultPage() {
             <div className="p-4 space-y-3 text-xs border-t border-[var(--border-color)]">
               <div>
                 <span className="text-[11px] font-semibold text-[var(--text-secondary)] block mb-1">
-                  TikTok Caption & Trending Hashtags
+                  TikTok Caption & Hashtags
                 </span>
                 <div className="p-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-primary)] leading-relaxed">
                   {previewItem.caption}
-                  <div className="text-emerald-400 mt-1 font-mono">
+                  <div className="text-[var(--text-muted)] mt-1 font-mono">
                     {previewItem.tags.join(" ")}
                   </div>
                 </div>
@@ -607,13 +526,13 @@ export const StockVaultPage = memo(function StockVaultPage() {
 
               <div>
                 <label className="text-[11px] font-semibold text-[var(--text-secondary)] block mb-1">
-                  Peak Indonesian Audience Hours (WIB)
+                  Peak Audience Hours (WIB)
                 </label>
                 <div className="space-y-1.5">
                   {[
-                    { label: "18:00 WIB (Peak Audience)", sub: "Prime Time // Highest Algorithm Reach" },
-                    { label: "20:30 WIB (Night Prime)", sub: "Late Night Scroll // High Watch Time" },
-                    { label: "12:30 WIB (Lunch Break)", sub: "Midday Break // Fast Initial Velocity" },
+                    { label: "18:00 WIB (Peak Audience)", sub: "Prime Time // Highest Reach" },
+                    { label: "20:30 WIB (Night Prime)", sub: "Late Night Scroll // High Retention" },
+                    { label: "12:30 WIB (Lunch Break)", sub: "Midday Break // Fast Velocity" },
                   ].map((slot) => (
                     <button
                       key={slot.label}
@@ -770,7 +689,7 @@ export const StockVaultPage = memo(function StockVaultPage() {
                   value={newTags}
                   onChange={(e) => setNewTags(e.target.value)}
                   placeholder="#fyp #viral #mindset"
-                  className="w-full px-3 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-emerald-400 outline-none focus:border-amber-400"
+                  className="w-full px-3 h-8 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-secondary)] outline-none focus:border-amber-400"
                 />
               </div>
 

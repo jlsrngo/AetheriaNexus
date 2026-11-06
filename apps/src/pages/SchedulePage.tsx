@@ -5,7 +5,6 @@ import {
   Send,
   X,
   Calendar,
-  Sparkles,
   CheckCircle2,
   Film,
   Zap,
@@ -122,134 +121,75 @@ export const SchedulePage = memo(function SchedulePage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-y-auto select-none p-4 sm:p-6">
-      <div className="max-w-6xl w-full mx-auto flex-1 flex flex-col min-h-0 space-y-5">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border-color)] pb-4">
-          <div>
-            <div className="flex items-center gap-2 text-[11px] font-mono text-emerald-400 font-semibold uppercase tracking-wider mb-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>AUTO-SCHEDULER | TIKTOK DISTRIBUTION ENGINE</span>
+    <div className="flex-1 flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] select-none overflow-hidden">
+      {/* 1. PINNED COMPACT HEADER (Never scrolls, not full height, no emerald green) */}
+      <div className="shrink-0 border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-4 py-2.5 z-20">
+        <div className="max-w-4xl mx-auto space-y-2">
+          {/* Row 1: Title, Quick Telemetry, Action Buttons */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-base sm:text-lg font-bold tracking-tight text-[var(--text-primary)] truncate">
+                Posting Schedule & Queue
+              </h1>
+              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-amber-400">
+                {queuedCount} Queued
+              </span>
+              <span className="hidden sm:inline-block text-[10px] font-mono text-[var(--text-muted)]">
+                • {postedCount} Published Today • 3 Posts / Day
+              </span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
-              TikTok Posting Schedule & Queue
-            </h1>
-            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-              Automated video publication timed at peak Indonesian audience hours (12:30, 18:00, 20:30 WIB).
-            </p>
-          </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleAutoFill}
-              className="h-8 px-3 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer text-amber-400"
-              title="Auto-distribute ready stock videos into peak slots"
-            >
-              <Zap className="w-3.5 h-3.5" />
-              <span>Auto-Schedule 3/Day</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsQueueModalOpen(true)}
-              className="h-8 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-sm cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Queue Video</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Telemetry Stats Ribbon */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-              <span className="font-medium">Active Queue</span>
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
-            </div>
-            <div className="mt-2">
-              <div className="text-xl font-bold font-mono text-amber-400">
-                {queuedCount} POSTS
-              </div>
-              <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                Ready for automated upload
-              </div>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-              <span className="font-medium">Published Today</span>
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            </div>
-            <div className="mt-2">
-              <div className="text-xl font-bold font-mono text-emerald-400">
-                {postedCount} POSTED
-              </div>
-              <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                100% On-Time Delivery
-              </div>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-              <span className="font-medium">Target Cadence</span>
-              <Calendar className="w-3.5 h-3.5 text-sky-400" />
-            </div>
-            <div className="mt-2">
-              <div className="text-xl font-bold font-mono text-[var(--text-primary)]">
-                3 POSTS / DAY
-              </div>
-              <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                Indonesian Prime Slots
-              </div>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-              <span className="font-medium">Platform Priority</span>
-              <Sparkles className="w-3.5 h-3.5 text-rose-400" />
-            </div>
-            <div className="mt-2">
-              <div className="text-xl font-bold font-mono text-white">
-                TIKTOK (P0)
-              </div>
-              <div className="text-[11px] text-emerald-400 mt-0.5 font-medium">
-                Shorts & Reels Secondary
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter Toolbar */}
-        <div className="p-2.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            {(["all", "queued", "posted", "failed"] as const).map((tab) => (
+            <div className="flex items-center gap-2 shrink-0">
               <button
-                key={tab}
                 type="button"
-                onClick={() => setStatusFilter(tab)}
-                className={cn(
-                  "h-7 px-3 rounded-full text-xs font-semibold capitalize transition-colors cursor-pointer shrink-0",
-                  statusFilter === tab
-                    ? "bg-[#cf6613] text-white"
-                    : "bg-[var(--bg-input)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)]"
-                )}
+                onClick={handleAutoFill}
+                className="h-7 px-2.5 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer text-amber-400"
+                title="Auto-distribute ready stock videos into peak slots"
               >
-                {tab}
+                <Zap className="w-3.5 h-3.5" />
+                <span>Auto-Schedule 3/Day</span>
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => setIsQueueModalOpen(true)}
+                className="h-7 px-3 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-sm cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Queue Video</span>
+              </button>
+            </div>
           </div>
 
-          <span className="text-xs text-[var(--text-muted)] font-mono">
-            SHOWING {filteredSchedule.length} OF {schedule.length} QUEUED
-          </span>
-        </div>
+          {/* Row 2: Filter Status Pills */}
+          <div className="flex items-center justify-between gap-2 pt-0.5">
+            <div className="flex items-center gap-1 overflow-x-auto">
+              {(["all", "queued", "posted", "failed"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setStatusFilter(tab)}
+                  className={cn(
+                    "h-6 px-2.5 rounded-full text-[11px] font-semibold capitalize transition-colors cursor-pointer shrink-0",
+                    statusFilter === tab
+                      ? "bg-[#cf6613] text-white"
+                      : "bg-[var(--bg-card)] text-[var(--text-secondary)] hover:text-white border border-[var(--border-color)]"
+                  )}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
 
-        {/* Schedule Queue Cards */}
-        <div className="space-y-3">
+            <span className="text-[10px] text-[var(--text-muted)] font-mono">
+              {filteredSchedule.length} of {schedule.length} queued
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. SCROLLABLE QUEUE LIST (Reduced width max-w-4xl, no emerald green) */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5">
+        <div className="max-w-4xl mx-auto space-y-2.5">
           {filteredSchedule.length === 0 ? (
             <div className="p-8 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] text-center text-xs text-[var(--text-muted)] space-y-2">
               <Clock className="w-8 h-8 mx-auto text-[var(--text-muted)] opacity-50" />
@@ -259,12 +199,12 @@ export const SchedulePage = memo(function SchedulePage() {
             filteredSchedule.map((post) => (
               <div
                 key={post.id}
-                className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
                 {/* Left: Timing & Video info */}
-                <div className="space-y-1.5 flex-1 min-w-0">
+                <div className="space-y-1 flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[9.5px] px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold uppercase tracking-wider">
+                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-secondary)] font-bold uppercase tracking-wider">
                       {post.platform}
                     </span>
 
@@ -275,11 +215,11 @@ export const SchedulePage = memo(function SchedulePage() {
 
                     <span
                       className={cn(
-                        "text-[9.5px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ml-auto md:ml-0 flex items-center gap-1",
+                        "text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ml-auto sm:ml-0 flex items-center gap-1",
                         post.status === "queued"
                           ? "bg-amber-500/15 border border-amber-500/30 text-amber-400"
                           : post.status === "posted"
-                          ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
+                          ? "bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-secondary)]"
                           : "bg-rose-500/15 border border-rose-500/30 text-rose-400"
                       )}
                     >
@@ -289,7 +229,7 @@ export const SchedulePage = memo(function SchedulePage() {
                           post.status === "queued"
                             ? "bg-amber-400 animate-pulse"
                             : post.status === "posted"
-                            ? "bg-emerald-400"
+                            ? "bg-white/80"
                             : "bg-rose-400"
                         )}
                       />
@@ -297,19 +237,19 @@ export const SchedulePage = memo(function SchedulePage() {
                     </span>
                   </div>
 
-                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                  <h3 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
                     {post.videoTitle}
                   </h3>
-                  <p className="text-xs text-[var(--text-muted)] italic line-clamp-1">
+                  <p className="text-[11px] text-[var(--text-muted)] italic line-clamp-1">
                     "{post.hook}"
                   </p>
-                  <p className="text-xs text-[var(--text-secondary)] line-clamp-1">
+                  <p className="text-[11px] text-[var(--text-secondary)] line-clamp-1">
                     {post.caption}
                   </p>
 
                   <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
                     {post.tags.slice(0, 5).map((t) => (
-                      <span key={t} className="text-[10px] font-mono text-emerald-400/80">
+                      <span key={t} className="text-[9.5px] font-mono text-[var(--text-muted)]">
                         {t}
                       </span>
                     ))}
@@ -317,13 +257,13 @@ export const SchedulePage = memo(function SchedulePage() {
                 </div>
 
                 {/* Right: Actions */}
-                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
                   {post.status === "queued" && (
                     <>
                       <button
                         type="button"
                         onClick={() => handleOpenEdit(post)}
-                        className="h-7 px-3 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+                        className="h-7 px-2.5 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
                         title="Change Scheduled Date & Time Slot"
                       >
                         <Calendar className="w-3.5 h-3.5 text-amber-400" />
@@ -333,7 +273,7 @@ export const SchedulePage = memo(function SchedulePage() {
                       <button
                         type="button"
                         onClick={() => handlePublishNow(post)}
-                        className="h-7 px-3 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-transform hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
+                        className="h-7 px-3 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1 transition-transform hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
                         title="Publish Immediately to TikTok"
                       >
                         <Send className="w-3.5 h-3.5" />
@@ -352,8 +292,8 @@ export const SchedulePage = memo(function SchedulePage() {
                   )}
 
                   {post.status === "posted" && (
-                    <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)] font-semibold px-2.5 py-1 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)]">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-white/80" />
                       <span>Live on TikTok</span>
                     </div>
                   )}
