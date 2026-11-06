@@ -16,7 +16,7 @@ const DEFAULT_PROPS_SIG_KEY = "arunaki_nexus_default_props_sig_v1";
 const DEFAULT_COMPOSITIONS: StudioComposition[] = [
   {
     id: nexusVideoSpec.id,
-    name: "NexusEditorialVideo (9:16)",
+    name: "NexusEditorialVideo",
     folder: "TIKTOK AUTOMATION",
     ratio: "9:16",
     duration: nexusVideoSpec.durationInFrames / nexusVideoSpec.fps,

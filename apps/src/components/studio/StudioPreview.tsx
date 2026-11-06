@@ -53,7 +53,6 @@ export const StudioPreview: React.FC = () => {
 
   // Canvas Viewport Pan & Hand Tool State
   const [isPanning, setIsPanning] = useState(false);
-  const [isSpacePressed, setIsSpacePressed] = useState(false);
 
   // Selected Layer & Interactive Canvas Drag State (Corel / Photoshop style)
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
@@ -98,69 +97,6 @@ export const StudioPreview: React.FC = () => {
     return () => ro.disconnect();
   }, []);
 
-  // Global Spacebar Hand Tool (Universal Photoshop/Figma/Illustrator shortcut)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-      if (e.code === "Space" && !e.repeat) {
-        e.preventDefault();
-        setIsSpacePressed(true);
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
-        setIsSpacePressed(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, []);
-
-  useEffect(() => {
-    const player = playerRef.current;
-    if (!player) return;
-
-    const handleFrame = (event: { detail: { frame: number } }) =>
-      actions.setCurrentFrame(event.detail.frame);
-    const handlePlay = () => actions.setIsPlaying(true);
-    const handlePause = () => actions.setIsPlaying(false);
-
-    player.addEventListener("frameupdate", handleFrame);
-    player.addEventListener("play", handlePlay);
-    player.addEventListener("pause", handlePause);
-
-    return () => {
-      player.removeEventListener("frameupdate", handleFrame);
-      player.removeEventListener("play", handlePlay);
-      player.removeEventListener("pause", handlePause);
-    };
-  }, [actions, activeComposition.id]);
-
-  useEffect(() => {
-    const onToggleTimeline = () =>
-      actions.updateCanvas({ showTimeline: !canvas.showTimeline });
-    const onResetZoom = () =>
-      actions.updateCanvas({ zoom: "fit", panX: 0, panY: 0 });
-
-    window.addEventListener("arunaki-toggle-timeline", onToggleTimeline);
-    window.addEventListener("arunaki-reset-zoom", onResetZoom);
-    return () => {
-      window.removeEventListener("arunaki-toggle-timeline", onToggleTimeline);
-      window.removeEventListener("arunaki-reset-zoom", onResetZoom);
-    };
-  }, [actions, canvas.showTimeline]);
-
   const handleSeek = useCallback(
     (frame: number) => {
       playerRef.current?.seekTo(frame);
@@ -172,6 +108,27 @@ export const StudioPreview: React.FC = () => {
   const handleTogglePlay = useCallback(() => {
     playerRef.current?.toggle();
   }, []);
+
+  // Global Video Player Spacebar Shortcut (Universal Play/Pause UX)
+  useEffect(() => {
+    const handleGlobalSpaceKey = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+      if (e.code === "Space" && !e.repeat) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleTogglePlay();
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalSpaceKey, { capture: true });
+    return () => window.removeEventListener("keydown", handleGlobalSpaceKey, { capture: true });
+  }, [handleTogglePlay]);
 
   const numericZoom =
     canvas.zoom === "fit" ? 1 : Math.max(0.25, Math.min(10, canvas.zoom));
@@ -424,8 +381,8 @@ export const StudioPreview: React.FC = () => {
 
   // Unified Canvas Pointer Interaction
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
-    // 1. Hand tool active (Spacebar) OR Middle mouse button OR Alt key -> Viewport Pan
-    if (e.button === 1 || isSpacePressed || e.altKey) {
+    // 1. Hand tool active (Middle mouse button OR Alt key) -> Viewport Pan
+    if (e.button === 1 || e.altKey) {
       e.preventDefault();
       e.stopPropagation();
       startViewportPan(e.clientX, e.clientY);
@@ -875,11 +832,10 @@ export const StudioPreview: React.FC = () => {
           </span>
           <span className="text-[var(--text-muted)] shrink-0">•</span>
           <span className="font-medium text-[var(--text-secondary)] truncate">
-            {activeComposition.name}
+            {activeComposition.name.replace(/\s*\(\d+:\d+\)/g, "")}
           </span>
-          <span className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] font-mono text-[10px] text-[var(--text-muted)] shrink-0 whitespace-nowrap">
-            {activeComposition.width}×{activeComposition.height} (
-            {activeComposition.ratio})
+          <span className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] font-mono text-[10px] text-amber-400 font-semibold shrink-0 whitespace-nowrap">
+            {activeComposition.width}×{activeComposition.height} ({activeComposition.ratio})
           </span>
         </div>
 
@@ -1144,8 +1100,6 @@ export const StudioPreview: React.FC = () => {
             "flex-1 min-h-0 flex items-center justify-center p-3 relative overflow-hidden bg-[#0A0A0C]",
             isPanning
               ? "cursor-grabbing"
-              : isSpacePressed
-              ? "cursor-grab"
               : isZoomed
               ? "cursor-grab"
               : "cursor-default"
