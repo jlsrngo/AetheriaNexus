@@ -60,7 +60,7 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
   const [customCardBgHex, setCustomCardBgHex] = useState("#0A0A0C");
 
   // Video Background Style (for bg-base)
-  const [bgStyleDraft, setBgStyleDraft] = useState<"radial" | "linear" | "vignette" | "solid" | "cyberpunk">("radial");
+  const [bgStyleDraft, setBgStyleDraft] = useState<"radial" | "linear" | "vignette" | "solid" | "cyberpunk" | "blueprint">("radial");
 
   // Visual effect parameters
   const [orbSizeDraft, setOrbSizeDraft] = useState<number>(600);
@@ -247,6 +247,7 @@ export const ClipEditModal: React.FC<ClipEditModalProps> = ({
                   <div className="grid grid-cols-3 gap-1.5 pt-1">
                     {[
                       { id: "radial", label: "Radial Glow" },
+                      { id: "blueprint", label: "Swiss Blueprint" },
                       { id: "linear", label: "Linear Studio" },
                       { id: "vignette", label: "Deep Vignette" },
                       { id: "cyberpunk", label: "Cyberpunk Dual" },

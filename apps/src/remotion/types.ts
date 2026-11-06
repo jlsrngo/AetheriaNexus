@@ -47,6 +47,7 @@ export const COLOR_HEX_MAP: Record<string, string> = {
   blue: "#3B82F6",
   sky: "#0EA5E9",
   cyan: "#06B6D4",
+  blueprint: "#00E5FF",
   emerald: "#10B981",
   slate: "#64748B",
 };
@@ -93,7 +94,7 @@ export interface NexusVideoProps extends Record<string, unknown> {
   /** Optional per-layer custom background color / style override */
   layerBgColors?: Record<string, string>;
   /** Composition video background style */
-  bgStyle?: "radial" | "linear" | "vignette" | "solid" | "cyberpunk";
+  bgStyle?: "radial" | "linear" | "vignette" | "solid" | "cyberpunk" | "blueprint";
   /** Per-layer manual position offsets { x: number, y: number } in composition pixels */
   layerOffsets?: Record<string, LayerOffset>;
   /** Visual effect controls for background & ambient pattern layers */

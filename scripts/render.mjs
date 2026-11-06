@@ -91,7 +91,15 @@ async function main() {
     throw new Error(`Remotion entry point not found: ${entryPoint}`);
   }
 
-  const browserExecutable = args.browser || null;
+  const detectedBrowser = [
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium-browser",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  ].find((p) => fs.existsSync(p));
+
+  const browserExecutable = args.browser || detectedBrowser || null;
   const concurrency = Math.max(1, Math.min(16, Number.parseInt(args.concurrency, 10) || 4));
   const validCodecs = ["h264", "h265", "vp8", "vp9", "gif", "prores"];
   const codec = validCodecs.includes(args.codec) ? args.codec : "h264";

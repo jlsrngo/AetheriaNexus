@@ -24,6 +24,12 @@ const THEME_GRADIENTS: Record<
     glow: "rgba(249, 115, 22, 0.4)",
     border: "rgba(249, 115, 22, 0.6)",
   },
+  blueprint: {
+    bg: "radial-gradient(ellipse at 50% 25%, #0e4572 0%, #072847 48%, #031424 100%)",
+    accent: "#00e5ff",
+    glow: "rgba(0, 229, 255, 0.5)",
+    border: "rgba(0, 229, 255, 0.8)",
+  },
   indigo: {
     bg: "radial-gradient(circle at 50% 20%, #312e81 0%, #1e1b4b 45%, #050b14 100%)",
     accent: "#6366f1",
@@ -319,6 +325,8 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
         return baseColorInput ? `${baseHex}28` : "#0a0c14";
       case "cyberpunk":
         return `linear-gradient(135deg, ${baseHex}42 0%, #050b14 50%, #1e1b4b 100%)`;
+      case "blueprint":
+        return "radial-gradient(ellipse at 50% 25%, #0e4572 0%, #072847 48%, #031424 100%)";
       case "radial":
       default:
         return pal.bg;
@@ -439,6 +447,86 @@ export const NexusVideoComposition: React.FC<NexusVideoProps> = (props) => {
             }}
           />
         </Sequence>
+      )}
+
+      {/* LAYER: Architectural Blueprint Overlay & Swiss Brutalist Technical HUD */}
+      {(bgStyle === "blueprint" || themeColor === "blueprint") && (
+        <AbsoluteFill style={{ pointerEvents: "none", zIndex: 3 }}>
+          {/* Top Architectural Dimension Ruler */}
+          <div
+            style={{
+              position: "absolute",
+              top: "36px",
+              left: "80px",
+              right: "80px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderTop: "1px dashed rgba(0, 229, 255, 0.4)",
+              paddingTop: "6px",
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: "14px",
+              color: "rgba(0, 229, 255, 0.75)",
+              letterSpacing: "2px",
+            }}
+          >
+            <span>|◄── SECTION A-A // ELEVATION 1080px</span>
+            <span style={{ fontSize: "12px", opacity: 0.8 }}>SCALE 1:1 // SWISS ARCH-SPEC</span>
+            <span>SPEC: MEMORY_SAFETY ──►|</span>
+          </div>
+
+          {/* Top-Right Technical Blueprint Stamp Box */}
+          <div
+            style={{
+              position: "absolute",
+              top: "72px",
+              right: "80px",
+              border: "1.5px solid rgba(0, 229, 255, 0.6)",
+              padding: "8px 16px",
+              background: "rgba(3, 20, 36, 0.85)",
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: "13px",
+              color: "#00e5ff",
+              lineHeight: 1.4,
+              boxShadow: "0 0 15px rgba(0, 229, 255, 0.2)",
+            }}
+          >
+            <div style={{ fontWeight: 800, letterSpacing: "1.5px" }}>DWG NO: RUST-SYS-2006</div>
+            <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.7)" }}>PROJECT: THE SYSTEM IN LAYERS</div>
+          </div>
+
+          {/* Left Vertical Dimension Line */}
+          <div
+            style={{
+              position: "absolute",
+              left: "32px",
+              top: "140px",
+              bottom: "200px",
+              width: "1px",
+              borderLeft: "1px dashed rgba(0, 229, 255, 0.3)",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: "12px",
+              color: "rgba(0, 229, 255, 0.6)",
+            }}
+          >
+            <span style={{ transform: "rotate(-90deg)", transformOrigin: "center", whiteSpace: "nowrap" }}>
+              ▲ 1920px HEIGHT
+            </span>
+            <span style={{ transform: "rotate(-90deg)", transformOrigin: "center", whiteSpace: "nowrap" }}>
+              ▼ VERTICAL RATIO 9:16
+            </span>
+          </div>
+
+          {/* 4 Corner Crosshairs */}
+          <div style={{ position: "absolute", top: "24px", left: "24px", color: "#00e5ff", fontFamily: "monospace", fontSize: "16px" }}>+</div>
+          <div style={{ position: "absolute", top: "24px", right: "24px", color: "#00e5ff", fontFamily: "monospace", fontSize: "16px" }}>+</div>
+          <div style={{ position: "absolute", bottom: "24px", left: "24px", color: "#00e5ff", fontFamily: "monospace", fontSize: "16px" }}>+</div>
+          <div style={{ position: "absolute", bottom: "24px", right: "24px", color: "#00e5ff", fontFamily: "monospace", fontSize: "16px" }}>+</div>
+        </AbsoluteFill>
       )}
 
       {/* TOP ROW: Left Category Badge + Right SubCategory Label */}

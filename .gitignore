@@ -28,6 +28,8 @@ ehthumbs.db
 ref/
 
 # Scratch & test artifacts
+output/
+out/
 *.traineddata
 scratch/
 

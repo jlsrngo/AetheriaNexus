@@ -5,6 +5,23 @@ const STORAGE_KEY = "arunaki_video_stock_inventory";
 
 export const DEFAULT_STOCK_ITEMS: StockVideoItem[] = [
   {
+    id: "vid-rust-001",
+    title: "How an Elevator Crash Created Rust Language",
+    hook: "In 2006, an elevator crash forced Graydon Hoare to build the safest language in tech.",
+    ratio: "9:16",
+    durationSec: 5,
+    niche: "ENGINEERING",
+    status: "ready",
+    renderedAt: "2026-11-06 15:10",
+    fileSize: "16.8 MB",
+    resolution: "1080×1920",
+    outputPath: "output/rust-origin-blueprint.mp4",
+    caption: "The architectural origin of Rust: from a Vancouver elevator crash to the Linux Kernel & Windows Core. Architectural blueprint HUD style. ⚙ #rustlang #coding #systemdesign #techtok",
+    tags: ["#rustlang", "#coding", "#systemarchitecture", "#blueprint", "#techtok"],
+    views: 89400,
+    likes: 9200,
+  },
+  {
     id: "vid-001",
     title: "3 Morning Habits of High Performers",
     hook: "The first 60 minutes decide your next 10 years. Stop doing this.",
