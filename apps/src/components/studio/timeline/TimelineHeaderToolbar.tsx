@@ -96,6 +96,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
   onZoomChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const toolsScrollRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState<number>(1000);
 
   // Dropdown states
@@ -108,7 +109,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
   const speedRef = useRef<HTMLDivElement>(null);
   const fpsRef = useRef<HTMLDivElement>(null);
 
-  // ResizeObserver for fluid responsive scaling without overlapping or voids
+  // ResizeObserver for fluid responsive scaling
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -124,7 +125,6 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
 
   // Adaptive breakpoints
   const isCompact = containerWidth < 880;
-  const isMedium = containerWidth >= 880 && containerWidth < 1150;
   const isWide = containerWidth >= 1150;
 
   // Close dropdowns on outside click or Escape
@@ -168,12 +168,19 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
   const speedOptions: (0.5 | 1 | 1.5 | 2)[] = [0.5, 1, 1.5, 2];
   const fpsOptions: number[] = [24, 25, 30, 50, 60];
 
+  // Mouse wheel scroll handler: converts vertical scroll into horizontal scroll
+  const handleToolsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (e.deltaY !== 0) {
+      e.currentTarget.scrollLeft += e.deltaY;
+    }
+  };
+
   // Dynamic responsive tool button classes
   const toolBtnClass = cn(
     "flex items-center justify-center rounded-lg transition-all cursor-pointer group text-center select-none shrink-0",
     isCompact
       ? "w-8 h-8 p-0"
-      : "flex-1 min-w-0 max-w-[54px] sm:max-w-[60px] h-10 flex-col px-1 py-0.5 shrink"
+      : "flex-1 min-w-[36px] max-w-[56px] h-10 flex-col px-1 py-0.5"
   );
   const toolIconClass = isCompact ? "w-4 h-4" : "w-3.5 h-3.5";
   const toolLabelClass = "tracking-tight leading-none mt-0.5 truncate max-w-full text-[8.5px]";
@@ -181,10 +188,11 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
   return (
     <div
       ref={containerRef}
-      className="h-14 px-1.5 sm:px-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between gap-1 select-none shrink-0 relative z-40 w-full overflow-hidden"
+      className="h-14 px-2 sm:px-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between gap-1.5 sm:gap-2 select-none shrink-0 relative z-40 w-full"
     >
-      {/* 1. LEFT SECTION: Playback Transport & Timecode */}
-      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+      {/* 1. LEFT PINNED SECTION: Transport, Timecode, and Ratio/Speed/FPS Dropdowns */}
+      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 relative z-50">
+        {/* Transport: Step Back, Play/Pause, Step Forward */}
         <div className="flex items-center gap-0.5 p-0.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm shrink-0">
           <button
             type="button"
@@ -251,18 +259,9 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
             </span>
           )}
         </div>
-      </div>
 
-      {/* 2. CENTER SECTION: Fluid Responsive Tools (Adjusts & Expands to Fill Space) */}
-      <div
-        className={cn(
-          "flex-1 min-w-0 flex items-center gap-0.5 sm:gap-1 px-0.5 max-w-4xl overflow-hidden",
-          isCompact ? "justify-between" : "justify-center mx-auto"
-        )}
-      >
-        {/* --- GROUP 1: Composition Settings (Ratio, Speed, FPS) --- */}
         {/* Rasio Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={ratioRef} className={cn("relative shrink-0", isCompact ? "w-8 h-8" : "flex-1 min-w-0 max-w-[54px] sm:max-w-[60px]")}>
+        <div ref={ratioRef} className={cn("relative shrink-0", isCompact ? "w-8 h-8" : "w-11 h-10")}>
           <button
             type="button"
             onClick={() => {
@@ -324,7 +323,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
         </div>
 
         {/* Speed Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={speedRef} className={cn("relative shrink-0", isCompact ? "w-8 h-8" : "flex-1 min-w-0 max-w-[54px] sm:max-w-[60px]")}>
+        <div ref={speedRef} className={cn("relative shrink-0", isCompact ? "w-8 h-8" : "w-11 h-10")}>
           <button
             type="button"
             onClick={() => {
@@ -376,7 +375,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
         </div>
 
         {/* Frame Rate (FPS) Dropdown (NO chevron arrow, fully clickable) */}
-        <div ref={fpsRef} className={cn("relative shrink-0", isCompact ? "w-8 h-8" : "flex-1 min-w-0 max-w-[54px] sm:max-w-[60px]")}>
+        <div ref={fpsRef} className={cn("relative shrink-0", isCompact ? "w-8 h-8" : "w-11 h-10")}>
           <button
             type="button"
             onClick={() => {
@@ -426,10 +425,16 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
             </div>
           )}
         </div>
+      </div>
 
-        {/* Group Divider */}
-        {!isCompact && <div className="w-px h-5 bg-[var(--border-color)] mx-0.5 shrink-0" />}
+      <div className="w-px h-5 bg-[var(--border-color)] mx-0.5 shrink-0" />
 
+      {/* 2. CENTER SCROLLABLE SECTION: Action Tools, Zoom Slider, & Share (Scrolls horizontally on small screens) */}
+      <div
+        ref={toolsScrollRef}
+        onWheel={handleToolsWheel}
+        className="flex-1 min-w-0 flex items-center gap-1 sm:gap-1.5 px-1 overflow-x-auto no-scrollbar scroll-smooth"
+      >
         {/* --- GROUP 2: History (Undo, Redo) --- */}
         {/* Undo */}
         <button
@@ -461,8 +466,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Redo</span>}
         </button>
 
-        {/* Group Divider */}
-        {!isCompact && <div className="w-px h-5 bg-[var(--border-color)] mx-0.5 shrink-0" />}
+        <div className="w-px h-5 bg-[var(--border-color)] mx-0.5 shrink-0" />
 
         {/* --- GROUP 3: Editing Tools (Crop, Trim, Cut, Mirror, Volume, Delete) --- */}
         {/* Crop / Fit */}
@@ -559,8 +563,7 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Delete</span>}
         </button>
 
-        {/* Group Divider */}
-        {!isCompact && <div className="w-px h-5 bg-[var(--border-color)] mx-0.5 shrink-0" />}
+        <div className="w-px h-5 bg-[var(--border-color)] mx-0.5 shrink-0" />
 
         {/* --- GROUP 4: Track Controls (Snap, Layer) --- */}
         {/* Magnet Snapping */}
@@ -592,102 +595,68 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           <Plus className={cn(toolIconClass, "transition-colors")} />
           {!isCompact && <span className={cn("font-semibold", toolLabelClass)}>Layer</span>}
         </button>
+
+        <div className="w-px h-5 bg-[var(--border-color)] mx-0.5 shrink-0" />
+
+        {/* --- GROUP 5: Zoom Controls (Always accessible, never disappears!) --- */}
+        <div className="h-8 px-2 flex items-center gap-1.5 border border-[var(--border-color)] bg-[var(--bg-card)] rounded-xl text-[10px] font-mono shrink-0">
+          <button
+            type="button"
+            onClick={() => onZoomChange(Math.max(-100, timelineZoom - 10))}
+            className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
+            title="Zoom Out Timeline (-10%)"
+          >
+            <ZoomOut className="w-3.5 h-3.5" />
+          </button>
+          <input
+            type="range"
+            min={-100}
+            max={100}
+            step={5}
+            value={timelineZoom}
+            onChange={(e) => onZoomChange(Number(e.target.value))}
+            className="w-16 sm:w-20 md:w-24 h-1 accent-[#cf6613] bg-[var(--bg-input)] rounded-lg cursor-ew-resize outline-none"
+            title={`Timeline Zoom: ${timelineZoom > 0 ? `+${timelineZoom}%` : `${timelineZoom}%`}`}
+          />
+          <button
+            type="button"
+            onClick={() => onZoomChange(Math.min(100, timelineZoom + 10))}
+            className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
+            title="Zoom In Timeline (+10%)"
+          >
+            <ZoomIn className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onZoomChange(0)}
+            className="text-amber-400 font-semibold px-0.5 hover:underline cursor-pointer min-w-5 text-center text-[9px]"
+            title="Reset Zoom to 0%"
+          >
+            {timelineZoom > 0 ? `+${timelineZoom}%` : `${timelineZoom}%`}
+          </button>
+        </div>
+
+        {/* --- GROUP 6: Share Button (Always accessible, never disappears!) --- */}
+        <button
+          type="button"
+          onClick={() => {
+            if (onShare) onShare();
+          }}
+          title="Bagikan Konfigurasi Video (Copy JSON)"
+          className={cn(
+            toolBtnClass,
+            "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
+          )}
+        >
+          <Share2 className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
+          {!isCompact && <span className={cn("font-medium", toolLabelClass)}>Share</span>}
+        </button>
       </div>
 
-      {/* 3. RIGHT SECTION: Zoom, Share, and Orange Export Button */}
-      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-        {/* Zoom Controls */}
-        {isCompact ? (
-          <button
-            type="button"
-            onClick={() => onZoomChange(timelineZoom === 0 ? 30 : 0)}
-            className="w-7 h-7 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-[9px] font-mono font-bold text-amber-400 hover:text-white flex items-center justify-center cursor-pointer shrink-0"
-            title="Toggle Timeline Zoom"
-          >
-            {timelineZoom > 0 ? `+${timelineZoom}%` : "1x"}
-          </button>
-        ) : isMedium ? (
-          <div className="h-7 px-1.5 flex items-center gap-1 border border-[var(--border-color)] bg-[var(--bg-card)] rounded-xl text-[10px] font-mono shrink-0">
-            <button
-              type="button"
-              onClick={() => onZoomChange(Math.max(-100, timelineZoom - 10))}
-              className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
-              title="Zoom Out"
-            >
-              <ZoomOut className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onZoomChange(0)}
-              className="text-amber-400 font-semibold px-0.5 cursor-pointer text-[9px]"
-              title="Reset Zoom"
-            >
-              {timelineZoom > 0 ? `+${timelineZoom}%` : `${timelineZoom}%`}
-            </button>
-            <button
-              type="button"
-              onClick={() => onZoomChange(Math.min(100, timelineZoom + 10))}
-              className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
-              title="Zoom In"
-            >
-              <ZoomIn className="w-3 h-3" />
-            </button>
-          </div>
-        ) : (
-          <div className="h-7 px-2 flex items-center gap-1.5 border border-[var(--border-color)] bg-[var(--bg-card)] rounded-xl text-[10px] font-mono shrink-0">
-            <button
-              type="button"
-              onClick={() => onZoomChange(Math.max(-100, timelineZoom - 10))}
-              className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
-              title="Zoom Out"
-            >
-              <ZoomOut className="w-3 h-3" />
-            </button>
-            <input
-              type="range"
-              min={-100}
-              max={100}
-              step={5}
-              value={timelineZoom}
-              onChange={(e) => onZoomChange(Number(e.target.value))}
-              className="w-16 sm:w-20 md:w-24 h-1 accent-[#cf6613] bg-[var(--bg-input)] rounded-lg cursor-ew-resize outline-none"
-              title={`Timeline Zoom: ${timelineZoom > 0 ? `+${timelineZoom}%` : `${timelineZoom}%`}`}
-            />
-            <button
-              type="button"
-              onClick={() => onZoomChange(Math.min(100, timelineZoom + 10))}
-              className="text-[var(--text-secondary)] hover:text-amber-400 cursor-pointer p-0.5"
-              title="Zoom In"
-            >
-              <ZoomIn className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onZoomChange(0)}
-              className="text-amber-400 font-semibold px-0.5 hover:underline cursor-pointer min-w-5 text-center text-[9px]"
-              title="Reset Zoom to 0%"
-            >
-              {timelineZoom > 0 ? `+${timelineZoom}%` : `${timelineZoom}%`}
-            </button>
-          </div>
-        )}
+      <div className="w-px h-5 bg-[var(--border-color)] mx-0.5 shrink-0" />
 
-        {/* Share Button (hidden on compact screens to give full priority to tools) */}
-        {!isCompact && (
-          <button
-            type="button"
-            onClick={() => {
-              if (onShare) onShare();
-            }}
-            title="Bagikan Konfigurasi Video (Copy JSON)"
-            className="flex flex-col items-center justify-center w-9 h-10 rounded-lg text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer group shrink-0"
-          >
-            <Share2 className="w-3.5 h-3.5 text-[var(--text-secondary)] group-hover:text-white transition-colors" />
-            <span className="text-[8.5px] font-medium tracking-tight mt-0.5">Share</span>
-          </button>
-        )}
-
-        {/* Orange Export Pill Button */}
+      {/* 3. RIGHT PINNED SECTION: Always-Visible Orange Export Button */}
+      <div className="flex items-center shrink-0">
         <button
           type="button"
           onClick={onExport}
