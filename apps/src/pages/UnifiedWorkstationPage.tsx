@@ -370,6 +370,7 @@ export function UnifiedWorkstationPage() {
         <ErrorBoundary fullScreen={false} fallbackTitle="Chat panel encountered an error">
           <WorkstationRightChat
             activeChatId={activeChatId}
+            onSelectSession={handleSelectSessionAction}
             collapsed={rightCollapsed}
             onClose={handleToggleRight}
             chatMessages={chat.chatMessages}

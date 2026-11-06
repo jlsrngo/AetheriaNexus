@@ -70,19 +70,12 @@ pub fn execute_read(workspace_dir: &str, arguments: &Value) -> Value {
                             let start = offset.min(total_lines);
                             let end = (start + lim).min(total_lines);
                             let sliced = lines[start..end].join("\n");
-                            let mut res = json!({
+                            json!({
                                 "content": sliced,
                                 "linesTotal": total_lines,
                                 "offset": start,
                                 "linesReturned": end - start
-                            });
-                            if total_lines > end {
-                                res["hint"] = json!(format!(
-                                    "Showing lines {}..{} of {}. To read further, invoke 'read' with offset: {}.",
-                                    start + 1, end, total_lines, end
-                                ));
-                            }
-                            res
+                            })
                         } else {
                             json!({ "content": content, "linesTotal": total_lines })
                         }

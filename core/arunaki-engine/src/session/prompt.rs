@@ -29,17 +29,40 @@ pub async fn handle_prompt(
     headers: HeaderMap,
     body: Value,
 ) -> Response {
+    let session_val = with_store(|store| store.sessions.get(&session_id).cloned());
+    let Some(session) = session_val else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "Session not found" })),
+        )
+            .into_response();
+    };
+
     let raw_dir = q
         .get("directory")
+        .or_else(|| q.get("workspacePath"))
         .map(|s| s.to_string())
         .or_else(|| {
             headers
                 .get("x-arunaki-directory")
+                .or_else(|| headers.get("x-opencode-directory"))
                 .and_then(|h| h.to_str().ok())
                 .map(|s| s.to_string())
         })
+        .or_else(|| {
+            session
+                .pointer("/location/directory")
+                .or_else(|| session.get("directory"))
+                .and_then(|v| v.as_str())
+                .map(|d| d.to_string())
+        })
         .unwrap_or_default();
-    let workspace_dir = normalize_workspace_path(&urlencoding_decode(&raw_dir));
+    let norm_dir = normalize_workspace_path(&urlencoding_decode(&raw_dir));
+    let workspace_dir = if norm_dir.trim().is_empty() {
+        crate::paths::project_root().to_string_lossy().to_string()
+    } else {
+        norm_dir
+    };
 
     let prompt_text = body
         .get("prompt")
@@ -54,15 +77,6 @@ pub async fn handle_prompt(
         .and_then(|p| p.get("files"))
         .or_else(|| body.get("files"))
         .cloned();
-
-    let session_val = with_store(|store| store.sessions.get(&session_id).cloned());
-    let Some(session) = session_val else {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(json!({ "error": "Session not found" })),
-        )
-            .into_response();
-    };
 
     let model_val = session.get("model").cloned().unwrap_or_else(default_model_ref);
     let provider_id = model_val

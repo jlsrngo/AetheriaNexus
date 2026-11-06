@@ -44,7 +44,12 @@ pub fn build_tool_definitions() -> Vec<Value> {
 }
 
 pub fn resolve_isolated_path(workspace_dir: &str, raw_file: &str) -> Result<PathBuf, String> {
-    let base = Path::new(workspace_dir);
+    let ws_buf = if workspace_dir.trim().is_empty() {
+        crate::paths::project_root()
+    } else {
+        PathBuf::from(workspace_dir)
+    };
+    let base = ws_buf.as_path();
     let candidate = Path::new(raw_file);
     let resolved = if candidate.is_absolute() {
         candidate.to_path_buf()
@@ -54,7 +59,7 @@ pub fn resolve_isolated_path(workspace_dir: &str, raw_file: &str) -> Result<Path
     if !contains_path(base, &resolved) {
         return Err(format!(
             "Project Folder Isolation Error: '{}' is outside the active project folder '{}'",
-            raw_file, workspace_dir
+            raw_file, base.display()
         ));
     }
     Ok(resolved)

@@ -338,12 +338,31 @@ pub async fn run_agent_turn(
     let mut final_text = String::new();
     let mut doom_loop_detector = super::doom_loop::DoomLoopDetector::default();
 
-    for _step in 0..25 {
+    for _step in 0..35 {
         let step_start = now_ms();
         crate::paths::log_engine(
             "ai",
             &format!("⏳ Calling AI model '{}' (step {})...", model_id, _step + 1),
         );
+
+        // Proactive in-turn context compaction to prevent provider payload exhaustion
+        let total_chars: usize = chat_messages
+            .iter()
+            .map(|m| {
+                m.get("content")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.len())
+                    .unwrap_or(50)
+            })
+            .sum();
+        if (_step >= 8 && chat_messages.len() > 14) || total_chars > 80_000 {
+            crate::paths::log_engine(
+                "ai",
+                "📦 Proactive context compaction triggered during turn to maintain optimal token budget...",
+            );
+            chat_messages = crate::session::compaction::emergency_compact_messages(&chat_messages);
+        }
+
         let mut req_body = json!({
             "model": model_id,
             "messages": chat_messages,

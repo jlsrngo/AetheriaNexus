@@ -5,6 +5,23 @@ const STORAGE_KEY = "arunaki_video_stock_inventory";
 
 export const DEFAULT_STOCK_ITEMS: StockVideoItem[] = [
   {
+    id: "vid-rust-story-002",
+    title: "Rust Story (ID): 39s Animasi Karakter & Logo Rust",
+    hook: "Tahun 2006 di Vancouver: lift rusak 21 lantai melahirkan bahasa Rust.",
+    ratio: "9:16",
+    durationSec: 39,
+    niche: "ENGINEERING",
+    status: "ready",
+    renderedAt: "2026-11-06 16:30",
+    fileSize: "13.4 MB",
+    resolution: "1080×1920",
+    outputPath: "output/rust-blueprint-story.mp4",
+    caption: "Kisah nyata lahirnya bahasa Rust: dari insinyur Graydon Hoare yang ngos-ngosan naik tangga 21 lantai akibat C++ memory leak, meja dapur, hingga menggerakkan Kernel Linux & AWS! #rustlang #coding #kisahsukses #techtok",
+    tags: ["#rustlang", "#coding", "#kisahsukses", "#teknologi", "#techtok", "#belajarcoding"],
+    views: 198400,
+    likes: 24600,
+  },
+  {
     id: "vid-rust-001",
     title: "How an Elevator Crash Created Rust Language",
     hook: "In 2006, an elevator crash forced Graydon Hoare to build the safest language in tech.",
@@ -114,7 +131,11 @@ export function useVideoStock() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const ids = new Set(parsed.map((p: any) => p.id));
+          const missing = DEFAULT_STOCK_ITEMS.filter((item) => !ids.has(item.id));
+          return [...missing, ...parsed];
+        }
       }
     } catch {}
     return DEFAULT_STOCK_ITEMS;

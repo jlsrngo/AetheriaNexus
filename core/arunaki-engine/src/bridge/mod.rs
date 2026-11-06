@@ -561,7 +561,7 @@ async fn handle_opencode_request(mut body: Value, model: &str, is_stream: bool) 
     let msg_id = mint_opencode_id("msg", now.wrapping_add(1));
 
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(90))
+        .timeout(std::time::Duration::from_secs(240))
         .build()
         .unwrap();
 

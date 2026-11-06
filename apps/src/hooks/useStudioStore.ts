@@ -15,6 +15,34 @@ const DEFAULT_PROPS_SIG_KEY = "arunaki_nexus_default_props_sig_v1";
 
 const DEFAULT_COMPOSITIONS: StudioComposition[] = [
   {
+    id: "RustBlueprintStory",
+    name: "Rust Story (ID): 39s Animasi Karakter & Logo Rust",
+    folder: "DOCUMENTARY / CINEMATIC",
+    ratio: "9:16",
+    duration: 39,
+    fps: 30,
+    width: 1080,
+    height: 1920,
+    props: {
+      hookText: "THE 21-FLOOR ELEVATOR CRASH THAT CREATED RUST",
+      bodyText:
+        "1. 2006: Graydon Hoare walked 21 flights after an elevator C++ memory crash\n2. THE BLUEPRINT: Conceived in Vancouver to enforce memory safety without GC\n3. THE BORROW CHECKER: Compile-time lifetimes eliminate segfaults at zero cost\n4. TODAY: Powers the Linux Kernel, Windows Core & AWS Cloud infrastructure",
+      authorHandle: "@rust.systems",
+      themeColor: "blueprint",
+      category: "DOCUMENTARY",
+      subCategory: "SPEC-2006 // RUST ORIGIN",
+      editorialTag: "SWISS BRUTALISM // TECHNICAL HUD",
+      bgStyle: "blueprint",
+      gridSize: 36,
+      gridOpacity: 0.35,
+      orbSize: 750,
+      footerIconChar: "⚙",
+      showText: true,
+      showBackground: true,
+      isMuted: false,
+    },
+  },
+  {
     id: "RustOriginBlueprint",
     name: "Rust History: Swiss Blueprint HUD",
     folder: "SYSTEM ARCHITECTURE",
@@ -181,8 +209,12 @@ function loadInitialCompositions(): StudioComposition[] {
     if (raw) {
       const parsed = JSON.parse(raw) as StudioComposition[];
       if (Array.isArray(parsed) && parsed.length > 0) {
-        if (codeChangedByLlm) {
-          const updated = parsed.map((comp) =>
+        const existingIds = new Set(parsed.map((comp) => comp.id));
+        const missingDefaults = DEFAULT_COMPOSITIONS.filter((comp) => !existingIds.has(comp.id));
+        const combined = [...missingDefaults, ...parsed];
+
+        if (codeChangedByLlm || missingDefaults.length > 0) {
+          const updated = combined.map((comp) =>
             comp.id === nexusVideoSpec.id
               ? { ...comp, props: { ...defaultNexusVideoProps } }
               : comp
@@ -190,7 +222,7 @@ function loadInitialCompositions(): StudioComposition[] {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
           return updated;
         }
-        return parsed;
+        return combined;
       }
     }
   } catch {}

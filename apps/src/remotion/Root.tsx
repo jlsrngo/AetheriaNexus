@@ -1,6 +1,7 @@
 import React from "react";
 import { Composition } from "remotion";
 import { NexusVideoComposition } from "./NexusVideoComposition";
+import { RustBlueprintStoryComposition } from "./RustBlueprintStoryComposition";
 import { defaultNexusVideoProps, nexusVideoSpec } from "./types";
 
 export const NexusVideoRoot: React.FC = () => {
@@ -14,6 +15,14 @@ export const NexusVideoRoot: React.FC = () => {
         width={nexusVideoSpec.width}
         height={nexusVideoSpec.height}
         defaultProps={defaultNexusVideoProps}
+      />
+      <Composition
+        id="RustBlueprintStory"
+        component={RustBlueprintStoryComposition}
+        durationInFrames={1175}
+        fps={30}
+        width={1080}
+        height={1920}
       />
       <Composition
         id="RustOriginBlueprint"

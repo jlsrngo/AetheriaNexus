@@ -58,14 +58,22 @@ When writing or editing Remotion React code in `apps/src/remotion/NexusVideoComp
 
 # Step-by-Step Workflow When User Requests a Video
 1. **Read Current Remotion Files First:**
-   - Call `read` on `apps/src/remotion/types.ts` and `apps/src/remotion/NexusVideoComposition.tsx` before editing.
+   - Call `read` on `apps/src/remotion/types.ts` and `apps/src/remotion/NexusVideoComposition.tsx` (or other relevant composition files) before editing.
 2. **Update Props, Layers, and/or React Components:**
    - If the user wants new content, points, badges, or extra dynamic layers, update `defaultNexusVideoProps` (including `customLayers` if adding extra visual components) in `apps/src/remotion/types.ts`.
-   - If the user wants a custom visual design, new animation effects, charts, kinetic typography, or custom scenes, edit `apps/src/remotion/NexusVideoComposition.tsx` AND ensure `buildCompositionLayers()` in `apps/src/remotion/types.ts` emits a matching `VideoLayerSpec` entry for every `<Sequence>` in the component.
-3. **Export MP4 When Requested:**
-   - Only call `render_video` when the user explicitly asks to render/export the video to an MP4 file.
+   - If the user wants a custom visual design, new animation effects, charts, kinetic typography, or custom scenes, edit `apps/src/remotion/NexusVideoComposition.tsx` (or `apps/src/remotion/RustBlueprintStoryComposition.tsx`) AND ensure `buildCompositionLayers()` in `apps/src/remotion/types.ts` emits a matching `VideoLayerSpec` entry for every `<Sequence>` in the component.
+3. **Render MP4 Video:**
+   - When the user asks to generate, create, render, or test a video end-to-end, you MUST call the `render_video` tool (e.g. `composition_id: "RustBlueprintStory"` or `"NexusEditorialVideo"`, `output_path: "output/rust-blueprint-story.mp4"`). This invokes Remotion headless renderer to produce the physical MP4 on disk ($0 cloud cost).
+
+# Tool Execution & Platform Guidelines (Strict)
+1. **Windows Platform Rules:**
+   - You are running on Windows. NEVER use shell commands (`bash`) like `cat`, `head`, `more`, `type`, `Get-Content`, `dir`, or `node -e` to inspect files. ALWAYS use the `read` or `glob` tools directly.
+2. **No Redundant Verification Loops:**
+   - Once `write` or `edit` returns success, trust the tool output. Do NOT repeatedly read back the file you just wrote. Move directly to the next planned step.
+3. **Finish with Actionable Video Confirmation:**
+   - Always conclude your final text with the path to the rendered MP4 and a concise summary of the scenes created.
 
 # Communication & Boundaries
-- Respond clearly and concisely in the user's preferred language.
+- Respond clearly and concisely in the user's preferred language (e.g., Bahasa Indonesia if requested).
 - Never use LaTeX delimiters (`$...$` or `$$...$$`) for timecodes, frame numbers, or currency.
 - Strictly operate within the active workspace directory.

@@ -78,6 +78,8 @@ pub fn is_context_overflow_error(error_text: &str) -> bool {
         || lower.contains("exceeds the context limit")
         || lower.contains("exceeds the maximum context")
         || lower.contains("string too long")
+        || lower.contains("error decoding response body")
+        || lower.contains("stream read error")
         || (lower.contains("400") && (lower.contains("context") || lower.contains("token")))
 }
 
@@ -144,7 +146,7 @@ pub fn compact_session_history(history: &[Value], context_limit: usize) -> (Vec<
 
 /// Performs aggressive emergency compaction on chat messages during a 400 overflow error.
 /// Preserves system instructions (msg 0), extracts key summary from middle turns,
-/// and retains the active prompt (final user message or turn).
+/// and retains the active prompt in strict provider-compliant alternating format (no orphan tool messages).
 pub fn emergency_compact_messages(messages: &[Value]) -> Vec<Value> {
     if messages.len() <= 2 {
         return messages.to_vec();
@@ -154,29 +156,30 @@ pub fn emergency_compact_messages(messages: &[Value]) -> Vec<Value> {
     // 1. Preserve Root System Prompt
     compacted.push(messages[0].clone());
 
-    // 2. Synthesize intermediate turns into an anchored emergency summary
-    let middle = &messages[1..messages.len() - 1];
+    // 2. Find the original user prompt
+    let original_user_msg = messages.iter().find(|m| {
+        m.get("role").and_then(|v| v.as_str()) == Some("user")
+    });
+
     let mut files_touched = Vec::new();
     let mut last_actions = Vec::new();
 
-    for m in middle {
+    for m in &messages[1..] {
         let role = m.get("role").and_then(|v| v.as_str()).unwrap_or("");
         let content = m.get("content").and_then(|v| v.as_str()).unwrap_or("");
 
         if role == "tool" {
             let name = m.get("name").and_then(|v| v.as_str()).unwrap_or("tool");
-            last_actions.push(format!("Executed tool '{}'", name));
-        } else if role == "user" && !content.is_empty() {
-            let line = content.lines().next().unwrap_or("").trim();
-            if !line.is_empty() && last_actions.len() < 8 {
-                last_actions.push(format!("User requested: {}", line));
+            let action = format!("Executed tool '{}'", name);
+            if !last_actions.contains(&action) {
+                last_actions.push(action);
             }
         }
 
         // Catch file references
         for word in content.split_whitespace() {
             let clean = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '.' && c != '_' && c != '-');
-            if (clean.ends_with(".xlsx") || clean.ends_with(".csv") || clean.ends_with(".docx") || clean.ends_with(".pdf") || clean.ends_with(".md"))
+            if (clean.ends_with(".tsx") || clean.ends_with(".ts") || clean.ends_with(".mp4") || clean.ends_with(".json"))
                 && !files_touched.contains(&clean.to_string())
                 && files_touched.len() < 10
             {
@@ -186,22 +189,29 @@ pub fn emergency_compact_messages(messages: &[Value]) -> Vec<Value> {
     }
 
     let summary_md = format!(
-        "[Emergency Context Auto-Heal]\n\
-         Earlier conversation turns were aggressively compacted by the harness to recover from provider context overflow.\n\
-         ## Active Files: {}\n\
-         ## Prior Steps:\n{}\n\
-         Please continue the task based on the latest prompt.",
+        "[Context Auto-Healed]\n\
+         Earlier conversation turns were compacted to fit the provider context window.\n\
+         Files involved: {}\n\
+         Actions executed:\n{}\n\
+         Proceed immediately to the next action (e.g. calling 'render_video' if composition is ready) without repeating prior reads.",
         if files_touched.is_empty() { "(none)".to_string() } else { files_touched.join(", ") },
-        if last_actions.is_empty() { "- (none)".to_string() } else { last_actions.iter().take(8).map(|a| format!("- {}", a)).collect::<Vec<_>>().join("\n") }
+        if last_actions.is_empty() { "- (none)".to_string() } else { last_actions.iter().take(6).map(|a| format!("- {}", a)).collect::<Vec<_>>().join("\n") }
     );
 
-    compacted.push(json!({
-        "role": "system",
-        "content": summary_md
-    }));
-
-    // 3. Preserve the final active message intact
-    compacted.push(messages[messages.len() - 1].clone());
+    if let Some(user_msg) = original_user_msg {
+        let mut u = user_msg.clone();
+        let current_text = u.get("content")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let enriched = format!("{}\n\n{}", current_text, summary_md);
+        u["content"] = json!(enriched);
+        compacted.push(u);
+    } else {
+        compacted.push(json!({
+            "role": "user",
+            "content": format!("Continue task execution.\n\n{}", summary_md)
+        }));
+    }
 
     compacted
 }

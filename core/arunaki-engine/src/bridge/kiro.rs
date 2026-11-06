@@ -246,7 +246,7 @@ pub(crate) async fn handle_kiro_request(body: Value, model: &str, is_stream: boo
 
     let url = format!("https://q.{}.amazonaws.com/generateAssistantResponse", region);
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(90))
+        .timeout(std::time::Duration::from_secs(240))
         .build()
         .unwrap();
 

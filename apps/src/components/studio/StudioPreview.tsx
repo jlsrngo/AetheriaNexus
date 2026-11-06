@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useStudioStore } from "../../hooks/useStudioStore";
 import { cn } from "../../lib/utils";
 import { NexusVideoComposition } from "../../remotion/NexusVideoComposition";
+import { RustBlueprintStoryComposition } from "../../remotion/RustBlueprintStoryComposition";
 import {
   buildCompositionLayers,
   type NexusVideoProps,
@@ -1192,7 +1193,11 @@ export const StudioPreview: React.FC = () => {
                     setPlayerInstance(ref);
                   }
                 }}
-                component={NexusVideoComposition}
+                component={
+                  activeComposition.id === "RustBlueprintStory"
+                    ? (RustBlueprintStoryComposition as any)
+                    : NexusVideoComposition
+                }
                 inputProps={activeComposition.props}
                 durationInFrames={durationInFrames}
                 fps={activeComposition.fps}

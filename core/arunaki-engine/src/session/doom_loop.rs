@@ -12,6 +12,8 @@ pub struct DoomLoopDetector {
     call_counts: HashMap<(String, String), usize>,
     consecutive_call: Option<(String, String)>,
     consecutive_count: usize,
+    shell_read_count: usize,
+    file_read_counts: HashMap<String, usize>,
     threshold: usize,
 }
 
@@ -28,6 +30,8 @@ impl DoomLoopDetector {
             call_counts: HashMap::new(),
             consecutive_call: None,
             consecutive_count: 0,
+            shell_read_count: 0,
+            file_read_counts: HashMap::new(),
             threshold: threshold.max(2),
         }
     }
@@ -37,8 +41,52 @@ impl DoomLoopDetector {
     /// If repetition exceeds the threshold, returns `Some(warning_message)`.
     /// Otherwise returns `None` and records the invocation.
     pub fn check_and_record(&mut self, tool_name: &str, args_canonical: &str) -> Option<String> {
+        let t_norm = tool_name.trim().to_lowercase();
+
+        // 1. Guard against LLM shell file-inspection loops on Windows
+        if t_norm == "bash" || t_norm == "shell" || t_norm == "terminal" {
+            let lower_args = args_canonical.to_lowercase();
+            if lower_args.contains("cat ")
+                || lower_args.contains("head ")
+                || lower_args.contains("more ")
+                || lower_args.contains("type ")
+                || lower_args.contains("get-content")
+                || lower_args.contains("readfilesync")
+            {
+                self.shell_read_count += 1;
+                if self.shell_read_count >= 2 {
+                    return Some(
+                        "Tool execution blocked: Shell file inspection loop detected. Do NOT use shell commands (cat, type, more, node, Get-Content) to inspect files. Use the 'read' tool directly, or if files are already written, proceed immediately to calling 'render_video' to export the MP4.".to_string(),
+                    );
+                }
+            }
+        }
+
+        // 2. Guard against LLM repetitive file-read pagination loops
+        if t_norm == "read" || t_norm == "read_file" {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(args_canonical) {
+                let fp = v.get("filePath")
+                    .or_else(|| v.get("path"))
+                    .or_else(|| v.get("file"))
+                    .and_then(|s| s.as_str())
+                    .unwrap_or("")
+                    .to_lowercase()
+                    .replace('/', "\\");
+                if !fp.is_empty() {
+                    let c = self.file_read_counts.entry(fp.clone()).or_insert(0);
+                    *c += 1;
+                    if *c >= 3 {
+                        return Some(format!(
+                            "Tool execution blocked: File '{}' has already been read {} times in this turn. You already have this file in context. Do NOT read it again. Proceed directly to editing/writing files or calling 'render_video' to produce the output MP4.",
+                            fp, *c
+                        ));
+                    }
+                }
+            }
+        }
+
         let key = (
-            tool_name.trim().to_lowercase(),
+            t_norm.clone(),
             args_canonical.trim().to_string(),
         );
 
@@ -75,6 +123,8 @@ impl DoomLoopDetector {
         self.call_counts.clear();
         self.consecutive_call = None;
         self.consecutive_count = 0;
+        self.shell_read_count = 0;
+        self.file_read_counts.clear();
     }
 }
 

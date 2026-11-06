@@ -303,7 +303,7 @@ pub(crate) async fn handle_antigravity_request(body: Value, model: &str, is_stre
 
     let url = "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse";
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(90))
+        .timeout(std::time::Duration::from_secs(240))
         .build()
         .unwrap();
 

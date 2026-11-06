@@ -54,18 +54,20 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
     return globalChat.startsWith("ses_") ? globalChat : "";
   });
 
-  // Auto-connect to the active / most recent session in this folder if none is currently selected
+  // Auto-connect to the active / most recent session if none is currently selected
   useEffect(() => {
-    if (!activeFolder || activeChatId) return;
+    if (activeChatId) return;
     let isCancelled = false;
-    listSessions({ directory: activeFolder, limit: 1 })
+    listSessions({ directory: activeFolder || undefined, limit: 1 })
       .then((sessions) => {
         if (isCancelled || !sessions || sessions.length === 0) return;
         const latest = sessions[0];
         if (latest && latest.id && latest.id.startsWith("ses_")) {
           setActiveChatId(latest.id);
           localStorage.setItem("arunaki_active_chat_id", latest.id);
-          localStorage.setItem(`arunaki_active_chat_id_${activeFolder}`, latest.id);
+          if (activeFolder) {
+            localStorage.setItem(`arunaki_active_chat_id_${activeFolder}`, latest.id);
+          }
         }
       })
       .catch(() => { });

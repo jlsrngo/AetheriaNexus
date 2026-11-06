@@ -110,17 +110,21 @@ pub fn render_video_tool_definition() -> Value {
         "type": "function",
         "function": {
             "name": "render_video",
-            "description": "Triggers local Nexus GPU engine to export the active video composition to an MP4 file on disk ($0 local hardware acceleration). Equivalent to pressing the '[↓] RENDER MP4' button in the UI. Use when the user requests to render or export the video to MP4 (e.g., via chat or Telegram bot).",
+            "description": "Triggers the local Remotion engine to render the active video composition into a native MP4 file on disk ($0 local hardware acceleration). MUST be called whenever the user asks to generate, create, build, render, or test a video end-to-end so that the actual MP4 file is produced.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "composition_id": {
                         "type": "string",
-                        "description": "Composition identifier to render. Defaults to 'NexusEditorialVideo'. Unknown ids fall back to the first registered composition."
+                        "description": "Composition identifier to render (e.g. 'RustBlueprintStory', 'NexusEditorialVideo', 'RustOriginBlueprint', 'TikTokVideo'). Defaults to 'NexusEditorialVideo'."
                     },
                     "output_path": {
                         "type": "string",
-                        "description": "Optional destination MP4 path, resolved against the active project folder (e.g. 'export/video.mp4'). Defaults to 'output/nexus-<timestamp>.mp4'."
+                        "description": "Optional destination MP4 path, resolved against the active project folder (e.g. 'output/rust-blueprint-story.mp4'). Defaults to 'output/nexus-<timestamp>.mp4'."
+                    },
+                    "props": {
+                        "type": "object",
+                        "description": "Optional JSON object containing Remotion inputProps to pass to the composition."
                     }
                 }
             }
@@ -170,7 +174,18 @@ pub fn execute_render_video(
             .join(format!("nexus-{}.mp4", now_ms())),
     };
 
-    let mut cmd = build_command(&root, composition_id, "{}", Some(&output_path));
+    let props_str = arguments
+        .get("props")
+        .map(|v| {
+            if v.is_string() {
+                v.as_str().unwrap_or("{}").to_string()
+            } else {
+                serde_json::to_string(v).unwrap_or_else(|_| "{}".to_string())
+            }
+        })
+        .unwrap_or_else(|| "{}".to_string());
+
+    let mut cmd = build_command(&root, composition_id, &props_str, Some(&output_path));
 
     match cmd.output() {
         Ok(output) => {

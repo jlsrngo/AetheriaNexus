@@ -55,6 +55,7 @@ export interface WorkstationRightChatProps {
   isCompacting?: boolean;
   isCompacted?: boolean;
   activeChatId?: string;
+  onSelectSession?: (chatId: string) => void;
 }
 
 export const WorkstationRightChat = memo(function WorkstationRightChat({
@@ -84,6 +85,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
   isCompacting,
   isCompacted,
   activeChatId,
+  onSelectSession,
 }: WorkstationRightChatProps) {
   // CRITICAL: React Rules of Hooks - all hooks declared unconditionally at top
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -200,6 +202,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
       {/* Panel Header */}
       <WorkstationRightChatHeader
         activeChatId={activeChatId}
+        onSelectSession={onSelectSession}
         onNewChat={onNewChat}
         onCompactSession={onCompactSession}
         isCompacting={isCompacting}
