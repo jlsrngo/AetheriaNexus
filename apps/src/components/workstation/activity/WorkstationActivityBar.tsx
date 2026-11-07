@@ -1,6 +1,7 @@
 import { memo } from "react";
 import {
   Clapperboard,
+  FileCode2,
   Files,
   SlidersHorizontal,
   Layers,
@@ -13,6 +14,7 @@ import { useTheme } from "../../../lib/theme";
 
 export type SidebarView =
   | "compositions"
+  | "script"
   | "explorer"
   | "inspector"
   | "elements"
@@ -39,6 +41,13 @@ const ITEMS: {
     icon: Clapperboard,
     neoOn: "bg-[#CCFF00]",
     neoOff: "bg-[#FFFDFB] hover:bg-[#CCFF00]",
+  },
+  {
+    view: "script",
+    label: "Scripts (LLM React Code)",
+    icon: FileCode2,
+    neoOn: "bg-[#10B981]",
+    neoOff: "bg-[#FFFDFB] hover:bg-[#10B981]",
   },
   {
     view: "explorer",

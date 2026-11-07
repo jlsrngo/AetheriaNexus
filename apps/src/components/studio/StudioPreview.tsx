@@ -17,12 +17,36 @@ import { toast } from "sonner";
 import { useStudioStore } from "../../hooks/useStudioStore";
 import { cn } from "../../lib/utils";
 import { NexusVideoComposition } from "../../remotion/NexusVideoComposition";
-import { RustBlueprintStoryComposition } from "../../remotion/RustBlueprintStoryComposition";
 import {
   buildCompositionLayers,
   type NexusVideoProps,
   type VideoLayerSpec,
 } from "../../remotion/types";
+
+// Dynamically discover LLM-generated React compositions from the external workspace folder
+const workspaceModules = import.meta.glob<Record<string, unknown>>(
+  "../../../../workspace/**/*.tsx",
+  { eager: true }
+);
+
+function resolveWorkspaceComponent(compositionId: string): React.ComponentType<any> | null {
+  for (const [modPath, mod] of Object.entries(workspaceModules)) {
+    if (!mod || typeof mod !== "object") continue;
+    // Match by explicit export name === compositionId
+    if (typeof mod[compositionId] === "function") {
+      return mod[compositionId] as React.ComponentType<any>;
+    }
+    // Or match if file path contains the compositionId and exports Main / Composition / default
+    if (modPath.toLowerCase().includes(compositionId.toLowerCase())) {
+      for (const [key, val] of Object.entries(mod)) {
+        if (typeof val === "function" && (key === "default" || key.endsWith("Composition") || key === "Main")) {
+          return val as React.ComponentType<any>;
+        }
+      }
+    }
+  }
+  return null;
+}
 import { ErrorBoundary } from "../common/ErrorBoundary";
 import { CanvasMinimap } from "./CanvasMinimap";
 import { ClipEditModal } from "./ClipEditModal";
@@ -1194,9 +1218,7 @@ export const StudioPreview: React.FC = () => {
                   }
                 }}
                 component={
-                  activeComposition.id === "RustBlueprintStory"
-                    ? (RustBlueprintStoryComposition as any)
-                    : NexusVideoComposition
+                  resolveWorkspaceComponent(activeComposition.id) ?? NexusVideoComposition
                 }
                 inputProps={activeComposition.props}
                 durationInFrames={durationInFrames}

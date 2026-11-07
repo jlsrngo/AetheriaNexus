@@ -83,9 +83,15 @@ async function main() {
     fs.mkdirSync(path.dirname(path.resolve(outputLocation)), { recursive: true });
   }
 
+  const workspaceEntryCandidates = [
+    path.resolve(process.cwd(), "workspace/src/entry.ts"),
+    path.resolve(process.cwd(), "workspace/src/index.ts"),
+    path.resolve(process.cwd(), "workspace/entry.ts"),
+  ];
+  const detectedWorkspaceEntry = workspaceEntryCandidates.find((p) => fs.existsSync(p));
   const entryPoint = args.entry
     ? path.resolve(args.entry)
-    : path.resolve(process.cwd(), "apps/src/remotion/entry.ts");
+    : detectedWorkspaceEntry || path.resolve(process.cwd(), "apps/src/remotion/entry.ts");
 
   if (!fs.existsSync(entryPoint)) {
     throw new Error(`Remotion entry point not found: ${entryPoint}`);

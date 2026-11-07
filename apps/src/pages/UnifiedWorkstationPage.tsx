@@ -5,6 +5,7 @@ import { WorkstationLeftExplorer } from "../components/workstation/WorkstationLe
 import { WorkstationActivityBar, type SidebarView } from "../components/workstation/activity/WorkstationActivityBar";
 import { WorkspaceSearchPanel } from "../components/workstation/search/WorkspaceSearchPanel";
 import { CompositionsPanel } from "../components/studio/panels/CompositionsPanel";
+import { ScriptPanel } from "../components/studio/panels/ScriptPanel";
 import { InspectorPanel } from "../components/studio/panels/InspectorPanel";
 import { ElementsCaptionsPanel } from "../components/studio/panels/ElementsCaptionsPanel";
 import { RenderQueuePanel } from "../components/studio/panels/RenderQueuePanel";
@@ -209,6 +210,18 @@ export function UnifiedWorkstationPage() {
             width="100%"
             isFloating={isFloating}
             onClose={onCloseAction}
+          />
+        );
+      case "script":
+        return (
+          <ScriptPanel
+            width="100%"
+            isFloating={isFloating}
+            onClose={onCloseAction}
+            activeChatId={activeChatId}
+            activeFolder={activeFolder}
+            workspaceFiles={workspaceFiles}
+            onOpenFileTab={tabs.handleOpenFileTab}
           />
         );
       case "inspector":

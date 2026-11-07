@@ -1,43 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import type { StockVideoItem, StockVideoStatus } from "../types/stock";
 
-const STORAGE_KEY = "arunaki_video_stock_inventory";
+const STORAGE_KEY = "arunaki_video_stock_inventory_v2";
 
 export const DEFAULT_STOCK_ITEMS: StockVideoItem[] = [
-  {
-    id: "vid-rust-story-002",
-    title: "Rust Story (ID): 39s Animasi Karakter & Logo Rust",
-    hook: "Tahun 2006 di Vancouver: lift rusak 21 lantai melahirkan bahasa Rust.",
-    ratio: "9:16",
-    durationSec: 39,
-    niche: "ENGINEERING",
-    status: "ready",
-    renderedAt: "2026-11-06 16:30",
-    fileSize: "13.4 MB",
-    resolution: "1080×1920",
-    outputPath: "output/rust-blueprint-story.mp4",
-    caption: "Kisah nyata lahirnya bahasa Rust: dari insinyur Graydon Hoare yang ngos-ngosan naik tangga 21 lantai akibat C++ memory leak, meja dapur, hingga menggerakkan Kernel Linux & AWS! #rustlang #coding #kisahsukses #techtok",
-    tags: ["#rustlang", "#coding", "#kisahsukses", "#teknologi", "#techtok", "#belajarcoding"],
-    views: 198400,
-    likes: 24600,
-  },
-  {
-    id: "vid-rust-001",
-    title: "How an Elevator Crash Created Rust Language",
-    hook: "In 2006, an elevator crash forced Graydon Hoare to build the safest language in tech.",
-    ratio: "9:16",
-    durationSec: 5,
-    niche: "ENGINEERING",
-    status: "ready",
-    renderedAt: "2026-11-06 15:10",
-    fileSize: "16.8 MB",
-    resolution: "1080×1920",
-    outputPath: "output/rust-origin-blueprint.mp4",
-    caption: "The architectural origin of Rust: from a Vancouver elevator crash to the Linux Kernel & Windows Core. Architectural blueprint HUD style. ⚙ #rustlang #coding #systemdesign #techtok",
-    tags: ["#rustlang", "#coding", "#systemarchitecture", "#blueprint", "#techtok"],
-    views: 89400,
-    likes: 9200,
-  },
   {
     id: "vid-001",
     title: "3 Morning Habits of High Performers",

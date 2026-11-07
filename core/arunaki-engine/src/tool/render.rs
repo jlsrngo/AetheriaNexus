@@ -18,11 +18,12 @@ pub struct RenderOptions {
     pub concurrency: Option<usize>,
 }
 
-/// Fast native Rust directory mtime scanner for `apps/src/remotion` so Node.js
+/// Fast native Rust directory mtime scanner for `workspace/src` and `apps/src/remotion` so Node.js
 /// does not have to recursively stat files synchronously before every render.
 pub fn compute_remotion_bundle_stamp(root: &Path) -> String {
     let remotion_dir = root.join("apps").join("src").join("remotion");
-    let newest = newest_mtime_ms(&remotion_dir);
+    let workspace_dir = root.join("workspace").join("src");
+    let newest = newest_mtime_ms(&remotion_dir).max(newest_mtime_ms(&workspace_dir));
     format!("{}", newest)
 }
 
@@ -116,11 +117,11 @@ pub fn render_video_tool_definition() -> Value {
                 "properties": {
                     "composition_id": {
                         "type": "string",
-                        "description": "Composition identifier to render (e.g. 'RustBlueprintStory', 'NexusEditorialVideo', 'RustOriginBlueprint', 'TikTokVideo'). Defaults to 'NexusEditorialVideo'."
+                        "description": "Composition identifier registered in workspace/src/Root.tsx to render. Defaults to 'NexusEditorialVideo'."
                     },
                     "output_path": {
                         "type": "string",
-                        "description": "Optional destination MP4 path, resolved against the active project folder (e.g. 'output/rust-blueprint-story.mp4'). Defaults to 'output/nexus-<timestamp>.mp4'."
+                        "description": "Optional destination MP4 path, resolved against the active project folder (e.g. 'output/video.mp4'). Defaults to 'output/nexus-<timestamp>.mp4'."
                     },
                     "props": {
                         "type": "object",

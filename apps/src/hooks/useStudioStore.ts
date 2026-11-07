@@ -10,66 +10,10 @@ import type {
   StudioSubtitleCue,
 } from "../types/studio";
 
-const STORAGE_KEY = "arunaki_nexus_studio_compositions_v1";
-const DEFAULT_PROPS_SIG_KEY = "arunaki_nexus_default_props_sig_v1";
+const STORAGE_KEY = "arunaki_nexus_studio_compositions_v2";
+const DEFAULT_PROPS_SIG_KEY = "arunaki_nexus_default_props_sig_v2";
 
 const DEFAULT_COMPOSITIONS: StudioComposition[] = [
-  {
-    id: "RustBlueprintStory",
-    name: "Rust Story (ID): 39s Animasi Karakter & Logo Rust",
-    folder: "DOCUMENTARY / CINEMATIC",
-    ratio: "9:16",
-    duration: 39,
-    fps: 30,
-    width: 1080,
-    height: 1920,
-    props: {
-      hookText: "THE 21-FLOOR ELEVATOR CRASH THAT CREATED RUST",
-      bodyText:
-        "1. 2006: Graydon Hoare walked 21 flights after an elevator C++ memory crash\n2. THE BLUEPRINT: Conceived in Vancouver to enforce memory safety without GC\n3. THE BORROW CHECKER: Compile-time lifetimes eliminate segfaults at zero cost\n4. TODAY: Powers the Linux Kernel, Windows Core & AWS Cloud infrastructure",
-      authorHandle: "@rust.systems",
-      themeColor: "blueprint",
-      category: "DOCUMENTARY",
-      subCategory: "SPEC-2006 // RUST ORIGIN",
-      editorialTag: "SWISS BRUTALISM // TECHNICAL HUD",
-      bgStyle: "blueprint",
-      gridSize: 36,
-      gridOpacity: 0.35,
-      orbSize: 750,
-      footerIconChar: "⚙",
-      showText: true,
-      showBackground: true,
-      isMuted: false,
-    },
-  },
-  {
-    id: "RustOriginBlueprint",
-    name: "Rust History: Swiss Blueprint HUD",
-    folder: "SYSTEM ARCHITECTURE",
-    ratio: "9:16",
-    duration: 5,
-    fps: 30,
-    width: 1080,
-    height: 1920,
-    props: {
-      hookText: "HOW AN ELEVATOR CRASH CREATED RUST",
-      bodyText:
-        "1. 2006: Graydon Hoare walked 21 flights after an elevator C++ memory crash\n2. THE BLUEPRINT: Conceived in Vancouver to enforce memory safety without GC\n3. THE BORROW CHECKER: Compile-time lifetimes eliminate segfaults at zero cost\n4. TODAY: Powers the Linux Kernel, Windows Core & AWS Cloud infrastructure",
-      authorHandle: "@rust.systems",
-      themeColor: "blueprint",
-      category: "SYSTEM ARCHITECTURE",
-      subCategory: "SPEC-2006 // RUST ORIGIN",
-      editorialTag: "SWISS BRUTALISM // TECHNICAL HUD",
-      bgStyle: "blueprint",
-      gridSize: 36,
-      gridOpacity: 0.35,
-      orbSize: 750,
-      footerIconChar: "⚙",
-      showText: true,
-      showBackground: true,
-      isMuted: false,
-    },
-  },
   {
     id: nexusVideoSpec.id,
     name: "NexusEditorialVideo",
