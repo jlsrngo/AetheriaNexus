@@ -174,31 +174,60 @@ def generate_voxcpm_speech(
     """
     Generates natural speech with OpenBMB VoxCPM2 (Apache-2.0) through its official Hugging Face Space.
     - Voice Design: `voice_design` describes the voice (gender, age, tone, pace).
-    - Cloning: `clone_ref` is a short WAV of a voice the user owns or has permission to use.
+    - Cloning: `clone_ref` is a WAV/audio sample to clone. Automatically trimmed to optimal duration (<30s).
     Raises on any network/queue failure so the caller can fall back to the Indonesian Neural engine.
     """
     if not HAS_GRADIO_CLIENT or Client is None or handle_file is None:
         raise ImportError("gradio_client is not installed in the current environment.")
 
-    client = Client(VOXCPM_SPACE, verbose=False)
-    job = client.submit(
-        text_input=text,
-        # Control instruction is ignored by the Space when a clone reference is given.
-        control_instruction="" if clone_ref else voice_design,
-        reference_wav_path_input=handle_file(clone_ref) if clone_ref else None,
-        use_prompt_text=False,
-        prompt_text_input="",
-        cfg_value_input=2.0,
-        do_normalize=True,
-        denoise=False,
-        api_name="/generate",
-    )
-    result = job.result(timeout=VOXCPM_TIMEOUT_SEC)
-    audio_path = result if isinstance(result, str) else result[0]
-    data, sr = sf.read(audio_path)
-    if data.ndim > 1:
-        data = np.mean(data, axis=1)
-    return data.astype(np.float32), sr
+    trimmed_tmp: Optional[str] = None
+    ref_to_use = clone_ref
+
+    if clone_ref and os.path.isfile(clone_ref):
+        try:
+            info = sf.info(clone_ref)
+            # VoxCPM requires reference audio to be <= 50s. Optimal sweet spot is 10-15s.
+            if info.duration > 35.0:
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                    trimmed_tmp = tf.name
+                data, sr = sf.read(clone_ref)
+                if data.ndim > 1:
+                    data = np.mean(data, axis=1)
+                start_sample = int(sr * 2.0) if len(data) > sr * 20 else 0
+                max_samples = int(sr * 15.0)
+                end_sample = min(len(data), start_sample + max_samples)
+                sf.write(trimmed_tmp, data[start_sample:end_sample].astype(np.float32), sr)
+                ref_to_use = trimmed_tmp
+                print(f"[voicebox] Trimmed reference voice {clone_ref} ({round(info.duration, 1)}s) to 15s sample for VoxCPM2")
+        except Exception as e:
+            print(f"[voicebox] Warning checking clone_ref length: {e}")
+
+    try:
+        client = Client(VOXCPM_SPACE, verbose=False)
+        job = client.submit(
+            text_input=text,
+            # Control instruction is ignored by the Space when a clone reference is given.
+            control_instruction="" if ref_to_use else voice_design,
+            reference_wav_path_input=handle_file(ref_to_use) if ref_to_use else None,
+            use_prompt_text=False,
+            prompt_text_input="",
+            cfg_value_input=2.0,
+            do_normalize=True,
+            denoise=False,
+            api_name="/generate",
+        )
+        result = job.result(timeout=VOXCPM_TIMEOUT_SEC)
+        audio_path = result if isinstance(result, str) else result[0]
+        data, sr = sf.read(audio_path)
+        if data.ndim > 1:
+            data = np.mean(data, axis=1)
+        return data.astype(np.float32), sr
+    finally:
+        if trimmed_tmp and os.path.exists(trimmed_tmp):
+            try:
+                os.remove(trimmed_tmp)
+            except OSError:
+                pass
 
 
 def estimate_word_timings(text: str, total_duration: float) -> List[Dict[str, Any]]:
@@ -381,11 +410,10 @@ def generate_speech(
         if not voice:
             voice = detected_voice if is_id else ("af_heart" if is_female else "am_adam")
 
-        # In production for multi-scene video: Edge Neural + Spotify Pedalboard DSP is the gold-standard
-        # deterministic engine (0ms queue, 100% identical speaker timbre across scenes, zero timeouts).
-        # VoxCPM is used only when explicitly requested (engine="voxcpm") or when cloning a permitted user voice.
+        # If a clone reference audio is provided, automatically use VoxCPM2 for zero-shot voice cloning.
+        # Otherwise fallback to deterministic neural engine + Pedalboard DSP.
         if engine == "auto":
-            engine = "edge" if is_id else "kokoro"
+            engine = "voxcpm" if (clone_ref and os.path.isfile(clone_ref)) else ("edge" if is_id else "kokoro")
 
         write_voice_lock(lock_file, {
             "voice": voice,

@@ -551,7 +551,7 @@ pub async fn run_agent_turn(
                     ocr_transcriptions.push(format!(
                         "[TikTok Reference Video Extracted (@{}, duration: {}s, title: \"{}\"):\n\
                         - Reference Video Saved: workspace/public/ref_tiktok.mp4\n\
-                        - Reference Voice Track Extracted: workspace/public/ref_voice.wav (third-party voice: do NOT clone it. Describe its tone/energy/pace in `voiceDesign` for every `voicebox_speak` call instead)\n\
+                        - Reference Voice Track Extracted: workspace/public/ref_voice.wav. When the user requests matching or using this voice sample, pass `refAudio: \"workspace/public/ref_voice.wav\"` and `cloneVoice: true` to `voicebox_speak` so Voicebox clones the speaker's exact vocal timbre and intonation!\n\
                         - Keyframes attached to vision context: study the reference's motion language (entrance/exit choreography, camera moves, layout zones, typography hierarchy, palette) and translate it into this video's own style per the Visual Style System — inspired by, never a pixel copy.]",
                         author, duration, title
                     ));
