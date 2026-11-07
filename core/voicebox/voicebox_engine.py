@@ -173,6 +173,45 @@ def apply_voicebox_dsp(audio_data: np.ndarray, sample_rate: int) -> np.ndarray:
     return effected.squeeze()
 
 
+def sanitize_voice_audio(audio_data: np.ndarray, sample_rate: int) -> np.ndarray:
+    """
+    Sanitizes voiceover audio by trimming any leading click/transient artifacts,
+    padding 40ms of natural breath silence, and applying smooth 25ms cosine
+    fade-in/fade-out so there is zero click or decoder thump.
+    """
+    if len(audio_data) < sample_rate * 0.1:
+        return audio_data
+
+    data = audio_data.astype(np.float32)
+    if data.ndim > 1:
+        data = data.flatten()
+
+    # Check for pre-speech transient bursts (e.g. 10-100ms noise burst followed by quiet before main speech)
+    step = int(sample_rate * 0.02)
+    if len(data) >= step * 10:
+        first_rms = [np.sqrt(np.mean(data[i*step:(i+1)*step]**2)) for i in range(8)]
+        # If chunk 1-3 has sudden spike followed by a drop (<0.02) before another rise, trim the spike
+        if max(first_rms[1:4]) > 0.1 and min(first_rms[4:7]) < 0.02 and max(first_rms[6:]) > 0.1:
+            valley_idx = 4 + int(np.argmin(first_rms[4:7]))
+            cut_point = valley_idx * step
+            data = data[cut_point:]
+
+    # Smooth 25ms cosine fade in
+    fade_in_len = min(int(sample_rate * 0.025), len(data))
+    fade_in = 0.5 * (1.0 - np.cos(np.linspace(0.0, np.pi, fade_in_len)))
+    data[:fade_in_len] *= fade_in
+
+    # Smooth 25ms cosine fade out
+    fade_out_len = min(int(sample_rate * 0.025), len(data))
+    fade_out = 0.5 * (1.0 + np.cos(np.linspace(0.0, np.pi, fade_out_len)))
+    data[-fade_out_len:] *= fade_out
+
+    # 40ms gentle lead-in breath pad
+    pad = np.zeros(int(sample_rate * 0.04), dtype=np.float32)
+    return np.concatenate([pad, data])
+
+
+
 async def generate_indonesian_speech(
     text: str,
     voice: str = DEFAULT_ID_VOICE,
@@ -589,6 +628,9 @@ def generate_speech(
             audio_data, sample_rate = generate_kokoro_speech(text, voice=v)
             words = estimate_word_timings(text, len(audio_data) / sample_rate)
             used_engine = "kokoro"
+
+    # Sanitize voiceover audio (trim pre-speech transient spikes, cosine fade-in/out, breath room)
+    audio_data = sanitize_voice_audio(audio_data, sample_rate)
 
     # Apply Voicebox studio DSP mastering
     if apply_dsp:
