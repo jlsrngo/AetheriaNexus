@@ -313,6 +313,79 @@ fn extract_description_from_skill_md(path: &Path) -> Option<String> {
     None
 }
 
+/// Validates whether an installed plugin belongs to the motion graphics, animation, video,
+/// audio/sfx, or visual creative storytelling domain. If unrelated (e.g. backend SQL, kubernetes, crypto),
+/// the engine strictly rejects the plugin unless bypassValidation=true is explicitly provided.
+pub fn validate_motion_graphics_domain(
+    plugin_dir: &Path,
+    rec: &InstalledPluginRecord,
+) -> Result<(), String> {
+    let domain_keywords = [
+        "motion", "animation", "anim", "video", "remotion", "graphic", "visual", "storyboard",
+        "typography", "kinetic", "audio", "sfx", "sound", "music", "voice", "voiceover", "speech",
+        "tts", "render", "timeline", "keyframe", "fps", "cadence", "3d", "webgl", "three", "canvas",
+        "glsl", "effect", "color", "palette", "design", "aesthetic", "brand", "caption", "subtitle",
+        "cut", "editing", "camera", "b-roll", "stock", "clip", "tiktok", "reel", "short", "youtube",
+        "intro", "outro", "lower-third", "hud", "overlay", "transition", "spring", "scene", "composition",
+    ];
+
+    let mut corpus = String::new();
+    corpus.push_str(&rec.id.to_lowercase());
+    corpus.push(' ');
+    corpus.push_str(&rec.name.to_lowercase());
+    corpus.push(' ');
+    corpus.push_str(&rec.description.to_lowercase());
+    corpus.push(' ');
+
+    for s in &rec.skills {
+        corpus.push_str(&s.name.to_lowercase());
+        corpus.push(' ');
+        corpus.push_str(&s.description.to_lowercase());
+        corpus.push(' ');
+    }
+
+    for r in &rec.rules {
+        corpus.push_str(&r.name.to_lowercase());
+        corpus.push(' ');
+    }
+
+    for mf in ["plugin.json", "package.json"] {
+        let p = plugin_dir.join(mf);
+        if let Ok(c) = std::fs::read_to_string(&p) {
+            corpus.push_str(&c.to_lowercase());
+        }
+    }
+
+    let mut has_creative_assets = false;
+    if let Ok(entries) = std::fs::read_dir(plugin_dir) {
+        for e in entries.flatten() {
+            if let Some(ext) = e.path().extension().and_then(|s| s.to_str()) {
+                let lext = ext.to_lowercase();
+                if ["mp4", "mov", "wav", "mp3", "svg", "glsl", "gltf", "hdr"].contains(&lext.as_str()) {
+                    has_creative_assets = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    let mut match_count = 0;
+    for kw in &domain_keywords {
+        if corpus.contains(kw) {
+            match_count += 1;
+        }
+    }
+
+    if match_count == 0 && !has_creative_assets {
+        return Err(format!(
+            "Policy Rejection: Plugin '{}' does not belong to the Motion Graphics or Creative Video domain. Aetheria Nexus strictly accepts only plugins related to motion graphics, video animation, audio/sfx design, or visual storytelling. (Matched domain keywords: 0). To override this policy, pass `force: true`.",
+            rec.name
+        ));
+    }
+
+    Ok(())
+}
+
 /// Links discovered plugin skills into `.agents/skills/` so legacy skill lookups discover them
 fn link_plugin_skills_to_workspace(ws: &Path, plugin_rec: &InstalledPluginRecord) {
     let ws_skills = ws.join(".agents").join("skills");
@@ -513,6 +586,20 @@ pub async fn execute_install_plugin(workspace_dir: &str, arguments: &Value) -> V
                 rec.commit_hash = commit_hash;
                 rec.enabled = arguments.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
 
+                // Domain Policy Guard: strictly reject plugins not related to motion graphics / video / audio
+                let bypass = arguments.get("force").or_else(|| arguments.get("bypassValidation")).and_then(|v| v.as_bool()).unwrap_or(false);
+                if !bypass {
+                    if let Err(reject_reason) = validate_motion_graphics_domain(&target_dir, &rec) {
+                        let _ = std::fs::remove_dir_all(&target_dir);
+                        return json!({
+                            "success": false,
+                            "rejected": true,
+                            "error": reject_reason,
+                            "pluginId": plugin_id
+                        });
+                    }
+                }
+
                 // Link skills to workspace
                 link_plugin_skills_to_workspace(&ws, &rec);
 
@@ -552,6 +639,21 @@ pub async fn execute_install_plugin(workspace_dir: &str, arguments: &Value) -> V
             source_raw,
         );
         rec.enabled = arguments.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
+
+        // Domain Policy Guard: strictly reject plugins not related to motion graphics / video / audio
+        let bypass = arguments.get("force").or_else(|| arguments.get("bypassValidation")).and_then(|v| v.as_bool()).unwrap_or(false);
+        if !bypass {
+            if let Err(reject_reason) = validate_motion_graphics_domain(&target_dir, &rec) {
+                let _ = std::fs::remove_dir_all(&target_dir);
+                return json!({
+                    "success": false,
+                    "rejected": true,
+                    "error": reject_reason,
+                    "pluginId": plugin_id
+                });
+            }
+        }
+
         link_plugin_skills_to_workspace(&ws, &rec);
 
         let mut reg = load_plugin_registry(&ws);
@@ -701,4 +803,75 @@ pub async fn execute_uninstall_plugin(workspace_dir: &str, arguments: &Value) ->
         "success": true,
         "message": format!("Plugin '{}' has been uninstalled.", id)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_opencode_shorthand() {
+        let parsed = parse_opencode_source("github:remotion-dev/remotion-plugin").unwrap();
+        assert_eq!(parsed.clone_url, "https://github.com/remotion-dev/remotion-plugin.git");
+        assert_eq!(parsed.default_id, "remotion-plugin");
+
+        let parsed_sub = parse_opencode_source("git+https://github.com/acme/mono.git#path:packages/plugins/motion").unwrap();
+        assert_eq!(parsed_sub.clone_url, "https://github.com/acme/mono.git");
+        assert_eq!(parsed_sub.sub_path.as_deref(), Some("packages/plugins/motion"));
+        assert_eq!(parsed_sub.default_id, "motion");
+    }
+
+    #[test]
+    fn test_rejects_unrelated_plugins() {
+        let dummy_dir = std::env::temp_dir().join("dummy_unrelated_plugin");
+        let _ = std::fs::create_dir_all(&dummy_dir);
+
+        let rec = InstalledPluginRecord {
+            id: "pg-migrations".to_string(),
+            name: "Postgres Migrations".to_string(),
+            version: "1.0.0".to_string(),
+            description: "A database migration runner for SQL databases".to_string(),
+            source: "github:db/pg-migrations".to_string(),
+            enabled: true,
+            installed_at: 0,
+            commit_hash: None,
+            sub_path: None,
+            path: dummy_dir.display().to_string(),
+            skills: vec![],
+            rules: vec![],
+        };
+
+        let result = validate_motion_graphics_domain(&dummy_dir, &rec);
+        assert!(result.is_err(), "Expected unrelated plugin to be rejected!");
+        let err_msg = result.unwrap_err();
+        assert!(err_msg.contains("Policy Rejection"), "Error must cite policy rejection");
+
+        let _ = std::fs::remove_dir_all(&dummy_dir);
+    }
+
+    #[test]
+    fn test_accepts_motion_graphics_plugins() {
+        let dummy_dir = std::env::temp_dir().join("dummy_motion_plugin");
+        let _ = std::fs::create_dir_all(&dummy_dir);
+
+        let rec = InstalledPluginRecord {
+            id: "kinetic-titles".to_string(),
+            name: "Kinetic Titles Plugin".to_string(),
+            version: "1.0.0".to_string(),
+            description: "High-retention kinetic typography and video animation presets for Remotion".to_string(),
+            source: "github:creative/kinetic-titles".to_string(),
+            enabled: true,
+            installed_at: 0,
+            commit_hash: None,
+            sub_path: None,
+            path: dummy_dir.display().to_string(),
+            skills: vec![],
+            rules: vec![],
+        };
+
+        let result = validate_motion_graphics_domain(&dummy_dir, &rec);
+        assert!(result.is_ok(), "Expected motion graphics plugin to pass validation!");
+
+        let _ = std::fs::remove_dir_all(&dummy_dir);
+    }
 }
