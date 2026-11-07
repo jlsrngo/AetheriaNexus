@@ -1,6 +1,6 @@
 //! Automated harvesting of credentials from local developer CLIs (Codex, Claude, OpenCode, Kiro, Antigravity).
 
-use super::store::{decode_jwt_payload, parse_iso_to_ms, read_windows_generic_credential, save_store_to_disk, with_store};
+use super::store::{decode_jwt_payload, is_expired, parse_iso_to_ms, read_windows_generic_credential, save_store_to_disk, with_store};
 use super::types::CredentialEntry;
 use crate::paths::{home_dir, now_iso};
 use serde_json::Value;
@@ -183,6 +183,13 @@ pub fn harvest_kiro() -> Option<CredentialEntry> {
         }
         if entry.region.is_none() {
             entry.region = Some(region.unwrap_or_else(|| "us-east-1".to_string()));
+        }
+        if is_expired(&entry, 0)
+            && (entry.client_id.is_none()
+                || entry.client_secret.is_none()
+                || entry.refresh_token.is_none())
+        {
+            return None;
         }
         return Some(entry);
     }

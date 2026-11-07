@@ -74,16 +74,92 @@ def indonesian_number_to_words(n: int) -> str:
         return 'seribu' + ((' ' + indonesian_number_to_words(n - 1000)) if (n - 1000 != 0) else '')
     if n < 1000000:
         return indonesian_number_to_words(n // 1000) + ' ribu' + ((' ' + indonesian_number_to_words(n % 1000)) if (n % 1000 != 0) else '')
+    if n < 1000000000:
+        return indonesian_number_to_words(n // 1000000) + ' juta' + ((' ' + indonesian_number_to_words(n % 1000000)) if (n % 1000000 != 0) else '')
     return str(n)
+
+
+def _digits_after_decimal_to_words(frac_str: str) -> str:
+    """Reads decimal fraction digits individually in Indonesian ('75' -> 'tujuh lima', '05' -> 'nol lima')."""
+    digit_map = {
+        '0': 'nol', '1': 'satu', '2': 'dua', '3': 'tiga', '4': 'empat',
+        '5': 'lima', '6': 'enam', '7': 'tujuh', '8': 'delapan', '9': 'sembilan'
+    }
+    return ' '.join(digit_map[d] for d in frac_str if d in digit_map)
 
 
 def normalize_indonesian_speech_text(text: str) -> str:
     """
-    Normalizes Indonesian text for TTS:
-    - Automatically converts digits ('21', '1453') to spoken Indonesian words ('dua puluh satu')
-    - Cleans slang abbreviations so speech flows smoothly
+    Comprehensive Indonesian TTS phonetic & prosody normalizer:
+    1. Strips non-spoken elements (#hashtags, markdown symbols, URLs) so TTS never reads '#gemini' aloud.
+    2. Converts currency & decimal numbers BEFORE standalone integers so '3.8' becomes 'tiga koma delapan'
+       and '$0,75' becomes 'nol koma tujuh lima dolar' (never 'tiga.delapan' or 'nol,tujuh puluh lima'
+       which injects a period/comma mid-word and breaks TTS intonation).
+    3. Converts percentages ('100%' -> 'seratus persen') and multipliers ('2x' -> 'dua kali').
+    4. Expands slang & Indonesian conversational abbreviations smoothly.
     """
     import re
+
+    res = text
+
+    # 1. Strip URLs, hashtags (#gemini), and markdown formatting (*, **, `, ~)
+    res = re.sub(r'https?://\S+', '', res)
+    res = re.sub(r'(?:^|\s)#\w+', ' ', res)
+    res = re.sub(r'[*`~_]+', '', res)
+
+    # 2. Currency with decimals or integers: $0.75, $0,75, $15 -> 'nol koma tujuh lima dolar'
+    def replace_usd_decimal(m):
+        whole = indonesian_number_to_words(int(m.group(1)))
+        frac = _digits_after_decimal_to_words(m.group(2))
+        return f"{whole} koma {frac} dolar"
+
+    def replace_usd_int(m):
+        whole = indonesian_number_to_words(int(m.group(1)))
+        return f"{whole} dolar"
+
+    res = re.sub(r'\$\s*(\d+)[.,](\d+)\b', replace_usd_decimal, res)
+    res = re.sub(r'\$\s*(\d+)\b', replace_usd_int, res)
+
+    # Rupiah: Rp 10.000 or Rp10000
+    def replace_idr(m):
+        raw_digits = re.sub(r'[.,]', '', m.group(1))
+        if raw_digits.isdigit():
+            return f"{indonesian_number_to_words(int(raw_digits))} rupiah"
+        return m.group(0)
+
+    res = re.sub(r'\bRp\.?\s*(\d+(?:[.,]\d{3})*)\b', replace_idr, res, flags=re.IGNORECASE)
+
+    # 3. Thousands separators (e.g. '1.000.000' or '10.000' where groups after dot are exactly 3 digits)
+    def replace_thousands(m):
+        raw_digits = m.group(0).replace('.', '')
+        if raw_digits.isdigit():
+            return indonesian_number_to_words(int(raw_digits))
+        return m.group(0)
+
+    res = re.sub(r'\b\d{1,3}(?:\.\d{3})+\b', replace_thousands, res)
+
+    # 4. Decimal numbers (e.g. '3.8', '3,8', '0,75', '1.5') -> 'tiga koma delapan', 'nol koma tujuh lima'
+    def replace_decimal(m):
+        whole = indonesian_number_to_words(int(m.group(1)))
+        frac = _digits_after_decimal_to_words(m.group(2))
+        return f"{whole} koma {frac}"
+
+    res = re.sub(r'\b(\d+)[.,](\d+)\b', replace_decimal, res)
+
+    # 5. Percentages ('100%' -> 'seratus persen') and multipliers ('2x' -> 'dua kali')
+    res = re.sub(
+        r'\b(\d+)\s*%',
+        lambda m: f"{indonesian_number_to_words(int(m.group(1)))} persen",
+        res,
+    )
+    res = re.sub(
+        r'\b(\d+)x\b',
+        lambda m: f"{indonesian_number_to_words(int(m.group(1)))} kali",
+        res,
+        flags=re.IGNORECASE,
+    )
+
+    # 6. Standalone integers ('21' -> 'dua puluh satu', '2027' -> 'dua ribu dua puluh tujuh')
     def replace_num(match):
         num_str = match.group(0)
         try:
@@ -91,9 +167,27 @@ def normalize_indonesian_speech_text(text: str) -> str:
         except Exception:
             return num_str
 
-    res = re.sub(r'\b\d+\b', replace_num, text)
+    res = re.sub(r'\b\d+\b', replace_num, res)
+
+    # 7. Conversational abbreviations & tech phonetics
     res = re.sub(r'\bwkwk+\b', 'haha', res, flags=re.IGNORECASE)
     res = re.sub(r'\bbtw\b', 'ngomong-ngomong', res, flags=re.IGNORECASE)
+    res = re.sub(r'\bygk\b', 'yang nggak', res, flags=re.IGNORECASE)
+    res = re.sub(r'\bgk\b', 'nggak', res, flags=re.IGNORECASE)
+    res = re.sub(r'\bga\b', 'nggak', res, flags=re.IGNORECASE)
+    res = re.sub(r'\bdgn\b', 'dengan', res, flags=re.IGNORECASE)
+    res = re.sub(r'\butk\b', 'untuk', res, flags=re.IGNORECASE)
+    res = re.sub(r'\bkrn\b', 'karena', res, flags=re.IGNORECASE)
+    res = re.sub(r'\btp\b', 'tapi', res, flags=re.IGNORECASE)
+    res = re.sub(r'\bsdh\b', 'sudah', res, flags=re.IGNORECASE)
+    res = re.sub(r'\bblm\b', 'belum', res, flags=re.IGNORECASE)
+    # English tech terms often mispronounced in Indonesian phonetic context
+    res = re.sub(r'\bAPI\s+key\b', 'E-P-I ki', res, flags=re.IGNORECASE)
+    res = re.sub(r'\bkey\b', 'ki', res, flags=re.IGNORECASE)
+    res = re.sub(r'\bcache\b', 'kes', res, flags=re.IGNORECASE)
+
+    # Collapse multiple spaces and clean trailing punctuation whitespace
+    res = re.sub(r'\s+', ' ', res).strip()
     return res
 
 
@@ -108,7 +202,7 @@ def load_voice_presets() -> Dict[str, Any]:
             "lang": "id",
             "engine": "voxcpm",
             "sample_path": str(PRESETS_DIR / "pocketmyth.wav"),
-            "prompt_text": "Kalian tahu nggak kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu menaklukkan kota Konstantinopel dan dia melakukan itu pada usia dua puluh satu tahun",
+            "prompt_text": "Kalian tahu nggak, kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu mengakhiri kekuasaan Romawi Timur dengan menaklukkan kota Konstantinopel, dan dia melakukan itu pada usia dua puluh satu tahun.",
             "control_instruction": "Gaya bercerita antusias ala konten kreator TikTok, intonasi dinamis, ekspresif, santai seperti ngobrol langsung dengan penonton.",
             "fallback_voice": "id-ID-ArdiNeural",
             "fallback_pitch": "+14Hz",
@@ -173,11 +267,144 @@ def apply_voicebox_dsp(audio_data: np.ndarray, sample_rate: int) -> np.ndarray:
     return effected.squeeze()
 
 
+def preprocess_reference_audio(
+    audio_path: str,
+    top_db: float = 30.0,
+    max_duration_sec: float = 12.0,
+) -> str:
+    """
+    Preprocesses reference audio for zero-shot voice cloning (adapted from jamiepine/voicebox):
+    1. Converts stereo to mono and removes DC offset.
+    2. Trims leading/trailing silence (top_db=30dB below peak).
+    3. If longer than `max_duration_sec`, cuts cleanly at a natural sentence pause (low RMS valley)
+       between 7s and `max_duration_sec` so it never cuts mid-word or leaves hanging half-sentences.
+    4. Peak-normalizes to -1.0 dBFS and adds 50ms edge padding.
+    Returns path to a temporary preprocessed WAV file (or original path on error).
+    """
+    try:
+        data, sr = sf.read(audio_path)
+        if data.ndim > 1:
+            data = np.mean(data, axis=1)
+        data = data.astype(np.float32)
+
+        # Remove DC offset
+        data = data - float(np.mean(data))
+
+        # Trim leading/trailing silence using 20ms frame RMS relative to peak
+        win = max(1, int(sr * 0.02))
+        n_frames = len(data) // win
+        if n_frames > 4:
+            frames = data[: n_frames * win].reshape(n_frames, win)
+            rms = np.sqrt(np.mean(frames * frames, axis=1))
+            peak_rms = float(np.max(rms)) if len(rms) > 0 else 0.0
+            thresh = max(0.003, peak_rms * (10.0 ** (-top_db / 20.0)))
+            active = np.where(rms >= thresh)[0]
+            if len(active) > 0:
+                start_sample = max(0, int(active[0] * win) - int(sr * 0.05))
+                end_sample = min(len(data), int((active[-1] + 1) * win) + int(sr * 0.05))
+                data = data[start_sample:end_sample]
+
+        # If still longer than max_duration_sec, find the quietest natural sentence boundary between 7.0s and max_duration_sec
+        max_samples = int(sr * max_duration_sec)
+        if len(data) > max_samples:
+            min_search = int(sr * 7.0)
+            search_region = data[min_search:max_samples]
+            hop = max(1, int(sr * 0.05))
+            n_hop = len(search_region) // hop
+            if n_hop > 2:
+                hop_rms = [
+                    float(np.sqrt(np.mean(search_region[i * hop : (i + 1) * hop] ** 2)))
+                    for i in range(n_hop)
+                ]
+                quietest_idx = int(np.argmin(hop_rms))
+                cut_point = min_search + quietest_idx * hop
+                data = data[:cut_point]
+            else:
+                data = data[:max_samples]
+
+        # Peak normalize to 0.89 (-1 dBFS)
+        peak = float(np.max(np.abs(data)))
+        if peak > 1e-4:
+            data = (data / peak) * 0.89
+
+        pad = np.zeros(int(sr * 0.05), dtype=np.float32)
+        data = np.concatenate([pad, data, pad])
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+            tmp_path = tf.name
+        sf.write(tmp_path, data, sr)
+        return tmp_path
+    except Exception as e:
+        print(f"[voicebox] Warning preprocessing reference audio {audio_path}: {e}")
+        return audio_path
+
+
+def trim_tts_output(
+    audio_data: np.ndarray,
+    sample_rate: int,
+    top_db: float = 42.0,
+    max_internal_silence_ms: int = 300,
+) -> np.ndarray:
+    """
+    Trims leading/trailing silence and compacts unnatural internal pauses (>300ms)
+    in synthesized TTS audio (adapted from jamiepine/voicebox `trim_tts_output`).
+    Uses a conservative 42dB threshold and 120ms trailing tail margin so softer
+    sentence-final syllables are never clipped.
+    """
+    if len(audio_data) < sample_rate * 0.15:
+        return audio_data
+
+    data = audio_data.astype(np.float32)
+    if data.ndim > 1:
+        data = data.flatten()
+
+    win = max(1, int(sample_rate * 0.02))  # 20ms frame
+    n_frames = len(data) // win
+    if n_frames < 5:
+        return data
+
+    frames = data[: n_frames * win].reshape(n_frames, win)
+    rms = np.sqrt(np.mean(frames * frames, axis=1))
+    peak_rms = float(np.max(rms))
+    if peak_rms < 1e-4:
+        return data
+
+    thresh = max(0.0015, peak_rms * (10.0 ** (-top_db / 20.0)))
+    is_voiced = rms >= thresh
+
+    voiced_indices = np.where(is_voiced)[0]
+    if len(voiced_indices) == 0:
+        return data
+
+    # 1. Trim leading and trailing silence with 40ms lead and 120ms trailing tail margin
+    first_f = max(0, int(voiced_indices[0]) - 2)
+    last_f = min(n_frames, int(voiced_indices[-1]) + 6)
+
+    # 2. Compact internal silence gaps exceeding max_internal_silence_ms
+    max_silent_frames = max(3, int(max_internal_silence_ms / 20))
+    kept_Touch: List[np.ndarray] = []
+    silent_run = 0
+
+    for idx in range(first_f, last_f):
+        if is_voiced[idx]:
+            silent_run = 0
+            kept_Touch.append(frames[idx])
+        else:
+            silent_run += 1
+            if silent_run <= max_silent_frames:
+                kept_Touch.append(frames[idx])
+
+    if not kept_Touch:
+        return data
+
+    return np.concatenate(kept_Touch).astype(np.float32)
+
+
 def sanitize_voice_audio(audio_data: np.ndarray, sample_rate: int) -> np.ndarray:
     """
     Sanitizes voiceover audio by trimming any leading click/transient artifacts,
-    padding 40ms of natural breath silence, and applying smooth 25ms cosine
-    fade-in/fade-out so there is zero click or decoder thump.
+    compacting dead-air pauses via `trim_tts_output`, padding 35ms of natural breath
+    silence, and applying smooth 25ms cosine fade-in/fade-out so there is zero click.
     """
     if len(audio_data) < sample_rate * 0.1:
         return audio_data
@@ -196,6 +423,9 @@ def sanitize_voice_audio(audio_data: np.ndarray, sample_rate: int) -> np.ndarray
             cut_point = valley_idx * step
             data = data[cut_point:]
 
+    # Compact dead-air silence & trim leading/trailing silence (TikTok snappy pacing)
+    data = trim_tts_output(data, sample_rate, top_db=42.0, max_internal_silence_ms=300)
+
     # Smooth 25ms cosine fade in
     fade_in_len = min(int(sample_rate * 0.025), len(data))
     fade_in = 0.5 * (1.0 - np.cos(np.linspace(0.0, np.pi, fade_in_len)))
@@ -206,9 +436,10 @@ def sanitize_voice_audio(audio_data: np.ndarray, sample_rate: int) -> np.ndarray
     fade_out = 0.5 * (1.0 + np.cos(np.linspace(0.0, np.pi, fade_out_len)))
     data[-fade_out_len:] *= fade_out
 
-    # 40ms gentle lead-in breath pad
-    pad = np.zeros(int(sample_rate * 0.04), dtype=np.float32)
-    return np.concatenate([pad, data])
+    # 35ms gentle lead-in and 60ms tail breath pad
+    pad_in = np.zeros(int(sample_rate * 0.035), dtype=np.float32)
+    pad_out = np.zeros(int(sample_rate * 0.06), dtype=np.float32)
+    return np.concatenate([pad_in, data, pad_out])
 
 
 
@@ -295,6 +526,94 @@ def default_voice_design(voice: Optional[str], lang: str, voice_design: Optional
     return f"{who} with a warm, natural, conversational voice, upbeat like a tech content creator"
 
 
+def split_text_into_clauses(text: str, max_chars: int = 135) -> List[str]:
+    """
+    Splits long narration text into natural sentence/clause chunks (`<= max_chars`)
+    so zero-shot TTS models (VoxCPM2 / Qwen3-TTS) maintain lively intonation and
+    never suffer from prosody flatten/drift on long paragraphs (adapted from jamiepine/voicebox `chunked_tts.py`).
+    """
+    import re
+
+    cleaned = text.strip()
+    if len(cleaned) <= max_chars:
+        return [cleaned] if cleaned else []
+
+    # First split on sentence-ending punctuation (. ! ?)
+    raw_sentences = [
+        s.strip()
+        for s in re.split(r'(?<=[.!?])\s+', cleaned)
+        if s and s.strip()
+    ]
+
+    chunks: List[str] = []
+    current = ""
+
+    for sent in raw_sentences:
+        if len(sent) > max_chars:
+            if current:
+                chunks.append(current)
+                current = ""
+            # Split overly long single sentences on commas/semicolons
+            clauses = [c.strip() for c in re.split(r'(?<=[,;:])\s+', sent) if c.strip()]
+            sub_cur = ""
+            for cl in clauses:
+                if not sub_cur:
+                    sub_cur = cl
+                elif len(sub_cur) + 1 + len(cl) <= max_chars:
+                    sub_cur = f"{sub_cur} {cl}"
+                else:
+                    chunks.append(sub_cur)
+                    sub_cur = cl
+            if sub_cur:
+                chunks.append(sub_cur)
+        else:
+            if not current:
+                current = sent
+            elif len(current) + 1 + len(sent) <= max_chars:
+                current = f"{current} {sent}"
+            else:
+                chunks.append(current)
+                current = sent
+
+    if current:
+        chunks.append(current)
+
+    return chunks if chunks else [cleaned]
+
+
+def crossfade_audio_chunks(
+    chunks: List[np.ndarray],
+    sample_rate: int,
+    crossfade_ms: int = 30,
+    pause_ms: int = 90,
+) -> np.ndarray:
+    """
+    Concatenates multiple synthesized sentence chunks with a snappy TikTok-style
+    inter-sentence breath pause (90ms) and smooth 30ms cosine crossfade to prevent clicks.
+    """
+    if not chunks:
+        return np.zeros(0, dtype=np.float32)
+    if len(chunks) == 1:
+        return chunks[0].astype(np.float32)
+
+    fade_len = max(1, int(sample_rate * (crossfade_ms / 1000.0)))
+    pause_pad = np.zeros(int(sample_rate * (pause_ms / 1000.0)), dtype=np.float32)
+
+    out = trim_tts_output(chunks[0], sample_rate, top_db=42.0, max_internal_silence_ms=260)
+    for nxt_raw in chunks[1:]:
+        nxt = trim_tts_output(nxt_raw, sample_rate, top_db=42.0, max_internal_silence_ms=260)
+        if len(nxt) == 0:
+            continue
+        if len(out) >= fade_len and len(nxt) >= fade_len:
+            fade_out = 0.5 * (1.0 + np.cos(np.linspace(0.0, np.pi, fade_len, dtype=np.float32)))
+            fade_in = 0.5 * (1.0 - np.cos(np.linspace(0.0, np.pi, fade_len, dtype=np.float32)))
+            out[-fade_len:] *= fade_out
+            nxt[:fade_len] *= fade_in
+        out = np.concatenate([out, pause_pad, nxt])
+
+    return out.astype(np.float32)
+
+
 def generate_voxcpm_speech(
     text: str,
     voice_design: str,
@@ -305,62 +624,161 @@ def generate_voxcpm_speech(
     """
     Generates natural speech with OpenBMB VoxCPM2 (Apache-2.0) through its official Hugging Face Space.
     - Voice Design: `voice_design` describes the voice (gender, age, tone, pace).
-    - Cloning: `clone_ref` is a WAV/audio sample to clone. Automatically trimmed to optimal duration (<30s).
+    - Cloning: `clone_ref` is a WAV/audio sample to clone. Preprocessed to clean 7-12s voice reference.
     - Prompt Text: `prompt_text` is the exact spoken text of `clone_ref` for perfect prosody/intonation alignment.
+    - Disables server-side English `do_normalize` (`do_normalize=False`) so Indonesian text/punctuation
+      is never mangled by the English `wetext` normalizer.
+    - Splits multi-sentence paragraphs into clause chunks (`<= 135 chars`) so prosody stays energetic.
     Raises on any network/queue failure so the caller can fall back to the Indonesian Neural engine.
     """
     if not HAS_GRADIO_CLIENT or Client is None or handle_file is None:
         raise ImportError("gradio_client is not installed in the current environment.")
 
-    trimmed_tmp: Optional[str] = None
+    preprocessed_tmp: Optional[str] = None
     ref_to_use = clone_ref
 
     if clone_ref and os.path.isfile(clone_ref):
         try:
             info = sf.info(clone_ref)
-            # VoxCPM requires reference audio to be <= 50s. Optimal sweet spot is 10-15s.
-            if info.duration > 35.0:
-                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
-                    trimmed_tmp = tf.name
-                data, sr = sf.read(clone_ref)
-                if data.ndim > 1:
-                    data = np.mean(data, axis=1)
-                start_sample = int(sr * 2.0) if len(data) > sr * 20 else 0
-                max_samples = int(sr * 15.0)
-                end_sample = min(len(data), start_sample + max_samples)
-                sf.write(trimmed_tmp, data[start_sample:end_sample].astype(np.float32), sr)
-                ref_to_use = trimmed_tmp
-                print(f"[voicebox] Trimmed reference voice {clone_ref} ({round(info.duration, 1)}s) to 15s sample for VoxCPM2")
+            # Only re-trim if not already a curated preset sample (<= 13.5s) and no exact prompt_text is provided
+            if info.duration > 13.5 and not (prompt_text and prompt_text.strip()):
+                preprocessed_tmp = preprocess_reference_audio(clone_ref, top_db=30.0, max_duration_sec=11.0)
+                if preprocessed_tmp != clone_ref:
+                    ref_to_use = preprocessed_tmp
+                    new_info = sf.info(ref_to_use)
+                    print(f"[voicebox] Preprocessed reference voice {clone_ref} ({round(info.duration, 1)}s -> {round(new_info.duration, 2)}s) for VoxCPM2")
         except Exception as e:
-            print(f"[voicebox] Warning checking clone_ref length: {e}")
+            print(f"[voicebox] Warning preprocessing clone_ref: {e}")
 
     try:
         client = Client(VOXCPM_SPACE, verbose=False)
         use_prompt = bool(ref_to_use and prompt_text and prompt_text.strip())
         ctrl = control_instruction if control_instruction else (voice_design if not ref_to_use else "")
-        job = client.submit(
-            text_input=text,
-            control_instruction=ctrl,
-            reference_wav_path_input=handle_file(ref_to_use) if ref_to_use else None,
-            use_prompt_text=use_prompt,
-            prompt_text_input=prompt_text if use_prompt else "",
-            cfg_value_input=2.0,
-            do_normalize=True,
-            denoise=False,
-            api_name="/generate",
-        )
-        result = job.result(timeout=VOXCPM_TIMEOUT_SEC)
-        audio_path = result if isinstance(result, str) else result[0]
-        data, sr = sf.read(audio_path)
-        if data.ndim > 1:
-            data = np.mean(data, axis=1)
-        return data.astype(np.float32), sr
+
+        clauses = split_text_into_clauses(text, max_chars=240)
+        audio_chunks: List[np.ndarray] = []
+        out_sr = 48000
+
+        for idx, clause in enumerate(clauses):
+            if idx > 0:
+                time.sleep(2.5)
+            if len(clauses) > 1:
+                print(f"[voicebox] VoxCPM2 chunk {idx + 1}/{len(clauses)}: '{clause}'")
+
+            last_err: Optional[Exception] = None
+            for attempt in range(4):
+                try:
+                    job = client.submit(
+                        text_input=clause,
+                        control_instruction=ctrl,
+                        reference_wav_path_input=handle_file(ref_to_use) if ref_to_use else None,
+                        use_prompt_text=use_prompt,
+                        prompt_text_input=prompt_text if use_prompt else "",
+                        cfg_value_input=2.0,
+                        do_normalize=False,
+                        denoise=False,
+                        api_name="/generate",
+                    )
+                    result = job.result(timeout=VOXCPM_TIMEOUT_SEC)
+                    audio_path = result if isinstance(result, str) else result[0]
+                    data, sr = sf.read(audio_path)
+                    if data.ndim > 1:
+                        data = np.mean(data, axis=1)
+                    out_sr = sr
+                    audio_chunks.append(data.astype(np.float32))
+                    last_err = None
+                    break
+                except Exception as err:
+                    last_err = err
+                    wait_s = 3.0 * (attempt + 1)
+                    print(f"[voicebox] VoxCPM2 slot busy (attempt {attempt + 1}/4: {err}), retrying in {wait_s}s...")
+                    time.sleep(wait_s)
+                    # Recreate client session if session limit remained stuck
+                    client = Client(VOXCPM_SPACE, verbose=False)
+
+            if last_err is not None:
+                raise last_err
+
+        combined = crossfade_audio_chunks(audio_chunks, out_sr, crossfade_ms=30, pause_ms=90)
+        return combined, out_sr
     finally:
-        if trimmed_tmp and os.path.exists(trimmed_tmp):
+        if preprocessed_tmp and preprocessed_tmp != clone_ref and os.path.exists(preprocessed_tmp):
             try:
-                os.remove(trimmed_tmp)
+                os.remove(preprocessed_tmp)
             except OSError:
                 pass
+
+
+def align_words_to_audio_energy(
+    text: str,
+    audio_data: np.ndarray,
+    sample_rate: int,
+) -> List[Dict[str, Any]]:
+    """
+    Energy-envelope word boundary alignment:
+    Maps spoken words onto actual voiced energy islands in `audio_data` so Remotion
+    kinetic captions synchronize with real speech bursts and pause across breaths.
+    """
+    total_duration = len(audio_data) / float(max(1, sample_rate))
+    raw_words = text.split()
+    if not raw_words or total_duration <= 0.05:
+        return []
+
+    win = max(1, int(sample_rate * 0.02))  # 20ms frame
+    n_frames = len(audio_data) // win
+    if n_frames < 5:
+        return estimate_word_timings(text, total_duration)
+
+    data = audio_data[: n_frames * win].reshape(n_frames, win)
+    rms = np.sqrt(np.mean(data * data, axis=1))
+    peak = float(np.max(rms))
+    if peak < 1e-4:
+        return estimate_word_timings(text, total_duration)
+
+    thresh = max(0.004, peak * 0.05)
+    voiced_mask = rms >= thresh
+    voiced_indices = np.where(voiced_mask)[0]
+    if len(voiced_indices) < 2:
+        return estimate_word_timings(text, total_duration)
+
+    # Distribute words proportionally across cumulative voiced frames so pauses are respected
+    voiced_weights = np.where(voiced_mask, np.maximum(0.15, rms / peak), 0.05)
+    cum_energy = np.cumsum(voiced_weights)
+    total_energy = float(cum_energy[-1])
+    if total_energy <= 0:
+        return estimate_word_timings(text, total_duration)
+
+    # Punctuation adds slight trailing weight
+    word_weights = []
+    for w in raw_words:
+        base = max(2, len(w))
+        if w.endswith((',', ';', ':')):
+            base += 2
+        elif w.endswith(('.', '!', '?')):
+            base += 3
+        word_weights.append(float(base))
+
+    total_w = sum(word_weights)
+    words_out: List[Dict[str, Any]] = []
+    acc_w = 0.0
+
+    for w, wt in zip(raw_words, word_weights):
+        start_ratio = acc_w / total_w
+        end_ratio = (acc_w + wt) / total_w
+        acc_w += wt
+
+        start_frame = int(np.searchsorted(cum_energy, start_ratio * total_energy))
+        end_frame = int(np.searchsorted(cum_energy, end_ratio * total_energy))
+        start_sec = round(min(total_duration, start_frame * 0.02), 3)
+        end_sec = round(min(total_duration, max(start_sec + 0.06, (end_frame + 1) * 0.02)), 3)
+        words_out.append({
+            "word": w,
+            "start": start_sec,
+            "duration": round(end_sec - start_sec, 3),
+            "end": end_sec,
+        })
+
+    return words_out
 
 
 def estimate_word_timings(text: str, total_duration: float) -> List[Dict[str, Any]]:
@@ -522,8 +940,7 @@ def generate_speech(
         print(f"[voicebox] Applying permanent voice preset '{preset_key}': {preset_info['name']}")
         if not clone_ref and preset_info.get("sample_path") and os.path.isfile(preset_info["sample_path"]):
             clone_ref = preset_info["sample_path"]
-        if engine == "auto":
-            engine = preset_info.get("engine", "voxcpm")
+        engine = preset_info.get("engine", "voxcpm")
         if not voice_design:
             voice_design = preset_info.get("description")
         lang = preset_info.get("lang", lang)
@@ -547,7 +964,7 @@ def generate_speech(
         voice = lock_data.get("voice", voice)
         gender = lock_data.get("gender")
         is_female = (gender == "female")
-        if lock_data.get("engine"):
+        if lock_data.get("engine") and not preset_info:
             engine = lock_data["engine"]
         if lock_data.get("rate") and rate == "+0%":
             rate = lock_data["rate"]
@@ -597,7 +1014,7 @@ def generate_speech(
             )
             words = estimate_word_timings(text, len(audio_data) / sample_rate)
             used_engine = "voxcpm2"
-            if is_scene_1 and lock_file.is_file():
+            if is_scene_1 and lock_file.is_file() and not preset_info:
                 try:
                     curr = read_voice_lock(lock_file) or {}
                     curr["anchor_audio"] = str(out_file)
@@ -629,7 +1046,7 @@ def generate_speech(
             words = estimate_word_timings(text, len(audio_data) / sample_rate)
             used_engine = "kokoro"
 
-    # Sanitize voiceover audio (trim pre-speech transient spikes, cosine fade-in/out, breath room)
+    # Sanitize voiceover audio (trim pre-speech transient spikes, compact dead-air pauses, cosine fade-in/out)
     audio_data = sanitize_voice_audio(audio_data, sample_rate)
 
     # Apply Voicebox studio DSP mastering
@@ -642,6 +1059,10 @@ def generate_speech(
     # Write WAV file
     sf.write(str(out_file), mastered_audio, sample_rate)
     duration_sec = len(mastered_audio) / sample_rate
+
+    # Re-align word timings against the final compacted & mastered waveform if not provided by Edge WordBoundary
+    if used_engine in ("voxcpm2", "kokoro") or not words:
+        words = align_words_to_audio_energy(text, mastered_audio, sample_rate)
 
     # Write word alignment for Remotion kinetic subtitles
     with open(words_json_path, "w", encoding="utf-8") as f:
@@ -674,10 +1095,10 @@ def run_http_server(host: str = "127.0.0.1", port: int = 17493):
     """
     Runs Voicebox HTTP API server on standard port 17493.
     """
-    import uvicorn
-    from fastapi import FastAPI, HTTPException
-    from fastapi.middleware.cors import CORSMiddleware
-    from pydantic import BaseModel
+    import uvicorn  # type: ignore
+    from fastapi import FastAPI, HTTPException  # type: ignore
+    from fastapi.middleware.cors import CORSMiddleware  # type: ignore
+    from pydantic import BaseModel  # type: ignore
 
     app = FastAPI(title="Voicebox TTS Service", version="1.0.0")
     app.add_middleware(

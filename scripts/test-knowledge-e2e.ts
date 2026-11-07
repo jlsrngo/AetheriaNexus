@@ -4,8 +4,8 @@ import path from "node:path"
 import { spawn } from "node:child_process"
 
 const PASSWORD_FILE = path.join(os.homedir(), ".aetheria", "dev-server-password")
-const HEALTH_URL = "http://127.0.0.1:4096/api/health"
-const BASE_URL = "http://127.0.0.1:4096/api"
+const HEALTH_URL = process.env.AETHERIA_HEALTH ?? "http://127.0.0.1:4196/api/health"
+const BASE_URL = process.env.AETHERIA_API ?? "http://127.0.0.1:4196/api"
 
 function getAuthHeaders(): Record<string, string> {
   try {
@@ -125,7 +125,10 @@ async function main() {
       headers,
       body: JSON.stringify({
         location: { directory: testDir },
-        model: { providerID: "kiro", id: "kiro/auto" },
+        model: {
+          providerID: process.env.AETHERIA_TEST_PROVIDER ?? "antigravity",
+          id: process.env.AETHERIA_TEST_MODEL ?? "gemini-3.8-flash-medium",
+        },
       }),
     })
     const sessionJson: any = await sessionRes.json()

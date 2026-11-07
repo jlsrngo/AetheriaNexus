@@ -34,7 +34,7 @@ pub async fn ensure_fresh_credential(source: &str) -> Option<CredentialEntry> {
     if !is_expired(&entry, 0) {
         Some(entry)
     } else {
-        Some(reharvested)
+        None
     }
 }
 

@@ -9,7 +9,16 @@
  */
 import { readFileSync } from 'node:fs'
 
-const BRIDGE = process.env.AETHERIA_BRIDGE ?? "http://127.0.0.1:20188/v1/chat/completions"
+function resolveBridgeUrl(): string {
+  if (process.env.AETHERIA_BRIDGE) return process.env.AETHERIA_BRIDGE
+  try {
+    const infoPath = `${process.env.USERPROFILE ?? process.env.HOME}/.aetheria/bridge-info.json`
+    const info = JSON.parse(readFileSync(infoPath, "utf8"))
+    if (info?.url) return `${info.url}/chat/completions`
+  } catch {}
+  return "http://127.0.0.1:20288/v1/chat/completions"
+}
+const BRIDGE = resolveBridgeUrl()
 function resolveHealthUrl(): string {
   if (process.env.AETHERIA_HEALTH) return process.env.AETHERIA_HEALTH
   try {
@@ -17,7 +26,7 @@ function resolveHealthUrl(): string {
     const info = JSON.parse(readFileSync(infoPath, "utf8"))
     if (info?.url) return `${info.url}/api/health`
   } catch {}
-  return "http://127.0.0.1:4096/api/health"
+  return "http://127.0.0.1:4196/api/health"
 }
 
 const HEALTH = resolveHealthUrl()
@@ -121,7 +130,7 @@ function resolveApiUrl(): string {
     const info = JSON.parse(readFileSync(infoPath, "utf8"))
     if (info?.url) return `${info.url}/api`
   } catch {}
-  return "http://127.0.0.1:4096/api"
+  return "http://127.0.0.1:4196/api"
 }
 
 const API = resolveApiUrl()

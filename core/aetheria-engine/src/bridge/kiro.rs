@@ -296,6 +296,13 @@ pub(crate) async fn handle_kiro_request(body: Value, model: &str, is_stream: boo
     if !resp.status().is_success() {
         let status = resp.status();
         let err_txt = resp.text().await.unwrap_or_default();
+        if status == StatusCode::FORBIDDEN || status == StatusCode::UNAUTHORIZED {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "error": { "message": "Kiro CLI credentials not found or expired. Please sign in via Settings or Kiro IDE." } })),
+            )
+                .into_response();
+        }
         return (
             status,
             Json(json!({ "error": { "message": format!("Kiro upstream error ({}): {}", status, err_txt) } })),

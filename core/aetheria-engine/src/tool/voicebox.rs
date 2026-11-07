@@ -63,8 +63,8 @@ pub fn voicebox_tool_definition() -> Value {
                     },
                     "engine": {
                         "type": "string",
-                        "enum": ["auto", "edge", "voxcpm", "kokoro"],
-                        "description": "TTS engine. 'edge' / 'auto' = Deterministic broadcast neural voice with Pedalboard DSP; 'voxcpm' = experimental latent voice design; 'kokoro' = English ONNX."
+                        "enum": ["auto", "voxcpm", "edge", "kokoro"],
+                        "description": "TTS engine. Defaults to 'auto' (uses VoxCPM2 zero-shot voice cloning for presets like 'pocketmyth' or refAudio, and neural TTS otherwise). Leave as 'auto' when using 'pocketmyth'."
                     },
                     "resetVoiceLock": {
                         "type": "boolean",

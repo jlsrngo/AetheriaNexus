@@ -8,7 +8,7 @@
       "lang": "id",
       "engine": "voxcpm",
       "sampleFile": "pocketmyth.wav",
-      "promptText": "Kalian tahu nggak kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu menaklukkan kota Konstantinopel dan dia melakukan itu pada usia dua puluh satu tahun",
+      "promptText": "Kalian tahu nggak, kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu mengakhiri kekuasaan Romawi Timur dengan menaklukkan kota Konstantinopel, dan dia melakukan itu pada usia dua puluh satu tahun.",
       "controlInstruction": "Gaya bercerita antusias ala konten kreator TikTok, intonasi dinamis, ekspresif, santai seperti ngobrol langsung dengan penonton.",
       "fallback": {
         "voice": "id-ID-ArdiNeural",
