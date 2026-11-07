@@ -202,8 +202,6 @@ pub fn resolve_reference_report(workspace_dir: &str) -> Option<String> {
         ws_path.join("ref").join("ref_report.md"),
         ws_path.join("ref").join("extracted").join("ref_report.md"),
         ws_path.join("workspace").join("ref").join("extracted").join("ref_report.md"),
-        ws_path.join("ref").join("REFERENCE_BLUEPRINT.md"),
-        ws_path.join("workspace").join("ref").join("extracted").join("REFERENCE_BLUEPRINT.md"),
     ];
 
     let target_report = candidates.into_iter().find(|p| p.exists())?;

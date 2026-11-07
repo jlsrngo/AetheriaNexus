@@ -325,10 +325,6 @@ def extract_reference_blueprint(video_path_str: str, out_dir_str: str = None) ->
     with open(report_md, "w", encoding="utf-8") as f:
         f.write(md)
 
-    legacy_md = out_dir / "REFERENCE_BLUEPRINT.md"
-    with open(legacy_md, "w", encoding="utf-8") as f:
-        f.write(md)
-
     return {
         "success": True,
         "reportPath": str(report_md),
