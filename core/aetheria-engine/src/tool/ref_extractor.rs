@@ -52,7 +52,14 @@ pub async fn execute_ref_extractor(workspace_dir: &str, arguments: &Value) -> Va
         return json!({ "error": format!("Reference video file not found at: {}", video_path.display()) });
     }
 
-    let out_raw = arguments.get("outputDir").and_then(|v| v.as_str()).unwrap_or("workspace/ref/extracted");
+    let default_out = if ws.join("ref").exists() {
+        "ref"
+    } else if ws.join("workspace").join("ref").exists() {
+        "workspace/ref/extracted"
+    } else {
+        "ref"
+    };
+    let out_raw = arguments.get("outputDir").and_then(|v| v.as_str()).unwrap_or(default_out);
     let out_dir = if std::path::Path::new(out_raw).is_absolute() {
         std::path::PathBuf::from(out_raw)
     } else {

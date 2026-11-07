@@ -91,6 +91,11 @@ When writing Remotion React code in `workspace/src/`:
    - Only import standard packages installed in the workspace (`"react"`, `"remotion"`, `"lucide-react"`) and your own relative files (`"./types"`, `"../components/..."`).
 6. **High-FPS GPU Rasterization (Fast Headless Rendering):**
    - For full-screen grids (`BlueprintGrid.tsx`) or repeating backgrounds, use lightweight CSS `backgroundImage` (`linear-gradient` with `backgroundSize: "20px 20px, 20px 20px, 100px 100px, 100px 100px"`) instead of loops generating hundreds of SVG `<line>` nodes or heavy `<feGaussianBlur>` filters. This keeps per-frame DOM rasterization fast during 1080×1920 rendering.
+7. **Animation Visibility & Never Render Black Screens (CRITICAL):**
+   - NEVER pass literal `0` as the current frame to animation functions (e.g. `fastPopStyle(0, 0)` is a FATAL BUG that locks `opacity: 0` on every frame!).
+   - ALWAYS call `const frame = useCurrentFrame();` inside every scene component and pass `frame` into animation helpers (`fastPopStyle(frame, startFrame)`).
+   - If a reference blueprint specifies a light background (`#FFFFFF` or `#F4F4F6`), set container `background: '#FFFFFF'`, text: `'#121212'`, and accent: `'#ED351F'`. NEVER default to pitch black `#0A0A0C` when the reference style is light!
+   - Always include rich visual elements: top Header Bar, badges, statistic cards, and high-contrast typography so every second of the video is engaging.
 
 # Step-by-Step Workflow When User Requests a Video
 1. **Plan, Synthesize Voiceover Audio & Fetch Internet Images in Parallel:**

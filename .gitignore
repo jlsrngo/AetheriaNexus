@@ -26,6 +26,7 @@ ehthumbs.db
 
 # Archived reference files (not active code)
 ref/
+references/
 
 # Scratch & test artifacts
 output/

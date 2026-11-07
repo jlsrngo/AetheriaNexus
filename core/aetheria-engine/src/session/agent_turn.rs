@@ -688,6 +688,28 @@ pub async fn run_agent_turn(
         context_additions.extend(mentioned_files_context);
     }
 
+    // Automatically inject active video reference report if present in user workspace or repo
+    let ws_path = std::path::Path::new(workspace_dir);
+    let candidates = [
+        ws_path.join("ref").join("ref_report.md"),
+        ws_path.join("ref").join("extracted").join("ref_report.md"),
+        ws_path.join("workspace").join("ref").join("extracted").join("ref_report.md"),
+        ws_path.join("ref").join("REFERENCE_BLUEPRINT.md"),
+        ws_path.join("workspace").join("ref").join("extracted").join("REFERENCE_BLUEPRINT.md"),
+    ];
+    let target_report = candidates.into_iter().find(|p| p.exists());
+
+    if let Some(path) = target_report {
+        if let Ok(bp_text) = std::fs::read_to_string(&path) {
+            context_additions.push(format!(
+                "[Active Video Reference Analysis Report (from motioncraft ref report)]:\n\"\"\"\n{}\n\"\"\"\n\
+                DIRECTIVE: You MUST follow the color palette, typography hierarchy, and scene pacing from this reference report. \
+                NEVER render a black screen or set opacity to 0! ALWAYS drive animations with `const frame = useCurrentFrame();`!",
+                bp_text.trim()
+            ));
+        }
+    }
+
     let enriched_user_text = if !context_additions.is_empty() {
         format!("{}\n\n{}", prompt_text, context_additions.join("\n\n"))
     } else {

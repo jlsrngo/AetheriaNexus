@@ -210,6 +210,15 @@ async fn handle_create(
         .map(normalize_workspace_path)
         .unwrap_or_else(|| resolve_dir(&q, &headers));
 
+    // Automatically scaffold standard video project folders if the directory exists
+    let target_dir = std::path::Path::new(&dir);
+    if target_dir.exists() {
+        let _ = std::fs::create_dir_all(target_dir.join("ref"));
+        let _ = std::fs::create_dir_all(target_dir.join("src"));
+        let _ = std::fs::create_dir_all(target_dir.join("public"));
+        let _ = std::fs::create_dir_all(target_dir.join("output"));
+    }
+
     let id = gen_id("ses");
     let now = now_ms();
     let model = body
