@@ -1,6 +1,6 @@
-# Design — Arunaki
+# Design — Aetheria
 
-A locked design system for Arunaki AI Assistant & Workspace Agent.
+A locked design system for Aetheria AI Assistant & Workspace Agent.
 Every page redesign reads this file before emitting code.
 
 ## Genre
@@ -68,7 +68,7 @@ atmospheric — dark-first, generative AI tool, code-focused workspace
 - Sidebar always dark (paper-2 or darker)
 
 ## What pages MUST share
-- The wordmark / logotype (Sparkles icon + "Arunaki")
+- The wordmark / logotype (Sparkles icon + "Aetheria")
 - The accent colour (green ~155° hue, ≤ 5% per viewport)
 - The display + body fonts (Inter pair)
 - The CTA voice (button shape, border-radius, padding rhythm)

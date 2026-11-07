@@ -56,7 +56,7 @@ pub fn run() {
                 let rt = tokio::runtime::Builder::new_multi_thread()
                     .enable_all()
                     .build()
-                    .expect("Failed to create background Tokio runtime for Arunaki Engine");
+                    .expect("Failed to create background Tokio runtime for Aetheria Engine");
                 rt.block_on(async move {
                     let probe_url = format!("http://{}:{}/api/health", host, port);
                     let already_up = reqwest::Client::builder()
@@ -71,11 +71,11 @@ pub fn run() {
 
                     if !already_up {
                         let (listener, _url, actual_port) =
-                            arunaki_engine::init_engine_and_bind(&host, port).await;
-                        arunaki_engine::run_axum_server(listener, actual_port).await;
+                            aetheria_engine::init_engine_and_bind(&host, port).await;
+                        aetheria_engine::run_axum_server(listener, actual_port).await;
                     } else {
-                        println!("[arunaki-desktop] Engine already running on port {}, reusing instance.", port);
-                        let _ = arunaki_engine::bridge::ensure_bridge_running().await;
+                        println!("[aetheria-desktop] Engine already running on port {}, reusing instance.", port);
+                        let _ = aetheria_engine::bridge::ensure_bridge_running().await;
                     }
                 });
             });
@@ -84,7 +84,7 @@ pub fn run() {
             // (Print Ctrl+P, Find bar Ctrl+F/F3, Reload F5/Ctrl+R, Context Menu, Autofill, Zoom, DevTools, Status Bar)
             #[cfg(windows)]
             if let Some(main_window) = app.get_webview_window("main") {
-                // Explicitly set window icon so Windows taskbar displays Arunaki logo
+                // Explicitly set window icon so Windows taskbar displays Aetheria logo
                 if let Some(icon) = app.default_window_icon() {
                     let _ = main_window.set_icon(icon.clone());
                 } else if let Ok(icon) = tauri::image::Image::from_icon_resource(1, 32, 32) {
@@ -164,11 +164,11 @@ pub fn run() {
             // the local HTTP port. Third-party clients still use GET /api/event on :4096.
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                let mut rx = arunaki_engine::session::get_event_sender().subscribe();
+                let mut rx = aetheria_engine::session::get_event_sender().subscribe();
                 loop {
                     match rx.recv().await {
                         Ok(event) => {
-                            let _ = handle.emit("arunaki-event", event);
+                            let _ = handle.emit("aetheria-event", event);
                         }
                         Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
                         Err(_) => break,

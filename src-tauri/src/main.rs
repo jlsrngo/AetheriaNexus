@@ -4,7 +4,7 @@
 #[cfg(windows)]
 fn set_windows_app_user_model_id() {
     use std::os::windows::ffi::OsStrExt;
-    let id: Vec<u16> = std::ffi::OsStr::new("com.arunakinexus.desktop")
+    let id: Vec<u16> = std::ffi::OsStr::new("com.aetherianexus.desktop")
         .encode_wide()
         .chain(std::iter::once(0))
         .collect();
@@ -22,7 +22,7 @@ fn main() {
     set_windows_app_user_model_id();
 
     std::panic::set_hook(Box::new(|info| {
-        let _ = std::fs::write("arunaki-crash.log", format!("CRASH PANIC: {}\n", info));
+        let _ = std::fs::write("aetheria-crash.log", format!("CRASH PANIC: {}\n", info));
     }));
-    arunaki_desktop_lib::run();
+    aetheria_desktop_lib::run();
 }

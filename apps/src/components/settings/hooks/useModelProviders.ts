@@ -104,7 +104,7 @@ export function useModelProviders({
   // Custom Models per Provider Map (persisted in localStorage)
   const [customModelsMap, setCustomModelsMap] = useState<Record<string, string[]>>(() => {
     try {
-      const saved = localStorage.getItem("arunaki_custom_provider_models");
+      const saved = localStorage.getItem("aetheria_custom_provider_models");
       if (!saved) return {};
       const parsed = JSON.parse(saved);
       const cleaned: Record<string, string[]> = {};
@@ -120,7 +120,7 @@ export function useModelProviders({
   });
 
   useEffect(() => {
-    localStorage.setItem("arunaki_custom_provider_models", JSON.stringify(customModelsMap));
+    localStorage.setItem("aetheria_custom_provider_models", JSON.stringify(customModelsMap));
   }, [customModelsMap]);
 
   const [form, setForm] = useState<ProviderFormData>({
@@ -169,9 +169,9 @@ export function useModelProviders({
     const modelStr = updated.join(", ");
     setForm((f) => ({ ...f, model: modelStr }));
     if (editingId) {
-      localStorage.setItem("arunaki_provider_models_" + editingId, modelStr);
+      localStorage.setItem("aetheria_provider_models_" + editingId, modelStr);
       if (updated[0]) {
-        localStorage.setItem("arunaki_active_model", updated[0]);
+        localStorage.setItem("aetheria_active_model", updated[0]);
       }
     }
   };
@@ -180,9 +180,9 @@ export function useModelProviders({
     const modelStr = newOrder.join(", ");
     setForm((f) => ({ ...f, model: modelStr }));
     if (editingId) {
-      localStorage.setItem("arunaki_provider_models_" + editingId, modelStr);
+      localStorage.setItem("aetheria_provider_models_" + editingId, modelStr);
       if (newOrder[0]) {
-        localStorage.setItem("arunaki_active_model", newOrder[0]);
+        localStorage.setItem("aetheria_active_model", newOrder[0]);
       }
     }
   };
@@ -209,7 +209,7 @@ export function useModelProviders({
 
   const handleEdit = useCallback((p: Provider) => {
     setEditingId(p.id);
-    const savedSelected = localStorage.getItem("arunaki_provider_models_" + p.id) || p.model;
+    const savedSelected = localStorage.getItem("aetheria_provider_models_" + p.id) || p.model;
     const cleanKey = p.apiKey?.includes("•") ? "" : p.apiKey;
     setForm({
       name: p.name,
@@ -265,10 +265,10 @@ export function useModelProviders({
       }
 
       if (providerId) {
-        localStorage.setItem("arunaki_provider_models_" + providerId, cleanModelStr);
+        localStorage.setItem("aetheria_provider_models_" + providerId, cleanModelStr);
         const primary = cleanModelStr.split(",").map((s) => s.trim()).filter(Boolean)[0];
         if (primary) {
-          localStorage.setItem("arunaki_active_model", primary);
+          localStorage.setItem("aetheria_active_model", primary);
         }
         setCustomModelsMap((prev) => ({
           ...prev,
@@ -320,27 +320,27 @@ export function useModelProviders({
 
     if (isCurrentlyActive) {
       const cliTargets = ["claude-code", "gemini", "antigravity", "opencode", "codex", "9router", "kiro"];
-      const lastCli = localStorage.getItem("arunaki_last_active_cli");
+      const lastCli = localStorage.getItem("aetheria_last_active_cli");
       const targetCli = (lastCli && cliTargets.includes(lastCli))
         ? lastCli
         : (internalProvidersRef.current.find((p) => cliTargets.includes(p.id))?.id || "antigravity");
 
-      localStorage.setItem("arunaki_active_provider", targetCli);
+      localStorage.setItem("aetheria_active_provider", targetCli);
 
       const cliDefaultModels: Record<string, string> = {
-        "claude-code": localStorage.getItem("arunaki_cli_model_claude") || "claude-3.7-sonnet",
-        gemini: localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash",
-        antigravity: localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash",
-        "gemini-cli": localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash",
+        "claude-code": localStorage.getItem("aetheria_cli_model_claude") || "claude-3.7-sonnet",
+        gemini: localStorage.getItem("aetheria_cli_model_antigravity") || "gemini-3.8-flash",
+        antigravity: localStorage.getItem("aetheria_cli_model_antigravity") || "gemini-3.8-flash",
+        "gemini-cli": localStorage.getItem("aetheria_cli_model_antigravity") || "gemini-3.8-flash",
         codex: "o3-mini",
         opencode: "opencode/big-pickle",
         "9router": "cx/gpt-5.6-terra",
-        kiro: localStorage.getItem("arunaki_cli_model_kiro") || "kiro/auto",
+        kiro: localStorage.getItem("aetheria_cli_model_kiro") || "kiro/auto",
       };
       const nextModel = cliDefaultModels[targetCli] || "gemini-3.8-flash";
-      localStorage.setItem("arunaki_active_model", nextModel);
+      localStorage.setItem("aetheria_active_model", nextModel);
       window.dispatchEvent(
-        new CustomEvent("arunaki:provider-change", {
+        new CustomEvent("aetheria:provider-change", {
           detail: { providerId: targetCli, model: nextModel },
         })
       );
@@ -375,14 +375,14 @@ export function useModelProviders({
         onRefresh();
       });
     } else {
-      localStorage.setItem("arunaki_active_provider", provider.id);
-      const pool = localStorage.getItem("arunaki_provider_models_" + provider.id) || provider.model;
+      localStorage.setItem("aetheria_active_provider", provider.id);
+      const pool = localStorage.getItem("aetheria_provider_models_" + provider.id) || provider.model;
       const primary = pool ? pool.split(",").map((s) => s.trim()).filter(Boolean)[0] : "";
       if (primary) {
-        localStorage.setItem("arunaki_active_model", primary);
+        localStorage.setItem("aetheria_active_model", primary);
       }
       window.dispatchEvent(
-        new CustomEvent("arunaki:provider-change", {
+        new CustomEvent("aetheria:provider-change", {
           detail: { providerId: provider.id, model: primary || "" },
         })
       );
@@ -483,9 +483,9 @@ export function useModelProviders({
       setForm((f) => ({ ...f, model: newModelStr }));
 
       if (editingId) {
-        localStorage.setItem("arunaki_provider_models_" + editingId, newModelStr);
+        localStorage.setItem("aetheria_provider_models_" + editingId, newModelStr);
         if (finalSelected[0]) {
-          localStorage.setItem("arunaki_active_model", finalSelected[0]);
+          localStorage.setItem("aetheria_active_model", finalSelected[0]);
         }
       }
 
@@ -526,7 +526,7 @@ export function useModelProviders({
       const primaryModel =
         selectedModels[0] ||
         (id === "kenari"
-          ? localStorage.getItem("arunaki_active_model") || "agnes-2-5-flash:free"
+          ? localStorage.getItem("aetheria_active_model") || "agnes-2-5-flash:free"
           : "");
       const modelQuery = primaryModel ? `&model=${encodeURIComponent(primaryModel)}` : "";
       const res = await apiFetch(`${API_BASE}/providers/${id}/test${directoryQuery()}${modelQuery}`, { method: "POST" });

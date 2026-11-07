@@ -1,4 +1,4 @@
-//! Arunaki Project File System Module (Pure Rust)
+//! Aetheria Project File System Module (Pure Rust)
 //!
 //! Provides isolated, safe filesystem access strictly bound to the active project folder.
 //! Agent CANNOT read or write files outside the designated workspace directory.

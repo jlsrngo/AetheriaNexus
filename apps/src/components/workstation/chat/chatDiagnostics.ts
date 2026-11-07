@@ -44,7 +44,7 @@ export async function getActiveProviderDiagnostic(): Promise<ProviderDiagnostic>
     }
   } catch {}
 
-  const fallbackId = localStorage.getItem("arunaki_active_provider");
+  const fallbackId = localStorage.getItem("aetheria_active_provider");
   return {
     hasConfiguredProvider: !!fallbackId,
     activeProviderName:
@@ -88,7 +88,7 @@ export function buildSmartNotification(
     const suffix = otherCount > 0 ? ` (+${otherCount} other task${otherCount > 1 ? "s" : ""})` : "";
     const body = `${label}${suffix}`;
 
-    let title = "Arunaki Workstation";
+    let title = "Aetheria Workstation";
     if (printStep) title = "Receipt Printed";
     else if (editOrderStep) title = "Sales Order Revised";
     else if (createOrderStep) title = "Sales Order Created";
@@ -115,7 +115,7 @@ export function buildSmartNotification(
     typeof document.hasFocus === "function" &&
     document.hasFocus();
   if (isDocumentFocused) {
-    return { title: "Arunaki Workstation", body: "", shouldNotify: false };
+    return { title: "Aetheria Workstation", body: "", shouldNotify: false };
   }
 
   let cleanExcerpt = "";
@@ -136,7 +136,7 @@ export function buildSmartNotification(
   }
 
   const body = cleanExcerpt || "Response ready.";
-  return { title: "Arunaki Workstation", body, shouldNotify: true };
+  return { title: "Aetheria Workstation", body, shouldNotify: true };
 }
 
 export async function dispatchCompletionNotification(
@@ -144,7 +144,7 @@ export async function dispatchCompletionNotification(
 ): Promise<void> {
   try {
     const isNotifEnabled =
-      localStorage.getItem("arunaki_pref_desktop_notification") !== "false";
+      localStorage.getItem("aetheria_pref_desktop_notification") !== "false";
     if (!isNotifEnabled) return;
 
     const { title, body, shouldNotify } = buildSmartNotification(opts);

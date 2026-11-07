@@ -32,7 +32,7 @@ export function useNativeFileTree({
   const lastLoadedPath = useRef<string | null>(null);
 
   const loadNativeTree = useCallback(async (rootPath: string, force = false) => {
-    const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+    const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
 
     if (!desktop?.getFolderTree) {
       setLoadState("done");
@@ -76,8 +76,8 @@ export function useNativeFileTree({
         void loadNativeTree(activeWorkspace.rootPath, true);
       }
     };
-    window.addEventListener("arunaki-refresh-explorer", onExternalRefresh);
-    return () => window.removeEventListener("arunaki-refresh-explorer", onExternalRefresh);
+    window.addEventListener("aetheria-refresh-explorer", onExternalRefresh);
+    return () => window.removeEventListener("aetheria-refresh-explorer", onExternalRefresh);
   }, [activeWorkspace?.rootPath, loadNativeTree]);
 
   useEffect(() => {
@@ -94,7 +94,7 @@ export function useNativeFileTree({
   const handleRenamePath = useCallback(
     async (oldPath: string, oldName: string, newName: string) => {
       if (!newName || newName.trim() === oldName) return;
-      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+      const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
       if (desktop?.renamePath) {
         const lastSlash = Math.max(oldPath.lastIndexOf("\\"), oldPath.lastIndexOf("/"));
         const parentDir = lastSlash !== -1 ? oldPath.substring(0, lastSlash) : "";
@@ -126,7 +126,7 @@ export function useNativeFileTree({
     if (!deleteTarget) return;
     const { path: targetPath, name: targetName } = deleteTarget;
     setDeleteTarget(null);
-    const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+    const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
     if (desktop?.deletePath) {
       try {
         const res = await desktop.deletePath(targetPath);
@@ -146,7 +146,7 @@ export function useNativeFileTree({
     async (fileName: string) => {
       if (!fileName || !fileName.trim() || !activeWorkspace?.rootPath) return;
       const cleanName = fileName.trim();
-      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+      const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
       const separator = activeWorkspace.rootPath.includes("\\") ? "\\" : "/";
       const fullPath = `${activeWorkspace.rootPath}${separator}${cleanName}`;
 
@@ -174,7 +174,7 @@ export function useNativeFileTree({
     async (folderName: string) => {
       if (!folderName || !folderName.trim() || !activeWorkspace?.rootPath) return;
       const cleanName = folderName.trim();
-      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+      const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
       const separator = activeWorkspace.rootPath.includes("\\") ? "\\" : "/";
       const fullPath = `${activeWorkspace.rootPath}${separator}${cleanName}`;
 

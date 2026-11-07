@@ -34,14 +34,14 @@ out/
 scratch/
 
 # Runtime sessions & workspace caches
-.arunaki/sessions/
-**/.arunaki/sessions/
-**/.arunaki/backups/
-**/.arunaki/attachments/
-**/.arunaki/uploads/
-**/.arunaki-backups/
-.arunaki-backup/
-**/.arunaki-backup/
+.aetheria/sessions/
+**/.aetheria/sessions/
+**/.aetheria/backups/
+**/.aetheria/attachments/
+**/.aetheria/uploads/
+**/.aetheria-backups/
+.aetheria-backup/
+**/.aetheria-backup/
 
 # Root-level local business files
 9ROUTER-DEEPDIVE-REPORT.txt
@@ -60,13 +60,13 @@ scripts/engine-serve.pid
 *.pid
 
 # Vendored plugin dist sourcemaps
-packages/arunaki-gitlab-auth/dist/*.map
-packages/arunaki-poe-auth/dist/*.map
+packages/aetheria-gitlab-auth/dist/*.map
+packages/aetheria-poe-auth/dist/*.map
 
 
-arunaki.json
+aetheria.json
 
-.arunaki/
+.aetheria/
 
 # scratch: throwaway launcher probe scripts
 .launch-test*.ts

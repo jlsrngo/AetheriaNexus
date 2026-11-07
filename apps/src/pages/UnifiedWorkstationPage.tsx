@@ -296,13 +296,13 @@ export function UnifiedWorkstationPage() {
         if (leftCollapsed) handleToggleLeft();
       }
     };
-    window.addEventListener("arunaki-quick-open-file", handleQuickOpenEvent);
-    window.addEventListener("arunaki-workspace-search", handleWorkspaceSearchEvent);
-    window.addEventListener("arunaki-open-sidebar-view", handleOpenSidebarView);
+    window.addEventListener("aetheria-quick-open-file", handleQuickOpenEvent);
+    window.addEventListener("aetheria-workspace-search", handleWorkspaceSearchEvent);
+    window.addEventListener("aetheria-open-sidebar-view", handleOpenSidebarView);
     return () => {
-      window.removeEventListener("arunaki-quick-open-file", handleQuickOpenEvent);
-      window.removeEventListener("arunaki-workspace-search", handleWorkspaceSearchEvent);
-      window.removeEventListener("arunaki-open-sidebar-view", handleOpenSidebarView);
+      window.removeEventListener("aetheria-quick-open-file", handleQuickOpenEvent);
+      window.removeEventListener("aetheria-workspace-search", handleWorkspaceSearchEvent);
+      window.removeEventListener("aetheria-open-sidebar-view", handleOpenSidebarView);
     };
   }, [leftCollapsed, handleToggleLeft]);
 

@@ -54,9 +54,9 @@ export function useChatInputClipboard({ textareaRef }: UseChatInputClipboardOpti
         },
       ]);
 
-      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+      const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
       if (desktop?.writeFile) {
-        const internalAttachmentPath = `.arunaki/attachments/${resolvedName}`;
+        const internalAttachmentPath = `.aetheria/attachments/${resolvedName}`;
         desktop.writeFile(internalAttachmentPath, dataUrl).catch((e: any) => {
           console.warn("[useChatInputClipboard] Could not cache attachment internally:", e);
         });
@@ -99,9 +99,9 @@ export function useChatInputClipboard({ textareaRef }: UseChatInputClipboardOpti
             },
           ]);
 
-          const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+          const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
           if (desktop?.writeFile) {
-            const internalAttachmentPath = `.arunaki/attachments/${resolvedName}`;
+            const internalAttachmentPath = `.aetheria/attachments/${resolvedName}`;
             desktop.writeFile(internalAttachmentPath, dataUrl).catch((e: any) => {
               console.warn("[useChatInputClipboard] Could not cache attachment internally:", e);
             });
@@ -153,7 +153,7 @@ export function useChatInputClipboard({ textareaRef }: UseChatInputClipboardOpti
   const processPaste = useCallback(
     async (clipboardData?: DataTransfer | null): Promise<boolean> => {
       // 1. First priority: Check desktop native clipboard bridge (Electron Win32 GetClipboardData)
-      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+      const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
       if (typeof desktop?.readClipboardImage === "function") {
         try {
           const nativeDataUrl = await desktop.readClipboardImage();

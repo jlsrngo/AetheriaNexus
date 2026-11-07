@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { ScheduledPost } from "../types/schedule";
 import type { StockVideoItem } from "../types/stock";
 
-const STORAGE_KEY = "arunaki_schedule_posts";
+const STORAGE_KEY = "aetheria_schedule_posts";
 
 export const DEFAULT_SCHEDULED_POSTS: ScheduledPost[] = [
   {

@@ -15,7 +15,7 @@ const ENGINE_URL = "http://127.0.0.1:4196";
 export const BRIDGE_URL = "http://127.0.0.1:20288";
 
 function desktop(): any {
-  return typeof globalThis !== "undefined" ? (globalThis as any).arunakiDesktop : undefined;
+  return typeof globalThis !== "undefined" ? (globalThis as any).aetheriaDesktop : undefined;
 }
 
 function desktopCredentials() {
@@ -60,7 +60,7 @@ export function normalizeDirectoryPath(dir?: string | null): string | undefined 
 /** The active project folder, used to route the request to the right instance. */
 export function activeDirectory(): string | undefined {
   if (typeof localStorage === "undefined") return undefined;
-  return normalizeDirectoryPath(localStorage.getItem("arunaki_active_folder"));
+  return normalizeDirectoryPath(localStorage.getItem("aetheria_active_folder"));
 }
 
 /**
@@ -72,9 +72,9 @@ export function activeDirectory(): string | undefined {
  */
 export function authHeader(): Record<string, string> {
   const creds = desktopCredentials();
-  const password = creds?.password ?? import.meta.env.VITE_ARUNAKI_SERVER_PASSWORD;
+  const password = creds?.password ?? import.meta.env.VITE_AETHERIA_SERVER_PASSWORD;
   if (!password) return {};
-  const user = creds?.user ?? import.meta.env.VITE_ARUNAKI_SERVER_USER ?? "arunaki";
+  const user = creds?.user ?? import.meta.env.VITE_AETHERIA_SERVER_USER ?? "aetheria";
   return { Authorization: `Basic ${btoa(`${user}:${password}`)}` };
 }
 
@@ -171,8 +171,8 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
       h["Content-Type"] = "application/json";
     }
     const folder = activeDirectory();
-    if (folder && !h["x-arunaki-directory"]) {
-      h["x-arunaki-directory"] = folder;
+    if (folder && !h["x-aetheria-directory"]) {
+      h["x-aetheria-directory"] = folder;
     }
     if (Object.keys(h).length > 0) serializableInit.headers = h;
 
@@ -217,8 +217,8 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
         h["Content-Type"] = "application/json";
       }
       const folder = activeDirectory();
-      if (folder && !h["x-arunaki-directory"]) {
-        h["x-arunaki-directory"] = folder;
+      if (folder && !h["x-aetheria-directory"]) {
+        h["x-aetheria-directory"] = folder;
       }
 
       const ipcRes = await tauri.invoke("tauri_engine_fetch", {
@@ -245,8 +245,8 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
     headers.set("Content-Type", "application/json");
   }
   const folder = activeDirectory();
-  if (folder && !headers.has("x-arunaki-directory")) {
-    headers.set("x-arunaki-directory", folder);
+  if (folder && !headers.has("x-aetheria-directory")) {
+    headers.set("x-aetheria-directory", folder);
   }
   const rawUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : String(input);
   const targetUrl = (isDesktopBundle() && rawUrl.startsWith("/"))
@@ -431,6 +431,6 @@ export async function renderNexusVideo(propsJson: string, outputPath?: string) {
       outputPath: outputPath || null,
     });
   } else {
-    throw new Error("Local MP4 rendering requires Arunaki Desktop Shell");
+    throw new Error("Local MP4 rendering requires Aetheria Desktop Shell");
   }
 }

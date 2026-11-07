@@ -28,7 +28,7 @@ export interface TreeNode {
 export function buildTree(files: FileItem[]): TreeNode[] {
   const root: TreeNode[] = [];
   const filteredFiles = files.filter(
-    (f) => !["arunaki.json", "arunaki.jsonc"].includes(f.name.toLowerCase()),
+    (f) => !["aetheria.json", "aetheria.jsonc"].includes(f.name.toLowerCase()),
   );
 
   for (const file of filteredFiles) {
@@ -68,7 +68,7 @@ export function buildTree(files: FileItem[]): TreeNode[] {
 
 export function nativeToTreeNodes(nodes: NativeNode[]): TreeNode[] {
   return nodes
-    .filter((n) => !["arunaki.json", "arunaki.jsonc"].includes(n.name.toLowerCase()))
+    .filter((n) => !["aetheria.json", "aetheria.jsonc"].includes(n.name.toLowerCase()))
     .map((n) => ({
       name: n.name,
       isDir: n.type === "directory",

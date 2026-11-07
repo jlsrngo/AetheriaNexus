@@ -1,5 +1,5 @@
 {
-  "name": "arunaki-nexus",
+  "name": "aetheria-nexus",
   "version": "0.1.0",
   "license": "GPL-3.0-or-later",
   "private": true,
@@ -7,9 +7,9 @@
   "scripts": {
     "dev": "npm run dev:web & npm run dev:desktop",
     "dev:app": "node scripts/dev-app.cjs",
-    "start": "cargo run --release -p arunaki-engine --bin arunaki-engine",
+    "start": "cargo run --release -p aetheria-engine --bin aetheria-engine",
     "dev:web": "npm run dev -w apps",
-    "dev:desktop": "cargo run --release -p arunaki-engine --bin arunaki-engine",
+    "dev:desktop": "cargo run --release -p aetheria-engine --bin aetheria-engine",
     "build": "npm run build -w apps",
     "typecheck": "tsc -b apps/tsconfig.json",
     "test:unit": "cargo test --workspace",

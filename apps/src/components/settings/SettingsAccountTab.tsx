@@ -7,10 +7,10 @@ import { Button, Input, Card } from "../ui";
 
 export const SettingsAccountTab = memo(function SettingsAccountTab() {
   const { t } = useI18n();
-    const [userName, setUserName] = useState(() => localStorage.getItem("arunaki_user_name") || "");
-  const [userAvatar, setUserAvatar] = useState(() => localStorage.getItem("arunaki_user_avatar") || "");
-  const [userEmail, setUserEmail] = useState(() => localStorage.getItem("arunaki_user_email") || "");
-  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem("arunaki_user_email"));
+    const [userName, setUserName] = useState(() => localStorage.getItem("aetheria_user_name") || "");
+  const [userAvatar, setUserAvatar] = useState(() => localStorage.getItem("aetheria_user_avatar") || "");
+  const [userEmail, setUserEmail] = useState(() => localStorage.getItem("aetheria_user_email") || "");
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem("aetheria_user_email"));
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [registerName, setRegisterName] = useState("");
@@ -35,10 +35,10 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
       return;
     }
     const cleanEmail = loginEmail.trim();
-    localStorage.setItem("arunaki_user_email", cleanEmail);
+    localStorage.setItem("aetheria_user_email", cleanEmail);
     setUserEmail(cleanEmail);
     if (isRegisterMode && registerName.trim()) {
-      localStorage.setItem("arunaki_user_name", registerName.trim());
+      localStorage.setItem("aetheria_user_name", registerName.trim());
       setUserName(registerName.trim());
     }
     setIsLoggedIn(true);
@@ -48,9 +48,9 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("arunaki_user_email");
-    localStorage.removeItem("arunaki_user_name");
-    localStorage.removeItem("arunaki_user_avatar");
+    localStorage.removeItem("aetheria_user_email");
+    localStorage.removeItem("aetheria_user_name");
+    localStorage.removeItem("aetheria_user_avatar");
     setUserEmail("");
     setUserName("");
     setUserAvatar("");
@@ -79,15 +79,15 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
         return;
       }
       const { url, state } = (await res.json()) as { url: string; state: string };
-      window.open(url, "arunaki-oauth", "popup=yes,width=520,height=680");
+      window.open(url, "aetheria-oauth", "popup=yes,width=520,height=680");
       const profile = await pollOAuthResult(provider, state);
       if (!profile) {
         toast.error("Sign-in timed out or was cancelled.");
         return;
       }
-      localStorage.setItem("arunaki_user_email", profile.email);
-      if (profile.name) localStorage.setItem("arunaki_user_name", profile.name);
-      if (profile.avatar) localStorage.setItem("arunaki_user_avatar", profile.avatar);
+      localStorage.setItem("aetheria_user_email", profile.email);
+      if (profile.name) localStorage.setItem("aetheria_user_name", profile.name);
+      if (profile.avatar) localStorage.setItem("aetheria_user_avatar", profile.avatar);
       setUserEmail(profile.email);
       if (profile.name) setUserName(profile.name);
       if (profile.avatar) setUserAvatar(profile.avatar);
@@ -137,7 +137,7 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
                         reader.onload = (ev) => {
                           const result = ev.target?.result as string;
                           setUserAvatar(result);
-                          localStorage.setItem("arunaki_user_avatar", result);
+                          localStorage.setItem("aetheria_user_avatar", result);
                           toast.success("Profile photo updated successfully.");
                         };
                         reader.readAsDataURL(file);
@@ -179,7 +179,7 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
                 <Button
                   type="button"
                   onClick={() => {
-                    localStorage.setItem("arunaki_user_name", userName);
+                    localStorage.setItem("aetheria_user_name", userName);
                     toast.success("Profile name saved.");
                   }}
                 >

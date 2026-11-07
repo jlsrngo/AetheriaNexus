@@ -9,11 +9,11 @@
  */
 import { readFileSync } from 'node:fs'
 
-const BRIDGE = process.env.ARUNAKI_BRIDGE ?? "http://127.0.0.1:20188/v1/chat/completions"
+const BRIDGE = process.env.AETHERIA_BRIDGE ?? "http://127.0.0.1:20188/v1/chat/completions"
 function resolveHealthUrl(): string {
-  if (process.env.ARUNAKI_HEALTH) return process.env.ARUNAKI_HEALTH
+  if (process.env.AETHERIA_HEALTH) return process.env.AETHERIA_HEALTH
   try {
-    const infoPath = `${process.env.USERPROFILE ?? process.env.HOME}/.arunaki/engine-info.json`
+    const infoPath = `${process.env.USERPROFILE ?? process.env.HOME}/.aetheria/engine-info.json`
     const info = JSON.parse(readFileSync(infoPath, "utf8"))
     if (info?.url) return `${info.url}/api/health`
   } catch {}
@@ -25,8 +25,8 @@ const HEALTH = resolveHealthUrl()
 // /api/health is behind the engine's Basic auth along with everything else, so a health check
 // without credentials gets a 401 and reports a perfectly healthy engine as unreachable. The
 // launcher writes the current credentials here on every start.
-const PASSWORD_FILE = process.env.ARUNAKI_PASSWORD_FILE
-  ?? `${process.env.USERPROFILE ?? process.env.HOME}/.arunaki/dev-server-password`
+const PASSWORD_FILE = process.env.AETHERIA_PASSWORD_FILE
+  ?? `${process.env.USERPROFILE ?? process.env.HOME}/.aetheria/dev-server-password`
 
 function healthHeaders(): Record<string, string> {
   try {
@@ -115,9 +115,9 @@ async function ping(c: Case): Promise<string> {
 const CHAT_CASE = { label: "Kiro chat", providerID: "kiro", model: "kiro/auto", want: "391" }
 
 function resolveApiUrl(): string {
-  if (process.env.ARUNAKI_API) return process.env.ARUNAKI_API
+  if (process.env.AETHERIA_API) return process.env.AETHERIA_API
   try {
-    const infoPath = `${process.env.USERPROFILE ?? process.env.HOME}/.arunaki/engine-info.json`
+    const infoPath = `${process.env.USERPROFILE ?? process.env.HOME}/.aetheria/engine-info.json`
     const info = JSON.parse(readFileSync(infoPath, "utf8"))
     if (info?.url) return `${info.url}/api`
   } catch {}
@@ -125,8 +125,8 @@ function resolveApiUrl(): string {
 }
 
 const API = resolveApiUrl()
-const QUERY = process.env.ARUNAKI_SMOKE_DIRECTORY
-  ? `?directory=${encodeURIComponent(process.env.ARUNAKI_SMOKE_DIRECTORY)}`
+const QUERY = process.env.AETHERIA_SMOKE_DIRECTORY
+  ? `?directory=${encodeURIComponent(process.env.AETHERIA_SMOKE_DIRECTORY)}`
   : ""
 
 async function api(path: string, init: RequestInit = {}) {

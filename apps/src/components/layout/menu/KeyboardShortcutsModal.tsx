@@ -43,8 +43,8 @@ export const KeyboardShortcutsModal = memo(function KeyboardShortcutsModal({
   useEffect(() => {
     refreshCustomShortcuts();
     const handleUpdate = () => refreshCustomShortcuts();
-    window.addEventListener("arunaki-shortcuts-updated", handleUpdate);
-    return () => window.removeEventListener("arunaki-shortcuts-updated", handleUpdate);
+    window.addEventListener("aetheria-shortcuts-updated", handleUpdate);
+    return () => window.removeEventListener("aetheria-shortcuts-updated", handleUpdate);
   }, [refreshCustomShortcuts]);
 
   // Global keydown capture while recording a shortcut

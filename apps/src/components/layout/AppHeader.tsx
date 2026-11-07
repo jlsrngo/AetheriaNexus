@@ -1,7 +1,7 @@
 import { memo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, Sun, Moon, Box, Minus, Square, X } from "lucide-react";
-import { ArunakiLogo } from "../common/ArunakiLogo";
+import { AetheriaLogo } from "../common/AetheriaLogo";
 import { useTheme } from "../../lib/theme";
 import { useI18n } from "../../lib/i18n";
 import { TopMenuBar } from "./TopMenuBar";
@@ -40,10 +40,10 @@ export const AppHeader = memo(function AppHeader({
   const { t } = useI18n();
 
   const handleNavigateWorkstation = useCallback(() => {
-    const savedFolder = localStorage.getItem("arunaki_active_folder") || "";
+    const savedFolder = localStorage.getItem("aetheria_active_folder") || "";
     const savedChatId = savedFolder
-      ? localStorage.getItem(`arunaki_active_chat_id_${savedFolder}`) || ""
-      : localStorage.getItem("arunaki_active_chat_id") || "";
+      ? localStorage.getItem(`aetheria_active_chat_id_${savedFolder}`) || ""
+      : localStorage.getItem("aetheria_active_chat_id") || "";
     const params = new URLSearchParams();
     if (savedFolder) params.set("folder", savedFolder);
     if (savedChatId) params.set("chatId", savedChatId);
@@ -62,24 +62,24 @@ export const AppHeader = memo(function AppHeader({
   }, [theme, setTheme]);
 
   const handleMinimize = useCallback(async () => {
-    if ((window as any).arunakiDesktop?.minimize) {
-      (window as any).arunakiDesktop.minimize();
+    if ((window as any).aetheriaDesktop?.minimize) {
+      (window as any).aetheriaDesktop.minimize();
       return;
     }
     await invokeTauri("window_minimize", "plugin:window|minimize");
   }, []);
 
   const handleMaximize = useCallback(async () => {
-    if ((window as any).arunakiDesktop?.maximize) {
-      (window as any).arunakiDesktop.maximize();
+    if ((window as any).aetheriaDesktop?.maximize) {
+      (window as any).aetheriaDesktop.maximize();
       return;
     }
     await invokeTauri("window_toggle_maximize", "plugin:window|toggle_maximize");
   }, []);
 
   const handleClose = useCallback(async () => {
-    if ((window as any).arunakiDesktop?.close) {
-      (window as any).arunakiDesktop.close();
+    if ((window as any).aetheriaDesktop?.close) {
+      (window as any).aetheriaDesktop.close();
       return;
     }
     await invokeTauri("window_close", "plugin:window|close");
@@ -88,7 +88,7 @@ export const AppHeader = memo(function AppHeader({
   const handleHeaderMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('[style*="no-drag"], [data-tauri-drag-region="false"], button, nav, a, input')) return;
     invokeTauri("plugin:window|start_dragging");
-    (window as any).arunakiDesktop?.startDrag?.();
+    (window as any).aetheriaDesktop?.startDrag?.();
   }, []);
 
   const handleHeaderDoubleClick = useCallback((e: React.MouseEvent) => {
@@ -112,9 +112,9 @@ export const AppHeader = memo(function AppHeader({
           data-tauri-drag-region="false"
           style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
-          <ArunakiLogo size={20} />
+          <AetheriaLogo size={20} />
           <span className="font-semibold text-xs tracking-tight text-[var(--text-primary)]">
-            Arunaki
+            Aetheria
           </span>
         </div>
 

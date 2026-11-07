@@ -38,7 +38,7 @@ export function MultiProviderAuthModal({
             : "Autentikasi Anthropic Claude",
           subtitle: isEn
             ? "Choose an authentication method to connect your Claude Pro / Team account."
-            : "Pilih metode autentikasi akun Claude Pro / Team ke workstation Arunaki.",
+            : "Pilih metode autentikasi akun Claude Pro / Team ke workstation Aetheria.",
           badgeLetter: "C",
           accountActiveText: data.claude?.email
             ? isEn
@@ -70,7 +70,7 @@ export function MultiProviderAuthModal({
             : "Autentikasi OpenAI Codex",
           subtitle: isEn
             ? "Choose an authentication method for your OpenAI / ChatGPT Plus account."
-            : "Pilih metode autentikasi akun OpenAI / ChatGPT Plus ke workstation Arunaki.",
+            : "Pilih metode autentikasi akun OpenAI / ChatGPT Plus ke workstation Aetheria.",
           badgeLetter: "O",
           accountActiveText: undefined,
           isLoggedIn: Boolean(data.codex?.installed),
@@ -97,8 +97,8 @@ export function MultiProviderAuthModal({
             ? "OpenCode Agent Authentication"
             : "Autentikasi OpenCode Agent",
           subtitle: isEn
-            ? "Choose an authentication method to connect OpenCode models to Arunaki."
-            : "Pilih metode autentikasi untuk menghubungkan model OpenCode ke Arunaki.",
+            ? "Choose an authentication method to connect OpenCode models to Aetheria."
+            : "Pilih metode autentikasi untuk menghubungkan model OpenCode ke Aetheria.",
           badgeLetter: "OC",
           accountActiveText: data.opencode?.authenticatedProviders?.length
             ? isEn
@@ -132,8 +132,8 @@ export function MultiProviderAuthModal({
             ? "9Router Gateway Integration"
             : "Integrasi 9Router Gateway",
           subtitle: isEn
-            ? "Connect your local multi-account 9Router gateway to Arunaki."
-            : "Hubungkan gateway multi-akun 9Router lokal ke Arunaki.",
+            ? "Connect your local multi-account 9Router gateway to Aetheria."
+            : "Hubungkan gateway multi-akun 9Router lokal ke Aetheria.",
           badgeLetter: "9R",
           accountActiveText: data.nineRouter?.running
             ? isEn
@@ -167,8 +167,8 @@ export function MultiProviderAuthModal({
             ? "Google Antigravity Authentication"
             : "Autentikasi Google Antigravity",
           subtitle: isEn
-            ? "Choose an authentication method to connect Gemini models to Arunaki."
-            : "Pilih metode autentikasi untuk menghubungkan model Gemini ke Arunaki.",
+            ? "Choose an authentication method to connect Gemini models to Aetheria."
+            : "Pilih metode autentikasi untuk menghubungkan model Gemini ke Aetheria.",
           badgeLetter: "A",
           accountActiveText: data.antigravity?.accountEmail
             ? `${isEn ? "Current active account: " : "Akun aktif saat ini: "}${data.antigravity.accountEmail}`
@@ -294,7 +294,7 @@ export function MultiProviderAuthModal({
 
         <DialogFooter className="justify-between text-[11px] text-[var(--text-muted)]">
           <span>
-            {isEn ? "Arunaki Workstation Integration" : "Integrasi Workstation Arunaki"}
+            {isEn ? "Aetheria Workstation Integration" : "Integrasi Workstation Aetheria"}
           </span>
           <Button variant="ghost" size="sm" onClick={onClose}>
             {isEn ? "Close" : "Tutup"}

@@ -1,4 +1,4 @@
-//! Arunaki System Telemetry & Environment Inspector Module (Pure Rust)
+//! Aetheria System Telemetry & Environment Inspector Module (Pure Rust)
 //!
 //! Provides hardware telemetry, OS environment details, CLI binary discovery,
 //! and high-precision system diagnostics for the desktop workstation.
@@ -34,7 +34,7 @@ pub fn get_system_telemetry() -> SystemTelemetry {
         os_arch: std::env::consts::ARCH.to_string(),
         os_family: std::env::consts::FAMILY.to_string(),
         num_cpus: std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1),
-        app_name: "Arunaki — Autonomous Document Operating System".to_string(),
+        app_name: "Aetheria — Autonomous Document Operating System".to_string(),
         app_version: env!("CARGO_PKG_VERSION").to_string(),
         runtime: "Pure-Rust Tauri v2".to_string(),
         desktop_shell: "Microsoft Edge WebView2".to_string(),

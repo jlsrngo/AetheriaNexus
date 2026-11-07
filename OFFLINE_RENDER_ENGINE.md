@@ -51,7 +51,7 @@ Render 150 frame 1080×1920 NexusEditorialVideo
 | Hasil tetap valid | `ffprobe`: 1080x1920, 30 fps, `nb_frames=150`, `duration=5.000000` |
 | Studio dibuang | `@remotion/cli` hilang dari `package.json`, tidak ada proses yang membuka port 3333 |
 
-Rust sekarang yang menentukan jalur render: `paths::detect_browser_executable()` (Edge → Chrome) dan `paths::render_cache_dir()` (`%LOCALAPPDATA%\ArunakiNexus\bundle`). Tiga pemanggil render — tool agen, `/api/render-media`, dan command Tauri — memakai satu `tool::render::build_command()`.
+Rust sekarang yang menentukan jalur render: `paths::detect_browser_executable()` (Edge → Chrome) dan `paths::render_cache_dir()` (`%LOCALAPPDATA%\AetheriaNexus\bundle`). Tiga pemanggil render — tool agen, `/api/render-media`, dan command Tauri — memakai satu `tool::render::build_command()`.
 
 ### Ukuran yang terlibat
 
@@ -151,12 +151,12 @@ node --experimental-sea-config sea-config.json
 ## 5. Arsitektur Target
 
 ```
-┌────────────────────── 1 proses: arunaki-desktop ──────────────────────┐
+┌────────────────────── 1 proses: aetheria-desktop ──────────────────────┐
 │                                                                        │
 │  WebView2                                                              │
 │    └─ Preview stage (UI sendiri) — tanpa port, tanpa iframe            │
 │                                                                        │
-│  Rust (arunaki-engine)                                                 │
+│  Rust (aetheria-engine)                                                 │
 │    ├─ render queue (progress, cancel)                                  │
 │    └─ spawn ──▶ resources/render/render-engine.exe                     │
 │                     │                                                  │
@@ -210,7 +210,7 @@ Kontrak JSON per baris ini **sudah ada** dan sudah diuji (`tool/render.rs` + `st
 **Bukti:** render berhasil setelah `node_modules/.remotion` (303 MB) dipindahkan keluar. Tidak ada unduhan.
 
 ### Fase 3 — Cache bundling — ✅ SELESAI
-`paths::render_cache_dir()` → `%LOCALAPPDATA%\ArunakiNexus\bundle`, diteruskan sebagai `--bundle-dir`. Script membandingkan mtime `apps/src/remotion/` dengan `.stamp` di folder cache; kalau sama, bundling dilewati.
+`paths::render_cache_dir()` → `%LOCALAPPDATA%\AetheriaNexus\bundle`, diteruskan sebagai `--bundle-dir`. Script membandingkan mtime `apps/src/remotion/` dengan `.stamp` di folder cache; kalau sama, bundling dilewati.
 **Bukti:** render kedua mencetak `Reusing cached bundle...` dan selesai dalam 22,0s (dari 94,7s).
 
 ### Fase 4 — Kemas jadi exe — ⬜ BELUM
@@ -234,7 +234,7 @@ Kontrak JSON per baris ini **sudah ada** dan sudah diuji (`tool/render.rs` + `st
 [x] Installer tidak menyertakan @remotion/cli             (dibuang dari package.json)
 [x] Tidak ada port 3333 setelah aplikasi jalan            (spawn Studio dihapus)
 [x] ffprobe: 1080x1920, 30 fps, 5.00s, h264
-[x] cargo test -p arunaki-engine hijau                    (71 passed)
+[x] cargo test -p aetheria-engine hijau                    (71 passed)
 [x] Render kedua tidak membundel ulang                    (22,0s)
 [ ] Render berhasil tanpa koneksi internet                (belum diuji dengan adapter dimatikan)
 [ ] Render berhasil di mesin tanpa Node terpasang         (butuh Fase 4)
@@ -250,7 +250,7 @@ Kontrak JSON per baris ini **sudah ada** dan sudah diuji (`tool/render.rs` + `st
 | Edge tidak ada / versi terlalu tua | Render gagal | Deteksi: Edge → Chrome → baru unduh `chrome-headless-shell` |
 | Node SEA tidak bisa memuat dependency native | exe gagal start | Uji SEA sebelum Fase 4; kalau gagal, pakai Node sidecar (pilihan B) |
 | `resources` Tauri tidak bisa menulis ke folder sendiri | bundling gagal | Arahkan `outDir` ke `%LOCALAPPDATA%`, bukan folder aplikasi |
-| Webpack butuh tulis file saat bundling | gagal di Program Files | Cache bundling di `%LOCALAPPDATA%\ArunakiNexus\bundle` |
+| Webpack butuh tulis file saat bundling | gagal di Program Files | Cache bundling di `%LOCALAPPDATA%\AetheriaNexus\bundle` |
 | Antivirus menandai `render-engine.exe` | user tidak bisa render | Tanda tangani exe, atau pakai Node sidecar |
 
 ---

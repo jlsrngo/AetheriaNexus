@@ -23,7 +23,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
   const [recentCanvases, setRecentCanvases] = useState<CanvasItem[]>(() => {
     try {
       if (!activeChatId) return [];
-      const saved = localStorage.getItem(`arunaki_recent_canvases_${activeChatId}`);
+      const saved = localStorage.getItem(`aetheria_recent_canvases_${activeChatId}`);
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -51,7 +51,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
       prevChatIdRef.current = activeChatId || "";
       if (activeChatId) {
         try {
-          const saved = localStorage.getItem(`arunaki_recent_canvases_${activeChatId}`);
+          const saved = localStorage.getItem(`aetheria_recent_canvases_${activeChatId}`);
           setRecentCanvases(saved ? JSON.parse(saved) : []);
         } catch {
           setRecentCanvases([]);
@@ -155,7 +155,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
 
         const content =
           customEvent.detail?.content ||
-          "# Document Title\n\nOfficial document canvas for reports, briefs, and notes.\n\n## Section 1: Executive Summary\nType your content here or use Arunaki AI to draft sections automatically.\n";
+          "# Document Title\n\nOfficial document canvas for reports, briefs, and notes.\n\n## Section 1: Executive Summary\nType your content here or use Aetheria AI to draft sections automatically.\n";
 
         setTabs((prev) => {
           const existing = prev.find((t) => (t.path && t.path === docPath) || t.title === docTitle);
@@ -246,9 +246,9 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
       }
     };
 
-    window.addEventListener("arunaki:open-app", handleOpenAppEvent);
+    window.addEventListener("aetheria:open-app", handleOpenAppEvent);
     return () => {
-      window.removeEventListener("arunaki:open-app", handleOpenAppEvent);
+      window.removeEventListener("aetheria:open-app", handleOpenAppEvent);
     };
   }, []);
 
@@ -301,7 +301,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
 
       try {
         let fileContent = content || "";
-        const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+        const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
         if (!fileContent && desktop?.readFile) {
           const fullPath = (filePath.includes(":") || filePath.startsWith("/") || filePath.startsWith("\\"))
             ? filePath
@@ -385,7 +385,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
         const fileTabs = currentTabs.filter((t) => t.type === "file");
         if (fileTabs.length === 0) return currentTabs;
 
-        const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+        const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
 
         Promise.all(
           fileTabs.map(async (tab) => {
@@ -470,7 +470,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
       } else if (targetTab.fileType === "gridcraft-app" && !filePath.includes(".")) {
         filePath = `${filePath}.xlsx`;
       }
-      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+      const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
       if (desktop?.writeFile) {
         const fullPath = (filePath.includes(":") || filePath.startsWith("/") || filePath.startsWith("\\"))
           ? filePath
@@ -487,7 +487,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
               )
             );
             window.dispatchEvent(
-              new CustomEvent("arunaki:file.edited", { detail: { file: filePath } })
+              new CustomEvent("aetheria:file.edited", { detail: { file: filePath } })
             );
             refetchFiles?.();
             return;
@@ -554,7 +554,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
         const chatId = activeChatIdRef.current;
         if (chatId) {
           try {
-            localStorage.setItem(`arunaki_recent_canvases_${chatId}`, JSON.stringify(top5));
+            localStorage.setItem(`aetheria_recent_canvases_${chatId}`, JSON.stringify(top5));
           } catch {}
         }
         return top5;

@@ -39,11 +39,9 @@ export default defineConfig({
   // Injected so the About dialog reports the code it actually shipped with. It used to
   // display three hand-typed literals that had been sitting there since 2026-09-26.
   define: {
-    __ARUNAKI_COMMIT__: JSON.stringify(git('git rev-parse HEAD')),
-    __ARUNAKI_BUILD_DATE__: JSON.stringify(new Date().toISOString()),
-    __ARUNAKI_VERSION__: JSON.stringify(
-      // Root package.json carries no version today, so this reports "0.0.0" - the same value
-      // apps/web and apps/desktop declare - rather than the "0.1.0" that was only ever a guess.
+    __AETHERIA_COMMIT__: JSON.stringify(git('git rev-parse HEAD')),
+    __AETHERIA_BUILD_DATE__: JSON.stringify(new Date().toISOString()),
+    __AETHERIA_VERSION__: JSON.stringify(
       JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'))
         .version || '0.0.0',
     ),

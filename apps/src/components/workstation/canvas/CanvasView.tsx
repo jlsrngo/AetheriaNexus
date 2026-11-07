@@ -38,7 +38,7 @@ interface ContentSection {
 }
 
 /**
- * Native Canvas Workspace UI — Arunaki Autonomous Document OS
+ * Native Canvas Workspace UI — Aetheria Autonomous Document OS
  *
  * Dedicated, beautiful, high-speed Canvas view for AI-generated artifacts,
  * data tables, recaps, and notes. Zero iframe overhead, instant reactivity,

@@ -18,14 +18,14 @@ async function postDesktopJson(endpoint: string, body?: any): Promise<any> {
 export function initDesktopBridge(): void {
   if (typeof window === "undefined") return;
 
-  const existing = (window as any).arunakiDesktop;
+  const existing = (window as any).aetheriaDesktop;
   if (existing?.getFolderTree && existing?.pickFolder) {
     return; // Already initialized by Electron or prior script
   }
 
   const tauri = (window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__;
 
-  (window as any).arunakiDesktop = {
+  (window as any).aetheriaDesktop = {
     isDesktop: true,
     platform: "win32",
     runtime: "rust-tauri-axum",
@@ -94,7 +94,7 @@ export function initDesktopBridge(): void {
     },
 
     backupFolder: async (sourcePath?: string) => {
-      const src = sourcePath || localStorage.getItem("arunaki_active_folder") || "";
+      const src = sourcePath || localStorage.getItem("aetheria_active_folder") || "";
       return postDesktopJson("/api/desktop/backup-folder", { sourcePath: src });
     },
 

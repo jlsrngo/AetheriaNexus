@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 
 export type ThemeMode = "dark" | "light" | "neobrutalism" | "system";
 
-const THEME_STORAGE_KEY = "arunaki_theme";
+const THEME_STORAGE_KEY = "aetheria_theme";
 
 export function getSystemTheme(): "dark" | "light" {
   if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
@@ -36,11 +36,11 @@ export function applyTheme(theme: ThemeMode): void {
   }
 
   localStorage.setItem(THEME_STORAGE_KEY, theme);
-  window.dispatchEvent(new CustomEvent("arunaki-theme-change", { detail: theme }));
+  window.dispatchEvent(new CustomEvent("aetheria-theme-change", { detail: theme }));
 
-  if (typeof (window as any).arunakiDesktop?.setTheme === "function") {
+  if (typeof (window as any).aetheriaDesktop?.setTheme === "function") {
     const nativeTheme = effectiveTheme === "dark" ? "dark" : "light";
-    (window as any).arunakiDesktop.setTheme(nativeTheme).catch(() => {});
+    (window as any).aetheriaDesktop.setTheme(nativeTheme).catch(() => {});
   }
 }
 
@@ -64,11 +64,11 @@ export function useTheme() {
       }
     };
 
-    window.addEventListener("arunaki-theme-change", handleThemeEvent);
+    window.addEventListener("aetheria-theme-change", handleThemeEvent);
     mediaQuery.addEventListener("change", handleSystemChange);
 
     return () => {
-      window.removeEventListener("arunaki-theme-change", handleThemeEvent);
+      window.removeEventListener("aetheria-theme-change", handleThemeEvent);
       mediaQuery.removeEventListener("change", handleSystemChange);
     };
   }, [theme]);

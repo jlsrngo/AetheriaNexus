@@ -40,7 +40,7 @@ export async function createSession(opts?: {
         modelPayload = { providerID, id };
       } else {
         const activeProvider =
-          (typeof localStorage !== "undefined" && localStorage.getItem("arunaki_active_provider")) || "default";
+          (typeof localStorage !== "undefined" && localStorage.getItem("aetheria_active_provider")) || "default";
         modelPayload = { providerID: activeProvider, id: clean };
       }
     }
@@ -54,7 +54,7 @@ export async function createSession(opts?: {
   }
   const queryString = params.toString() ? `?${params.toString()}` : "";
   const requestHeaders = {
-    ...(cleanDir && { "x-arunaki-directory": cleanDir }),
+    ...(cleanDir && { "x-aetheria-directory": cleanDir }),
   };
   const requestBody = JSON.stringify({
     ...(opts?.agent && { agent: opts.agent }),
@@ -100,7 +100,7 @@ export async function listSessions(opts?: { project?: string; limit?: number; di
   if (cleanDir) params.set("directory", cleanDir);
   const res = await engineFetch(`/api/session?${params}`, {
     headers: {
-      ...(cleanDir && { "x-arunaki-directory": cleanDir }),
+      ...(cleanDir && { "x-aetheria-directory": cleanDir }),
     },
   });
   if (!res.ok) throw new Error(`listSessions failed: ${res.status}`);
@@ -176,24 +176,24 @@ export async function summarizeSession(
       modelID = m;
     } else {
       providerID =
-        (typeof localStorage !== "undefined" && localStorage.getItem("arunaki_active_provider")) || "default";
+        (typeof localStorage !== "undefined" && localStorage.getItem("aetheria_active_provider")) || "default";
       modelID = model;
     }
   }
 
   if (!modelID) {
-    modelID = (typeof localStorage !== "undefined" && localStorage.getItem("arunaki_active_model")) || "default";
+    modelID = (typeof localStorage !== "undefined" && localStorage.getItem("aetheria_active_model")) || "default";
   }
   if (!providerID || providerID === "default") {
     providerID =
-      (typeof localStorage !== "undefined" && localStorage.getItem("arunaki_active_provider")) || "default";
+      (typeof localStorage !== "undefined" && localStorage.getItem("aetheria_active_provider")) || "default";
   }
 
   const res = await engineFetch(`/session/${sessionID}/summarize`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(directory && { "x-arunaki-directory": directory }),
+      ...(directory && { "x-aetheria-directory": directory }),
     },
     body: JSON.stringify({
       providerID,
@@ -271,7 +271,7 @@ export async function sendPrompt(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(opts?.directory ? { "x-arunaki-directory": opts.directory } : {}),
+      ...(opts?.directory ? { "x-aetheria-directory": opts.directory } : {}),
     },
     body: JSON.stringify({
       prompt: promptPayload,
@@ -314,7 +314,7 @@ export function subscribeEvents(
       })()
     : controller.signal;
 
-  const d = typeof globalThis !== "undefined" ? (globalThis as any).arunakiDesktop : undefined;
+  const d = typeof globalThis !== "undefined" ? (globalThis as any).aetheriaDesktop : undefined;
 
   // In Tauri the engine runs in-process, so events arrive as Tauri IPC events, not SSE.
   const tauriInternals =
@@ -324,7 +324,7 @@ export function subscribeEvents(
     let disposed = false;
     import("@tauri-apps/api/event")
       .then(({ listen }) =>
-        listen("arunaki-event", (event: any) => {
+        listen("aetheria-event", (event: any) => {
           if (!finalSignal.aborted) onEvent(event.payload);
         }),
       )
@@ -353,7 +353,7 @@ export function subscribeEvents(
   if (d?.startEngineSSE && d?.onEngineSSE) {
     const channel = `sse_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const query = directory ? `?directory=${encodeURIComponent(directory)}` : "";
-    const extraHeaders: Record<string, string> = directory ? { "x-arunaki-directory": directory } : {};
+    const extraHeaders: Record<string, string> = directory ? { "x-aetheria-directory": directory } : {};
 
     const unsubscribe = d.onEngineSSE(channel, (parsed: any) => {
       if (finalSignal.aborted) return;
@@ -397,7 +397,7 @@ export function subscribeEvents(
           headers: {
             Accept: "text/event-stream",
             ...authHeader(),
-            ...(directory && { "x-arunaki-directory": directory }),
+            ...(directory && { "x-aetheria-directory": directory }),
           },
           signal: finalSignal,
         });

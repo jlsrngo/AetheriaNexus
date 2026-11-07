@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-  "core/arunaki-engine",
+  "core/aetheria-engine",
   "src-tauri",
 ]
 

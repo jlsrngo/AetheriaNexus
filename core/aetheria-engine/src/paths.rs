@@ -1,0 +1,326 @@
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+static COUNTER: AtomicU64 = AtomicU64::new(1);
+
+pub fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+pub fn now_iso() -> String {
+    let ms = now_ms();
+    let secs = ms / 1000;
+    let millis = ms % 1000;
+    let days = secs / 86400;
+    let rem = secs % 86400;
+    let hours = rem / 3600;
+    let mins = (rem % 3600) / 60;
+    let s = rem % 60;
+
+    // Civil date calculation from days since 1970-01-01
+    let z = days as i64 + 719468;
+    let era = if z >= 0 { z } else { z - 146096 } / 146097;
+    let doe = (z - era * 146097) as u64;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = if m <= 2 { y + 1 } else { y };
+
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z",
+        year, m, d, hours, mins, s, millis
+    )
+}
+
+pub fn gen_id(prefix: &str) -> String {
+    let ms = now_ms();
+    let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let pid = std::process::id();
+    format!("{}_{:x}{:04x}{:04x}", prefix, ms, pid & 0xffff, seq & 0xffff)
+}
+
+pub fn home_dir() -> PathBuf {
+    if let Ok(profile) = std::env::var("USERPROFILE") {
+        if !profile.trim().is_empty() {
+            return PathBuf::from(profile);
+        }
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        if !home.trim().is_empty() {
+            return PathBuf::from(home);
+        }
+    }
+    PathBuf::from(".")
+}
+
+pub fn aetheria_dot_dir() -> PathBuf {
+    let dir = home_dir().join(".aetheria-nexus");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+pub fn aetheria_config_dir() -> PathBuf {
+    let base = if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
+        if !xdg.trim().is_empty() {
+            PathBuf::from(xdg)
+        } else {
+            home_dir().join(".config")
+        }
+    } else {
+        home_dir().join(".config")
+    };
+    let dir = base.join("aetheria-nexus");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+pub fn aetheria_data_dir() -> PathBuf {
+    let base = if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
+        if !xdg.trim().is_empty() {
+            PathBuf::from(xdg)
+        } else {
+            home_dir().join(".local").join("share")
+        }
+    } else {
+        home_dir().join(".local").join("share")
+    };
+    let dir = base.join("aetheria-nexus");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+/// Locates the repo root that owns `scripts/render.mjs`.
+/// Checks AETHERIA_ROOT, the current dir and its ancestors, then upwards from the executable.
+pub fn project_root() -> PathBuf {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    if let Ok(root) = std::env::var("AETHERIA_ROOT") {
+        if !root.trim().is_empty() {
+            candidates.push(PathBuf::from(root));
+        }
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+        let mut cur = cwd;
+        loop {
+            candidates.push(cur.clone());
+            match cur.parent() {
+                Some(parent) if parent != cur => cur = parent.to_path_buf(),
+                _ => break,
+            }
+        }
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        let mut cur = exe;
+        for _ in 0..4 {
+            match cur.parent() {
+                Some(parent) => {
+                    cur = parent.to_path_buf();
+                    candidates.push(cur.clone());
+                }
+                None => break,
+            }
+        }
+    }
+
+    candidates
+        .into_iter()
+        .find(|dir| dir.join("scripts").join("render.mjs").is_file())
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+}
+
+/// Finds a Chromium build Remotion can drive, so a render never has to download one.
+/// Edge ships with every Windows 10/11, Chrome is the fallback.
+pub fn detect_browser_executable() -> Option<PathBuf> {
+    let base = |key: &str| {
+        std::env::var(key)
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .map(PathBuf::from)
+    };
+
+    let browsers = [
+        ("Microsoft", "Edge", "msedge.exe"),
+        ("Google", "Chrome", "chrome.exe"),
+    ];
+
+    let mut candidates = Vec::new();
+    for root in ["PROGRAMFILES(X86)", "PROGRAMFILES", "LOCALAPPDATA"] {
+        if let Some(root) = base(root) {
+            for (vendor, product, exe) in browsers {
+                candidates.push(root.join(vendor).join(product).join("Application").join(exe));
+            }
+        }
+    }
+
+    candidates.into_iter().find(|path| path.is_file())
+}
+
+/// Stable folder for the Remotion webpack bundle so repeat renders skip the ~53s rebuild.
+/// Kept out of the install dir, which is read-only under Program Files.
+pub fn render_cache_dir() -> PathBuf {
+    let base = std::env::var("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| aetheria_dot_dir());
+    let dir = base.join("AetheriaNexus").join("bundle");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+pub fn normalize_workspace_path(raw: &str) -> String {
+    let trimmed = raw.trim().replace('/', "\\");
+    let clean = trimmed.trim_end_matches('\\');
+    if clean.len() == 2 && clean.ends_with(':') {
+        format!("{}\\", clean)
+    } else {
+        clean.to_string()
+    }
+}
+
+fn resolve_lexical_or_canonical(path: &Path) -> PathBuf {
+    let mut existing = path.to_path_buf();
+    let mut tail = Vec::new();
+    while !existing.exists() {
+        if let Some(name) = existing.file_name() {
+            tail.push(name.to_os_string());
+        }
+        if let Some(parent) = existing.parent() {
+            if parent == existing {
+                break;
+            }
+            existing = parent.to_path_buf();
+        } else {
+            break;
+        }
+    }
+    let mut base = existing.canonicalize().unwrap_or(existing);
+    for comp in tail.into_iter().rev() {
+        base.push(comp);
+    }
+    base
+}
+
+fn clean_win_path_str(p: &Path) -> String {
+    let s = p.to_string_lossy().replace('/', "\\");
+    let stripped = s.strip_prefix("\\\\?\\").unwrap_or(&s);
+    stripped.trim_end_matches('\\').to_lowercase()
+}
+
+/// Strictly verifies that `child` is inside `parent` (Project Folder Isolation).
+pub fn contains_path(parent: &Path, child: &Path) -> bool {
+    for comp in child.components() {
+        if matches!(comp, std::path::Component::ParentDir) {
+            return false;
+        }
+    }
+    let p_canon = resolve_lexical_or_canonical(parent);
+    let c_canon = resolve_lexical_or_canonical(child);
+
+    let p_str = clean_win_path_str(&p_canon);
+    let c_str = clean_win_path_str(&c_canon);
+
+    if c_str == p_str {
+        return true;
+    }
+    let prefix = format!("{}\\", p_str);
+    c_str.starts_with(&prefix)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_contains_path_isolation() {
+        let base = std::env::temp_dir().join("aetheria_test_ws");
+        let _ = std::fs::create_dir_all(&base);
+        let inside = base.join("sub").join("report.xlsx");
+        let outside = std::env::temp_dir().join("other_folder").join("secret.txt");
+        assert!(contains_path(&base, &inside));
+        assert!(!contains_path(&base, &outside));
+    }
+
+    #[test]
+    fn test_path_traversal_parent_dir_rejected() {
+        let base = std::env::temp_dir().join("aetheria_test_ws");
+        let _ = std::fs::create_dir_all(&base);
+
+        let parent_escape = base.join("..").join("secret.txt");
+        assert!(!contains_path(&base, &parent_escape));
+
+        let nested_escape = base.join("sub").join("..").join("..").join("etc").join("passwd");
+        assert!(!contains_path(&base, &nested_escape));
+    }
+
+    #[test]
+    fn test_sibling_prefix_prevented() {
+        let temp = std::env::temp_dir();
+        let base = temp.join("aetheria_ws");
+        let sibling = temp.join("aetheria_ws_sibling").join("file.txt");
+        let _ = std::fs::create_dir_all(&base);
+        let _ = std::fs::create_dir_all(temp.join("aetheria_ws_sibling"));
+
+        assert!(!contains_path(&base, &sibling));
+    }
+
+    #[test]
+    fn test_nested_nonexistent_file_allowed() {
+        let base = std::env::temp_dir().join("aetheria_test_ws");
+        let _ = std::fs::create_dir_all(&base);
+
+        let future_nested = base.join("level1").join("level2").join("new_report.xlsx");
+        assert!(contains_path(&base, &future_nested));
+    }
+
+    #[test]
+    fn test_absolute_system_path_rejected() {
+        let base = std::env::temp_dir().join("aetheria_test_ws");
+        let _ = std::fs::create_dir_all(&base);
+
+        let win_sys = Path::new("C:\\Windows\\System32\\drivers\\etc\\hosts");
+        assert!(!contains_path(&base, win_sys));
+    }
+
+    #[test]
+    fn test_project_root_finds_render_script() {
+        let root = project_root();
+        assert!(
+            root.join("scripts").join("render.mjs").is_file(),
+            "project_root() returned {} which has no scripts/render.mjs",
+            root.display()
+        );
+    }
+
+    #[test]
+    fn test_render_cache_dir_exists() {
+        let dir = render_cache_dir();
+        assert!(dir.is_dir(), "render_cache_dir() returned {} which is not a directory", dir.display());
+        assert!(dir.ends_with(Path::new("AetheriaNexus").join("bundle")));
+    }
+
+    #[test]
+    fn test_detect_browser_returns_existing_file() {
+        if let Some(path) = detect_browser_executable() {
+            assert!(path.is_file(), "detected browser {} does not exist", path.display());
+        }
+    }
+}
+
+pub fn log_engine(category: &str, message: &str) {
+    use std::io::Write;
+    let line = format!("[{}] [{}] {}", now_iso(), category, message);
+    println!("{}", line);
+    let _ = std::io::stdout().flush();
+    let log_file = aetheria_dot_dir().join("engine.log");
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(log_file) {
+        let _ = writeln!(f, "{}", line);
+    }
+}

@@ -99,7 +99,7 @@ These guidelines are functioning effectively when:
 
 ## 5. UI Design System: Normal UI
 
-**Rujukan visual:** aplikasi Arunaki Agent. Rencana migrasi dan selisih per area ada di
+**Rujukan visual:** aplikasi Aetheria Agent. Rencana migrasi dan selisih per area ada di
 [`UI_PARITY_PLAN.md`](UI_PARITY_PLAN.md).
 
 Semua komponen UI aplikasi desktop ini **WAJIB** mengikuti aturan berikut:

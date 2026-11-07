@@ -54,37 +54,37 @@ export function useAppCommands({
   }, []);
 
   const newSession = useCallback(() => {
-    window.dispatchEvent(new CustomEvent("arunaki-new-chat"));
+    window.dispatchEvent(new CustomEvent("aetheria-new-chat"));
   }, []);
 
   const saveFile = useCallback(() => {
-    window.dispatchEvent(new CustomEvent("arunaki-save-file"));
+    window.dispatchEvent(new CustomEvent("aetheria-save-file"));
   }, []);
 
   const findSession = useCallback(() => {
-    window.dispatchEvent(new CustomEvent("arunaki-search-session"));
+    window.dispatchEvent(new CustomEvent("aetheria-search-session"));
   }, []);
 
   const quickOpenFile = useCallback(() => {
     navigate("/");
     setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("arunaki-quick-open-file"));
+      window.dispatchEvent(new CustomEvent("aetheria-quick-open-file"));
     }, 10);
   }, [navigate]);
 
   const workspaceSearch = useCallback(() => {
     navigate("/");
     setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("arunaki-workspace-search"));
+      window.dispatchEvent(new CustomEvent("aetheria-workspace-search"));
     }, 10);
   }, [navigate]);
 
   const toggleExplorer = useCallback(() => {
-    window.dispatchEvent(new CustomEvent("arunaki-toggle-explorer"));
+    window.dispatchEvent(new CustomEvent("aetheria-toggle-explorer"));
   }, []);
 
   const toggleChat = useCallback(() => {
-    window.dispatchEvent(new CustomEvent("arunaki-toggle-chat"));
+    window.dispatchEvent(new CustomEvent("aetheria-toggle-chat"));
   }, []);
 
   const toggleWordWrap = useCallback(() => {
@@ -100,14 +100,14 @@ export function useAppCommands({
   }, []);
 
   const resetZoom = useCallback(() => {
-    const desktop = typeof window !== "undefined" ? (window as any).arunakiDesktop : null;
+    const desktop = typeof window !== "undefined" ? (window as any).aetheriaDesktop : null;
     if (desktop?.resetZoom) {
       void desktop.resetZoom();
     }
   }, []);
 
   const backupWorkspace = useCallback(async () => {
-    const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+    const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
     if (desktop?.backupFolder) {
       try {
         const res = await desktop.backupFolder();
@@ -125,7 +125,7 @@ export function useAppCommands({
   }, []);
 
   const exitApp = useCallback(() => {
-    const desktop = typeof window !== "undefined" ? (window as any).arunakiDesktop : undefined;
+    const desktop = typeof window !== "undefined" ? (window as any).aetheriaDesktop : undefined;
     if (desktop?.quit) {
       desktop.quit().catch(() => window.close());
       return;
@@ -145,7 +145,7 @@ export function useAppCommands({
 
   const openApp = useCallback((app: "gridcraft" | "wordcraft" | "pdfcraft" | "deckcraft") => {
     navigate("/");
-    window.dispatchEvent(new CustomEvent("arunaki:open-app", { detail: { app } }));
+    window.dispatchEvent(new CustomEvent("aetheria:open-app", { detail: { app } }));
   }, [navigate]);
 
   return {

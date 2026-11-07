@@ -1,8 +1,8 @@
-# ARUNAKINEXUS: Product Vision & System Roles Specification
+# AETHERIANEXUS: Product Vision & System Roles Specification
 
 **Version:** 1.0.0  
 **Status:** Canonical Architecture Specification  
-**Design Language:** Normal, rounded UI (Arunaki Agent parity)  
+**Design Language:** Normal, rounded UI (Aetheria Agent parity)  
 
 ---
 
@@ -16,8 +16,8 @@ Short-form content creators (TikTok, YouTube Shorts, Instagram Reels) are stuck 
    * Restrictive render quotas, queue timeouts, and cloud limits.
    * Privacy concerns: media assets and proprietary templates are hosted on third-party servers.
 
-### The ArunakiNexus Solution
-**ArunakiNexus** is an **Offline-First, Hardware-Accelerated Desktop Video Automation Workstation**:
+### The AetheriaNexus Solution
+**AetheriaNexus** is an **Offline-First, Hardware-Accelerated Desktop Video Automation Workstation**:
 * **Rp 0 Server Costs ($0 Forever):** All rendering utilizes the user's local GPU/CPU with Remotion + Chromium Headless + FFmpeg.
 * **Hybrid Creative Workstation:** Pairs an interactive AI Scriptwriter with a zero-latency real-time Remotion Canvas Player.
 * **Local Video Stock Vault:** Allows creators to store, categorize, and schedule dozens of finished videos directly on local disk.
@@ -31,7 +31,7 @@ Each subsystem possesses a singular, distinct responsibility (*Single Responsibi
 
 ```
 +---------------------------------------------------------------------------------------+
-|                                ARUNAKINEXUS WORKSTATION                               |
+|                                AETHERIANEXUS WORKSTATION                               |
 +---------------------------------------------------------------------------------------+
 |                                                                                       |
 |   [ USER / DIRECTOR ] <------------------- DIALOG & REVIEW ----------------------+    |

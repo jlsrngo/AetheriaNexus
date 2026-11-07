@@ -65,7 +65,7 @@ export default function FileTree({
       // catch, and produced an empty document indistinguishable from an empty file. The fallback
       // guarded a path with a different rule than the IPC one (resolveInsideWorkspace), so leaving
       // both in place meant two sources of truth about what may be read.
-      const desktop = (window as any).arunakiDesktop;
+      const desktop = (window as any).aetheriaDesktop;
       if (!desktop?.readFile) {
         console.error("No desktop bridge available; cannot read", filePath);
         onFileClick?.(filePath, fileName, "");

@@ -139,7 +139,7 @@ export function TelegramSetupGuideModal({
               <p className="text-xs text-[var(--text-muted)] leading-relaxed">
                 {t(
                   "step1Desc3",
-                  "3. Give your bot any display name (e.g. My Document Assistant), then enter a username ending in bot (e.g. arunaki_work_bot)."
+                  "3. Give your bot any display name (e.g. My Document Assistant), then enter a username ending in bot (e.g. aetheria_work_bot)."
                 )}
               </p>
             </div>
@@ -206,7 +206,7 @@ export function TelegramSetupGuideModal({
               <p className="text-xs text-[var(--text-muted)] leading-relaxed">
                 {t(
                   "step3DescPrefix",
-                  "To make sure only you can control Arunaki on your PC:"
+                  "To make sure only you can control Aetheria on your PC:"
                 )}
               </p>
               <p className="text-xs text-[var(--text-muted)] leading-relaxed">
@@ -273,7 +273,7 @@ export function TelegramSetupGuideModal({
                 <span>
                   {t(
                     "step4Success",
-                    "Arunaki on your PC will automatically process the document and reply back to your phone."
+                    "Aetheria on your PC will automatically process the document and reply back to your phone."
                   )}
                 </span>
               </p>

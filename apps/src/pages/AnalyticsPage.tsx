@@ -53,8 +53,8 @@ const DEFAULT_AVATARS: Record<SocialPlatform, string> = {
 const DEFAULT_ACCOUNTS: Record<SocialPlatform, SocialAccountState> = {
   tiktok: {
     platform: "tiktok",
-    handle: "@arunaki.studio",
-    displayName: "Arunaki Content Lab",
+    handle: "@aetheria.studio",
+    displayName: "Aetheria Content Lab",
     bio: "Automated high-retention short-form videos with Remotion • 3 posts daily",
     followers: "28.4K",
     following: "142",
@@ -69,8 +69,8 @@ const DEFAULT_ACCOUNTS: Record<SocialPlatform, SocialAccountState> = {
   },
   reels: {
     platform: "reels",
-    handle: "@arunaki.creativelab",
-    displayName: "Arunaki Creative Lab",
+    handle: "@aetheria.creativelab",
+    displayName: "Aetheria Creative Lab",
     bio: "Visual storytelling, design systems & aesthetic motion clips",
     followers: "14.8K",
     following: "88",
@@ -85,8 +85,8 @@ const DEFAULT_ACCOUNTS: Record<SocialPlatform, SocialAccountState> = {
   },
   shorts: {
     platform: "shorts",
-    handle: "@ArunakiShorts",
-    displayName: "Arunaki Shorts Network",
+    handle: "@AetheriaShorts",
+    displayName: "Aetheria Shorts Network",
     bio: "Bite-sized productivity blueprints & tech insights in 60s",
     followers: "9.2K",
     following: "24",
@@ -113,7 +113,7 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
   // Load all accounts from localStorage
   const [accounts, setAccounts] = useState<Record<SocialPlatform, SocialAccountState>>(() => {
     try {
-      const saved = localStorage.getItem("arunaki_social_accounts");
+      const saved = localStorage.getItem("aetheria_social_accounts");
       if (saved) {
         const parsed = JSON.parse(saved);
         return { ...DEFAULT_ACCOUNTS, ...parsed };
@@ -149,7 +149,7 @@ export const AnalyticsPage = memo(function AnalyticsPage() {
 
   // Persist accounts state
   useEffect(() => {
-    localStorage.setItem("arunaki_social_accounts", JSON.stringify(accounts));
+    localStorage.setItem("aetheria_social_accounts", JSON.stringify(accounts));
   }, [accounts]);
 
   const isConnected = currentAccount.status === "connected";

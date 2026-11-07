@@ -17,7 +17,7 @@ interface LiveMirrorCardProps {
 export function LiveMirrorCard({
   screenshotUrl,
   title = "Desktop Live Mirror",
-  subtitle = "Real-time view of the desktop app operated by Arunaki",
+  subtitle = "Real-time view of the desktop app operated by Aetheria",
   timestamp,
 }: LiveMirrorCardProps) {
   const [collapsed, setCollapsed] = useState(false);

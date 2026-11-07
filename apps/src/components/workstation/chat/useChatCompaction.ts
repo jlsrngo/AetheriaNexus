@@ -5,8 +5,8 @@ import { Message } from "./types";
 import { summarizeSession } from "../../../lib/engine";
 import { sendDesktopNotification } from "../../../lib/notifications";
 
-export const SMART_COMPACTION_PREF_KEY = "arunaki_pref_smart_compaction";
-export const SMART_COMPACTION_EVENT = "arunaki:smart-compaction-changed";
+export const SMART_COMPACTION_PREF_KEY = "aetheria_pref_smart_compaction";
+export const SMART_COMPACTION_EVENT = "aetheria:smart-compaction-changed";
 
 export function setSmartCompactionPref(enabled: boolean) {
   try {
@@ -78,7 +78,7 @@ export function useChatCompaction({
       if (ok) {
         toast.success("Session context compacted", { id: toastId });
         void sendDesktopNotification(
-          "Arunaki Workstation",
+          "Aetheria Workstation",
           "Session context compacted successfully (/compact active)."
         );
         await queryClient.invalidateQueries({ queryKey: ["chat-messages", activeChatId] });

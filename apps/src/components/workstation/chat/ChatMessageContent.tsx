@@ -214,7 +214,7 @@ export const ChatMessageContent = memo(function ChatMessageContent({
                       ...block.rows.map((r) => `| ${r.join(" | ")} |`),
                     ].join("\n");
                     window.dispatchEvent(
-                      new CustomEvent("arunaki-open-canvas", {
+                      new CustomEvent("aetheria-open-canvas", {
                         detail: { content: fullTableMd },
                       })
                     );

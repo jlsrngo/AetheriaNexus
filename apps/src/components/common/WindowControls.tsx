@@ -23,24 +23,24 @@ export const WindowControls: React.FC<{ className?: string }> = memo(function Wi
   className = "",
 }) {
   const handleMinimize = useCallback(async () => {
-    if ((window as any).arunakiDesktop?.minimize) {
-      (window as any).arunakiDesktop.minimize();
+    if ((window as any).aetheriaDesktop?.minimize) {
+      (window as any).aetheriaDesktop.minimize();
       return;
     }
     await invokeTauri("window_minimize", "plugin:window|minimize");
   }, []);
 
   const handleMaximize = useCallback(async () => {
-    if ((window as any).arunakiDesktop?.maximize) {
-      (window as any).arunakiDesktop.maximize();
+    if ((window as any).aetheriaDesktop?.maximize) {
+      (window as any).aetheriaDesktop.maximize();
       return;
     }
     await invokeTauri("window_toggle_maximize", "plugin:window|toggle_maximize");
   }, []);
 
   const handleClose = useCallback(async () => {
-    if ((window as any).arunakiDesktop?.close) {
-      (window as any).arunakiDesktop.close();
+    if ((window as any).aetheriaDesktop?.close) {
+      (window as any).aetheriaDesktop.close();
       return;
     }
     await invokeTauri("window_close", "plugin:window|close");

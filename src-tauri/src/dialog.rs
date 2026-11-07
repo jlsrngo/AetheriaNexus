@@ -1,4 +1,4 @@
-//! Arunaki Native Desktop Dialog Module (Pure Rust)
+//! Aetheria Native Desktop Dialog Module (Pure Rust)
 //!
 //! Provides native Windows dialogs for folder picking, file selection,
 //! and Windows Explorer reveals without relying on Electron or browser APIs.

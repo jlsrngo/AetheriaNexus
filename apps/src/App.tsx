@@ -40,7 +40,7 @@ async function refreshModelCatalog() {
         const liveModels: string[] = (modelsData?.data?.models || []).filter(Boolean);
         if (liveModels.length === 0) continue;
 
-        const poolKey = `arunaki_provider_models_${p.id}`;
+        const poolKey = `aetheria_provider_models_${p.id}`;
         const currentPoolStr = localStorage.getItem(poolKey);
         const defaultList = DEFAULT_MODELS[p.id] || DEFAULT_MODELS["openai-compatible"] || [];
         const curatedDefaults = defaultList.filter((m) => liveModels.includes(m));
@@ -57,13 +57,13 @@ async function refreshModelCatalog() {
       } catch { /* single provider fail — skip, don't break loop */ }
     }
 
-    const activeProvider = localStorage.getItem("arunaki_active_provider") || "kenari";
-    const activeModel = localStorage.getItem("arunaki_active_model");
-    const pool = localStorage.getItem(`arunaki_provider_models_${activeProvider}`);
+    const activeProvider = localStorage.getItem("aetheria_active_provider") || "kenari";
+    const activeModel = localStorage.getItem("aetheria_active_model");
+    const pool = localStorage.getItem(`aetheria_provider_models_${activeProvider}`);
     if (pool) {
       const poolList = pool.split(",").map((s) => s.trim()).filter(Boolean);
       if (!activeModel || !poolList.includes(activeModel.trim())) {
-        if (poolList[0]) localStorage.setItem("arunaki_active_model", poolList[0]);
+        if (poolList[0]) localStorage.setItem("aetheria_active_model", poolList[0]);
       }
     }
   } catch { /* offline or API unavailable — keep cached localStorage values */ }
@@ -71,17 +71,17 @@ async function refreshModelCatalog() {
 
 if (typeof window !== "undefined") {
   try {
-    const kiroPool = localStorage.getItem("arunaki_provider_models_kiro");
+    const kiroPool = localStorage.getItem("aetheria_provider_models_kiro");
     if (kiroPool && !kiroPool.split(",").some((m) => m.trim().startsWith("kiro/"))) {
-      localStorage.removeItem("arunaki_provider_models_kiro");
+      localStorage.removeItem("aetheria_provider_models_kiro");
     }
   } catch {}
 
-  if (!localStorage.getItem("arunaki_active_provider")) {
-    localStorage.setItem("arunaki_active_provider", "kenari");
+  if (!localStorage.getItem("aetheria_active_provider")) {
+    localStorage.setItem("aetheria_active_provider", "kenari");
   }
-  if (!localStorage.getItem("arunaki_active_model")) {
-    localStorage.setItem("arunaki_active_model", (DEFAULT_MODELS.kenari || [])[0] || "nemotron-3-super-120b-a12b:free");
+  if (!localStorage.getItem("aetheria_active_model")) {
+    localStorage.setItem("aetheria_active_model", (DEFAULT_MODELS.kenari || [])[0] || "nemotron-3-super-120b-a12b:free");
   }
   setTimeout(() => {
     refreshModelCatalog();

@@ -99,7 +99,7 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
   useEffect(() => {
     const fetchTitle = () => {
       if (activeChatId) {
-        const saved = localStorage.getItem(`arunaki_chat_name_${activeChatId}`);
+        const saved = localStorage.getItem(`aetheria_chat_name_${activeChatId}`);
         if (saved && !isDefaultSessionTitle(saved)) {
           setChatTitle(saved);
         } else {
@@ -107,7 +107,7 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
             .then((sess) => {
               if (sess?.title && !isDefaultSessionTitle(sess.title)) {
                 setChatTitle(sess.title);
-                localStorage.setItem(`arunaki_chat_name_${activeChatId}`, sess.title);
+                localStorage.setItem(`aetheria_chat_name_${activeChatId}`, sess.title);
               } else {
                 setChatTitle("Chat");
               }
@@ -128,12 +128,12 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
           ? "New Chat"
           : e.detail.title;
         setChatTitle(nextTitle);
-        localStorage.setItem(`arunaki_chat_name_${activeChatId}`, nextTitle);
+        localStorage.setItem(`aetheria_chat_name_${activeChatId}`, nextTitle);
       }
     };
 
-    window.addEventListener("arunaki:session-updated", handleSessionUpdated);
-    return () => window.removeEventListener("arunaki:session-updated", handleSessionUpdated);
+    window.addEventListener("aetheria:session-updated", handleSessionUpdated);
+    return () => window.removeEventListener("aetheria:session-updated", handleSessionUpdated);
   }, [activeChatId]);
 
   const handleTitleSubmit = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -147,14 +147,14 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
     setChatTitle(newTitle);
     setIsEditingTitle(false);
     if (activeChatId) {
-      localStorage.setItem(`arunaki_chat_name_${activeChatId}`, newTitle);
+      localStorage.setItem(`aetheria_chat_name_${activeChatId}`, newTitle);
       apiFetch(`${API_BASE}/session/${activeChatId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: newTitle }),
       }).catch(() => {});
       window.dispatchEvent(
-        new CustomEvent("arunaki:session-updated", {
+        new CustomEvent("aetheria:session-updated", {
           detail: { sessionId: activeChatId, title: newTitle },
         })
       );

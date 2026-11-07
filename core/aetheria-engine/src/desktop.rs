@@ -1,0 +1,1099 @@
+use crate::bridge::LOCAL_CLI_BRIDGE_PORT;
+use crate::paths::{aetheria_dot_dir, contains_path, normalize_workspace_path, now_ms};
+use axum::{
+    body::Body,
+    http::{header, StatusCode},
+    response::{IntoResponse, Response},
+    routing::{get, post},
+    Json, Router,
+};
+use base64::Engine as _;
+use serde_json::{json, Value};
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
+
+static ACTIVE_WORKSPACE_ROOT: OnceLock<Mutex<Option<String>>> = OnceLock::new();
+
+pub fn get_active_workspace_root() -> Option<String> {
+    ACTIVE_WORKSPACE_ROOT
+        .get_or_init(|| Mutex::new(None))
+        .lock()
+        .ok()
+        .and_then(|g| g.clone())
+}
+
+pub fn set_active_workspace_root(dir: &str) {
+    let norm = normalize_workspace_path(dir);
+    if let Ok(mut guard) = ACTIVE_WORKSPACE_ROOT
+        .get_or_init(|| Mutex::new(None))
+        .lock()
+    {
+        crate::session::watcher::seed_baseline_snapshot(&norm);
+        crate::files::ensure_workspace_baseline(Path::new(&norm));
+        *guard = Some(norm);
+    }
+}
+
+pub fn router() -> Router {
+    Router::new()
+        .route("/api/desktop/pick-folder", post(handle_pick_folder))
+        .route("/api/desktop/folder-tree", post(handle_folder_tree))
+        .route("/api/desktop/read-file", post(handle_read_file))
+        .route("/api/desktop/write-file", post(handle_write_file))
+        .route("/api/desktop/create-folder", post(handle_create_folder))
+        .route("/api/desktop/backup-folder", post(handle_backup_folder))
+        .route("/api/desktop/delete-path", post(handle_delete_path))
+        .route("/api/desktop/rename-path", post(handle_rename_path))
+        .route("/api/desktop/open-path", post(handle_open_path))
+        .route("/api/desktop/read-binary", post(handle_read_binary))
+        .route("/api/desktop/read-clipboard-image", post(handle_read_clipboard_image))
+        .route("/api/desktop/engine-info", get(handle_engine_info))
+        .route("/api/video/render", post(handle_video_render))
+        .route("/api/desktop/folder-watch", post(handle_folder_watch))
+        .route("/api/desktop/folder-watch/acknowledge", post(handle_folder_watch_ack))
+        .route("/api/desktop/notify", post(handle_desktop_notify))
+        .route("/api/desktop/open-url", post(handle_open_url))
+        .route("/api/desktop/check-updates", get(handle_check_updates).post(handle_check_updates))
+        .route("/api/desktop/check-artcraft-updates", get(handle_check_artcraft_updates).post(handle_check_artcraft_updates))
+        .route("/api/desktop/quit", post(handle_quit))
+}
+
+fn check_allowed_path(target: &Path) -> Result<PathBuf, String> {
+    if let Some(root) = get_active_workspace_root() {
+        let root_path = Path::new(&root);
+        let resolved = if target.is_relative() {
+            root_path.join(target)
+        } else {
+            target.to_path_buf()
+        };
+        if !contains_path(root_path, &resolved) {
+            return Err(format!(
+                "Security: Access denied for path outside active workspace: {}",
+                target.display()
+            ));
+        }
+        Ok(resolved)
+    } else {
+        Ok(target.to_path_buf())
+    }
+}
+
+async fn handle_pick_folder() -> Response {
+    let picked = tokio::task::spawn_blocking(|| -> Option<String> {
+        #[cfg(windows)]
+        {
+            let ps_script = r#"
+Add-Type -AssemblyName System.Windows.Forms
+$f = New-Object System.Windows.Forms.FolderBrowserDialog
+$f.Description = 'Pilih Folder Proyek Aetheria'
+$f.ShowNewFolderButton = $true
+if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+    [Console]::Out.Write($f.SelectedPath)
+}
+"#;
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            if let Ok(out) = std::process::Command::new("powershell")
+                .args(["-NoProfile", "-STA", "-Command", ps_script])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+            {
+                let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if !s.is_empty() {
+                    return Some(s);
+                }
+            }
+        }
+        None
+    })
+    .await
+    .ok()
+    .flatten();
+
+    if let Some(ref p) = picked {
+        set_active_workspace_root(p);
+    }
+    Json(json!({ "path": picked })).into_response()
+}
+
+fn build_tree_recursive(dir: &Path, depth: usize) -> Vec<Value> {
+    if depth > 6 {
+        return Vec::new();
+    }
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut dirs = Vec::new();
+    let mut files = Vec::new();
+
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.')
+            || name.starts_with("~$")
+            || matches!(
+                name.as_str(),
+                "node_modules" | "dist" | "build" | "__pycache__" | ".git" | "target"
+            )
+        {
+            continue;
+        }
+        let full_path = entry.path();
+        let full_str = full_path.to_string_lossy().to_string();
+        if let Ok(ft) = entry.file_type() {
+            if ft.is_dir() {
+                let children = build_tree_recursive(&full_path, depth + 1);
+                dirs.push((
+                    name.to_lowercase(),
+                    json!({
+                        "name": name,
+                        "path": full_str,
+                        "type": "directory",
+                        "children": children
+                    }),
+                ));
+            } else if ft.is_file() {
+                let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                let ext = full_path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map(|e| format!(".{}", e.to_lowercase()))
+                    .unwrap_or_default();
+                files.push((
+                    name.to_lowercase(),
+                    json!({
+                        "name": name,
+                        "path": full_str,
+                        "type": "file",
+                        "size": size,
+                        "ext": ext
+                    }),
+                ));
+            }
+        }
+    }
+
+    dirs.sort_by(|a, b| a.0.cmp(&b.0));
+    files.sort_by(|a, b| a.0.cmp(&b.0));
+
+    dirs.into_iter()
+        .map(|(_, v)| v)
+        .chain(files.into_iter().map(|(_, v)| v))
+        .collect()
+}
+
+async fn handle_folder_tree(Json(body): Json<Value>) -> Response {
+    let folder_path = body
+        .get("folderPath")
+        .or_else(|| body.get("path"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    if folder_path.trim().is_empty() {
+        return Json(json!({ "error": "folderPath is required" })).into_response();
+    }
+    set_active_workspace_root(folder_path);
+    let path = Path::new(folder_path);
+    let folder_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(folder_path);
+    let tree = build_tree_recursive(path, 0);
+    Json(json!({
+        "tree": tree,
+        "folderName": folder_name,
+        "folderPath": folder_path
+    }))
+    .into_response()
+}
+
+async fn handle_read_file(Json(body): Json<Value>) -> Response {
+    if let Some(dir) = body
+        .get("directory")
+        .or_else(|| body.get("workspacePath"))
+        .and_then(|v| v.as_str())
+    {
+        if !dir.trim().is_empty() {
+            set_active_workspace_root(dir);
+        }
+    }
+    let fp = body
+        .get("filePath")
+        .or_else(|| body.get("path"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let path = match check_allowed_path(Path::new(fp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_default();
+    let is_binary = matches!(
+        ext.as_str(),
+        "pdf" | "png" | "jpg" | "jpeg" | "gif" | "webp" | "xlsx" | "xls" | "docx" | "doc" | "pptx" | "ppt" | "zip"
+    );
+    if is_binary {
+        match std::fs::read(&path) {
+            Ok(bytes) => {
+                let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                Json(json!({ "content": b64, "encoding": "base64" })).into_response()
+            }
+            Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
+        }
+    } else {
+        match std::fs::read_to_string(&path) {
+            Ok(txt) => Json(json!({ "content": txt, "encoding": "utf-8" })).into_response(),
+            Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
+        }
+    }
+}
+
+async fn handle_write_file(Json(body): Json<Value>) -> Response {
+    if let Some(dir) = body
+        .get("directory")
+        .or_else(|| body.get("workspacePath"))
+        .and_then(|v| v.as_str())
+    {
+        if !dir.trim().is_empty() {
+            set_active_workspace_root(dir);
+        }
+    }
+    let fp = body
+        .get("filePath")
+        .or_else(|| body.get("path"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let content = body.get("content").and_then(|v| v.as_str()).unwrap_or("");
+    let path = match check_allowed_path(Path::new(fp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+    }
+    let ws_root = get_active_workspace_root().unwrap_or_else(|| {
+        path.parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| {
+                std::env::current_dir()
+                    .map(|c| c.to_string_lossy().to_string())
+                    .unwrap_or_default()
+            })
+    });
+    crate::files::capture_baseline_before_write(&ws_root, &path.to_string_lossy());
+
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_default();
+    let is_binary = matches!(
+        ext.as_str(),
+        "pdf" | "png" | "jpg" | "jpeg" | "gif" | "webp" | "xlsx" | "xls" | "docx" | "doc" | "pptx" | "ppt" | "zip"
+    );
+
+    let write_res = if content.starts_with("data:") && content.contains(";base64,") {
+        if let Some((_, b64)) = content.split_once(";base64,") {
+            if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(b64.trim()) {
+                Some(std::fs::write(&path, bytes))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else if is_binary || content.starts_with("UEsDB") || content.starts_with("JVBER") {
+        // "UEsDB" = PK\x03\x04 (zip/xlsx/docx/pptx), "JVBER" = %PDF
+        if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(content.trim()) {
+            Some(std::fs::write(&path, bytes))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let final_res = if let Some(res) = write_res {
+        res
+    } else {
+        std::fs::write(&path, content)
+    };
+
+    match final_res {
+        Ok(_) => {
+            crate::session::message::emit_event(
+                &ws_root,
+                "file.edited",
+                json!({ "file": path.to_string_lossy() }),
+            );
+            Json(json!({ "success": true })).into_response()
+        }
+        Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
+    }
+}
+
+async fn handle_create_folder(Json(body): Json<Value>) -> Response {
+    let fp = body
+        .get("folderPath")
+        .or_else(|| body.get("path"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let path = match check_allowed_path(Path::new(fp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    match std::fs::create_dir_all(&path) {
+        Ok(_) => Json(json!({ "success": true })).into_response(),
+        Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
+    }
+}
+
+fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_recursive(&entry.path(), &dst.join(entry.file_name()))?;
+        } else {
+            std::fs::copy(entry.path(), dst.join(entry.file_name()))?;
+        }
+    }
+    Ok(())
+}
+
+async fn handle_backup_folder(Json(body): Json<Value>) -> Response {
+    let src = body
+        .get("sourcePath")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let src_path = Path::new(src);
+    if !src_path.exists() {
+        return Json(json!({ "error": "Source folder does not exist" })).into_response();
+    }
+    let parent = src_path.parent().unwrap_or_else(|| Path::new("."));
+    let base_name = src_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("folder");
+    let backup_path = parent.join(format!("{}_backup_{}", base_name, now_ms()));
+    match copy_dir_recursive(src_path, &backup_path) {
+        Ok(_) => Json(json!({
+            "success": true,
+            "backupPath": backup_path.to_string_lossy()
+        }))
+        .into_response(),
+        Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
+    }
+}
+
+async fn handle_delete_path(Json(body): Json<Value>) -> Response {
+    let tp = body
+        .get("targetPath")
+        .or_else(|| body.get("path"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let path = match check_allowed_path(Path::new(tp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    let res = if path.is_dir() {
+        std::fs::remove_dir_all(&path)
+    } else {
+        std::fs::remove_file(&path)
+    };
+    match res {
+        Ok(_) => {
+            if let Some(ws_root) = get_active_workspace_root() {
+                crate::files::remove_baseline_for_path(&ws_root, &path.to_string_lossy());
+            }
+            Json(json!({ "success": true })).into_response()
+        }
+        Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
+    }
+}
+
+async fn handle_rename_path(Json(body): Json<Value>) -> Response {
+    let old_p = body.get("oldPath").and_then(|v| v.as_str()).unwrap_or("");
+    let new_p = body.get("newPath").and_then(|v| v.as_str()).unwrap_or("");
+    let old_path = match check_allowed_path(Path::new(old_p)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    let new_path = match check_allowed_path(Path::new(new_p)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    match std::fs::rename(&old_path, &new_path) {
+        Ok(_) => Json(json!({ "success": true })).into_response(),
+        Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
+    }
+}
+
+async fn handle_open_path(Json(body): Json<Value>) -> Response {
+    let fp = body
+        .get("filePath")
+        .or_else(|| body.get("path"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let path = match check_allowed_path(Path::new(fp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    #[cfg(windows)]
+    {
+        let _ = std::process::Command::new("explorer.exe").arg(&path).spawn();
+    }
+    Json(json!({ "success": true })).into_response()
+}
+
+async fn handle_read_binary(Json(body): Json<Value>) -> Response {
+    let fp = body
+        .get("filePath")
+        .or_else(|| body.get("path"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let path = match check_allowed_path(Path::new(fp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    match std::fs::read(&path) {
+        Ok(bytes) => {
+            let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+            Json(json!({ "success": true, "base64": b64 })).into_response()
+        }
+        Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
+    }
+}
+
+async fn handle_engine_info() -> Response {
+    let info_path = aetheria_dot_dir().join("engine-info.json");
+    if let Ok(raw) = std::fs::read_to_string(&info_path) {
+        if let Ok(val) = serde_json::from_str::<Value>(&raw) {
+            return Json(val).into_response();
+        }
+    }
+    Json(json!({
+        "port": 4196,
+        "hostname": "127.0.0.1",
+        "url": "http://127.0.0.1:4196",
+        "bridgePort": LOCAL_CLI_BRIDGE_PORT,
+        "runtime": "rust"
+    }))
+    .into_response()
+}
+
+async fn handle_video_render(Json(payload): Json<Value>) -> impl IntoResponse {
+    let workspace = get_active_workspace_root().unwrap_or_else(|| ".".to_string());
+    let session_id = payload.get("session_id").and_then(|v| v.as_str()).unwrap_or("video_session");
+    let res = crate::tool::render::execute_render_video(session_id, &workspace, &payload);
+    Json(res)
+}
+
+async fn handle_read_clipboard_image() -> Response {
+    let data_url = tokio::task::spawn_blocking(|| -> Option<String> {
+        #[cfg(windows)]
+        {
+            let ps_script = r#"
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$img = [System.Windows.Forms.Clipboard]::GetImage()
+if ($img -ne $null) {
+    $ms = New-Object System.IO.MemoryStream
+    $img.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
+    [Console]::Out.Write('data:image/png;base64,' + [Convert]::ToBase64String($ms.ToArray()))
+}
+"#;
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            if let Ok(out) = std::process::Command::new("powershell")
+                .args(["-NoProfile", "-STA", "-Command", ps_script])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+            {
+                let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if s.starts_with("data:image/") {
+                    return Some(s);
+                }
+            }
+        }
+        None
+    })
+    .await
+    .ok()
+    .flatten();
+
+    Json(json!({ "dataUrl": data_url })).into_response()
+}
+
+async fn handle_open_url(Json(body): Json<Value>) -> Response {
+    let raw_url = body.get("url").and_then(|v| v.as_str()).unwrap_or("");
+    if raw_url.starts_with("http://") || raw_url.starts_with("https://") {
+        #[cfg(windows)]
+        {
+            let _ = std::process::Command::new("cmd")
+                .args(&["/c", "start", "", raw_url])
+                .spawn();
+        }
+        return Json(json!({ "success": true, "url": raw_url })).into_response();
+    }
+    Json(json!({ "error": "Invalid URL" })).into_response()
+}
+
+async fn handle_quit() -> Response {
+    tokio::spawn(async {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        std::process::exit(0);
+    });
+    Json(json!({ "ok": true })).into_response()
+}
+
+pub fn locate_web_dist() -> Option<PathBuf> {
+    if let Ok(custom) = std::env::var("AETHERIA_WEB_DIST") {
+        let p = PathBuf::from(custom);
+        if p.join("index.html").exists() {
+            return Some(p);
+        }
+    }
+
+    let mut candidates = Vec::new();
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            candidates.push(exe_dir.join("web"));
+            candidates.push(exe_dir.join("apps/dist"));
+            candidates.push(exe_dir.join("apps/web/dist"));
+            let mut cur = Some(exe_dir);
+            for _ in 0..5 {
+                if let Some(d) = cur {
+                    candidates.push(d.join("apps/dist"));
+                    candidates.push(d.join("apps/web/dist"));
+                    candidates.push(d.join("apps/desktop/web"));
+                    candidates.push(d.join("web"));
+                    cur = d.parent();
+                }
+            }
+        }
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("apps/dist"));
+        candidates.push(cwd.join("apps/web/dist"));
+        candidates.push(cwd.join("apps/desktop/web"));
+    }
+
+    candidates.into_iter().find(|p| p.join("index.html").exists())
+}
+
+pub fn try_serve_static_asset(uri_path: &str) -> Option<Response> {
+    if uri_path.starts_with("/api/")
+        || uri_path.starts_with("/session")
+        || uri_path.starts_with("/provider")
+        || uri_path.starts_with("/messaging")
+        || uri_path.starts_with("/knowledge")
+    {
+        return None;
+    }
+
+    let dist_dir = locate_web_dist()?;
+    let rel = uri_path.trim_start_matches('/');
+    let target_file = if rel.is_empty() {
+        dist_dir.join("index.html")
+    } else {
+        let candidate = dist_dir.join(rel);
+        if candidate.is_file() {
+            candidate
+        } else {
+            // SPA fallback for client routes
+            dist_dir.join("index.html")
+        }
+    };
+
+    let bytes = std::fs::read(&target_file).ok()?;
+    let mime = mime_guess::from_path(&target_file).first_or_octet_stream();
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, mime.as_ref())
+        .body(Body::from(bytes))
+        .ok()
+}
+
+pub const DESKTOP_INIT_SCRIPT: &str = r#"
+(function() {
+  // Suppress browser context menu
+  window.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+  }, true);
+
+  if (window.aetheriaDesktop) return;
+  const ORIGIN = window.location.origin || 'http://127.0.0.1:4196';
+  const postJson = async (path, body) => {
+    const r = await fetch(ORIGIN + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {})
+    });
+    return await r.json();
+  };
+
+  window.aetheriaDesktop = {
+    isDesktop: true,
+    platform: 'win32',
+    runtime: 'rust-tauri-wry',
+    minimize: () => {
+      try { if (window.ipc) window.ipc.postMessage('minimize'); } catch {}
+    },
+    maximize: () => {
+      try { if (window.ipc) window.ipc.postMessage('maximize'); } catch {}
+    },
+    close: () => {
+      try { if (window.ipc) window.ipc.postMessage('close'); else postJson('/api/desktop/quit', {}); } catch {}
+    },
+    quit: () => {
+      try { if (window.ipc) window.ipc.postMessage('close'); else postJson('/api/desktop/quit', {}); } catch {}
+    },
+    startDrag: () => {
+      try { if (window.ipc) window.ipc.postMessage('drag'); } catch {}
+    },
+    isMaximized: async () => false,
+    onMaximizedChange: () => () => {},
+    // The UI reads `result.path` (same contract as the Electron preload), so answer { path }.
+    pickFolder: async () => {
+      const res = await postJson('/api/desktop/pick-folder', {});
+      return { path: res && res.path ? res.path : null };
+    },
+    getFolderTree: (folderPath) => postJson('/api/desktop/folder-tree', { folderPath }),
+    readFile: (filePath) => postJson('/api/desktop/read-file', { filePath }),
+    writeFile: (filePath, content) => postJson('/api/desktop/write-file', { filePath, content }),
+    createFolder: (folderPath) => postJson('/api/desktop/create-folder', { folderPath }),
+    backupFolder: (sourcePath) => postJson('/api/desktop/backup-folder', { sourcePath: sourcePath || localStorage.getItem('aetheria_active_folder') || '' }),
+    deletePath: (targetPath) => postJson('/api/desktop/delete-path', { targetPath }),
+    renamePath: (oldPath, newPath) => postJson('/api/desktop/rename-path', { oldPath, newPath }),
+    openPath: (filePath) => postJson('/api/desktop/open-path', { filePath }),
+    openExcelNative: (filePath) => postJson('/api/desktop/open-excel', { filePath }),
+    openWordNative: (filePath) => postJson('/api/desktop/open-word', { filePath }),
+    openPptNative: (filePath) => postJson('/api/desktop/open-ppt', { filePath }),
+    parseExcel: (filePath) => postJson('/api/desktop/parse-excel', { filePath }),
+    parseWord: (filePath) => postJson('/api/desktop/parse-word', { filePath }),
+    parsePpt: (filePath) => postJson('/api/desktop/parse-ppt', { filePath }),
+    parsePdf: (filePath, maxPages) => postJson('/api/desktop/parse-pdf', { filePath, maxPages }),
+    writeExcel: (filePath, rows, sheetName) => postJson('/api/desktop/write-excel', { filePath, rows, sheetName }),
+    readBinaryFile: (filePath) => postJson('/api/desktop/read-binary', { filePath }),
+    readClipboardImage: async () => {
+      const res = await postJson('/api/desktop/read-clipboard-image', {});
+      return res && res.dataUrl ? res.dataUrl : null;
+    },
+    getEngineInfo: async () => {
+      const r = await fetch(ORIGIN + '/api/desktop/engine-info');
+      return await r.json();
+    },
+    ping: () => Promise.resolve('desktop'),
+    resetZoom: () => {},
+    setTheme: (_theme) => Promise.resolve(),
+    notify: (payload) => {
+      try {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification(payload.title || 'Aetheria', { body: payload.body || '' });
+        }
+      } catch {}
+    },
+    getSystemInfo: () => ({
+      runtime: 'Native Rust Hybrid',
+      engine: 'Axum v0.7 + Tokio v1.40',
+      desktop: 'Tauri v2 + Microsoft Edge WebView2',
+      docs: 'Native Win32 COM Sidecar (aetheria-docs)',
+      os: 'Windows_NT x64'
+    }),
+    // No engineFetch / bridgeFetch / SSE relay here on purpose: the page is served from the
+    // engine's own origin, so lib/api.ts talks to /api over plain same-origin HTTP. The old
+    // relay shims had the wrong signature (opts object vs (path, init)) and returned
+    // { data } instead of { body }, which made every API call throw and left History,
+    // Knowledge and Model Providers empty.
+  };
+})();
+"#;
+
+#[cfg(windows)]
+pub fn hide_console_window() {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetConsoleWindow() -> *mut std::ffi::c_void;
+    }
+    #[link(name = "user32")]
+    extern "system" {
+        fn ShowWindow(hwnd: *mut std::ffi::c_void, n_cmd_show: i32) -> i32;
+    }
+    unsafe {
+        let hwnd = GetConsoleWindow();
+        if !hwnd.is_null() {
+            // SW_HIDE = 0
+            ShowWindow(hwnd, 0);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+pub fn hide_console_window() {}
+
+#[derive(Debug, Clone, Copy)]
+pub enum DesktopAction {
+    Minimize,
+    Maximize,
+    Close,
+    Drag,
+}
+
+pub fn launch_desktop_window(url: &str) {
+    use tao::{
+        dpi::LogicalSize,
+        event::{Event, WindowEvent},
+        event_loop::{ControlFlow, EventLoopBuilder},
+        window::{Theme, WindowBuilder},
+    };
+    use wry::WebViewBuilder;
+
+    let event_loop = EventLoopBuilder::<DesktopAction>::with_user_event().build();
+    let proxy = event_loop.create_proxy();
+
+    #[cfg(target_os = "windows")]
+    use tao::platform::windows::WindowBuilderExtWindows;
+
+    let mut builder = WindowBuilder::new()
+        .with_title("Aetheria")
+        .with_inner_size(LogicalSize::new(1360.0, 860.0))
+        .with_min_inner_size(LogicalSize::new(960.0, 640.0))
+        .with_theme(Some(Theme::Dark))
+        .with_decorations(false)
+        .with_resizable(true);
+
+    let icon_rgba = include_bytes!("icon_64x64.rgba");
+    if let Ok(icon) = tao::window::Icon::from_rgba(icon_rgba.to_vec(), 64, 64) {
+        builder = builder.with_window_icon(Some(icon));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        builder = builder.with_undecorated_shadow(false);
+    }
+
+    let window = builder
+        .build(&event_loop)
+        .expect("Failed to create Aetheria desktop window");
+
+    window.set_decorations(false);
+
+    #[cfg(target_os = "windows")]
+    unsafe {
+        use tao::platform::windows::WindowExtWindows;
+        let hwnd = window.hwnd();
+
+        #[link(name = "user32")]
+        extern "system" {
+            fn GetWindowLongPtrW(hwnd: isize, n_index: i32) -> isize;
+            fn SetWindowLongPtrW(hwnd: isize, n_index: i32, new_long: isize) -> isize;
+            fn SetWindowPos(
+                hwnd: isize,
+                hwnd_insert_after: isize,
+                x: i32,
+                y: i32,
+                cx: i32,
+                cy: i32,
+                flags: u32,
+            ) -> i32;
+        }
+
+        #[link(name = "dwmapi")]
+        extern "system" {
+            fn DwmSetWindowAttribute(
+                hwnd: isize,
+                dw_attribute: u32,
+                pv_attribute: *const std::ffi::c_void,
+                cb_attribute: u32,
+            ) -> i32;
+        }
+
+        const GWL_STYLE: i32 = -16;
+        const WS_CAPTION: isize = 0x00C00000;
+        const WS_THICKFRAME: isize = 0x00040000;
+        const SWP_FRAMECHANGED: u32 = 0x0020;
+        const SWP_NOMOVE: u32 = 0x0002;
+        const SWP_NOSIZE: u32 = 0x0001;
+        const SWP_NOZORDER: u32 = 0x0004;
+
+        let mut style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+        style &= !WS_CAPTION;
+        style |= WS_THICKFRAME;
+        SetWindowLongPtrW(hwnd, GWL_STYLE, style);
+
+        // 1. Immersive dark mode (attribute 20)
+        let dark_mode: i32 = 1;
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            20,
+            &dark_mode as *const _ as *const _,
+            std::mem::size_of::<i32>() as u32,
+        );
+
+        // 2. Windows 11 Rounded Corners (DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2)
+        let round_preference: u32 = 2;
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            33,
+            &round_preference as *const _ as *const _,
+            std::mem::size_of::<u32>() as u32,
+        );
+
+        // 3. Remove white border line (DWMWA_BORDER_COLOR = 34, DWMWA_COLOR_NONE = 0xFFFFFFFE)
+        let border_color: u32 = 0xFFFFFFFE;
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            34,
+            &border_color as *const _ as *const _,
+            std::mem::size_of::<u32>() as u32,
+        );
+
+        // 4. Force DWM frame recalculation so standard rounded corners apply immediately
+        SetWindowPos(
+            hwnd,
+            0,
+            0,
+            0,
+            0,
+            0,
+            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER,
+        );
+    }
+
+    let proxy_c = proxy.clone();
+
+    // Shared WebView2 User Data Directory across all Aetheria executables
+    let data_dir = aetheria_dot_dir().join("webview2");
+    let _ = std::fs::create_dir_all(&data_dir);
+    let mut web_context = wry::WebContext::new(Some(data_dir));
+
+    let _webview = WebViewBuilder::new_with_web_context(&mut web_context)
+        .with_initialization_script(DESKTOP_INIT_SCRIPT)
+        .with_ipc_handler(move |req| {
+            let msg = req.body().as_str();
+            match msg {
+                "minimize" => {
+                    let _ = proxy_c.send_event(DesktopAction::Minimize);
+                }
+                "maximize" => {
+                    let _ = proxy_c.send_event(DesktopAction::Maximize);
+                }
+                "close" => {
+                    let _ = proxy_c.send_event(DesktopAction::Close);
+                }
+                "drag" => {
+                    let _ = proxy_c.send_event(DesktopAction::Drag);
+                }
+                _ => {}
+            }
+        })
+        .with_url(url)
+        .build(&window)
+        .expect("Failed to initialize WebView2 runtime");
+
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Wait;
+        match event {
+            Event::UserEvent(DesktopAction::Minimize) => {
+                window.set_minimized(true);
+            }
+            Event::UserEvent(DesktopAction::Maximize) => {
+                window.set_maximized(!window.is_maximized());
+            }
+            Event::UserEvent(DesktopAction::Close) => {
+                *control_flow = ControlFlow::Exit;
+                std::process::exit(0);
+            }
+            Event::UserEvent(DesktopAction::Drag) => {
+                let _ = window.drag_window();
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                *control_flow = ControlFlow::Exit;
+                std::process::exit(0);
+            }
+            _ => {}
+        }
+    });
+}
+
+async fn handle_folder_watch(Json(payload): Json<Value>) -> impl IntoResponse {
+    let workspace = payload.get("workspace_dir")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| get_active_workspace_root())
+        .unwrap_or_else(|| ".".to_string());
+    let detect_all = payload.get("detect_all").and_then(|v| v.as_bool()).unwrap_or(false);
+    let res = crate::session::watcher::scan_workspace_directory(&workspace, detect_all);
+    Json(res)
+}
+
+async fn handle_folder_watch_ack(Json(payload): Json<Value>) -> impl IntoResponse {
+    let workspace = payload.get("workspace_dir")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| get_active_workspace_root())
+        .unwrap_or_else(|| ".".to_string());
+    let filenames = payload.get("filenames")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect::<Vec<String>>());
+    let res = crate::session::watcher::acknowledge_detected_documents(&workspace, filenames);
+    Json(res)
+}
+
+async fn handle_desktop_notify(Json(payload): Json<Value>) -> impl IntoResponse {
+    let title = payload
+        .get("title")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Aetheria Workstation")
+        .to_string();
+    let body = payload
+        .get("body")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Document response completed.")
+        .to_string();
+
+    tokio::task::spawn_blocking(move || {
+        #[cfg(windows)]
+        {
+            const AETHERIA_ICON_BYTES: &[u8] = include_bytes!("../../../src-tauri/icons/128x128.png");
+            let icon_path = std::env::var("LOCALAPPDATA")
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|_| std::env::temp_dir())
+                .join("Aetheria")
+                .join("aetheria-logo.png");
+            if let Some(parent) = icon_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            if !icon_path.exists() {
+                let _ = std::fs::write(&icon_path, AETHERIA_ICON_BYTES);
+            }
+            let icon_win_path = icon_path.to_string_lossy().to_string();
+            let icon_file_uri = format!("file:///{}", icon_win_path.replace('\\', "/"));
+
+            let xml_escape = |s: &str| -> String {
+                s.replace('&', "&amp;")
+                    .replace('<', "&lt;")
+                    .replace('>', "&gt;")
+                    .replace('"', "&quot;")
+                    .replace('\'', "&apos;")
+            };
+            let ps_escape = |s: &str| -> String { s.replace('\'', "''") };
+            let t_xml = ps_escape(&xml_escape(&title));
+            let b_xml = ps_escape(&xml_escape(&body));
+            let icon_win_escaped = ps_escape(&icon_win_path);
+            let icon_uri_escaped = ps_escape(&xml_escape(&icon_file_uri));
+            let script = format!(
+                "try {{\n\
+                    New-Item -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Aetheria' -Force | Out-Null\n\
+                    Set-ItemProperty -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Aetheria' -Name 'DisplayName' -Value 'Aetheria' -Force\n\
+                    Set-ItemProperty -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Aetheria' -Name 'IconUri' -Value '{}' -Force\n\
+                    Set-ItemProperty -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Aetheria' -Name 'IconBackgroundColor' -Value '00000000' -Force\n\
+                    [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null\n\
+                    [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null\n\
+                    $xml = New-Object Windows.Data.Xml.Dom.XmlDocument\n\
+                    $xml.LoadXml('<toast><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text><image placement=\"appLogoOverride\" src=\"{}\"/></binding></visual></toast>')\n\
+                    $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)\n\
+                    $toast.Tag = 'aetheria-status'\n\
+                    $toast.Group = 'aetheria'\n\
+                    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Aetheria').Show($toast)\n\
+                }} catch {{}}",
+                icon_win_escaped, t_xml, b_xml, icon_uri_escaped
+            );
+            let _ = std::process::Command::new("powershell").args(["-NoProfile", "-Command", &script]).spawn();
+        }
+    });
+
+    Json(json!({ "ok": true }))
+}
+
+async fn handle_check_updates() -> impl IntoResponse {
+    let current_version = env!("CARGO_PKG_VERSION");
+    let client = reqwest::Client::builder()
+        .user_agent("Aetheria-Desktop-Updater")
+        .timeout(std::time::Duration::from_secs(6))
+        .build();
+
+    let client = match client {
+        Ok(c) => c,
+        Err(e) => {
+            return Json(json!({
+                "status": "error",
+                "message": format!("Failed to create HTTP client: {}", e),
+                "has_update": false,
+                "current_version": current_version,
+            }));
+        }
+    };
+
+    let url = "https://api.github.com/repos/jlsrngo/Aetheria/releases/latest";
+    let res = client.get(url).send().await;
+
+    match res {
+        Ok(resp) => {
+            if resp.status().is_success() {
+                if let Ok(rel) = resp.json::<Value>().await {
+                    let tag = rel.get("tag_name").and_then(|v| v.as_str()).unwrap_or("").trim();
+                    let latest_version = tag.trim_start_matches('v');
+                    let release_url = rel.get("html_url").and_then(|v| v.as_str()).unwrap_or("https://github.com/jlsrngo/Aetheria/releases");
+                    let release_notes = rel.get("body").and_then(|v| v.as_str()).unwrap_or("");
+
+                    let has_update = !latest_version.is_empty() && latest_version != current_version;
+
+                    let mut download_url = release_url.to_string();
+                    if let Some(assets) = rel.get("assets").and_then(|a| a.as_array()) {
+                        for asset in assets {
+                            if let Some(name) = asset.get("name").and_then(|n| n.as_str()) {
+                                if name.ends_with(".exe") || name.ends_with(".msi") {
+                                    if let Some(dl) = asset.get("browser_download_url").and_then(|u| u.as_str()) {
+                                        download_url = dl.to_string();
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    return Json(json!({
+                        "status": "ok",
+                        "has_update": has_update,
+                        "current_version": current_version,
+                        "latest_version": latest_version,
+                        "release_url": release_url,
+                        "download_url": download_url,
+                        "release_notes": release_notes,
+                    }));
+                }
+            }
+            Json(json!({
+                "status": "ok",
+                "has_update": false,
+                "current_version": current_version,
+                "latest_version": current_version,
+                "message": "Repository is up to date.",
+            }))
+        }
+        Err(e) => Json(json!({
+            "status": "offline_or_error",
+            "has_update": false,
+            "current_version": current_version,
+            "message": format!("Could not reach GitHub Releases: {}", e),
+        })),
+    }
+}
+
+pub async fn handle_check_artcraft_updates() -> Json<Value> {
+    Json(serde_json::json!({
+        "status": "ok",
+        "has_artcraft_update": false,
+        "apps": []
+    }))
+}

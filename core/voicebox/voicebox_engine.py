@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Voicebox Engine for ArunakiNexus
+Voicebox Engine for AetheriaNexus
 ===============================
 Directly embeds the Voicebox & Kokoro-82M TTS inference engine,
 Indonesian Neural TTS, Spotify Pedalboard DSP broadcast mastering,
@@ -694,7 +694,7 @@ def run_http_server(host: str = "127.0.0.1", port: int = 17493):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Voicebox Engine for ArunakiNexus")
+    parser = argparse.ArgumentParser(description="Voicebox Engine for AetheriaNexus")
     parser.add_argument("--text", type=str, help="Text to speak")
     parser.add_argument("--out", type=str, default="output/voicebox_test.wav", help="Output WAV path")
     parser.add_argument("--voice", type=str, default=None, help="Voice name")

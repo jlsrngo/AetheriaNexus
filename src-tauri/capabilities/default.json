@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Enables the default permissions for Arunaki Desktop",
+  "description": "Enables the default permissions for Aetheria Desktop",
   "windows": [
     "main"
   ],

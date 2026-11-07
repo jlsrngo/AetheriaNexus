@@ -9,6 +9,49 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
+name = "aetheria-desktop"
+version = "0.1.0"
+dependencies = [
+ "aetheria-engine",
+ "log",
+ "reqwest 0.12.28",
+ "rfd",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-log",
+ "tauri-plugin-notification",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "tokio",
+ "webview2-com",
+ "windows-core",
+]
+
+[[package]]
+name = "aetheria-engine"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "bytes",
+ "chrono",
+ "crc32fast",
+ "futures-util",
+ "mime_guess",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tao",
+ "tokio",
+ "tokio-stream",
+ "tower",
+ "wry",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -63,49 +106,6 @@ name = "anyhow"
 version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
-
-[[package]]
-name = "arunaki-desktop"
-version = "0.1.0"
-dependencies = [
- "arunaki-engine",
- "log",
- "reqwest 0.12.28",
- "rfd",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-log",
- "tauri-plugin-notification",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "tokio",
- "webview2-com",
- "windows-core",
-]
-
-[[package]]
-name = "arunaki-engine"
-version = "0.1.0"
-dependencies = [
- "axum",
- "base64 0.22.1",
- "bytes",
- "chrono",
- "crc32fast",
- "futures-util",
- "mime_guess",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "sha2",
- "tao",
- "tokio",
- "tokio-stream",
- "tower",
- "wry",
-]
 
 [[package]]
 name = "ashpd"

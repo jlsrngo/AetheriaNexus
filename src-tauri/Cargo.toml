@@ -1,19 +1,19 @@
 [package]
-name = "arunaki-desktop"
+name = "aetheria-desktop"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Native Desktop Shell for Arunaki with Tauri v2"
+description = "Native Desktop Shell for Aetheria with Tauri v2"
 
 [lib]
-name = "arunaki_desktop_lib"
+name = "aetheria_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.7.4", features = [] }
 
 [dependencies]
-arunaki-engine = { path = "../core/arunaki-engine" }
+aetheria-engine = { path = "../core/aetheria-engine" }
 tauri = { version = "2.12.5", features = ["tray-icon"] }
 tauri-plugin-notification = "2"
 tauri-plugin-updater = "2"

@@ -7,18 +7,18 @@ export function useActiveFolderSync() {
   const navigate = useNavigate();
 
   const [activeFolder, setActiveFolder] = useState<string>(() => {
-    return localStorage.getItem("arunaki_active_folder") || "";
+    return localStorage.getItem("aetheria_active_folder") || "";
   });
 
   useEffect(() => {
     function loadActiveFolder() {
-      setActiveFolder(localStorage.getItem("arunaki_active_folder") || "");
+      setActiveFolder(localStorage.getItem("aetheria_active_folder") || "");
     }
 
-    window.addEventListener("arunaki-folder-change", loadActiveFolder);
+    window.addEventListener("aetheria-folder-change", loadActiveFolder);
     window.addEventListener("storage", loadActiveFolder);
     return () => {
-      window.removeEventListener("arunaki-folder-change", loadActiveFolder);
+      window.removeEventListener("aetheria-folder-change", loadActiveFolder);
       window.removeEventListener("storage", loadActiveFolder);
     };
   }, []);
@@ -27,20 +27,20 @@ export function useActiveFolderSync() {
     try {
       const selectedPath = await tauriPickFolder();
       if (selectedPath) {
-        localStorage.setItem("arunaki_active_folder", selectedPath);
+        localStorage.setItem("aetheria_active_folder", selectedPath);
         setActiveFolder(selectedPath);
 
         // Strictly isolate active chat per folder
         const folderChatId =
-          localStorage.getItem(`arunaki_active_chat_id_${selectedPath}`) || "";
+          localStorage.getItem(`aetheria_active_chat_id_${selectedPath}`) || "";
         if (folderChatId) {
-          localStorage.setItem("arunaki_active_chat_id", folderChatId);
+          localStorage.setItem("aetheria_active_chat_id", folderChatId);
         } else {
-          localStorage.removeItem("arunaki_active_chat_id");
+          localStorage.removeItem("aetheria_active_chat_id");
         }
 
-        window.dispatchEvent(new Event("arunaki-folder-change"));
-        window.dispatchEvent(new Event("arunaki-session-change"));
+        window.dispatchEvent(new Event("aetheria-folder-change"));
+        window.dispatchEvent(new Event("aetheria-session-change"));
 
         const params = new URLSearchParams();
         params.set("folder", selectedPath);
@@ -53,11 +53,11 @@ export function useActiveFolderSync() {
   }, [navigate]);
 
   const handleCloseFolder = useCallback(() => {
-    localStorage.removeItem("arunaki_active_folder");
-    localStorage.removeItem("arunaki_active_chat_id");
+    localStorage.removeItem("aetheria_active_folder");
+    localStorage.removeItem("aetheria_active_chat_id");
     setActiveFolder("");
-    window.dispatchEvent(new Event("arunaki-folder-change"));
-    window.dispatchEvent(new Event("arunaki-session-change"));
+    window.dispatchEvent(new Event("aetheria-folder-change"));
+    window.dispatchEvent(new Event("aetheria-session-change"));
     navigate("/");
     toast.info("Folder closed. Agent is now in sandbox mode.");
   }, [navigate]);

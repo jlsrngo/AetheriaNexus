@@ -3,7 +3,7 @@ import os from "node:os"
 import path from "node:path"
 import { spawn } from "node:child_process"
 
-const PASSWORD_FILE = path.join(os.homedir(), ".arunaki", "dev-server-password")
+const PASSWORD_FILE = path.join(os.homedir(), ".aetheria", "dev-server-password")
 const HEALTH_URL = "http://127.0.0.1:4096/api/health"
 const BASE_URL = "http://127.0.0.1:4096/api"
 
@@ -33,16 +33,16 @@ async function isEngineHealthy(): Promise<boolean> {
 
 async function ensureEngineRunning(): Promise<{ proc?: any; startedByUs: boolean }> {
   if (await isEngineHealthy()) {
-    console.log("-> Arunaki engine is already running and healthy.")
+    console.log("-> Aetheria engine is already running and healthy.")
     return { startedByUs: false }
   }
 
-  console.log("-> Engine is not running. Starting Arunaki engine on port 4096...")
+  console.log("-> Engine is not running. Starting Aetheria engine on port 4096...")
   const serverAuth = require("../scripts/server-auth.cjs")
   const auth = serverAuth.create()
 
   const repoDir = process.cwd()
-  const exeName = process.platform === "win32" ? "arunaki-engine.exe" : "arunaki-engine"
+  const exeName = process.platform === "win32" ? "aetheria-engine.exe" : "aetheria-engine"
   const engineBin = path.join(repoDir, "target", "release", exeName)
   const proc = spawn(
     engineBin,
@@ -71,7 +71,7 @@ async function ensureEngineRunning(): Promise<{ proc?: any; startedByUs: boolean
   const deadline = Date.now() + 60000
   while (Date.now() < deadline) {
     if (await isEngineHealthy()) {
-      console.log("-> Arunaki engine successfully started and healthy.")
+      console.log("-> Aetheria engine successfully started and healthy.")
       return { proc, startedByUs: true }
     }
     await new Promise((r) => setTimeout(r, 1000))
@@ -82,16 +82,16 @@ async function ensureEngineRunning(): Promise<{ proc?: any; startedByUs: boolean
 
 async function main() {
   console.log("==================================================================")
-  console.log("🚀 ARUNAKI END-TO-END KNOWLEDGE LIVE TEST")
+  console.log("🚀 AETHERIA END-TO-END KNOWLEDGE LIVE TEST")
   console.log("==================================================================")
 
   // 1. Create a brand new workspace folder
-  const testDir = path.join(os.tmpdir(), `arunaki-test-katalog-${Date.now()}`)
-  const arunakiDir = path.join(testDir, ".arunaki")
-  fs.mkdirSync(arunakiDir, { recursive: true })
+  const testDir = path.join(os.tmpdir(), `aetheria-test-katalog-${Date.now()}`)
+  const aetheriaDir = path.join(testDir, ".aetheria")
+  fs.mkdirSync(aetheriaDir, { recursive: true })
   console.log(`\n1. Created new test directory:\n   ${testDir}`)
 
-  // 2. Create a new knowledge node inside .arunaki/knowledge.json
+  // 2. Create a new knowledge node inside .aetheria/knowledge.json
   const knowledgePayload = {
     nodes: [
       {
@@ -104,9 +104,9 @@ async function main() {
       },
     ],
   }
-  const knowledgeFile = path.join(arunakiDir, "knowledge.json")
+  const knowledgeFile = path.join(aetheriaDir, "knowledge.json")
   fs.writeFileSync(knowledgeFile, JSON.stringify(knowledgePayload, null, 2), "utf8")
-  console.log(`2. Created Knowledge node in .arunaki/knowledge.json:\n   Title: "${knowledgePayload.nodes[0].title}"\n   Notes: "${knowledgePayload.nodes[0].content}"`)
+  console.log(`2. Created Knowledge node in .aetheria/knowledge.json:\n   Title: "${knowledgePayload.nodes[0].title}"\n   Notes: "${knowledgePayload.nodes[0].content}"`)
 
   // 3. Ensure Engine is running
   const { proc, startedByUs } = await ensureEngineRunning()
@@ -118,8 +118,8 @@ async function main() {
     }
     const query = `?directory=${encodeURIComponent(testDir)}`
 
-    // 4. Connect to Arunaki: Create Session
-    console.log(`\n3. Connecting directory to Arunaki via POST /api/session...`)
+    // 4. Connect to Aetheria: Create Session
+    console.log(`\n3. Connecting directory to Aetheria via POST /api/session...`)
     const sessionRes = await fetch(`${BASE_URL}/session${query}`, {
       method: "POST",
       headers,
@@ -137,7 +137,7 @@ async function main() {
     console.log(`   Location directory: ${sessionJson?.data?.location?.directory}`)
 
     // 5. Query 1: Ask LLM about the knowledge node content
-    const question1 = "Halo Arunaki, apa menu andalan di Warung Kopi Senja, berapa harganya, dan siapa pemiliknya?"
+    const question1 = "Halo Aetheria, apa menu andalan di Warung Kopi Senja, berapa harganya, dan siapa pemiliknya?"
     console.log(`\n4. Sending Prompt to LLM:\n   User: "${question1}"`)
 
     const promptRes = await fetch(`${BASE_URL}/session/${sessionId}/prompt${query}`, {
@@ -202,7 +202,7 @@ async function main() {
     }
 
     // 6. Query 2: Test knowledge menu awareness
-    const question2 = "Di mana biasanya saya bisa mengelola atau menghubungkan data katalog seperti ini di Arunaki?"
+    const question2 = "Di mana biasanya saya bisa mengelola atau menghubungkan data katalog seperti ini di Aetheria?"
     console.log(`\n5. Sending Prompt 2:\n   User: "${question2}"`)
 
     await fetch(`${BASE_URL}/session/${sessionId}/prompt${query}`, {
@@ -243,7 +243,7 @@ async function main() {
     const lower2 = reply2Text.toLowerCase()
     const knowsMenuAwareness = lower2.includes("knowledge") || lower2.includes("/knowledge")
     console.log("\n📊 Verification Checks (Question 2):")
-    console.log(`   - Sadar menu Knowledge di Arunaki (/knowledge): ${knowsMenuAwareness ? "✅ PASS" : "❌ FAIL"}`)
+    console.log(`   - Sadar menu Knowledge di Aetheria (/knowledge): ${knowsMenuAwareness ? "✅ PASS" : "❌ FAIL"}`)
 
     // Cleanup session
     await fetch(`${BASE_URL}/session/${sessionId}${query}`, {
@@ -259,7 +259,7 @@ async function main() {
 
     // Cleanup engine if started by us
     if (startedByUs && proc) {
-      console.log("🧹 Stopping Arunaki engine process started by test...")
+      console.log("🧹 Stopping Aetheria engine process started by test...")
       try {
         proc.kill("SIGTERM")
       } catch {}

@@ -101,7 +101,7 @@ export const EditMenu = memo(function EditMenu({
             label="Edit Default Props (Inspector)"
             onClick={() => {
               window.dispatchEvent(
-                new CustomEvent("arunaki-open-sidebar-view", { detail: "inspector" })
+                new CustomEvent("aetheria-open-sidebar-view", { detail: "inspector" })
               );
               onClose();
             }}
@@ -112,7 +112,7 @@ export const EditMenu = memo(function EditMenu({
             label="Elements & Auto-Captions"
             onClick={() => {
               window.dispatchEvent(
-                new CustomEvent("arunaki-open-sidebar-view", { detail: "elements" })
+                new CustomEvent("aetheria-open-sidebar-view", { detail: "elements" })
               );
               onClose();
             }}

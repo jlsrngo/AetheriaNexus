@@ -2,7 +2,7 @@
  * Model resolution, provider mapping, and retired model tracking for workstation chat.
  */
 
-export const RETIRED_MODELS_STORAGE_KEY = "arunaki_retired_models";
+export const RETIRED_MODELS_STORAGE_KEY = "aetheria_retired_models";
 export const RETIREMENT_TTL_MS = 60 * 60 * 1000; // 1 hour TTL: models can be revived or retried
 
 export function isModelValidForProvider(providerId: string, modelId: string): boolean {
@@ -46,22 +46,22 @@ export function isModelValidForProvider(providerId: string, modelId: string): bo
 
 export function getFallbackModelForProvider(providerId: string): string {
   if (providerId === "antigravity" || providerId === "gemini" || providerId === "gemini-cli") {
-    return localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash";
+    return localStorage.getItem("aetheria_cli_model_antigravity") || "gemini-3.8-flash";
   }
   if (providerId === "claude-code" || providerId === "claude") {
-    return localStorage.getItem("arunaki_cli_model_claude") || "claude-3.7-sonnet";
+    return localStorage.getItem("aetheria_cli_model_claude") || "claude-3.7-sonnet";
   }
   if (providerId === "codex") {
-    return localStorage.getItem("arunaki_cli_model_codex") || "o3-mini";
+    return localStorage.getItem("aetheria_cli_model_codex") || "o3-mini";
   }
   if (providerId === "opencode") {
-    return localStorage.getItem("arunaki_cli_model_opencode") || "groq/openai/gpt-oss-120b";
+    return localStorage.getItem("aetheria_cli_model_opencode") || "groq/openai/gpt-oss-120b";
   }
   if (providerId === "9router" || providerId === "nineRouter") {
-    return localStorage.getItem("arunaki_cli_model_nineRouter") || "cx/gpt-5.6-terra";
+    return localStorage.getItem("aetheria_cli_model_nineRouter") || "cx/gpt-5.6-terra";
   }
   if (providerId === "kiro") {
-    return localStorage.getItem("arunaki_cli_model_kiro") || "kiro/auto";
+    return localStorage.getItem("aetheria_cli_model_kiro") || "kiro/auto";
   }
   if (providerId === "kenari") {
     return "mimo-v2-5:free";
@@ -70,37 +70,37 @@ export function getFallbackModelForProvider(providerId: string): string {
 }
 
 export function resolveActiveSingleModel(): { providerID: string; id: string } {
-  let p = localStorage.getItem("arunaki_active_provider") || "kenari";
+  let p = localStorage.getItem("aetheria_active_provider") || "kenari";
 
   // Migrate legacy raw gemini to antigravity local bridge if no cloud API key
   if (p === "gemini" || p === "gemini-cli") {
-    const geminiKey = localStorage.getItem("arunaki_gemini_api_key");
+    const geminiKey = localStorage.getItem("aetheria_gemini_api_key");
     if (!geminiKey || geminiKey === "antigravity-active") {
       p = "antigravity";
     }
   }
 
   const specific =
-    localStorage.getItem(`arunaki_provider_model_${p}`) ||
+    localStorage.getItem(`aetheria_provider_model_${p}`) ||
     (p === "antigravity" || p === "gemini" || p === "gemini-cli"
-      ? localStorage.getItem("arunaki_cli_model_antigravity")
+      ? localStorage.getItem("aetheria_cli_model_antigravity")
       : p === "claude-code"
-      ? localStorage.getItem("arunaki_cli_model_claude")
+      ? localStorage.getItem("aetheria_cli_model_claude")
       : p === "kiro"
-      ? localStorage.getItem("arunaki_cli_model_kiro")
+      ? localStorage.getItem("aetheria_cli_model_kiro")
       : null) ||
-    localStorage.getItem("arunaki_active_model");
+    localStorage.getItem("aetheria_active_model");
 
   if (specific && specific.trim()) {
     const trimmed = specific.trim();
     const firstModel = trimmed.includes(",") ? trimmed.split(",")[0].trim() : trimmed;
     if (firstModel && isModelValidForProvider(p, firstModel)) {
-      localStorage.setItem("arunaki_active_model", firstModel);
+      localStorage.setItem("aetheria_active_model", firstModel);
       return { providerID: p, id: firstModel };
     }
   }
 
-  const pool = localStorage.getItem(`arunaki_provider_models_${p}`);
+  const pool = localStorage.getItem(`aetheria_provider_models_${p}`);
   if (pool && pool.trim()) {
     const list = pool
       .split(",")
@@ -108,13 +108,13 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
       .filter(Boolean);
     const valid = list.find((m) => isModelValidForProvider(p, m));
     if (valid) {
-      localStorage.setItem("arunaki_active_model", valid);
+      localStorage.setItem("aetheria_active_model", valid);
       return { providerID: p, id: valid };
     }
   }
 
   const fallback = getFallbackModelForProvider(p);
-  localStorage.setItem("arunaki_active_model", fallback);
+  localStorage.setItem("aetheria_active_model", fallback);
   return {
     providerID: p,
     id: fallback,

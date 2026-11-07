@@ -16,7 +16,7 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
 
   const [data, setData] = useState<LocalCliData & { cardStates?: Record<string, any> }>(() => {
     try {
-      const saved = localStorage.getItem("arunaki_cached_local_cli_status");
+      const saved = localStorage.getItem("aetheria_cached_local_cli_status");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === "object" && parsed.antigravity) {
@@ -28,7 +28,7 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
       }
     } catch {}
 
-    const savedEmail = localStorage.getItem("arunaki_agy_email") || undefined;
+    const savedEmail = localStorage.getItem("aetheria_agy_email") || undefined;
     return {
       claude: { installed: true, version: "2.1.202", loggedIn: false },
       opencode: {
@@ -92,7 +92,7 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>(() => {
     const out: Record<string, string> = {};
     for (const key of ["claude", "opencode", "codex", "antigravity", "nineRouter", "kiro"]) {
-      const saved = localStorage.getItem(`arunaki_cli_model_${key}`);
+      const saved = localStorage.getItem(`aetheria_cli_model_${key}`);
       if (saved) out[key] = saved;
     }
     return out;
@@ -139,9 +139,9 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
               cardStates: json.data.cardStates ?? prev.cardStates,
             };
             try {
-              localStorage.setItem("arunaki_cached_local_cli_status", JSON.stringify(updated));
+              localStorage.setItem("aetheria_cached_local_cli_status", JSON.stringify(updated));
               if (updated.antigravity?.accountEmail) {
-                localStorage.setItem("arunaki_agy_email", updated.antigravity.accountEmail);
+                localStorage.setItem("aetheria_agy_email", updated.antigravity.accountEmail);
               }
             } catch {}
             return updated;
@@ -241,10 +241,10 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
           email:
             rustCard?.email ??
             token?.accountEmail ??
-            (d.id === "antigravity" ? localStorage.getItem("arunaki_agy_email") || undefined : undefined),
+            (d.id === "antigravity" ? localStorage.getItem("aetheria_agy_email") || undefined : undefined),
           version: rustCard?.version,
           active:
-            localStorage.getItem("arunaki_active_provider") === d.id ||
+            localStorage.getItem("aetheria_active_provider") === d.id ||
             providers.some((p) => p.active && (p.id === d.id || p.type === d.id)),
         },
       ];
@@ -424,9 +424,9 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
   };
 
   const isGeminiActive =
-    localStorage.getItem("arunaki_active_provider") === "gemini" ||
-    localStorage.getItem("arunaki_active_provider") === "gemini-cli" ||
-    localStorage.getItem("arunaki_active_provider") === "antigravity";
+    localStorage.getItem("aetheria_active_provider") === "gemini" ||
+    localStorage.getItem("aetheria_active_provider") === "gemini-cli" ||
+    localStorage.getItem("aetheria_active_provider") === "antigravity";
 
   const startAntigravityPoll = () => {
     let attempts = 0;
@@ -555,14 +555,14 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
     const chosenModel = selectedModels[target] || modelsFor(target)[0];
     const activeId = config.id;
 
-    localStorage.setItem("arunaki_active_provider", activeId);
-    localStorage.setItem("arunaki_last_active_cli", activeId);
-    localStorage.setItem("arunaki_active_model", chosenModel);
-    localStorage.setItem(`arunaki_cli_model_${target}`, chosenModel);
-    localStorage.setItem(`arunaki_provider_model_${activeId}`, chosenModel);
+    localStorage.setItem("aetheria_active_provider", activeId);
+    localStorage.setItem("aetheria_last_active_cli", activeId);
+    localStorage.setItem("aetheria_active_model", chosenModel);
+    localStorage.setItem(`aetheria_cli_model_${target}`, chosenModel);
+    localStorage.setItem(`aetheria_provider_model_${activeId}`, chosenModel);
 
     window.dispatchEvent(
-      new CustomEvent("arunaki:provider-change", {
+      new CustomEvent("aetheria:provider-change", {
         detail: { providerId: activeId, model: chosenModel },
       })
     );
@@ -622,21 +622,21 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
 
   const handleDisconnect = async (providerId: string, friendlyName: string) => {
     try {
-      localStorage.removeItem("arunaki_active_provider");
-      localStorage.removeItem("arunaki_last_active_cli");
-      localStorage.removeItem("arunaki_active_model");
+      localStorage.removeItem("aetheria_active_provider");
+      localStorage.removeItem("aetheria_last_active_cli");
+      localStorage.removeItem("aetheria_active_model");
       await apiFetch(`${API_BASE}/providers/${providerId}/state${directoryQuery()}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: false }),
       }).catch(() => {});
       window.dispatchEvent(
-        new CustomEvent("arunaki:provider-change", {
+        new CustomEvent("aetheria:provider-change", {
           detail: { providerId: "kenari", model: "mimo-v2-5:free" },
         })
       );
       toast.info(`${friendlyName} Disconnected`, {
-        description: "CLI agent disconnected. Arunaki is in standby.",
+        description: "CLI agent disconnected. Aetheria is in standby.",
       });
       onRefresh();
       fetchStatus();
@@ -723,12 +723,12 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
     friendlyName: string
   ) => {
     setSelectedModels((prev) => ({ ...prev, [targetKey]: modelName }));
-    localStorage.setItem(`arunaki_cli_model_${targetKey}`, modelName);
+    localStorage.setItem(`aetheria_cli_model_${targetKey}`, modelName);
     setOpenDropdownId(null);
 
     if (isActive) {
-      localStorage.setItem("arunaki_active_model", modelName);
-      localStorage.setItem(`arunaki_provider_model_${activeId}`, modelName);
+      localStorage.setItem("aetheria_active_model", modelName);
+      localStorage.setItem(`aetheria_provider_model_${activeId}`, modelName);
       try {
         await apiFetch(`${API_BASE}/providers/${activeId}/state${directoryQuery()}`, {
           method: "PUT",
@@ -739,7 +739,7 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
           description: `Now using ${modelName}.`,
         });
         window.dispatchEvent(
-          new CustomEvent("arunaki:provider-change", {
+          new CustomEvent("aetheria:provider-change", {
             detail: { providerId: activeId, model: modelName },
           })
         );

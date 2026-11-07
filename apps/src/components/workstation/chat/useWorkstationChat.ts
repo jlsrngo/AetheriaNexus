@@ -224,7 +224,7 @@ export function useWorkstationChat({
           preview: "Network disconnected - Waiting for internet connection...",
         });
         toast.warning("Network connection lost", {
-          description: "Execution paused. Arunaki will resume automatically when reconnected.",
+          description: "Execution paused. Aetheria will resume automatically when reconnected.",
           duration: 5000,
         });
       }
@@ -284,7 +284,7 @@ export function useWorkstationChat({
         }));
         setRecentCanvases(top5);
         try {
-          localStorage.setItem(`arunaki_recent_canvases_${activeChatId}`, JSON.stringify(top5));
+          localStorage.setItem(`aetheria_recent_canvases_${activeChatId}`, JSON.stringify(top5));
         } catch {}
       }
 
@@ -352,9 +352,9 @@ export function useWorkstationChat({
     // Immediately clear chat to blank state for instant feedback with 0 flicker
     setActiveChatId("");
     queryClient.setQueryData(["chat-messages", ""], []);
-    localStorage.removeItem("arunaki_active_chat_id");
+    localStorage.removeItem("aetheria_active_chat_id");
     if (activeFolder) {
-      localStorage.removeItem(`arunaki_active_chat_id_${activeFolder}`);
+      localStorage.removeItem(`aetheria_active_chat_id_${activeFolder}`);
     }
 
     const activeModel = resolveActiveSingleModel();
@@ -373,9 +373,9 @@ export function useWorkstationChat({
       });
       if (session && session.id) {
         setActiveChatId(session.id);
-        localStorage.setItem("arunaki_active_chat_id", session.id);
+        localStorage.setItem("aetheria_active_chat_id", session.id);
         if (activeFolder) {
-          localStorage.setItem(`arunaki_active_chat_id_${activeFolder}`, session.id);
+          localStorage.setItem(`aetheria_active_chat_id_${activeFolder}`, session.id);
         }
         queryClient.setQueryData(["chat-messages", session.id], []);
         queryClient.invalidateQueries({ queryKey: ["sessions"] });
@@ -759,10 +759,10 @@ export function useWorkstationChat({
         });
         chatIdToUse = session.id;
         setActiveChatId(chatIdToUse);
-        localStorage.setItem("arunaki_active_chat_id", chatIdToUse);
+        localStorage.setItem("aetheria_active_chat_id", chatIdToUse);
         if (activeFolder) {
-          localStorage.setItem("arunaki_active_folder", activeFolder);
-          localStorage.setItem(`arunaki_active_chat_id_${activeFolder}`, chatIdToUse);
+          localStorage.setItem("aetheria_active_folder", activeFolder);
+          localStorage.setItem(`aetheria_active_chat_id_${activeFolder}`, chatIdToUse);
         }
       } catch (err) {
         console.error("[useWorkstationChat] Failed to create session:", err);
@@ -1042,10 +1042,10 @@ export function useWorkstationChat({
 
       // Auto-backup + auto-open produced documents
       const autoOpenOffice =
-        localStorage.getItem("arunaki_pref_auto_open_office") === "true" ||
-        localStorage.getItem("arunaki_pref_auto_open_excel") === "true";
-      const autoBackup = localStorage.getItem("arunaki_pref_auto_backup") !== "false";
-      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+        localStorage.getItem("aetheria_pref_auto_open_office") === "true" ||
+        localStorage.getItem("aetheria_pref_auto_open_excel") === "true";
+      const autoBackup = localStorage.getItem("aetheria_pref_auto_backup") !== "false";
+      const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
       const toolsCount = doneData?.toolOutputs?.length || 0;
       const produced = producedFilesRef.current.filter(isDocumentPath);
 
@@ -1088,9 +1088,9 @@ export function useWorkstationChat({
         queryClient.invalidateQueries({ queryKey: ["sessions"] });
         getSession(chatIdToUse).then((sess) => {
           if (sess?.title && sess.title !== "New Session" && sess.title !== "Chat") {
-            localStorage.setItem(`arunaki_chat_name_${chatIdToUse}`, sess.title);
+            localStorage.setItem(`aetheria_chat_name_${chatIdToUse}`, sess.title);
             window.dispatchEvent(
-              new CustomEvent("arunaki:session-updated", {
+              new CustomEvent("aetheria:session-updated", {
                 detail: { sessionId: chatIdToUse, title: sess.title },
               })
             );
@@ -1407,7 +1407,7 @@ export function useWorkstationChat({
             const content = toolData.args?.content || toolData.content;
             if (app) {
               window.dispatchEvent(
-                new CustomEvent("arunaki:open-app", {
+                new CustomEvent("aetheria:open-app", {
                   detail: { app, title, path, content },
                 })
               );
@@ -1420,7 +1420,7 @@ export function useWorkstationChat({
           const content = event.data?.content;
           if (app) {
             window.dispatchEvent(
-              new CustomEvent("arunaki:open-app", {
+              new CustomEvent("aetheria:open-app", {
                 detail: { app, title, path, content },
               })
             );
@@ -1429,9 +1429,9 @@ export function useWorkstationChat({
           const sTitle = event.data?.title;
           const sId = event.data?.sessionID || event.data?.sessionId || chatIdToUse;
           if (sTitle && sId) {
-            localStorage.setItem(`arunaki_chat_name_${sId}`, sTitle);
+            localStorage.setItem(`aetheria_chat_name_${sId}`, sTitle);
             window.dispatchEvent(
-              new CustomEvent("arunaki:session-updated", {
+              new CustomEvent("aetheria:session-updated", {
                 detail: { sessionId: sId, title: sTitle },
               })
             );

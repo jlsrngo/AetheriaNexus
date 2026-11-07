@@ -1,16 +1,16 @@
-// Migration script: Arunaki-local.db (SQLite) -> sessions-store.json
+// Migration script: Aetheria-local.db (SQLite) -> sessions-store.json
 // Reads all sessions and messages from SQLite and saves them into the Rust engine's JSON store.
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const dataDir = path.join(os.homedir(), '.local', 'share', 'arunaki');
-const dbPath = path.join(dataDir, 'Arunaki-local.db');
+const dataDir = path.join(os.homedir(), '.local', 'share', 'aetheria');
+const dbPath = path.join(dataDir, 'Aetheria-local.db');
 const storePath = path.join(dataDir, 'sessions-store.json');
 
 if (!fs.existsSync(dbPath)) {
-  console.log('[migrate] No Arunaki-local.db found at', dbPath);
+  console.log('[migrate] No Aetheria-local.db found at', dbPath);
   process.exit(0);
 }
 

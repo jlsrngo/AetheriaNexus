@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 
 /**
  * The engine already had HTTP Basic auth the whole time (engine/src/server/auth.ts), but nothing
- * ever set Arunaki_SERVER_PASSWORD, so it logged "server is unsecured" and answered every caller on
+ * ever set Aetheria_SERVER_PASSWORD, so it logged "server is unsecured" and answered every caller on
  * the machine. A plain request with no credentials got HTTP 200 and the full payload.
  *
  * VSCode Remote and code-server both mint a password per start. This is the same thing, and it is
@@ -17,15 +17,15 @@ const crypto = require('node:crypto');
  */
 
 /** Where the current credentials are written so out-of-band tools (the smoke test) can read them. */
-const PASSWORD_FILE = path.join(os.homedir(), '.arunaki', 'dev-server-password');
-const ENGINE_INFO_FILE = path.join(os.homedir(), '.arunaki', 'engine-info.json');
+const PASSWORD_FILE = path.join(os.homedir(), '.aetheria', 'dev-server-password');
+const ENGINE_INFO_FILE = path.join(os.homedir(), '.aetheria', 'engine-info.json');
 
 /**
  * Fresh password per start, so a copy left on disk stops working at the next launch.
  * Falls back to no password if the file cannot be written - the caller decides what to do.
  */
 function create() {
-  const username = process.env.ARUNAKI_SERVER_USERNAME || 'arunaki'
+  const username = process.env.AETHERIA_SERVER_USERNAME || 'aetheria'
   const password = crypto.randomBytes(24).toString('base64url')
 
   let written = false
@@ -43,11 +43,11 @@ function create() {
     written,
     file: PASSWORD_FILE,
     /** For the engine process. */
-    engineEnv: { Arunaki_SERVER_USERNAME: username, Arunaki_SERVER_PASSWORD: password },
+    engineEnv: { Aetheria_SERVER_USERNAME: username, Aetheria_SERVER_PASSWORD: password },
     /** Vite only exposes VITE_-prefixed vars to the client, and reads them from its own env at start. */
     clientEnv: {
-      VITE_ARUNAKI_SERVER_USER: username,
-      VITE_ARUNAKI_SERVER_PASSWORD: password,
+      VITE_AETHERIA_SERVER_USER: username,
+      VITE_AETHERIA_SERVER_PASSWORD: password,
     },
     /** Basic header value, for tools outside the browser such as the smoke test. */
     authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,

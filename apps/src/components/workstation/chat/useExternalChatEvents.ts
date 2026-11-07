@@ -58,7 +58,7 @@ export function useExternalChatEvents({
           const sId = event.data?.sessionID || event.data?.sessionId || activeChatId;
           if (sTitle) {
             window.dispatchEvent(
-              new CustomEvent("arunaki:session-updated", {
+              new CustomEvent("aetheria:session-updated", {
                 detail: { sessionId: sId, title: sTitle },
               })
             );
@@ -79,7 +79,7 @@ export function useExternalChatEvents({
           const content = event.data?.content || (event as any)?.properties?.content;
           if (app) {
             window.dispatchEvent(
-              new CustomEvent("arunaki:open-app", {
+              new CustomEvent("aetheria:open-app", {
                 detail: { app, title, path, content },
               })
             );
@@ -354,7 +354,7 @@ export function useExternalChatEvents({
               setStreamingState(true);
               setLiveStatus({
                 type: "thinking",
-                preview: "Arunaki is processing...",
+                preview: "Aetheria is processing...",
               });
             } else if (
               !active &&

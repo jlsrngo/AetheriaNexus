@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 
-const WORD_WRAP_STORAGE_KEY = "arunaki_word_wrap";
-const WORD_WRAP_EVENT = "arunaki-word-wrap-change";
+const WORD_WRAP_STORAGE_KEY = "aetheria_word_wrap";
+const WORD_WRAP_EVENT = "aetheria-word-wrap-change";
 
 export function getStoredWordWrap(): boolean {
   if (typeof window === "undefined") return true;

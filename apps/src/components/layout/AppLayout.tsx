@@ -32,7 +32,7 @@ export function AppLayout() {
   useEffect(() => {
     const raf1 = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        console.info("[ARUNAKI_UI_PAINTED]");
+        console.info("[AETHERIA_UI_PAINTED]");
       });
     });
     return () => cancelAnimationFrame(raf1);

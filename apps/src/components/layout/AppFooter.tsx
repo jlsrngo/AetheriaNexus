@@ -39,10 +39,10 @@ export const AppFooter = memo(function AppFooter({
   ];
 
   const handleNavigateWorkstation = useCallback(() => {
-    const savedFolder = localStorage.getItem("arunaki_active_folder") || "";
+    const savedFolder = localStorage.getItem("aetheria_active_folder") || "";
     const savedChatId = savedFolder
-      ? localStorage.getItem(`arunaki_active_chat_id_${savedFolder}`) || ""
-      : localStorage.getItem("arunaki_active_chat_id") || "";
+      ? localStorage.getItem(`aetheria_active_chat_id_${savedFolder}`) || ""
+      : localStorage.getItem("aetheria_active_chat_id") || "";
     const params = new URLSearchParams();
     if (savedFolder) params.set("folder", savedFolder);
     if (savedChatId) params.set("chatId", savedChatId);

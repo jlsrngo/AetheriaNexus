@@ -89,20 +89,20 @@ export function useWorkstationLayout({
       }
     };
 
-    window.addEventListener("arunaki-new-chat", handleNewChatEvent);
-    window.addEventListener("arunaki-save-file", handleSaveFileEvent);
-    window.addEventListener("arunaki-search-session", handleSearchSessionEvent);
-    window.addEventListener("arunaki-toggle-explorer", handleToggleExplorerEvent);
-    window.addEventListener("arunaki-toggle-chat", handleToggleChatEvent);
-    window.addEventListener("arunaki-open-canvas", handleOpenCanvasEvent);
+    window.addEventListener("aetheria-new-chat", handleNewChatEvent);
+    window.addEventListener("aetheria-save-file", handleSaveFileEvent);
+    window.addEventListener("aetheria-search-session", handleSearchSessionEvent);
+    window.addEventListener("aetheria-toggle-explorer", handleToggleExplorerEvent);
+    window.addEventListener("aetheria-toggle-chat", handleToggleChatEvent);
+    window.addEventListener("aetheria-open-canvas", handleOpenCanvasEvent);
 
     return () => {
-      window.removeEventListener("arunaki-new-chat", handleNewChatEvent);
-      window.removeEventListener("arunaki-save-file", handleSaveFileEvent);
-      window.removeEventListener("arunaki-search-session", handleSearchSessionEvent);
-      window.removeEventListener("arunaki-toggle-explorer", handleToggleExplorerEvent);
-      window.removeEventListener("arunaki-toggle-chat", handleToggleChatEvent);
-      window.removeEventListener("arunaki-open-canvas", handleOpenCanvasEvent);
+      window.removeEventListener("aetheria-new-chat", handleNewChatEvent);
+      window.removeEventListener("aetheria-save-file", handleSaveFileEvent);
+      window.removeEventListener("aetheria-search-session", handleSearchSessionEvent);
+      window.removeEventListener("aetheria-toggle-explorer", handleToggleExplorerEvent);
+      window.removeEventListener("aetheria-toggle-chat", handleToggleChatEvent);
+      window.removeEventListener("aetheria-open-canvas", handleOpenCanvasEvent);
     };
   }, []);
 

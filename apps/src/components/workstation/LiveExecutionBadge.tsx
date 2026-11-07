@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "../../lib/utils";
-import { ArunakiLogo } from "../common/ArunakiLogo";
+import { AetheriaLogo } from "../common/AetheriaLogo";
 import {
   Monitor,
   FileSpreadsheet,
@@ -104,17 +104,17 @@ export function formatToolStepLabel(
     if (typeof argsOrTarget.item_code === "string") itemCode = argsOrTarget.item_code.trim();
   }
 
-  // Clean filename if it's a path, suppressing internal dotfiles and ARUNAKI.md
+  // Clean filename if it's a path, suppressing internal dotfiles and AETHERIA.md
   const rawFileName = target ? target.replace(/\\/g, "/").split("/").filter(Boolean).pop() || target : "";
   const isInternalOrHidden =
     rawFileName.startsWith(".") ||
-    rawFileName.toLowerCase() === "arunaki.md" ||
-    target.includes(".arunaki") ||
+    rawFileName.toLowerCase() === "aetheria.md" ||
+    target.includes(".aetheria") ||
     target.includes(".git");
   const fileName = isInternalOrHidden ? "" : rawFileName;
 
-  // 1. ArunakiZen Retail & Transaction Tools (High Priority Specific Matching)
-  if (t.includes("arunakizen") || t.includes("pos")) {
+  // 1. AetheriaZen Retail & Transaction Tools (High Priority Specific Matching)
+  if (t.includes("aetheriazen") || t.includes("pos")) {
     // A. Catalog Search
     if (t.includes("search") || t.includes("product") || t.includes("barang") || t.includes("katalog") || t.includes("catalog")) {
       if (batchCount > 1) {
@@ -306,7 +306,7 @@ export function getActiveActionText(
     if (t.includes("render")) return "Rendering video MP4";
     if (t.includes("voicebox") || t.includes("tts")) return "Synthesizing voiceover audio";
     if (t.includes("todo")) return "Updating studio checklist";
-    if (t.includes("arunakizen") || t.includes("pos")) {
+    if (t.includes("aetheriazen") || t.includes("pos")) {
       if (t.includes("search") || t.includes("product") || t.includes("katalog") || t.includes("catalog")) return "Searching product catalog";
       if (t.includes("order") || t.includes("sale") || t.includes("penjualan")) return "Creating sales order";
       if (t.includes("print") || t.includes("receipt") || t.includes("struk")) return "Printing customer receipt";
@@ -362,7 +362,7 @@ export function LiveActionIndicator({
 
   return (
     <div className={cn("flex items-center gap-1.5 font-mono text-xs select-none py-1 animate-fade-in text-[var(--text-muted)]", className)}>
-      <ArunakiLogo size={12} className="animate-pulse text-[#e59344] shrink-0" />
+      <AetheriaLogo size={12} className="animate-pulse text-[#e59344] shrink-0" />
       <span className="text-[var(--text-primary)] font-medium">
         {displayAction}
         <span className="inline-block w-4 text-left font-mono text-[#e59344] animate-pulse">...</span>
@@ -376,7 +376,7 @@ export function LiveActionIndicator({
 
 function renderStepIcon(step: StepItem) {
   if (step.iconType === "thinking") {
-    return <ArunakiLogo size={12} className="animate-pulse text-[#e59344] shrink-0 mt-0.5" />;
+    return <AetheriaLogo size={12} className="animate-pulse text-[#e59344] shrink-0 mt-0.5" />;
   }
   if (step.iconType === "text") {
     return <Cpu size={12} className="text-[var(--text-muted)] shrink-0 mt-0.5" />;
@@ -393,9 +393,9 @@ function renderStepIcon(step: StepItem) {
     return <ListChecks size={12} className="text-amber-400 shrink-0 mt-0.5" />;
   }
 
-  // ArunakiZen Retail Specific Icons
+  // AetheriaZen Retail Specific Icons
   if (
-    t.includes("arunakizen") ||
+    t.includes("aetheriazen") ||
     t.includes("catalog") ||
     t.includes("katalog") ||
     t.includes("pos") ||
@@ -602,9 +602,9 @@ export function MessageThoughtBadge({
   const failedToolCount = toolSteps.filter((s) => s.status === "failed" || s.status === "error" || s.status === "blocked").length;
   const isZenDomain = toolSteps.some((s) => {
     const n = (s.toolName || s.label || "").toLowerCase();
-    return n.includes("arunakizen") || n.includes("zen") || n.includes("pos") || n.includes("catalog") || n.includes("katalog") || n.includes("receipt") || n.includes("order") || n.includes("drawer");
+    return n.includes("aetheriazen") || n.includes("zen") || n.includes("pos") || n.includes("catalog") || n.includes("katalog") || n.includes("receipt") || n.includes("order") || n.includes("drawer");
   });
-  const taskCategory = isZenDomain ? "ArunakiZen" : "studio";
+  const taskCategory = isZenDomain ? "AetheriaZen" : "studio";
 
   const displayReasoning = useMemo(() => {
     if (reasoning && reasoning.trim().length > 0) return reasoning.trim();
@@ -714,7 +714,7 @@ export function MessageThoughtBadge({
             onClick={() => setThoughtExpanded(!isThoughtOpen)}
             className="flex items-center gap-1.5 mb-1.5 not-italic font-mono text-[11px] select-none cursor-pointer hover:opacity-80 transition-opacity"
           >
-            <ArunakiLogo size={12} className={cn("shrink-0", isStreaming ? "animate-pulse text-[#e59344]" : "text-[#e59344]/80")} />
+            <AetheriaLogo size={12} className={cn("shrink-0", isStreaming ? "animate-pulse text-[#e59344]" : "text-[#e59344]/80")} />
             <span className="font-medium text-[#e59344]">Thought:</span>
             {durationLabel ? (
               <span className="text-[#e59344]/90 font-mono text-[11px]">{durationLabel}</span>

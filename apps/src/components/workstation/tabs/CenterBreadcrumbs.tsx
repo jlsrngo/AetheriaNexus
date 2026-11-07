@@ -63,10 +63,10 @@ export const CenterBreadcrumbs = memo(function CenterBreadcrumbs({
     const handleRefresh = () => {
       fetchGovernanceStatus();
     };
-    window.addEventListener("arunaki:file.edited", handleRefresh);
+    window.addEventListener("aetheria:file.edited", handleRefresh);
     const interval = setInterval(fetchGovernanceStatus, 4000);
     return () => {
-      window.removeEventListener("arunaki:file.edited", handleRefresh);
+      window.removeEventListener("aetheria:file.edited", handleRefresh);
       clearInterval(interval);
     };
   }, [fetchGovernanceStatus]);
@@ -87,7 +87,7 @@ export const CenterBreadcrumbs = memo(function CenterBreadcrumbs({
           filename: tabTitle,
           status: nextStatus,
           apply_stamp: applyStamp,
-          reviewer: "Arunaki Administration Manager",
+          reviewer: "Aetheria Administration Manager",
         }),
       });
       if (res.ok) {

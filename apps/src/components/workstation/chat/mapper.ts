@@ -14,7 +14,7 @@ function isInternalToolPart(p: any): boolean {
     "";
   if (typeof target === "string" && target) {
     const raw = target.replace(/\\/g, "/");
-    if (raw.includes(".arunaki") || raw.includes(".git") || raw.toLowerCase().includes("arunaki.md")) {
+    if (raw.includes(".aetheria") || raw.includes(".git") || raw.toLowerCase().includes("aetheria.md")) {
       return true;
     }
     const segments = raw.split("/").filter(Boolean);

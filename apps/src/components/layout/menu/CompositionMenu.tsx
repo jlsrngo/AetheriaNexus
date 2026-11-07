@@ -63,7 +63,7 @@ export const CompositionMenu = memo(function CompositionMenu({
             shortcut="Ctrl+E"
             onClick={() => {
               window.dispatchEvent(
-                new CustomEvent("arunaki-open-sidebar-view", { detail: "renders" })
+                new CustomEvent("aetheria-open-sidebar-view", { detail: "renders" })
               );
               onClose();
             }}

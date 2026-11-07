@@ -19,7 +19,7 @@ import {
   Paperclip,
   Minimize2,
 } from "lucide-react";
-import { ArunakiLogo } from "../../common/ArunakiLogo";
+import { AetheriaLogo } from "../../common/AetheriaLogo";
 import { toast } from "sonner";
 import { useI18n } from "../../../lib/i18n";
 import { useTheme } from "../../../lib/theme";
@@ -149,7 +149,7 @@ export const ChatInputBox = memo(function ChatInputBox({
       {
         name: "/thinking",
         description: showThinking ? "Collapse thinking" : "Expand thinking",
-        icon: ArunakiLogo,
+        icon: AetheriaLogo,
       },
       {
         name: "/compact",
@@ -217,8 +217,8 @@ export const ChatInputBox = memo(function ChatInputBox({
       const current = showThinking !== undefined ? showThinking : true;
       const next = !current;
       try {
-        localStorage.setItem("arunaki_show_thinking", String(next));
-        localStorage.setItem("arunaki_reasoning_effort", next ? "high" : "");
+        localStorage.setItem("aetheria_show_thinking", String(next));
+        localStorage.setItem("aetheria_reasoning_effort", next ? "high" : "");
       } catch {}
       setShowThinking?.(next);
       setCollapseThinking?.(!next);
@@ -275,8 +275,8 @@ export const ChatInputBox = memo(function ChatInputBox({
       const current = showThinking !== undefined ? showThinking : true;
       const next = !current;
       try {
-        localStorage.setItem("arunaki_show_thinking", String(next));
-        localStorage.setItem("arunaki_reasoning_effort", next ? "high" : "");
+        localStorage.setItem("aetheria_show_thinking", String(next));
+        localStorage.setItem("aetheria_reasoning_effort", next ? "high" : "");
       } catch {}
       setShowThinking?.(next);
       setCollapseThinking?.(!next);
@@ -354,7 +354,7 @@ export const ChatInputBox = memo(function ChatInputBox({
     }
 
     if ((e.ctrlKey || e.metaKey) && (e.key === "v" || e.key === "V")) {
-      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+      const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
       if (typeof desktop?.readClipboardImage === "function") {
         desktop
           .readClipboardImage()

@@ -105,8 +105,8 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
                 )}
               >
                 {status.connected && status.botUsername
-                  ? `Connected as @${status.botUsername} (${status.botFirstName || "Arunaki Bot"})`
-                  : "Allow Arunaki to send notifications and receive task commands via Telegram."}
+                  ? `Connected as @${status.botUsername} (${status.botFirstName || "Aetheria Bot"})`
+                  : "Allow Aetheria to send notifications and receive task commands via Telegram."}
               </p>
             </div>
           </div>
@@ -183,7 +183,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
                 isNeobrutalism ? "text-[#141413]/80" : "text-[var(--text-muted)]"
               )}
             >
-              Turn on to let Arunaki poll Telegram for incoming chat instructions and send progress updates.
+              Turn on to let Aetheria poll Telegram for incoming chat instructions and send progress updates.
             </p>
           </div>
           <button
@@ -403,7 +403,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
             Autonomous Document Execution via Mobile Chat
           </p>
           <p className="leading-relaxed">
-            Send instructions like <code className="bg-[var(--bg-panel)] px-1 py-0.5 rounded text-[var(--text-primary)]">"Rekap invoice.pdf ke excel"</code> directly to your Telegram bot. Arunaki reads, formats, and creates documents directly in your active workstation folder.
+            Send instructions like <code className="bg-[var(--bg-panel)] px-1 py-0.5 rounded text-[var(--text-primary)]">"Rekap invoice.pdf ke excel"</code> directly to your Telegram bot. Aetheria reads, formats, and creates documents directly in your active workstation folder.
           </p>
         </div>
       </div>

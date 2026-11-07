@@ -74,7 +74,7 @@ export const HelpMenu = memo(function HelpMenu({
             label="GPU & Render Engine Telemetry"
             onClick={() => {
               window.dispatchEvent(
-                new CustomEvent("arunaki-open-sidebar-view", { detail: "renders" })
+                new CustomEvent("aetheria-open-sidebar-view", { detail: "renders" })
               );
               onClose();
             }}
@@ -84,7 +84,7 @@ export const HelpMenu = memo(function HelpMenu({
 
           <MenuItem
             icon={Info}
-            label={t("aboutArunaki", "About Arunaki")}
+            label={t("aboutAetheria", "About Aetheria")}
             onClick={() => {
               onClose();
               commands.openAbout?.();

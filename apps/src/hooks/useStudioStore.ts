@@ -10,8 +10,8 @@ import type {
   StudioSubtitleCue,
 } from "../types/studio";
 
-const STORAGE_KEY = "arunaki_nexus_studio_compositions_v2";
-const DEFAULT_PROPS_SIG_KEY = "arunaki_nexus_default_props_sig_v2";
+const STORAGE_KEY = "aetheria_nexus_studio_compositions_v2";
+const DEFAULT_PROPS_SIG_KEY = "aetheria_nexus_default_props_sig_v2";
 
 const DEFAULT_COMPOSITIONS: StudioComposition[] = [
   {

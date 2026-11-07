@@ -45,7 +45,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/jlsrngo/Arunaki/releases/latest/download/latest.json"
+        "https://github.com/jlsrngo/Aetheria/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEzRkQxNjI2Q0VBNDkyQ0UKUldUT2txVE9KaGI5RS9QdWJ5ZmZQVnJjaW5uTkhTUDFPTnFaRHpKTmRJd29NNzE3eFM1Y2JoNEMK"
     }

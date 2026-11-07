@@ -22,7 +22,7 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
   const [activeFolder, setActiveFolder] = useState<string>(() => {
     return (
       searchParams.get("folder") ||
-      localStorage.getItem("arunaki_active_folder") ||
+      localStorage.getItem("aetheria_active_folder") ||
       ""
     );
   });
@@ -43,14 +43,14 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
   const [activeChatId, setActiveChatId] = useState<string>(() => {
     if (urlChatId && urlChatId.startsWith("ses_")) return urlChatId;
     const initialFolder =
-      searchParams.get("folder") || localStorage.getItem("arunaki_active_folder") || "";
+      searchParams.get("folder") || localStorage.getItem("aetheria_active_folder") || "";
     if (initialFolder) {
-      const folderChat = localStorage.getItem(`arunaki_active_chat_id_${initialFolder}`) || "";
+      const folderChat = localStorage.getItem(`aetheria_active_chat_id_${initialFolder}`) || "";
       if (folderChat.startsWith("ses_")) return folderChat;
       // CRITICAL ISOLATION: Never fall back to another folder's global chat when a specific folder is open!
       return "";
     }
-    const globalChat = localStorage.getItem("arunaki_active_chat_id") || "";
+    const globalChat = localStorage.getItem("aetheria_active_chat_id") || "";
     return globalChat.startsWith("ses_") ? globalChat : "";
   });
 
@@ -64,9 +64,9 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
         const latest = sessions[0];
         if (latest && latest.id && latest.id.startsWith("ses_")) {
           setActiveChatId(latest.id);
-          localStorage.setItem("arunaki_active_chat_id", latest.id);
+          localStorage.setItem("aetheria_active_chat_id", latest.id);
           if (activeFolder) {
-            localStorage.setItem(`arunaki_active_chat_id_${activeFolder}`, latest.id);
+            localStorage.setItem(`aetheria_active_chat_id_${activeFolder}`, latest.id);
           }
         }
       })
@@ -97,7 +97,7 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
             `[useWorkstationSession] Isolation mismatch: Session ${activeChatId} (${sessDir}) does not belong to active folder (${curDir}). Resetting.`
           );
           setActiveChatId("");
-          localStorage.removeItem("arunaki_active_chat_id");
+          localStorage.removeItem("aetheria_active_chat_id");
         }
       })
       .catch(() => { });
@@ -121,11 +121,11 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
 
       activeFolderRef.current = cleanPath;
       setActiveFolder(cleanPath);
-      localStorage.setItem("arunaki_active_folder", cleanPath);
+      localStorage.setItem("aetheria_active_folder", cleanPath);
 
       // Workspace folder isolation: check if preferredChatId exists or if folder has existing session
       const savedFolderSession =
-        localStorage.getItem(`arunaki_active_chat_id_${cleanPath}`) || "";
+        localStorage.getItem(`aetheria_active_chat_id_${cleanPath}`) || "";
       const nextChatId =
         preferredChatId && preferredChatId.startsWith("ses_")
           ? preferredChatId
@@ -136,10 +136,10 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
       activeChatIdRef.current = nextChatId;
       setActiveChatId(nextChatId);
       if (nextChatId) {
-        localStorage.setItem("arunaki_active_chat_id", nextChatId);
-        localStorage.setItem(`arunaki_active_chat_id_${cleanPath}`, nextChatId);
+        localStorage.setItem("aetheria_active_chat_id", nextChatId);
+        localStorage.setItem(`aetheria_active_chat_id_${cleanPath}`, nextChatId);
       } else {
-        localStorage.removeItem("arunaki_active_chat_id");
+        localStorage.removeItem("aetheria_active_chat_id");
       }
 
       isUpdatingUrlFromStateRef.current = true;
@@ -160,8 +160,8 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
         { replace: true }
       );
 
-      window.dispatchEvent(new Event("arunaki-folder-change"));
-      window.dispatchEvent(new Event("arunaki-session-change"));
+      window.dispatchEvent(new Event("aetheria-folder-change"));
+      window.dispatchEvent(new Event("aetheria-session-change"));
     },
     [setSearchParams]
   );
@@ -171,13 +171,13 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
     if (!isWorkstationRoute) return;
 
     if (activeFolder) {
-      localStorage.setItem("arunaki_active_folder", activeFolder);
+      localStorage.setItem("aetheria_active_folder", activeFolder);
     }
 
     if (activeChatId && activeChatId.startsWith("ses_")) {
-      localStorage.setItem("arunaki_active_chat_id", activeChatId);
+      localStorage.setItem("aetheria_active_chat_id", activeChatId);
       if (activeFolder) {
-        localStorage.setItem(`arunaki_active_chat_id_${activeFolder}`, activeChatId);
+        localStorage.setItem(`aetheria_active_chat_id_${activeFolder}`, activeChatId);
         // Sync active session with messaging gateway so incoming Telegram prompts route directly into this desktop chat
         engineFetch("/api/messaging/active-session", {
           method: "POST",
@@ -186,9 +186,9 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
         }).catch(() => { });
       }
     } else {
-      localStorage.removeItem("arunaki_active_chat_id");
+      localStorage.removeItem("aetheria_active_chat_id");
       if (activeFolder) {
-        localStorage.removeItem(`arunaki_active_chat_id_${activeFolder}`);
+        localStorage.removeItem(`aetheria_active_chat_id_${activeFolder}`);
       }
     }
 
@@ -251,31 +251,31 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
   // 4. External window event listeners for folder and session changes
   useEffect(() => {
     function handleFolderChange() {
-      const saved = localStorage.getItem("arunaki_active_folder") || "";
+      const saved = localStorage.getItem("aetheria_active_folder") || "";
       // CRITICAL: Compare with activeFolderRef.current to prevent synchronous recursion storm!
       if (saved && saved !== activeFolderRef.current) {
-        const savedSession = localStorage.getItem("arunaki_active_chat_id") || "";
+        const savedSession = localStorage.getItem("aetheria_active_chat_id") || "";
         openFolder(saved, savedSession);
       }
     }
     function handleSessionChange() {
-      const saved = localStorage.getItem("arunaki_active_chat_id") || "";
+      const saved = localStorage.getItem("aetheria_active_chat_id") || "";
       if (saved !== activeChatIdRef.current && (!saved || saved.startsWith("ses_"))) {
         activeChatIdRef.current = saved;
         setActiveChatId(saved);
       }
     }
-    window.addEventListener("arunaki-folder-change", handleFolderChange);
-    window.addEventListener("arunaki-session-change", handleSessionChange);
+    window.addEventListener("aetheria-folder-change", handleFolderChange);
+    window.addEventListener("aetheria-session-change", handleSessionChange);
     return () => {
-      window.removeEventListener("arunaki-folder-change", handleFolderChange);
-      window.removeEventListener("arunaki-session-change", handleSessionChange);
+      window.removeEventListener("aetheria-folder-change", handleFolderChange);
+      window.removeEventListener("aetheria-session-change", handleSessionChange);
     };
   }, [openFolder]);
 
   const handleCloseFolderAction = useCallback(() => {
-    localStorage.removeItem("arunaki_active_folder");
-    localStorage.removeItem("arunaki_active_chat_id");
+    localStorage.removeItem("aetheria_active_folder");
+    localStorage.removeItem("aetheria_active_chat_id");
     activeFolderRef.current = "";
     activeChatIdRef.current = "";
     setActiveFolder("");
@@ -291,8 +291,8 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
       },
       { replace: true }
     );
-    window.dispatchEvent(new Event("arunaki-folder-change"));
-    window.dispatchEvent(new Event("arunaki-session-change"));
+    window.dispatchEvent(new Event("aetheria-folder-change"));
+    window.dispatchEvent(new Event("aetheria-session-change"));
     toast.info("Folder closed. Agent is now in sandbox mode.");
   }, [setSearchParams]);
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 
 export type Language = "en" | "id";
 
-export const LANGUAGE_STORAGE_KEY = "arunaki_language";
+export const LANGUAGE_STORAGE_KEY = "aetheria_language";
 
 const enDict = {
     // Menu Bar
@@ -15,7 +15,7 @@ const enDict = {
     // File Menu
     newSession: "New Session",
     openFolder: "Open Folder...",
-    openFolderDescription: "Open a project folder to inspect documents and start working with Arunaki.",
+    openFolderDescription: "Open a project folder to inspect documents and start working with Aetheria.",
     saveDocument: "Save Document",
     backupWorkspace: "Backup Workspace",
     closeFolder: "Close Folder",
@@ -69,7 +69,7 @@ const enDict = {
     documentation: "Documentation",
     githubRepo: "GitHub Repository",
     reportIssue: "Report an Issue",
-    aboutArunaki: "About Arunaki",
+    aboutAetheria: "About Aetheria",
     about: "About",
 
     // Settings Navigation
@@ -95,19 +95,19 @@ const enDict = {
     useActiveFolder: "Use Active Workspace Folder",
 
     // App Connections Tab
-    appConnectionsSubtitle: "Connect external systems, ArunakiZen retail engines, and third-party workstation tools.",
-    arunakiZenTitle: "ArunakiZen Engine",
-    arunakiZenBadge: "Retail ArunakiZen & Inventory",
-    arunakiZenDesc: "Offline-first retail transaction engine. Enables Arunaki Agent to check real-time store inventory, execute atomic sales orders (faktur R43), and monitor register cash drawer shifts.",
-    posHostUrlLabel: "ArunakiZen Server Host URL",
+    appConnectionsSubtitle: "Connect external systems, AetheriaZen retail engines, and third-party workstation tools.",
+    aetheriaZenTitle: "AetheriaZen Engine",
+    aetheriaZenBadge: "Retail AetheriaZen & Inventory",
+    aetheriaZenDesc: "Offline-first retail transaction engine. Enables Aetheria Agent to check real-time store inventory, execute atomic sales orders (faktur R43), and monitor register cash drawer shifts.",
+    posHostUrlLabel: "AetheriaZen Server Host URL",
     posHostUrlHelp: "Default port is dynamically chosen between 5000-5100",
     posAutoDetect: "Auto Detect",
     posAutoDetecting: "Detecting...",
     posApiKeyLabel: "Integration API Key (Bearer Token)",
     posApiKeyPlaceholder: "Ar-••••••••••••••••••••••••••••••••",
-    posApiKeyHelp: "Generated from ArunakiZen Settings > Integration & API Key",
+    posApiKeyHelp: "Generated from AetheriaZen Settings > Integration & API Key",
     posSetupGuide: "Setup Guide",
-    zenStep2Sub1: "Open the ArunakiZen desktop app.",
+    zenStep2Sub1: "Open the AetheriaZen desktop app.",
     zenStep2Sub2: "Navigate to Settings > Integration & API Key.",
     zenStep2Sub3: "Click 'Generate Token' or copy the active integration key.",
     zenStep2Sub4: "Paste the key into the 'Integration API Key' field.",
@@ -126,7 +126,7 @@ const enDict = {
     posTesting: "Connecting...",
     posSaveConfig: "Save Settings",
     posSaving: "Saving...",
-    posToolsTitle: "Active ArunakiZen AI Tools",
+    posToolsTitle: "Active AetheriaZen AI Tools",
     posToolsDesc: "These function tools are exposed to the AI model when connected:",
     posToolSearch: "Search product catalogue, barcodes, stock & pricing",
     posToolOrder: "Create atomic retail sales invoice (R43) & deduct stock",
@@ -134,17 +134,17 @@ const enDict = {
     posStatusConnected: "Connected",
     posStatusDisconnected: "Not connected",
     posStatusConnecting: "Connecting...",
-    posConfigSavedSuccess: "ArunakiZen configuration saved successfully.",
-    posHandshakeSuccess: "Successfully connected to ArunakiZen as operator",
+    posConfigSavedSuccess: "AetheriaZen configuration saved successfully.",
+    posHandshakeSuccess: "Successfully connected to AetheriaZen as operator",
     posHandshakeFailed: "Connection handshake failed",
     posFillRequired: "Please fill in Host URL, API Key, Operator Username, and Password.",
-    posToastPortDetected: "ArunakiZen detected at:",
-    posToastPortNotFound: "No active ArunakiZen port detected automatically. Using default http://127.0.0.1:5000",
+    posToastPortDetected: "AetheriaZen detected at:",
+    posToastPortNotFound: "No active AetheriaZen port detected automatically. Using default http://127.0.0.1:5000",
     posToastSaveFailed: "Failed to save configuration:",
-    posConnectionFailed: "Connection failed or ArunakiZen server not reachable",
+    posConnectionFailed: "Connection failed or AetheriaZen server not reachable",
 
     // Messaging Tab
-    messagingSubtitle: "Control Arunaki remotely from Telegram. Forward WhatsApp messages, raw notes, or document tasks to your bot, and Arunaki executes them locally on this computer.",
+    messagingSubtitle: "Control Aetheria remotely from Telegram. Forward WhatsApp messages, raw notes, or document tasks to your bot, and Aetheria executes them locally on this computer.",
     telegramGateway: "Telegram BYOB Gateway",
     telegramGatewayDesc: "Direct outward long-polling connection from your PC to Telegram. Free, private, and zero VPS hosting required.",
     botTokenLabel: "Telegram Bot Token",
@@ -155,7 +155,7 @@ const enDict = {
     whitelistPlaceholder: "e.g. 123456789, @username (or * for all)",
     whitelistDesc: "Protects your computer. Only Telegram accounts registered in this whitelist can execute document instructions.",
     targetFolderLabel: "Target Project Folder",
-    targetFolderDesc: "The directory on this computer where Arunaki will read, modify, and create document files when receiving instructions from Telegram.",
+    targetFolderDesc: "The directory on this computer where Aetheria will read, modify, and create document files when receiving instructions from Telegram.",
 
     // Setup Guide Modal
     guideModalTitle: "Telegram Bot Setup Guide",
@@ -175,7 +175,7 @@ const enDict = {
     step1Desc1: "1. Open Telegram on your phone or desktop, and search for the official bot creator: ",
     step1Desc1Or: "(or click the link above).",
     step1Desc2: "2. Send the command: ",
-    step1Desc3: "3. Give your bot any display name (e.g. My Document Assistant), then enter a username ending in bot (e.g. arunaki_work_bot).",
+    step1Desc3: "3. Give your bot any display name (e.g. My Document Assistant), then enter a username ending in bot (e.g. aetheria_work_bot).",
     copyCommand: "Copy command",
 
     step2Badge: "Step 2 of 4",
@@ -189,7 +189,7 @@ const enDict = {
     step3Badge: "Step 3 of 4",
     step3Link: "Open @userinfobot on Telegram",
     step3Heading: "Whitelist Your Telegram Account (Security)",
-    step3DescPrefix: "To make sure only you can control Arunaki on your PC:",
+    step3DescPrefix: "To make sure only you can control Aetheria on your PC:",
     step3Desc1: "1. Open @userinfobot on Telegram (click the link above).",
     step3Desc2: "2. Send any message or click /start. The bot will reply with your numeric User ID (e.g. 123456789).",
     step3Desc3: "3. Copy this number and paste it into the Allowed Sender Whitelist field.",
@@ -201,7 +201,7 @@ const enDict = {
     step4Desc2: "2. Open your new bot on Telegram from your phone, and send /start.",
     step4Desc3: "3. Forward any note or type a video automation instruction, such as:",
     step4Example: '"Create a 5-second vertical product showcase video with 3 bullet points"',
-    step4Success: "Arunaki on your PC will automatically process the instruction and reply back to your phone.",
+    step4Success: "Aetheria on your PC will automatically process the instruction and reply back to your phone.",
 
     // Test Token Messages
     tokenValidConnected: "Token is valid! Connected to",
@@ -347,7 +347,7 @@ const enDict = {
     executingTasks: "Executing document tasks",
 
     // Modals
-    aboutDesktopTitle: "Arunaki Desktop",
+    aboutDesktopTitle: "Aetheria Desktop",
     aboutSubtitle: "Sandboxed Computer Use Agent for Documents",
     version: "Version",
     buildDate: "Build Date",
@@ -364,7 +364,7 @@ const enDict = {
     modelRoutingCatalogSubtitle: "Manage provider credentials, API endpoints, and fallback model priority order.",
     addProvider: "Add Provider",
     automaticFallbackTitle: "Automatic Fallback Routing",
-    automaticFallbackDesc: "When executing document tasks, Arunaki routes to the primary active model. If an endpoint encounters rate limits or errors, it automatically falls back sequentially to subsequent models in the pool without interrupting your workflow.",
+    automaticFallbackDesc: "When executing document tasks, Aetheria routes to the primary active model. If an endpoint encounters rate limits or errors, it automatically falls back sequentially to subsequent models in the pool without interrupting your workflow.",
     loadingProviders: "Loading provider configurations...",
     noProvidersConfigured: "No model providers configured yet.",
     addFirstProvider: "+ Add First Provider",
@@ -443,7 +443,7 @@ const enDict = {
     launchOfficeTitle: "Launch Microsoft Office on Edit",
     launchOfficeDesc: "Opens native desktop Office applications (Word, Excel, PowerPoint, etc.) visibly on screen when executing document tasks. If disabled, all document modifications are performed silently in headless background mode.",
     autoBackupTitle: "Automatic Snapshot Backup Before Modifications",
-    autoBackupDesc: "Creates an immutable local snapshot in .arunaki-backups/ before mutating files for 100% data recovery.",
+    autoBackupDesc: "Creates an immutable local snapshot in .aetheria-backups/ before mutating files for 100% data recovery.",
     desktopNotificationsTitle: "Desktop OS Notifications",
     desktopNotificationsDesc: "Displays native desktop notifications when document and ledger tasks complete.",
     testDesktopNotification: "Test Desktop Notification",
@@ -468,8 +468,8 @@ const enDict = {
     cloudWorkspaceSync: "Cloud Workspace Sync",
     aesEncryption: "AES-256 local encryption",
     active: "Active",
-    createAccount: "Create New Arunaki Account",
-    signInAccount: "Sign In to Arunaki",
+    createAccount: "Create New Aetheria Account",
+    signInAccount: "Sign In to Aetheria",
     createAccountDesc: "Register to enable workspace cloud synchronization and multi-device pro licensing.",
     signInAccountDesc: "Connect your account to synchronize workspace configurations across devices.",
     continueGoogle: "Continue with Google",
@@ -482,7 +482,7 @@ const enDict = {
     alreadyHaveAccount: "Already have an account? Sign In",
     dontHaveAccount: "Don't have an account? Register",
     privacyGuaranteeTitle: "Privacy & Offline Guarantee:",
-    privacyGuaranteeDesc: "Arunaki operates fully offline in local mode without requiring an active account or internet login.",
+    privacyGuaranteeDesc: "Aetheria operates fully offline in local mode without requiring an active account or internet login.",
 
     // Spreadsheet & Canvas Viewer
     openInExcel: "Open in Excel",
@@ -518,7 +518,7 @@ export function getStoredLanguage(): Language {
 export function setStoredLanguage(_lang: Language): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(LANGUAGE_STORAGE_KEY, "en");
-  window.dispatchEvent(new CustomEvent("arunaki-language-change", { detail: "en" }));
+  window.dispatchEvent(new CustomEvent("aetheria-language-change", { detail: "en" }));
 }
 
 export function t(key: TranslationKey, fallback?: string): string {
@@ -533,9 +533,9 @@ export function useI18n() {
       setLanguageState("en");
     };
 
-    window.addEventListener("arunaki-language-change", handleLanguageChange);
+    window.addEventListener("aetheria-language-change", handleLanguageChange);
     return () => {
-      window.removeEventListener("arunaki-language-change", handleLanguageChange);
+      window.removeEventListener("aetheria-language-change", handleLanguageChange);
     };
   }, []);
 

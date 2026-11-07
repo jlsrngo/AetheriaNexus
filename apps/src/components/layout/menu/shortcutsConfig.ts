@@ -34,7 +34,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "toggle-word-wrap", category: "Panels & Views", desc: "Toggle Word Wrap", defaultKey: "Alt + Z" },
 ];
 
-const STORAGE_KEY = "arunaki_custom_shortcuts";
+const STORAGE_KEY = "aetheria_custom_shortcuts";
 
 export function getCustomShortcuts(): Record<string, string> {
   try {
@@ -50,7 +50,7 @@ export function saveCustomShortcut(id: string, newKey: string): void {
     const current = getCustomShortcuts();
     current[id] = newKey;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
-    window.dispatchEvent(new CustomEvent("arunaki-shortcuts-updated"));
+    window.dispatchEvent(new CustomEvent("aetheria-shortcuts-updated"));
   } catch (err) {
     console.error("Failed to save custom shortcut:", err);
   }
@@ -61,7 +61,7 @@ export function resetCustomShortcut(id: string): void {
     const current = getCustomShortcuts();
     delete current[id];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
-    window.dispatchEvent(new CustomEvent("arunaki-shortcuts-updated"));
+    window.dispatchEvent(new CustomEvent("aetheria-shortcuts-updated"));
   } catch (err) {
     console.error("Failed to reset shortcut:", err);
   }
@@ -70,7 +70,7 @@ export function resetCustomShortcut(id: string): void {
 export function resetAllShortcuts(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
-    window.dispatchEvent(new CustomEvent("arunaki-shortcuts-updated"));
+    window.dispatchEvent(new CustomEvent("aetheria-shortcuts-updated"));
   } catch (err) {
     console.error("Failed to reset all shortcuts:", err);
   }

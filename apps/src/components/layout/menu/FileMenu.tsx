@@ -84,7 +84,7 @@ export const FileMenu = memo(function FileMenu({
                 ratio: "9:16",
               });
               window.dispatchEvent(
-                new CustomEvent("arunaki-open-sidebar-view", { detail: "compositions" })
+                new CustomEvent("aetheria-open-sidebar-view", { detail: "compositions" })
               );
               toast.success(`Created composition "${created.name}"`);
               onClose();
@@ -106,7 +106,7 @@ export const FileMenu = memo(function FileMenu({
             label="Manage Media Assets (public/)"
             onClick={() => {
               window.dispatchEvent(
-                new CustomEvent("arunaki-open-sidebar-view", { detail: "explorer" })
+                new CustomEvent("aetheria-open-sidebar-view", { detail: "explorer" })
               );
               onClose();
             }}
@@ -128,7 +128,7 @@ export const FileMenu = memo(function FileMenu({
             shortcut="Ctrl+E"
             onClick={() => {
               window.dispatchEvent(
-                new CustomEvent("arunaki-open-sidebar-view", { detail: "renders" })
+                new CustomEvent("aetheria-open-sidebar-view", { detail: "renders" })
               );
               onClose();
             }}
@@ -160,7 +160,7 @@ export const FileMenu = memo(function FileMenu({
 
           <MenuItem
             icon={LogOut}
-            label={t("exitWindow", "Exit Arunaki")}
+            label={t("exitWindow", "Exit Aetheria")}
             className="text-rose-400 hover:text-white hover:bg-rose-600"
             onClick={() => {
               onClose();

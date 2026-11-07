@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { StockVideoItem, StockVideoStatus } from "../types/stock";
 
-const STORAGE_KEY = "arunaki_video_stock_inventory_v2";
+const STORAGE_KEY = "aetheria_video_stock_inventory_v2";
 
 export const DEFAULT_STOCK_ITEMS: StockVideoItem[] = [
   {

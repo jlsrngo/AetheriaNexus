@@ -4,9 +4,9 @@
  * Prepares the pure native Rust desktop application:
  * 1. Builds the web frontend (apps) into production distribution (apps/dist).
  * 2. Compiles standalone native Rust binaries:
- *    - target/release/arunaki.exe (Desktop GUI with WebView2)
- *    - target/release/arunaki-engine.exe (CLI/Headless backend)
- *    - target/release/arunaki-docs.exe (COM/Doc extraction sidecar)
+ *    - target/release/aetheria.exe (Desktop GUI with WebView2)
+ *    - target/release/aetheria-engine.exe (CLI/Headless backend)
+ *    - target/release/aetheria-docs.exe (COM/Doc extraction sidecar)
  * 3. Verifies all standalone packaging requirements are met.
  */
 const { execSync } = require('node:child_process');
@@ -16,11 +16,11 @@ const path = require('node:path');
 const rootDir = path.join(__dirname, '..');
 const webDistDir = path.join(rootDir, 'apps', 'dist');
 const targetReleaseDir = path.join(rootDir, 'target', 'release');
-const desktopExePath = path.join(targetReleaseDir, 'arunaki.exe');
-const engineExePath = path.join(targetReleaseDir, 'arunaki-engine.exe');
+const desktopExePath = path.join(targetReleaseDir, 'aetheria.exe');
+const engineExePath = path.join(targetReleaseDir, 'aetheria-engine.exe');
 const injectScript = path.join(rootDir, 'scripts', 'inject-icon.ps1');
-const mainIco = path.join(rootDir, 'core', 'arunaki-engine', 'arunaki.ico');
-const gearIco = path.join(rootDir, 'core', 'arunaki-engine', 'gear.ico');
+const mainIco = path.join(rootDir, 'core', 'aetheria-engine', 'aetheria.ico');
+const gearIco = path.join(rootDir, 'core', 'aetheria-engine', 'gear.ico');
 
 function log(step, msg) {
   console.log(`\x1b[36m[prepare-bundle]\x1b[0m \x1b[1m${step}\x1b[0m ${msg}`);
@@ -64,14 +64,14 @@ function setPeSubsystem(exePath, subsystem) {
 async function main() {
   const startTime = Date.now();
   console.log('====================================================');
-  console.log('    ARUNAKI PURE NATIVE RUST BUNDLE PREPARATION     ');
+  console.log('    AETHERIA PURE NATIVE RUST BUNDLE PREPARATION     ');
   console.log('====================================================');
 
   // Step 1: Build Web Frontend
   log('Step 1/3', 'Building production web frontend (apps)...');
   try {
     execSync('npm run build -w apps', { cwd: rootDir, stdio: 'inherit' });
-    // Touch src-tauri/build.rs and src-tauri/src/lib.rs so Cargo always re-embeds fresh ../apps/dist into arunaki-desktop.exe
+    // Touch src-tauri/build.rs and src-tauri/src/lib.rs so Cargo always re-embeds fresh ../apps/dist into aetheria-desktop.exe
     const now = new Date();
     for (const rel of ['src-tauri/build.rs', 'src-tauri/src/lib.rs']) {
       const p = path.join(rootDir, rel);
@@ -92,12 +92,12 @@ async function main() {
       ...process.env,
       PATH: `${process.env.PATH || ''}${path.delimiter}${cargoBinDir}`,
     };
-    execSync('cargo build --release -p arunaki-desktop -p arunaki-engine', {
+    execSync('cargo build --release -p aetheria-desktop -p aetheria-engine', {
       cwd: rootDir,
       env: envWithCargo,
       stdio: 'inherit',
     });
-    const tauriDesktopExe = path.join(targetReleaseDir, 'arunaki-desktop.exe');
+    const tauriDesktopExe = path.join(targetReleaseDir, 'aetheria-desktop.exe');
     if (fs.existsSync(tauriDesktopExe)) {
       fs.copyFileSync(tauriDesktopExe, desktopExePath);
       setPeSubsystem(desktopExePath, 2);
@@ -109,7 +109,7 @@ async function main() {
     }
 
     if (fs.existsSync(engineExePath)) {
-      // arunaki-engine.exe is the Console Daemon (Subsystem = 3) with the mechanical gear icon
+      // aetheria-engine.exe is the Console Daemon (Subsystem = 3) with the mechanical gear icon
       setPeSubsystem(engineExePath, 3);
       injectIcon(engineExePath, gearIco);
     }
@@ -122,8 +122,8 @@ async function main() {
   log('Step 3/3', 'Verifying standalone native bundle integrity...');
   const checks = [
     { name: 'Web Production Bundle (index.html)', path: path.join(webDistDir, 'index.html') },
-    { name: 'Native Desktop Shell (arunaki.exe)', path: desktopExePath },
-    { name: 'Native AI Engine (arunaki-engine.exe)', path: engineExePath },
+    { name: 'Native Desktop Shell (aetheria.exe)', path: desktopExePath },
+    { name: 'Native AI Engine (aetheria-engine.exe)', path: engineExePath },
   ];
 
   let allOk = true;
@@ -153,13 +153,13 @@ async function main() {
       }
     }
 
-    safeCopy(desktopExePath, path.join(portableDir, 'arunaki.exe'));
-    injectIcon(path.join(portableDir, 'arunaki.exe'), mainIco);
+    safeCopy(desktopExePath, path.join(portableDir, 'aetheria.exe'));
+    injectIcon(path.join(portableDir, 'aetheria.exe'), mainIco);
 
     if (fs.existsSync(engineExePath)) {
-      safeCopy(engineExePath, path.join(portableDir, 'arunaki-engine.exe'));
-      setPeSubsystem(path.join(portableDir, 'arunaki-engine.exe'), 3);
-      injectIcon(path.join(portableDir, 'arunaki-engine.exe'), gearIco);
+      safeCopy(engineExePath, path.join(portableDir, 'aetheria-engine.exe'));
+      setPeSubsystem(path.join(portableDir, 'aetheria-engine.exe'), 3);
+      injectIcon(path.join(portableDir, 'aetheria-engine.exe'), gearIco);
     }
     const portableWebDir = path.join(portableDir, 'web');
     fs.rmSync(portableWebDir, { recursive: true, force: true });

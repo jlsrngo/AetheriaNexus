@@ -1,4 +1,4 @@
-# PRD: ArunakiNexus Desktop (Tauri + Rust + Remotion)
+# PRD: AetheriaNexus Desktop (Tauri + Rust + Remotion)
 
 **Format Aplikasi:** Windows Desktop Application (`.exe` / `.msi` Installer)  
 **Arsitektur:** Offline-First & Hybrid (Tauri v2 + Rust Backend + React & Remotion Frontend)  
@@ -10,7 +10,7 @@
 
 ## 1. Visi & Konsep Produk
 
-**ArunakiNexus Desktop** adalah aplikasi desktop native Windows yang dirancang khusus untuk kreator dan pengelola akun **TikTok** dalam memproduksi, mengelola persediaan (*stok*), menjadwalkan upload, dan memonitor performa video secara otomatis.
+**AetheriaNexus Desktop** adalah aplikasi desktop native Windows yang dirancang khusus untuk kreator dan pengelola akun **TikTok** dalam memproduksi, mengelola persediaan (*stok*), menjadwalkan upload, dan memonitor performa video secara otomatis.
 
 ### Keunggulan Utama:
 * **TikTok-First Focus:** Dirancang khusus untuk ekosistem TikTok (rasio 9:16 vertikal, tren sound/hook, analitik views & likes).
@@ -24,7 +24,7 @@
 
 ```
 +-------------------------------------------------------------------+
-|                   ARUNAKINEXUS DESKTOP (.EXE)                     |
+|                   AETHERIANEXUS DESKTOP (.EXE)                     |
 +-------------------------------------------------------------------+
 |  FRONTEND (UI & Preview)                                          |
 |  - Framework: React 19 + Vite + Tailwind CSS                      |
@@ -80,7 +80,7 @@
 * **F-3.2 Progress Tracker Real-Time:**
   * Progress bar persentase (0% - 100%), estimasi sisa waktu (ETA), dan frame rate render.
 * **F-3.3 Custom Output Directory:**
-  * Pengguna bebas memilih folder penyimpanan hasil video (misal: `E:\Videos\ArunakiNexus`).
+  * Pengguna bebas memilih folder penyimpanan hasil video (misal: `E:\Videos\AetheriaNexus`).
   * Tombol *"Open in File Explorer"* langsung membuka lokasi video setelah render selesai.
 
 ---
@@ -96,7 +96,7 @@
   * Pengelompokan video berdasarkan niche/kategori (misal: Tips, Quotes, Promosi Produk, Fakta Unik).
   * Filter video berdasarkan status: *Draft*, *Ready in Stock*, *Scheduled*, *Published*.
 * **F-4.4 Penyimpanan SQLite Lokal:**
-  * Metadata, caption, hashtag, dan path file MP4 tersimpan di database SQLite lokal (`arunakinexus.db`).
+  * Metadata, caption, hashtag, dan path file MP4 tersimpan di database SQLite lokal (`aetherianexus.db`).
 
 ---
 
@@ -192,5 +192,5 @@ sequenceDiagram
 
 5. **Fase 5: Pengujian End-to-End & Packaging Installer**
    * Uji coba alur utuh: Ide -> Template -> Render MP4 -> Upload YouTube -> Monitor Metrik.
-   * Konfigurasi bundling Tauri untuk menghasilkan file `ArunakiNexus-Setup.exe` dan `.msi`.
+   * Konfigurasi bundling Tauri untuk menghasilkan file `AetheriaNexus-Setup.exe` dan `.msi`.
 

@@ -227,7 +227,7 @@ function WorkstationLeftExplorerComponent({
             {t("noFolderOpened", "No folder opened")}
           </p>
           <p className="text-[11px] text-[var(--text-muted)] max-w-[200px] leading-relaxed mb-4">
-            {t("openFolderDescription", "Open a project folder to inspect documents and start working with Arunaki.")}
+            {t("openFolderDescription", "Open a project folder to inspect documents and start working with Aetheria.")}
           </p>
           {onOpenFolderModal && (
             <button

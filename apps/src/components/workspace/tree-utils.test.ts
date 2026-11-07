@@ -23,18 +23,18 @@ describe("tree-utils", () => {
   });
 
   describe("buildTree", () => {
-    it("builds a hierarchical tree from flat file list and filters arunaki.json", () => {
+    it("builds a hierarchical tree from flat file list and filters aetheria.json", () => {
       const files: FileItem[] = [
         { id: "1", name: "src/index.ts", type: "code", size: 100 },
         { id: "2", name: "src/utils/math.ts", type: "code", size: 200 },
         { id: "3", name: "README.md", type: "text", size: 50 },
-        { id: "4", name: "arunaki.json", type: "config", size: 30 },
+        { id: "4", name: "aetheria.json", type: "config", size: 30 },
       ];
 
       const tree = buildTree(files);
 
-      // arunaki.json must be excluded
-      expect(tree.find((n) => n.name === "arunaki.json")).toBeUndefined();
+      // aetheria.json must be excluded
+      expect(tree.find((n) => n.name === "aetheria.json")).toBeUndefined();
 
       // Directories sorted before files
       expect(tree[0].name).toBe("src");
@@ -53,7 +53,7 @@ describe("tree-utils", () => {
   });
 
   describe("nativeToTreeNodes", () => {
-    it("converts native nodes and filters out arunaki.json", () => {
+    it("converts native nodes and filters out aetheria.json", () => {
       const nativeNodes: NativeNode[] = [
         {
           name: "docs",
@@ -69,8 +69,8 @@ describe("tree-utils", () => {
           ],
         },
         {
-          name: "arunaki.json",
-          path: "/workspace/arunaki.json",
+          name: "aetheria.json",
+          path: "/workspace/aetheria.json",
           type: "file",
         },
       ];

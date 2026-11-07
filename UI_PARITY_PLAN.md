@@ -1,6 +1,6 @@
-# PLAN — UI Parity dengan Arunaki Agent
+# PLAN — UI Parity dengan Aetheria Agent
 
-Target: layar Studio ArunakiNexus terasa seperti aplikasi Arunaki Agent (referensi: 3 screenshot
+Target: layar Studio AetheriaNexus terasa seperti aplikasi Aetheria Agent (referensi: 3 screenshot
 terakhir), dengan satu perbedaan yang disengaja — panel tengah berisi video + timeline, bukan dokumen.
 
 Status: **rencana saja, belum ada kode yang diubah.**
@@ -12,7 +12,7 @@ Status: **rencana saja, belum ada kode yang diubah.**
 | # | Hal | Usulan |
 |---|---|---|
 | K1 | **Arti "4 panel".** | rail ikon + Explorer + Stage(+timeline) + Chat. Timeline di dalam kolom tengah, bukan panel kelima. |
-| K2 | **Menu Edit & Apps.** Di Arunaki Agent ada File/Edit/View/Apps/Help; di Nexus hanya Berkas/Tampilan/Bantuan yang benar-benar berfungsi (`EditMenu`/`AppsMenu` memanggil event tanpa listener). | Tetap 3 menu. Menambah menu mati = kontrol palsu. |
+| K2 | **Menu Edit & Apps.** Di Aetheria Agent ada File/Edit/View/Apps/Help; di Nexus hanya Berkas/Tampilan/Bantuan yang benar-benar berfungsi (`EditMenu`/`AppsMenu` memanggil event tanpa listener). | Tetap 3 menu. Menambah menu mati = kontrol palsu. |
 | K3 | **Tombol akun** di kanan atas referensi. Nexus belum punya sistem akun. | Tombol Settings yang sudah ada, bukan avatar palsu. |
 
 Rounded sudah diputuskan: `AGENTS.md` §5 sudah diperbarui ke *Normal UI*, jadi tidak ada lagi
@@ -122,7 +122,7 @@ lebih bulat diberi `rounded-xl` / `rounded-[12px]` eksplisit saat komponennya di
 ### Fase 8 — Verifikasi menyeluruh
 - Playwright + Edge: screenshot 1280×820 untuk state: normal, explorer ditutup, chat ditutup, folder terbuka.
 - Probe timeline + probe buka/tutup panel.
-- `npm run typecheck`, `npm run build -w apps`, `cargo test -p arunaki-engine`.
+- `npm run typecheck`, `npm run build -w apps`, `cargo test -p aetheria-engine`.
 - Rebuild exe release + cek tidak ada `node`/`:3333`.
 
 ---

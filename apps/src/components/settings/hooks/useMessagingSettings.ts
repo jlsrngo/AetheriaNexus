@@ -20,7 +20,7 @@ export interface TelegramTestResult {
 export function useMessagingSettings() {
   const [enabled, setEnabledState] = useState(() => {
     try {
-      return localStorage.getItem("arunaki_telegram_enabled") === "true";
+      return localStorage.getItem("aetheria_telegram_enabled") === "true";
     } catch {
       return false;
     }
@@ -30,7 +30,7 @@ export function useMessagingSettings() {
     setEnabledState((prev) => {
       const resolved = typeof next === "function" ? next(prev) : next;
       try {
-        localStorage.setItem("arunaki_telegram_enabled", String(resolved));
+        localStorage.setItem("aetheria_telegram_enabled", String(resolved));
       } catch {}
       return resolved;
     });
@@ -38,7 +38,7 @@ export function useMessagingSettings() {
 
   const [botToken, setBotToken] = useState(() => {
     try {
-      return localStorage.getItem("arunaki_telegram_token") || "";
+      return localStorage.getItem("aetheria_telegram_token") || "";
     } catch {
       return "";
     }
@@ -90,11 +90,11 @@ export function useMessagingSettings() {
           setBotToken(tg.botToken || "");
           setAllowedUserId(tg.allowedUserId || "");
           setTargetFolder(
-            tg.targetFolder || localStorage.getItem("arunaki_active_folder") || ""
+            tg.targetFolder || localStorage.getItem("aetheria_active_folder") || ""
           );
           try {
-            localStorage.setItem("arunaki_telegram_enabled", String(isEn));
-            if (tg.botToken) localStorage.setItem("arunaki_telegram_token", tg.botToken);
+            localStorage.setItem("aetheria_telegram_enabled", String(isEn));
+            if (tg.botToken) localStorage.setItem("aetheria_telegram_token", tg.botToken);
           } catch {}
         }
       }
@@ -232,7 +232,7 @@ export function useMessagingSettings() {
   };
 
   const handleUseCurrentFolder = () => {
-    const active = localStorage.getItem("arunaki_active_folder");
+    const active = localStorage.getItem("aetheria_active_folder");
     if (active) {
       setTargetFolder(active);
       toast.info(`Target folder set to: ${active}`);
@@ -243,7 +243,7 @@ export function useMessagingSettings() {
 
   const handleBrowseFolder = async () => {
     try {
-      const desktop = (globalThis as any).arunakiDesktop;
+      const desktop = (globalThis as any).aetheriaDesktop;
       if (desktop?.pickFolder) {
         const picked = await desktop.pickFolder();
         if (picked) {

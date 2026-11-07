@@ -1,4 +1,4 @@
-//! Arunaki Native Desktop API Module (Pure Rust)
+//! Aetheria Native Desktop API Module (Pure Rust)
 //!
 //! Provides native IPC endpoints invoked by the Tauri frontend webview via `window.__TAURI__.invoke(...)`.
 //! All core desktop logic, process orchestration, credential storage, and engine communications
@@ -68,7 +68,7 @@ pub async fn tauri_engine_fetch(req: TauriEngineRequest) -> Result<TauriEngineRe
     };
 
     let headers: Vec<(String, String)> = req.headers.unwrap_or_default().into_iter().collect();
-    let (status, resp_headers, body) = arunaki_engine::handle_local_request(
+    let (status, resp_headers, body) = aetheria_engine::handle_local_request(
         &method_str,
         &path,
         headers,
@@ -94,13 +94,13 @@ pub async fn tauri_engine_fetch(req: TauriEngineRequest) -> Result<TauriEngineRe
 pub async fn tauri_cli_login(target: String) -> Result<serde_json::Value, String> {
     match target.as_str() {
         "antigravity-logout" => {
-            arunaki_engine::cred_store::remove_credential("antigravity");
+            aetheria_engine::cred_store::remove_credential("antigravity");
             Ok(serde_json::json!({
                 "data": { "success": true, "message": "Signed out from Google Antigravity." }
             }))
         }
         "opencode-logout" => {
-            arunaki_engine::cred_store::remove_credential("opencode");
+            aetheria_engine::cred_store::remove_credential("opencode");
             Ok(serde_json::json!({
                 "data": { "success": true, "message": "Signed out from OpenCode." }
             }))
@@ -138,10 +138,10 @@ pub async fn tauri_cli_login(target: String) -> Result<serde_json::Value, String
 /// Harvests credentials and builds CLI provider registry directly in Rust memory.
 #[tauri::command]
 pub async fn tauri_cli_status() -> Result<serde_json::Value, String> {
-    arunaki_engine::cred_store::harvest_all();
-    let creds = arunaki_engine::cred_store::get_all_credentials();
-    let registry = arunaki_engine::provider::local_cli::build_cli_provider_registry();
-    let discovered = arunaki_engine::provider::local_cli::build_discovered_list();
+    aetheria_engine::cred_store::harvest_all();
+    let creds = aetheria_engine::cred_store::get_all_credentials();
+    let registry = aetheria_engine::provider::local_cli::build_cli_provider_registry();
+    let discovered = aetheria_engine::provider::local_cli::build_discovered_list();
 
     let mut sources = serde_json::Map::new();
     for s in ["codex", "claude", "opencode", "kiro", "antigravity", "groq"] {
@@ -241,10 +241,10 @@ pub async fn tauri_cli_status() -> Result<serde_json::Value, String> {
         "installed": true,
         "version": "0.5.35",
         "running": true,
-        "port": arunaki_engine::bridge::LOCAL_CLI_BRIDGE_PORT,
-        "baseUrl": format!("http://127.0.0.1:{}/v1", arunaki_engine::bridge::LOCAL_CLI_BRIDGE_PORT),
-        "url": format!("http://127.0.0.1:{}/v1", arunaki_engine::bridge::LOCAL_CLI_BRIDGE_PORT),
-        "models": arunaki_engine::provider::local_cli::default_models_for_target("9router"),
+        "port": aetheria_engine::bridge::LOCAL_CLI_BRIDGE_PORT,
+        "baseUrl": format!("http://127.0.0.1:{}/v1", aetheria_engine::bridge::LOCAL_CLI_BRIDGE_PORT),
+        "url": format!("http://127.0.0.1:{}/v1", aetheria_engine::bridge::LOCAL_CLI_BRIDGE_PORT),
+        "models": aetheria_engine::provider::local_cli::default_models_for_target("9router"),
         "detail": "Built-in Rust Local-CLI Bridge active"
     });
 
@@ -253,7 +253,7 @@ pub async fn tauri_cli_status() -> Result<serde_json::Value, String> {
             "sources": sources,
             "registry": registry,
             "discovered": discovered,
-            "bridgePort": arunaki_engine::bridge::LOCAL_CLI_BRIDGE_PORT,
+            "bridgePort": aetheria_engine::bridge::LOCAL_CLI_BRIDGE_PORT,
             "bridgeRunning": true,
             "claude": claude_slot,
             "opencode": opencode_slot,
@@ -275,9 +275,9 @@ pub async fn render_nexus_video(
     let props_arg = props_json.unwrap_or_else(|| "{}".to_string());
     let output_target = output_path.as_deref().map(std::path::Path::new);
 
-    let mut cmd = arunaki_engine::tool::render::build_command(
-        &arunaki_engine::paths::project_root(),
-        arunaki_engine::tool::render::DEFAULT_COMPOSITION,
+    let mut cmd = aetheria_engine::tool::render::build_command(
+        &aetheria_engine::paths::project_root(),
+        aetheria_engine::tool::render::DEFAULT_COMPOSITION,
         &props_arg,
         output_target,
     );

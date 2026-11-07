@@ -6,7 +6,7 @@ import {
   CompositionMenu,
   HelpMenu,
   KeyboardShortcutsModal,
-  AboutArunakiModal,
+  AboutAetheriaModal,
   useAppCommands,
   useGlobalShortcuts,
 } from "./menu";
@@ -129,8 +129,8 @@ export const TopMenuBar = memo(function TopMenuBar({
         onClose={() => setShowShortcutsModal(false)}
       />
 
-      {/* About Arunaki Modal */}
-      <AboutArunakiModal
+      {/* About Aetheria Modal */}
+      <AboutAetheriaModal
         isOpen={showAboutModal}
         onClose={() => setShowAboutModal(false)}
       />

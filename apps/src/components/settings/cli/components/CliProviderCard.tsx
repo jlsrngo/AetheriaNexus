@@ -163,11 +163,11 @@ export const CliProviderCard = memo(function CliProviderCard({
       steps.push({
         text: d.credentialTarget
           ? isEn
-            ? `Arunaki reads the token from Windows Credential Manager (${d.credentialTarget})`
-            : `Arunaki membaca token dari Windows Credential Manager (${d.credentialTarget})`
+            ? `Aetheria reads the token from Windows Credential Manager (${d.credentialTarget})`
+            : `Aetheria membaca token dari Windows Credential Manager (${d.credentialTarget})`
           : isEn
-          ? `Arunaki reads the token from ${d.credentialPath} automatically`
-          : `Arunaki membaca token dari ${d.credentialPath} secara otomatis`,
+          ? `Aetheria reads the token from ${d.credentialPath} automatically`
+          : `Aetheria membaca token dari ${d.credentialPath} secara otomatis`,
       });
     }
     if (!steps.length) return null;

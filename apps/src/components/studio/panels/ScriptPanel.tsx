@@ -45,7 +45,7 @@ function isInternalAppFile(filePath: string): boolean {
     norm.includes("/apps/src/pages/") ||
     norm.includes("/apps/src/hooks/") ||
     norm.includes("/apps/src/lib/") ||
-    norm.includes("/core/arunaki-engine/") ||
+    norm.includes("/core/aetheria-engine/") ||
     norm.endsWith("package.json") ||
     norm.endsWith("package-lock.json") ||
     norm.endsWith("tsconfig.json") ||
@@ -214,7 +214,7 @@ export const ScriptPanel = memo(function ScriptPanel({
         !map.has(normKey) &&
         (normKey.includes("/workspace/") ||
           relPath.startsWith("src/") ||
-          (activeFolder && !activeFolder.toLowerCase().endsWith("arunakinexus")))
+          (activeFolder && !activeFolder.toLowerCase().endsWith("aetherianexus")))
       ) {
         const estimatedLines = Math.max(12, Math.round((wf.size || 1200) / 38));
         map.set(normKey, {

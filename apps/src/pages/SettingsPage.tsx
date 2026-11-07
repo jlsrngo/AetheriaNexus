@@ -55,7 +55,7 @@ export function SettingsPage() {
         const rawProviders: any[] = pJson.data || [];
 
         if (rawProviders.length > 0) {
-          const savedActiveId = localStorage.getItem("arunaki_active_provider");
+          const savedActiveId = localStorage.getItem("aetheria_active_provider");
           const activeRawP = rawProviders.find((p: any) => p.id === savedActiveId);
           const isCliActive = savedActiveId
             ? (typeof activeRawP?.isCli === "boolean"
@@ -70,7 +70,7 @@ export function SettingsPage() {
                 : (rawProviders.find((p: any) => p.active)?.id || null));
 
           const mapped: Provider[] = rawProviders.map((p: any, idx: number) => {
-            const savedSelected = localStorage.getItem("arunaki_provider_models_" + p.id);
+            const savedSelected = localStorage.getItem("aetheria_provider_models_" + p.id);
             const associatedModels = rawModels.filter((m: any) => m.providerID === p.id);
             let modelNames = "";
             if (savedSelected && savedSelected.trim()) {

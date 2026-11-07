@@ -63,7 +63,7 @@ export const ChatReasoningEffortDropdown = memo(function ChatReasoningEffortDrop
                 onClick={() => {
                   setReasoningEffort(opt);
                   try {
-                    localStorage.setItem("arunaki_reasoning_effort", opt);
+                    localStorage.setItem("aetheria_reasoning_effort", opt);
                   } catch {}
                   onToggle();
                 }}

@@ -5,7 +5,7 @@ export { CompositionMenu } from "./CompositionMenu";
 export { AppsMenu } from "./AppsMenu";
 export { HelpMenu } from "./HelpMenu";
 export { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
-export { AboutArunakiModal } from "./AboutArunakiModal";
+export { AboutAetheriaModal } from "./AboutAetheriaModal";
 export * from "./shortcutsConfig";
 export * from "./types";
 export * from "./items/MenuItem";

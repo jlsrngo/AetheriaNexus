@@ -1,5 +1,5 @@
 import { RefObject, useState, useMemo, useCallback, useEffect, memo } from "react";
-import { ArunakiLogo } from "../common/ArunakiLogo";
+import { AetheriaLogo } from "../common/AetheriaLogo";
 import {
   ChevronUp,
   PanelRightOpen,
@@ -91,7 +91,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [visibleLimit, setVisibleLimit] = useState<number>(INITIAL_VISIBLE_CHAT_MESSAGES);
   const [showThinking, setShowThinking] = useState<boolean>(() => {
-    const saved = localStorage.getItem("arunaki_show_thinking");
+    const saved = localStorage.getItem("aetheria_show_thinking");
     if (saved !== null) return saved === "true";
     return true;
   });
@@ -218,7 +218,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
         {allMessages.length === 0 && !isStreaming ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4 select-none">
             <div className="w-10 h-10 rounded-full bg-[var(--bg-card)] flex items-center justify-center mb-3 border border-[var(--border-color)]">
-              <ArunakiLogo size={20} className="text-[var(--text-muted)]" />
+              <AetheriaLogo size={20} className="text-[var(--text-muted)]" />
             </div>
             <p className="text-xs font-medium text-[var(--text-primary)] mb-1">Nexus Video Agent</p>
             <p className="text-[11px] text-[var(--text-muted)] max-w-[200px]">

@@ -7,7 +7,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src * 'self' 'unsafe-inline' 'unsafe-eval'; script-src * 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' http://localhost:* http://127.0.0.1:*; style-src * 'self' 'unsafe-inline' https://fonts.googleapis.com http://localhost:*; font-src * 'self' https://fonts.gstatic.com data: http://localhost:*; img-src * 'self' data: blob: https: http://localhost:*; media-src * 'self' data: blob: http://localhost:*; frame-src * 'self' http://localhost:* http://127.0.0.1:*; connect-src * 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*; object-src 'none'; base-uri 'self';"
     />
-    <link rel="icon" type="image/svg+xml" href="./arunakiLogo.svg" />
+    <link rel="icon" type="image/svg+xml" href="./aetheriaLogo.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -20,7 +20,7 @@
     <script>
       (function () {
         try {
-          var stored = localStorage.getItem('arunaki_theme') || 'dark';
+          var stored = localStorage.getItem('aetheria_theme') || 'dark';
           var effective =
             stored === 'system'
               ? window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
@@ -49,7 +49,7 @@
         background-color: #FFFFFF;
         color: #111827;
       }
-      .arunaki-boot-shell {
+      .aetheria-boot-shell {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -59,34 +59,34 @@
         gap: 14px;
         user-select: none;
       }
-      .arunaki-boot-spinner {
+      .aetheria-boot-spinner {
         width: 22px;
         height: 22px;
         border: 2px solid rgba(255, 255, 255, 0.14);
         border-top-color: #FFFFFF;
         border-radius: 9999px;
-        animation: arunaki-spin 0.75s linear infinite;
+        animation: aetheria-spin 0.75s linear infinite;
       }
-      html.light .arunaki-boot-spinner {
+      html.light .aetheria-boot-spinner {
         border-color: rgba(17, 24, 39, 0.14);
         border-top-color: #111827;
       }
-      .arunaki-boot-label {
+      .aetheria-boot-label {
         font-size: 12px;
         font-weight: 500;
         letter-spacing: 0.02em;
         opacity: 0.65;
       }
-      @keyframes arunaki-spin {
+      @keyframes aetheria-spin {
         to { transform: rotate(360deg); }
       }
     </style>
   </head>
   <body class="font-sans antialiased">
     <div id="root">
-      <div class="arunaki-boot-shell">
-        <div class="arunaki-boot-spinner"></div>
-        <div class="arunaki-boot-label">Memuat Nexus Workstation...</div>
+      <div class="aetheria-boot-shell">
+        <div class="aetheria-boot-spinner"></div>
+        <div class="aetheria-boot-label">Memuat Nexus Workstation...</div>
       </div>
     </div>
     <script type="module" src="./src/main.tsx"></script>

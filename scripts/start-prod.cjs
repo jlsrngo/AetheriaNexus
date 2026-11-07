@@ -33,20 +33,20 @@ const rootDir = path.join(__dirname, '..');
 const serverAuth = require('./server-auth.cjs');
 
 function getHealthUrl() {
-  if (process.env.ARUNAKI_HEALTH) return process.env.ARUNAKI_HEALTH;
+  if (process.env.AETHERIA_HEALTH) return process.env.AETHERIA_HEALTH;
   try {
-    const infoPath = path.join(require('node:os').homedir(), '.arunaki', 'engine-info.json');
+    const infoPath = path.join(require('node:os').homedir(), '.aetheria', 'engine-info.json');
     if (fs.existsSync(infoPath)) {
       const info = JSON.parse(fs.readFileSync(infoPath, 'utf8'));
       if (info && info.url) return `${info.url}/api/health`;
     }
   } catch {}
-  const port = Number(process.env.ARUNAKI_ENGINE_PORT ?? 4096);
+  const port = Number(process.env.AETHERIA_ENGINE_PORT ?? 4096);
   return `http://127.0.0.1:${port}/api/health`;
 }
 
 const auth = serverAuth.create();
-const ENGINE_PORT = Number(process.env.ARUNAKI_ENGINE_PORT ?? 4096);
+const ENGINE_PORT = Number(process.env.AETHERIA_ENGINE_PORT ?? 4096);
 
 function cleanStaleEngineProcesses(repoDir) {
   const isWin = process.platform === 'win32';
@@ -71,7 +71,7 @@ function cleanStaleEngineProcesses(repoDir) {
         if (pid === process.pid) continue;
         const cmd = item.CommandLine.replace(/\\/g, '/').toLowerCase();
         if (cmd.includes(normalizedRepo) || cmd.includes('serve-only.ts')) {
-          console.log(`[start] Cleaning stale Arunaki engine process (PID ${pid})...`);
+          console.log(`[start] Cleaning stale Aetheria engine process (PID ${pid})...`);
           try {
             execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', windowsHide: true });
             killedAny = true;
@@ -93,7 +93,7 @@ function cleanStaleEngineProcesses(repoDir) {
         if (pid === process.pid) continue;
         const cmd = parts.slice(1).join(' ').toLowerCase();
         if (cmd.includes('bun') && (cmd.includes(normalizedRepo) || cmd.includes('serve-only.ts'))) {
-          console.log(`[start] Cleaning stale Arunaki engine process (PID ${pid})...`);
+          console.log(`[start] Cleaning stale Aetheria engine process (PID ${pid})...`);
           try { process.kill(pid, 'SIGKILL'); } catch {}
         }
       }
@@ -139,7 +139,7 @@ function waitForEngine(timeoutMs) {
 
 async function main() {
   console.log(`\n================================================================`);
-  console.log(`[⏱️ 0.00s] [start] Memulai perhitungan waktu launch Arunaki (Production)...`);
+  console.log(`[⏱️ 0.00s] [start] Memulai perhitungan waktu launch Aetheria (Production)...`);
   console.log(`================================================================`);
 
   const distIndex = fs.existsSync(path.join(rootDir, 'apps', 'dist', 'index.html'))
@@ -156,28 +156,28 @@ async function main() {
   console.log(`[⏱️ +${formatElapsed()}] [start] Pembersihan proses & port selesai (durasi tahap: ${formatElapsed(cleanStartMs)})`);
 
   const engineStartMs = Date.now();
-  const useBunFallback = process.env.ARUNAKI_USE_BUN_ENGINE === '1';
+  const useBunFallback = process.env.AETHERIA_USE_BUN_ENGINE === '1';
   const exeExt = process.platform === 'win32' ? '.exe' : '';
   const rustCandidates = [
     path.join(rootDir, 'apps', 'desktop', 'resources', `engine${exeExt}`),
-    path.join(rootDir, 'target', 'release', `arunaki-engine${exeExt}`),
-    path.join(rootDir, 'target', 'debug', `arunaki-engine${exeExt}`),
+    path.join(rootDir, 'target', 'release', `aetheria-engine${exeExt}`),
+    path.join(rootDir, 'target', 'debug', `aetheria-engine${exeExt}`),
   ];
   const rustBin = !useBunFallback ? rustCandidates.find((p) => fs.existsSync(p)) : null;
 
   let engine;
   if (rustBin) {
-    console.log(`[?? +${formatElapsed()}] [start] Menjalankan Native Rust Arunaki Engine (${path.basename(rustBin)}) pada :${ENGINE_PORT}...`);
+    console.log(`[?? +${formatElapsed()}] [start] Menjalankan Native Rust Aetheria Engine (${path.basename(rustBin)}) pada :${ENGINE_PORT}...`);
     engine = spawn(
       rustBin,
       ['serve', '--port', String(ENGINE_PORT)],
-      { cwd: rootDir, env: { ...process.env, ...auth.engineEnv, ARUNAKI_ENGINE_PORT: String(ENGINE_PORT) }, stdio: 'inherit', windowsHide: true },
+      { cwd: rootDir, env: { ...process.env, ...auth.engineEnv, AETHERIA_ENGINE_PORT: String(ENGINE_PORT) }, stdio: 'inherit', windowsHide: true },
     );
   } else {
-    console.log(`[?? +${formatElapsed()}] [start] Menjalankan Arunaki Engine (Bun fallback) pada :${ENGINE_PORT}...`);
+    console.log(`[?? +${formatElapsed()}] [start] Menjalankan Aetheria Engine (Bun fallback) pada :${ENGINE_PORT}...`);
     engine = spawn(
       'bun',
-      ['run', '--conditions=browser', path.join(rootDir, 'target', 'release', 'arunaki-engine.exe'), 'serve', '--port', String(ENGINE_PORT)],
+      ['run', '--conditions=browser', path.join(rootDir, 'target', 'release', 'aetheria-engine.exe'), 'serve', '--port', String(ENGINE_PORT)],
       { cwd: rootDir, env: { ...process.env, ...auth.engineEnv }, stdio: 'inherit', windowsHide: true },
     );
   }
@@ -207,13 +207,13 @@ async function main() {
   console.log('[start] Menjalankan Native Rust Desktop (WebView2)...');
   const exeExt = process.platform === 'win32' ? '.exe' : '';
   const rustDesktopCandidates = [
-    path.join(rootDir, 'target', 'release', 'arunaki' + exeExt),
-    path.join(rootDir, 'target', 'release', 'arunaki-engine' + exeExt),
-    path.join(rootDir, 'target', 'debug', 'arunaki' + exeExt),
+    path.join(rootDir, 'target', 'release', 'aetheria' + exeExt),
+    path.join(rootDir, 'target', 'release', 'aetheria-engine' + exeExt),
+    path.join(rootDir, 'target', 'debug', 'aetheria' + exeExt),
   ];
   const desktopBin = rustDesktopCandidates.find((p) => fs.existsSync(p));
   if (!desktopBin) {
-    console.error('[start] Binary native desktop tidak ditemukan. Silakan jalankan: cargo build --release -p arunaki-engine');
+    console.error('[start] Binary native desktop tidak ditemukan. Silakan jalankan: cargo build --release -p aetheria-engine');
     stop();
     process.exit(1);
   }
@@ -223,8 +223,8 @@ async function main() {
     env: {
       ...process.env,
       ...auth.engineEnv,
-      ARUNAKI_ENGINE_PORT: String(ENGINE_PORT),
-      ARUNAKI_LAUNCH_START_MS: String(LAUNCH_START_MS),
+      AETHERIA_ENGINE_PORT: String(ENGINE_PORT),
+      AETHERIA_LAUNCH_START_MS: String(LAUNCH_START_MS),
     },
     stdio: 'inherit',
     windowsHide: false,

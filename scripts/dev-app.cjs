@@ -27,8 +27,8 @@ const MAX_CONSECUTIVE_CRASHES = 3;
 const STABLE_RUN_THRESHOLD_MS = 15000;
 
 // Default to pure Local Bundle + Electron IPC mode (no Vite HTTP :5173 overhead).
-// Pass `--hmr` or set `ARUNAKI_USE_VITE=1` only if live Vite HMR server is explicitly desired.
-const useViteHttp = process.argv.includes('--hmr') || process.env.ARUNAKI_USE_VITE === '1';
+// Pass `--hmr` or set `AETHERIA_USE_VITE=1` only if live Vite HMR server is explicitly desired.
+const useViteHttp = process.argv.includes('--hmr') || process.env.AETHERIA_USE_VITE === '1';
 
 function sleepSync(ms) {
   try {
@@ -63,7 +63,7 @@ function cleanStaleEngineProcesses(repoDir) {
         if (pid === process.pid) continue;
         const cmd = item.CommandLine.replace(/\\/g, '/').toLowerCase();
         if (cmd.includes(normalizedRepo) || cmd.includes('serve-only.ts')) {
-          console.log(`[dev-app] Cleaning stale Arunaki engine process (PID ${pid})...`);
+          console.log(`[dev-app] Cleaning stale Aetheria engine process (PID ${pid})...`);
           try {
             execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', windowsHide: true });
             killedAny = true;
@@ -83,7 +83,7 @@ function cleanStaleEngineProcesses(repoDir) {
         if (pid === process.pid) continue;
         const cmd = parts.slice(1).join(' ').toLowerCase();
         if (cmd.includes('bun') && (cmd.includes(normalizedRepo) || cmd.includes('serve-only.ts'))) {
-          console.log(`[dev-app] Cleaning stale Arunaki engine process (PID ${pid})...`);
+          console.log(`[dev-app] Cleaning stale Aetheria engine process (PID ${pid})...`);
           try { process.kill(pid, 'SIGKILL'); } catch {}
         }
       }
@@ -227,7 +227,7 @@ process.on('SIGTERM', () => { stopAll(); process.exit(0); });
 (async () => {
   const rootDir = process.cwd();
   console.log(`\n================================================================`);
-  console.log(`[⏱️ 0.00s] [dev-app] Memulai perhitungan waktu launch Arunaki (Mode IPC + Local Bundle)...`);
+  console.log(`[⏱️ 0.00s] [dev-app] Memulai perhitungan waktu launch Aetheria (Mode IPC + Local Bundle)...`);
   console.log(`================================================================`);
 
   // 0. Clean zombie processes & stale repo bun instances
@@ -253,19 +253,19 @@ process.on('SIGTERM', () => { stopAll(); process.exit(0); });
 
   // 1. Start Engine (Native Rust by default, Bun as fallback)
   const servicesStartMs = Date.now();
-  const useBunFallback = process.env.ARUNAKI_USE_BUN_ENGINE === '1';
+  const useBunFallback = process.env.AETHERIA_USE_BUN_ENGINE === '1';
   const exeExt = process.platform === 'win32' ? '.exe' : '';
   const rustCandidates = [
     path.join(rootDir, 'apps', 'desktop', 'resources', `engine${exeExt}`),
-    path.join(rootDir, 'target', 'release', `arunaki-engine${exeExt}`),
-    path.join(rootDir, 'target', 'release', `arunaki${exeExt}`),
-    path.join(rootDir, 'target', 'debug', `arunaki-engine${exeExt}`),
+    path.join(rootDir, 'target', 'release', `aetheria-engine${exeExt}`),
+    path.join(rootDir, 'target', 'release', `aetheria${exeExt}`),
+    path.join(rootDir, 'target', 'debug', `aetheria-engine${exeExt}`),
   ];
   const rustBin = !useBunFallback ? rustCandidates.find((p) => fs.existsSync(p)) : null;
 
   let engineChild = null;
   if (rustBin) {
-    console.log(`[⏱️ +${formatElapsed()}] [dev-app] Menjalankan Native Rust Arunaki Engine (${path.basename(rustBin)}) pada :4096...`);
+    console.log(`[⏱️ +${formatElapsed()}] [dev-app] Menjalankan Native Rust Aetheria Engine (${path.basename(rustBin)}) pada :4096...`);
     engineChild = start('Engine', rustBin, ['serve', '--port', '4096'], {
       restartOnCrash: true,
       port: 4096,
@@ -273,9 +273,9 @@ process.on('SIGTERM', () => { stopAll(); process.exit(0); });
       onRestart: (c) => { engineChild = c; },
     });
   } else {
-    console.log(`[⏱️ +${formatElapsed()}] [dev-app] arunaki-engine belum di-compile, melakukan cargo build --release...`);
-    execSync('cargo build --release -p arunaki-engine -p arunaki-docs', { cwd: rootDir, stdio: 'inherit' });
-    const compiledBin = path.join(rootDir, 'target', 'release', `arunaki-engine${exeExt}`);
+    console.log(`[⏱️ +${formatElapsed()}] [dev-app] aetheria-engine belum di-compile, melakukan cargo build --release...`);
+    execSync('cargo build --release -p aetheria-engine -p aetheria-docs', { cwd: rootDir, stdio: 'inherit' });
+    const compiledBin = path.join(rootDir, 'target', 'release', `aetheria-engine${exeExt}`);
     engineChild = start('Engine', compiledBin, ['serve', '--port', '4096'], {
       restartOnCrash: true,
       port: 4096,
@@ -336,17 +336,17 @@ process.on('SIGTERM', () => { stopAll(); process.exit(0); });
   // Start Native Rust Desktop (WebView2)
   console.log(`[⏱️ +${formatElapsed()}] [dev-app] Menjalankan Native Rust Desktop (WebView2)... (0 Electron / Pure Native)`);
   const rustDesktopCandidates = [
-    path.join(rootDir, 'target', 'release', 'arunaki' + exeExt),
-    path.join(rootDir, 'target', 'release', 'arunaki-engine' + exeExt),
-    path.join(rootDir, 'target', 'debug', 'arunaki' + exeExt),
+    path.join(rootDir, 'target', 'release', 'aetheria' + exeExt),
+    path.join(rootDir, 'target', 'release', 'aetheria-engine' + exeExt),
+    path.join(rootDir, 'target', 'debug', 'aetheria' + exeExt),
   ];
   const desktopBin = rustDesktopCandidates.find((p) => fs.existsSync(p));
   const desktopEnv = {
     ...auth.engineEnv,
-    ARUNAKI_ENGINE_URL: 'http://127.0.0.1:4096',
-    ARUNAKI_LAUNCH_START_MS: String(LAUNCH_START_MS),
-    ARUNAKI_ENGINE_VERIFIED: '1',
-    ...(useViteHttp ? { ARUNAKI_WEB_URL: 'http://127.0.0.1:5173' } : {}),
+    AETHERIA_ENGINE_URL: 'http://127.0.0.1:4096',
+    AETHERIA_LAUNCH_START_MS: String(LAUNCH_START_MS),
+    AETHERIA_ENGINE_VERIFIED: '1',
+    ...(useViteHttp ? { AETHERIA_WEB_URL: 'http://127.0.0.1:5173' } : {}),
   };
 
   if (desktopBin) {
@@ -361,7 +361,7 @@ process.on('SIGTERM', () => { stopAll(); process.exit(0); });
       process.exit(0);
     });
   } else {
-    console.error('Binary native desktop tidak ditemukan. Silakan jalankan: cargo build --release -p arunaki-engine');
+    console.error('Binary native desktop tidak ditemukan. Silakan jalankan: cargo build --release -p aetheria-engine');
   }
 
   // Keep parent alive so child processes aren't killed

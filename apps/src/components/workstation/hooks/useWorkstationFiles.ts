@@ -34,7 +34,7 @@ export function useWorkstationFiles({ activeFolder }: UseWorkstationFilesOptions
   });
 
   const refetchFiles = useCallback(() => {
-    window.dispatchEvent(new Event("arunaki-refresh-explorer"));
+    window.dispatchEvent(new Event("aetheria-refresh-explorer"));
     return queryRefetchFiles();
   }, [queryRefetchFiles]);
 

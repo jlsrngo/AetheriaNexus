@@ -20,7 +20,7 @@ export function useChatModels() {
 
   const [reasoningEffort, setReasoningEffortState] = useState(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("arunaki_reasoning_effort");
+      const saved = localStorage.getItem("aetheria_reasoning_effort");
       if (saved) return saved;
       return "low";
     }
@@ -31,7 +31,7 @@ export function useChatModels() {
     setReasoningEffortState(val);
     try {
       if (typeof window !== "undefined") {
-        localStorage.setItem("arunaki_reasoning_effort", val);
+        localStorage.setItem("aetheria_reasoning_effort", val);
       }
     } catch {}
   }, []);
@@ -41,7 +41,7 @@ export function useChatModels() {
     queryFn: async () => {
       const folder =
         typeof window !== "undefined"
-          ? localStorage.getItem("arunaki_active_folder") || ""
+          ? localStorage.getItem("aetheria_active_folder") || ""
           : "";
       const res = await apiFetch(
         `${API_BASE}/model${folder ? `?directory=${encodeURIComponent(folder)}` : ""}`
@@ -78,8 +78,8 @@ export function useChatModels() {
     const family = active.id.replace(/-(?:low|medium|high|tiered)$/i, "");
     if (family !== active.id && known(family)) {
       try {
-        localStorage.setItem("arunaki_active_model", family);
-        localStorage.setItem(`arunaki_provider_model_${active.providerID}`, family);
+        localStorage.setItem("aetheria_active_model", family);
+        localStorage.setItem(`aetheria_provider_model_${active.providerID}`, family);
       } catch {}
       return { providerID: active.providerID, id: family };
     }
@@ -137,7 +137,7 @@ export function useChatModels() {
 
     const pool =
       typeof window !== "undefined"
-        ? localStorage.getItem(`arunaki_provider_models_${activeModel.providerID}`)
+        ? localStorage.getItem(`aetheria_provider_models_${activeModel.providerID}`)
         : null;
     if (pool) {
       for (const s of pool.split(",")) {
@@ -161,15 +161,15 @@ export function useChatModels() {
       if (!id) return;
       unmarkModelRetired(id);
       try {
-        localStorage.setItem("arunaki_active_provider", providerID);
-        localStorage.setItem("arunaki_active_model", id);
-        localStorage.setItem(`arunaki_provider_model_${providerID}`, id);
-        localStorage.setItem(`arunaki_cli_model_${providerID}`, id);
+        localStorage.setItem("aetheria_active_provider", providerID);
+        localStorage.setItem("aetheria_active_model", id);
+        localStorage.setItem(`aetheria_provider_model_${providerID}`, id);
+        localStorage.setItem(`aetheria_cli_model_${providerID}`, id);
       } catch {}
       setModelTick((n) => n + 1);
       queryClient.invalidateQueries({ queryKey: ["engine-models"] });
       window.dispatchEvent(
-        new CustomEvent("arunaki:provider-change", {
+        new CustomEvent("aetheria:provider-change", {
           detail: { providerId: providerID, model: id },
         })
       );
@@ -183,11 +183,11 @@ export function useChatModels() {
       queryClient.invalidateQueries({ queryKey: ["engine-models"] });
     };
 
-    window.addEventListener("arunaki:provider-change", handleProviderChange);
+    window.addEventListener("aetheria:provider-change", handleProviderChange);
     window.addEventListener("storage", handleProviderChange);
 
     return () => {
-      window.removeEventListener("arunaki:provider-change", handleProviderChange);
+      window.removeEventListener("aetheria:provider-change", handleProviderChange);
       window.removeEventListener("storage", handleProviderChange);
     };
   }, [queryClient]);

@@ -62,8 +62,8 @@ export function useCenterPanelEditor({
         }
       }
     };
-    window.addEventListener("arunaki:diff-cleared", handleDiffCleared);
-    return () => window.removeEventListener("arunaki:diff-cleared", handleDiffCleared);
+    window.addEventListener("aetheria:diff-cleared", handleDiffCleared);
+    return () => window.removeEventListener("aetheria:diff-cleared", handleDiffCleared);
   }, [tabs]);
 
   // Sync tab content when parent updates tab.content (only when user does not have local unsaved edits)
@@ -157,7 +157,7 @@ export function useCenterPanelEditor({
     }
     if (isArtCraftBinaryTab(activeTab)) {
       window.dispatchEvent(
-        new CustomEvent("arunaki:artcraft-trigger-save", {
+        new CustomEvent("aetheria:artcraft-trigger-save", {
           detail: {
             tabId: activeTab.id,
             filePath: activeTab.path,
@@ -196,7 +196,7 @@ export function useCenterPanelEditor({
       const targetTab = tabs.find((t) => t.id === tabId);
       if (isArtCraftBinaryTab(targetTab)) {
         window.dispatchEvent(
-          new CustomEvent("arunaki:artcraft-trigger-save", {
+          new CustomEvent("aetheria:artcraft-trigger-save", {
             detail: {
               tabId,
               filePath: targetTab?.path,
