@@ -17,6 +17,73 @@ use crate::session::session::{save_store, with_store};
 use crate::session::tools::{build_tool_definitions, execute_tool_call, should_attach_document_tools};
 use serde_json::{json, Value};
 
+/// Scans workspace directory for installed agent skills (.agents/skills/*/SKILL.md)
+pub fn discover_workspace_skills(workspace_dir: &str) -> String {
+    let ws_path = std::path::Path::new(workspace_dir);
+    let mut search_dirs = vec![ws_path.join(".agents").join("skills"), ws_path.join("skills")];
+    let root = crate::paths::project_root();
+    if ws_path != root {
+        search_dirs.push(root.join(".agents").join("skills"));
+    }
+
+    let mut discovered: Vec<(String, String, std::path::PathBuf)> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for dir in search_dirs {
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let skill_dir = entry.path();
+                let skill_md = skill_dir.join("SKILL.md");
+                if skill_md.is_file() {
+                    let dir_name = skill_dir
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if !seen.insert(dir_name.clone()) {
+                        continue;
+                    }
+                    if let Ok(content) = std::fs::read_to_string(&skill_md) {
+                        let mut name = dir_name.clone();
+                        let mut desc = String::new();
+                        let lines: Vec<&str> = content.lines().take(30).collect();
+                        for line in lines {
+                            let trimmed = line.trim();
+                            if let Some(rest) = trimmed.strip_prefix("name:") {
+                                name = rest.trim().to_string();
+                            } else if let Some(rest) = trimmed.strip_prefix("description:") {
+                                desc = rest.trim().to_string();
+                            }
+                        }
+                        if desc.is_empty() {
+                            desc = format!("Skill: {}", name);
+                        }
+                        discovered.push((name, desc, skill_md));
+                    }
+                }
+            }
+        }
+    }
+
+    if discovered.is_empty() {
+        return String::new();
+    }
+
+    let mut out = String::from(
+        "<skills>\nYou have access to specialized skills in this workspace. When crafting videos, motion graphics, or code, you may read these skill instructions and design references:\n",
+    );
+    for (name, desc, path) in discovered {
+        out.push_str(&format!(
+            "- {}: {} (Path: {})\n",
+            name,
+            desc,
+            path.display()
+        ));
+    }
+    out.push_str("</skills>\n");
+    out
+}
+
 pub async fn run_agent_turn(
     session_id: &str,
     workspace_dir: &str,
@@ -28,6 +95,7 @@ pub async fn run_agent_turn(
 ) {
     let assistant_msg_id = gen_id("msg");
     let started_ms = now_ms();
+    crate::session::session::set_active_run(session_id, true);
 
     emit_event(
         workspace_dir,
@@ -82,6 +150,13 @@ pub async fn run_agent_turn(
             sys_prompt.push_str(&format!("--- {} ---\n{}\n", t, snippet));
         }
         sys_prompt.push_str("</knowledge_base>");
+    }
+
+    // 4. Discovered Workspace Skills (.agents/skills/*/SKILL.md, e.g. motioncraft)
+    let ws_skills = discover_workspace_skills(workspace_dir);
+    if !ws_skills.is_empty() {
+        sys_prompt.push_str("\n\n");
+        sys_prompt.push_str(&ws_skills);
     }
 
     // Proactive Context Compaction (OpenCode Item 2a)
@@ -330,7 +405,7 @@ pub async fn run_agent_turn(
                                 }
                             }
                             ocr_transcriptions.push(format!(
-                                "[Reference Video Style & Voice Asset: '{}' saved at workspace/public/ref_{}. Visual keyframes have been attached for style matching, and its voice track is extracted at 'workspace/public/ref_voice.wav'. Pass refAudio: \"workspace/public/ref_voice.wav\" to voicebox_speak to match its voice character!]",
+                                "[Reference Video Style & Voice Asset: '{}' saved at workspace/public/ref_{}. Visual keyframes have been attached for style matching, and its voice track is extracted at 'workspace/public/ref_voice.wav'. Only clone it (refAudio + cloneVoice: true) if it is the user's own voice or they confirmed permission; otherwise describe its tone in voiceDesign.]",
                                 file_name, clean_name
                             ));
                         }
@@ -374,7 +449,7 @@ pub async fn run_agent_turn(
                                 let _ = std::fs::copy(&raw_audio, &ref_wav);
                             }
                             ocr_transcriptions.push(format!(
-                                "[Reference Voice Audio Asset: '{}' normalized to 'workspace/public/ref_voice.wav'. Pass refAudio: \"workspace/public/ref_voice.wav\" to voicebox_speak so all voiceovers match this reference voice's pitch, speed, and tone!]",
+                                "[Reference Voice Audio Asset: '{}' normalized to 'workspace/public/ref_voice.wav'. If this is the user's own recording (or they confirmed permission), pass refAudio: \"workspace/public/ref_voice.wav\" with cloneVoice: true to voicebox_speak; otherwise describe its tone in voiceDesign.]",
                                 file_name
                             ));
                         }
@@ -393,9 +468,97 @@ pub async fn run_agent_turn(
         }
     }
 
-    // Automatically extract visual thumbnail & metadata if user pasted a YouTube link in prompt_text
+    // Automatically extract visual thumbnail & metadata if user pasted a YouTube or TikTok link in prompt_text
     for word in prompt_text.split_whitespace() {
         let clean_url = word.trim_matches(|c: char| c == '(' || c == ')' || c == '<' || c == '>' || c == '"' || c == '\'');
+        if clean_url.contains("tiktok.com/") {
+            if let Ok(resp) = reqwest::Client::new()
+                .get("https://www.tikwm.com/api/")
+                .query(&[("url", clean_url)])
+                .send()
+                .await
+            {
+                if let Ok(json_val) = resp.json::<Value>().await {
+                    let data = json_val.get("data").cloned().unwrap_or(Value::Null);
+                    let title = data.get("title").and_then(|v| v.as_str()).unwrap_or("");
+                    let duration = data.get("duration").and_then(|v| v.as_u64()).unwrap_or(30);
+                    let author = data
+                        .get("author")
+                        .and_then(|a| a.get("unique_id"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("creator");
+                    let play_url = data.get("play").and_then(|v| v.as_str()).unwrap_or("");
+
+                    let pub_dir = std::path::Path::new(workspace_dir)
+                        .join("workspace")
+                        .join("public");
+                    let _ = std::fs::create_dir_all(&pub_dir);
+                    let mp4_path = pub_dir.join("ref_tiktok.mp4");
+                    let wav_path = pub_dir.join("ref_voice.wav");
+
+                    if !play_url.is_empty() {
+                        if let Ok(vid_resp) = reqwest::get(play_url).await {
+                            if let Ok(vid_bytes) = vid_resp.bytes().await {
+                                if !vid_bytes.is_empty() {
+                                    let _ = std::fs::write(&mp4_path, &vid_bytes);
+                                    let ff_cmd = ffmpeg_bin
+                                        .as_deref()
+                                        .unwrap_or_else(|| std::path::Path::new("ffmpeg"));
+                                    let _ = std::process::Command::new(ff_cmd)
+                                        .args([
+                                            "-y",
+                                            "-i",
+                                            &mp4_path.to_string_lossy(),
+                                            "-vn",
+                                            "-acodec",
+                                            "pcm_s16le",
+                                            "-ar",
+                                            "24000",
+                                            "-ac",
+                                            "1",
+                                            &wav_path.to_string_lossy(),
+                                        ])
+                                        .output();
+
+                                    for (idx, ts) in ["00:00:01", "00:00:04", "00:00:14"].iter().enumerate() {
+                                        let frame_jpg = std::env::temp_dir()
+                                            .join(format!("arunaki_tiktok_ref_{}.jpg", idx));
+                                        let _ = std::process::Command::new(ff_cmd)
+                                            .args([
+                                                "-y",
+                                                "-ss",
+                                                ts,
+                                                "-i",
+                                                &mp4_path.to_string_lossy(),
+                                                "-frames:v",
+                                                "1",
+                                                "-q:v",
+                                                "4",
+                                                &frame_jpg.to_string_lossy(),
+                                            ])
+                                            .output();
+                                        if let Ok(jpg_bytes) = std::fs::read(&frame_jpg) {
+                                            use base64::prelude::*;
+                                            let b64 = BASE64_STANDARD.encode(&jpg_bytes);
+                                            image_urls.push(format!("data:image/jpeg;base64,{}", b64));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    ocr_transcriptions.push(format!(
+                        "[TikTok Reference Video Extracted (@{}, duration: {}s, title: \"{}\"):\n\
+                        - Reference Video Saved: workspace/public/ref_tiktok.mp4\n\
+                        - Reference Voice Track Extracted: workspace/public/ref_voice.wav (third-party voice: do NOT clone it. Describe its tone/energy/pace in `voiceDesign` for every `voicebox_speak` call instead)\n\
+                        - Keyframes attached to vision context: study the reference's motion language (entrance/exit choreography, camera moves, layout zones, typography hierarchy, palette) and translate it into this video's own style per the Visual Style System — inspired by, never a pixel copy.]",
+                        author, duration, title
+                    ));
+                }
+            }
+            continue;
+        }
         let yt_id = if let Some(idx) = clean_url.find("youtube.com/watch?v=") {
             clean_url[idx + 20..].split(&['&', '#', '?'][..]).next()
         } else if let Some(idx) = clean_url.find("youtu.be/") {
@@ -1084,9 +1247,15 @@ pub async fn run_agent_turn(
             "tokens": { "input": 0, "output": 0, "reasoning": 0, "cache": { "read": 0, "write": 0 } }
         }),
     );
+    crate::session::session::set_active_run(session_id, false);
     emit_event(
         workspace_dir,
         "session.idle",
         json!({ "sessionID": session_id }),
+    );
+    emit_event(
+        workspace_dir,
+        "session.status",
+        json!({ "sessionID": session_id, "status": { "type": "idle" } }),
     );
 }

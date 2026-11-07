@@ -32,6 +32,7 @@ pub fn build_tool_definitions() -> Vec<Value> {
     vec![
         render::render_video_tool_definition(),
         voicebox::voicebox_tool_definition(),
+        websearch::fetch_web_image_tool_definition(),
         read::read_tool_definition(),
         write::write_tool_definition(),
         edit::edit_tool_definition(),
@@ -99,6 +100,9 @@ pub async fn execute_tool_call(
         "grep" | "search" | "search_files" => grep::execute_grep(workspace_dir, arguments),
         "todowrite" | "todo" => todo::execute_todowrite(session_id, workspace_dir, arguments),
         "websearch" => websearch::execute_websearch(arguments).await,
+        "fetch_web_image" | "download_image" | "search_image" => {
+            websearch::execute_fetch_web_image(workspace_dir, arguments).await
+        }
         "question" => {
             question::execute_question(
                 session_id,

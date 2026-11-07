@@ -99,3 +99,12 @@ WORKFLOW.md
 # MotionCraft & Voicebox local model caches
 .motioncraft/
 core/voicebox/models/
+
+# Python caches
+**/__pycache__/
+*.pyc
+
+# Workspace runtime outputs (keep empty workspace folder with .gitkeep)
+workspace/public/
+workspace/src/*
+!workspace/src/.gitkeep

@@ -36,13 +36,13 @@ pub fn voicebox_tool_definition() -> Value {
         "type": "function",
         "function": {
             "name": "voicebox_speak",
-            "description": "Generates broadcast-quality voiceover audio and word alignment using the local Voicebox TTS engine (Kokoro-82M and Indonesian Neural with Spotify Pedalboard audio mastering: highpass filter, dynamic range compression, and -14 LUFS normalization). Use this tool whenever producing voiceover for a Remotion video scene or social media reel.",
+            "description": "Generates natural, human-sounding voiceover audio + word alignment mastered with Spotify Pedalboard DSP (highpass, compressor, -14 LUFS limiter). For Indonesian, use voice: 'id-ID-GadisNeural' (warm, clear, professional female dubbing) or 'id-ID-ArdiNeural' (authoritative male narrator). The engine automatically engages Project Voice Lock (.voice_lock.json) so the narrator identity remains 100% consistent across every scene. Use this tool whenever producing voiceover for a Remotion video scene or social media reel.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "text": {
                         "type": "string",
-                        "description": "The exact script or narration text to synthesize."
+                        "description": "The exact script or narration text to synthesize. Write it the way people actually talk (casual particles like 'jadi', 'nah', 'gue', commas for breathing)."
                     },
                     "outputPath": {
                         "type": "string",
@@ -51,23 +51,40 @@ pub fn voicebox_tool_definition() -> Value {
                     "lang": {
                         "type": "string",
                         "enum": ["id", "en"],
-                        "description": "Language: 'id' for natural Indonesian (id-ID-ArdiNeural/GadisNeural) or 'en' for Kokoro-82M."
+                        "description": "Language of the narration."
                     },
                     "voice": {
                         "type": "string",
-                        "description": "Optional specific voice name (e.g. 'id-ID-ArdiNeural', 'id-ID-GadisNeural', 'af_heart', 'am_adam')."
+                        "description": "Narrator voice. For Indonesian professional female dubbing use 'id-ID-GadisNeural'; for male use 'id-ID-ArdiNeural'. For English female use 'af_heart'; male use 'am_adam'. Automatically locked across all scenes."
+                    },
+                    "voiceDesign": {
+                        "type": "string",
+                        "description": "Natural voice description, e.g. 'Cewek muda Indonesia, suara hangat, santai seperti ngobrol, antusias seperti kreator teknologi'. Informs voice selection and project voice lock."
+                    },
+                    "engine": {
+                        "type": "string",
+                        "enum": ["auto", "edge", "voxcpm", "kokoro"],
+                        "description": "TTS engine. 'edge' / 'auto' = Deterministic broadcast neural voice with Pedalboard DSP; 'voxcpm' = experimental latent voice design; 'kokoro' = English ONNX."
+                    },
+                    "resetVoiceLock": {
+                        "type": "boolean",
+                        "description": "Set true when starting a new project with a fresh narrator persona."
+                    },
+                    "cloneVoice": {
+                        "type": "boolean",
+                        "description": "Clone the voice in `refAudio` with VoxCPM2. ONLY set true when the user uploaded their OWN voice recording or explicitly confirmed they have permission for that voice. Never clone voices extracted from third-party videos/links."
                     },
                     "refAudio": {
                         "type": "string",
-                        "description": "Optional path to a reference audio/video sample (e.g. 'workspace/public/ref_voice.wav') to match its vocal register, pitch, and cadence."
+                        "description": "Optional reference audio (e.g. 'workspace/public/ref_voice.wav'). Analyzed for register/pitch; only cloned when cloneVoice=true."
                     },
                     "rate": {
                         "type": "string",
-                        "description": "Optional speaking rate adjustment (e.g. '+10%', '-5%')."
+                        "description": "Speaking rate adjustment (e.g. '+10%')."
                     },
                     "pitch": {
                         "type": "string",
-                        "description": "Optional vocal pitch adjustment (e.g. '+5Hz', '-8Hz')."
+                        "description": "Pitch adjustment (e.g. '+5Hz')."
                     }
                 },
                 "required": ["text"]
@@ -108,8 +125,9 @@ pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
     };
 
     // Fast Cache Hit: If the WAV file already exists and is non-empty (>1KB), reuse it immediately
-    // unless force=true is explicitly passed.
-    let force_regen = arguments.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
+    // unless force=true or resetVoiceLock=true is explicitly passed.
+    let force_regen = arguments.get("force").and_then(|v| v.as_bool()).unwrap_or(false)
+        || arguments.get("resetVoiceLock").and_then(|v| v.as_bool()).unwrap_or(false);
     if !force_regen {
         if let Ok(meta) = std::fs::metadata(&target_out) {
             if meta.len() > 1024 {
@@ -151,13 +169,19 @@ pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
             ws.join(ref_rel)
         };
         if ref_path.is_file() {
+            let clone = arguments.get("cloneVoice").and_then(|v| v.as_bool()).unwrap_or(false);
+            if clone {
+                cmd.arg("--clone-ref").arg(&ref_path);
+            }
             cmd.arg("--ref-audio").arg(ref_path);
         }
-    } else {
-        let default_ref = root.join("workspace").join("public").join("ref_voice.wav");
-        if default_ref.is_file() {
-            cmd.arg("--ref-audio").arg(default_ref);
-        }
+    }
+
+    if let Some(d) = arguments.get("voiceDesign").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()) {
+        cmd.arg("--voice-design").arg(d);
+    }
+    if let Some(e) = arguments.get("engine").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
+        cmd.arg("--engine").arg(e);
     }
 
     if let Some(r) = arguments.get("rate").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
@@ -165,6 +189,10 @@ pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
     }
     if let Some(p) = arguments.get("pitch").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
         cmd.arg("--pitch").arg(p);
+    }
+
+    if arguments.get("resetVoiceLock").and_then(|v| v.as_bool()).unwrap_or(false) {
+        cmd.arg("--reset-voice-lock");
     }
 
     match cmd.output().await {
