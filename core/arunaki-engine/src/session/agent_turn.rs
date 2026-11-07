@@ -625,7 +625,19 @@ pub async fn run_agent_turn(
         prompt_text.to_string()
     };
 
-    if !image_urls.is_empty() {
+    // Determine target base URL & API key
+    let cfg = read_arunaki_config();
+    let mut current_provider_id = provider_id.to_string();
+    let mut current_model_id = model_id.to_string();
+
+    let model_supports_vision = current_model_id.contains("vl")
+        || current_model_id.contains("vision")
+        || current_model_id.contains("gemini")
+        || current_model_id.contains("claude")
+        || current_model_id.contains("gpt-4")
+        || current_model_id.contains("4o");
+
+    if !image_urls.is_empty() && model_supports_vision {
         let mut user_parts = vec![json!({ "type": "text", "text": enriched_user_text })];
         for img_url in &image_urls {
             user_parts.push(json!({
@@ -637,9 +649,6 @@ pub async fn run_agent_turn(
     } else {
         chat_messages.push(json!({ "role": "user", "content": enriched_user_text }));
     }
-
-    // Determine target base URL & API key
-    let cfg = read_arunaki_config();
     let is_local_bridge = provider_id == "antigravity" || provider_id == "local-cli";
     let mut base_url = cfg
         .pointer(&format!("/provider/{}/options/baseURL", provider_id))
@@ -655,7 +664,7 @@ pub async fn run_agent_turn(
         let active_port = crate::bridge::ensure_bridge_running().await;
         base_url = format!("http://127.0.0.1:{}/v1", active_port);
     }
-    let api_key = cfg
+    let mut api_key = cfg
         .pointer(&format!("/provider/{}/options/apiKey", provider_id))
         .or_else(|| cfg.pointer(&format!("/provider/{}/request/body/apiKey", provider_id)))
         .or_else(|| cfg.pointer(&format!("/providers/{}/options/apiKey", provider_id)))
@@ -684,7 +693,7 @@ pub async fn run_agent_turn(
         let step_start = now_ms();
         crate::paths::log_engine(
             "ai",
-            &format!("⏳ Calling AI model '{}' (step {})...", model_id, _step + 1),
+            &format!("⏳ Calling AI model '{}' (step {})...", current_model_id, _step + 1),
         );
         emit_event(
             workspace_dir,
@@ -720,7 +729,7 @@ pub async fn run_agent_turn(
         }
 
         let mut req_body = json!({
-            "model": model_id,
+            "model": current_model_id,
             "messages": chat_messages,
             "stream": false
         });
@@ -812,6 +821,105 @@ pub async fn run_agent_turn(
                         break;
                     }
                 }
+            } else if (err_txt.contains("MONTHLY_REQUEST_COUNT")
+                || err_txt.contains("402")
+                || err_txt.contains("Payment Required")
+                || err_txt.contains("insufficient balance")
+                || err_txt.contains("rate limit"))
+                && (current_provider_id != "kenari" || current_model_id != "llama-3-3-70b-instruct:free")
+            {
+                crate::paths::log_engine(
+                    "ai",
+                    "⚡ Provider quota/balance limit reached. Automatically failing over to Kenari (llama-3-3-70b-instruct:free) for uninterrupted turn execution!",
+                );
+                emit_event(
+                    workspace_dir,
+                    "session.failover",
+                    json!({
+                        "sessionID": session_id,
+                        "fromProvider": current_provider_id,
+                        "fromModel": current_model_id,
+                        "toProvider": "kenari",
+                        "toModel": "llama-3-3-70b-instruct:free",
+                        "reason": "Quota or balance limit reached"
+                    }),
+                );
+                current_provider_id = "kenari".to_string();
+                current_model_id = "llama-3-3-70b-instruct:free".to_string();
+                base_url = "https://kenari.id/v1".to_string();
+                api_key = cfg
+                    .pointer("/providers/kenari/request/body/apiKey")
+                    .or_else(|| cfg.pointer("/provider/kenari/request/body/apiKey"))
+                    .or_else(|| cfg.pointer("/provider/kenari/options/apiKey"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("kn-d4064183d620d48ada4409df456e02a4f1840f73a7541333")
+                    .to_string();
+                req_body["model"] = json!(current_model_id);
+
+                let retry_resp = client
+                    .post(format!("{}/chat/completions", base_url))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", format!("Bearer {}", api_key))
+                    .json(&req_body)
+                    .send()
+                    .await;
+
+                match retry_resp {
+                    Ok(fo_r) if fo_r.status().is_success() => {
+                        crate::paths::log_engine(
+                            "ai",
+                            "✅ Seamless failover to Kenari free model succeeded! Continuing turn.",
+                        );
+                        r = fo_r;
+                    }
+                    Ok(fo_r) => {
+                        let final_err = fo_r.text().await.unwrap_or_default();
+                        final_text = format!("Error from AI provider after failover: {}", final_err);
+                        break;
+                    }
+                    Err(retry_e) => {
+                        final_text = format!("Error reaching AI provider during failover: {}", retry_e);
+                        break;
+                    }
+                }
+            } else if err_txt.contains("upstream_rejected") {
+                crate::paths::log_engine(
+                    "ai",
+                    "⚠️ Upstream rejected request (likely unsupported multimodal vision). Retrying with sanitized text-only messages...",
+                );
+                // Strip all image_url parts from messages
+                for m in &mut chat_messages {
+                    if let Some(content_arr) = m.get_mut("content").and_then(|v| v.as_array_mut()) {
+                        content_arr.retain(|part| part.get("type").and_then(|t| t.as_str()) != Some("image_url"));
+                        if content_arr.len() == 1 && content_arr[0].get("type").and_then(|t| t.as_str()) == Some("text") {
+                            let txt = content_arr[0].get("text").and_then(|t| t.as_str()).unwrap_or("").to_string();
+                            *m.get_mut("content").unwrap() = Value::String(txt);
+                        }
+                    }
+                }
+                req_body["messages"] = Value::Array(chat_messages.clone());
+                let retry_resp = client
+                    .post(format!("{}/chat/completions", base_url))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", format!("Bearer {}", api_key))
+                    .json(&req_body)
+                    .send()
+                    .await;
+                match retry_resp {
+                    Ok(retry_r) if retry_r.status().is_success() => {
+                        crate::paths::log_engine("ai", "✅ Text-only retry succeeded! Continuing turn.");
+                        r = retry_r;
+                    }
+                    Ok(retry_r) => {
+                        let final_err = retry_r.text().await.unwrap_or_default();
+                        final_text = format!("Error from AI provider: {}", final_err);
+                        break;
+                    }
+                    Err(retry_e) => {
+                        final_text = format!("Error reaching AI provider during retry: {}", retry_e);
+                        break;
+                    }
+                }
             } else {
                 final_text = format!("Error from AI provider: {}", err_txt);
                 break;
@@ -866,7 +974,7 @@ pub async fn run_agent_turn(
             "ai",
             &format!(
                 "✨ AI Model '{}' replied in {}ms | thought: {} chars | text: {} chars | tools: {}",
-                model_id,
+                current_model_id,
                 step_dur,
                 msg_reasoning.len(),
                 msg_text.len(),

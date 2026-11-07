@@ -26,7 +26,7 @@ pub fn default_model_ref() -> Value {
             m.get("providerID").and_then(|v| v.as_str()),
             m.get("id").and_then(|v| v.as_str()),
         ) {
-            if !pid.is_empty() && !mid.is_empty() {
+            if !pid.is_empty() && !mid.is_empty() && pid != "kiro" && !mid.starts_with("kiro/") {
                 return json!({
                     "providerID": pid,
                     "id": mid
@@ -37,14 +37,23 @@ pub fn default_model_ref() -> Value {
 
     let cfg = read_arunaki_config();
     let model_str = cfg
-        .pointer("/provider/antigravity/options/defaultModel")
-        .or_else(|| cfg.get("defaultModel"))
+        .get("model")
         .and_then(|v| v.as_str())
-        .unwrap_or("gemini-3.8-flash-low");
-    json!({
-        "providerID": "antigravity",
-        "id": model_str
-    })
+        .or_else(|| cfg.pointer("/provider/antigravity/options/defaultModel").and_then(|v| v.as_str()))
+        .or_else(|| cfg.get("defaultModel").and_then(|v| v.as_str()))
+        .unwrap_or("kenari/llama-3-3-70b-instruct:free");
+
+    if let Some((p, m)) = model_str.split_once('/') {
+        json!({
+            "providerID": p,
+            "id": m
+        })
+    } else {
+        json!({
+            "providerID": "kenari",
+            "id": model_str
+        })
+    }
 }
 
 /// HTTP handler to switch the model of an active session.
