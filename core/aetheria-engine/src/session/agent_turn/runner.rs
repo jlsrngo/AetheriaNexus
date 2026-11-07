@@ -149,7 +149,7 @@ pub async fn run_agent_turn(
     };
 
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(120))
+        .timeout(std::time::Duration::from_secs(180))
         .build()
         .unwrap();
 
@@ -236,6 +236,32 @@ pub async fn run_agent_turn(
                         Ok(retried_r) => retried_r,
                         Err(retry_err) => {
                             final_text = format!("Error: Failed to reach AI provider ({}).", retry_err);
+                            break;
+                        }
+                    }
+                } else if e.is_timeout() && chat_messages.len() > 2 {
+                    crate::paths::log_engine(
+                        "ai",
+                        "⏱️ AI request timed out! Triggering emergency context compaction and retrying...",
+                    );
+                    chat_messages = crate::session::compaction::emergency_compact_messages(&chat_messages);
+                    req_body["messages"] = Value::Array(chat_messages.clone());
+                    match client
+                        .post(format!("{}/chat/completions", base_url))
+                        .header("Content-Type", "application/json")
+                        .header("Authorization", format!("Bearer {}", api_key))
+                        .json(&req_body)
+                        .send()
+                        .await
+                    {
+                        Ok(retried_r) if retried_r.status().is_success() => retried_r,
+                        Ok(retried_r) => {
+                            let err_body = retried_r.text().await.unwrap_or_default();
+                            final_text = format!("Error from AI provider after timeout retry: {}", err_body);
+                            break;
+                        }
+                        Err(retry_err) => {
+                            final_text = format!("Error: Failed to reach AI provider after timeout retry ({}).", retry_err);
                             break;
                         }
                     }

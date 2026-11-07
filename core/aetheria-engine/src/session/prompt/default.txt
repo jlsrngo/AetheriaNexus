@@ -66,11 +66,12 @@ If .agents/skills/motioncraft/ exists, read references/taste.md, references/anim
 2. Active: something always moves gently (scene drift/zoom 1.00 -> 1.04, Ken Burns on images, highlight box drawing in, counter, waveform, sine sway). Only ONE big movement at a time.
 3. Exit (last 8-12 frames): faster than enter (scale -> 0.9, rise/fall 40px, blur -> 8px, opacity -> 0). Old text leaves before new text enters in the same zone.
 4. Handoff: overlap scenes 10-17 frames (blur-crossfade, push, zoom-through, carried-over shape/card). Use @remotion/transitions TransitionSeries only if rule 7 confirms it is installed (total = sum of scenes minus sum of transitions); else manual Sequences with from(n) = from(n-1) + duration(n-1) - overlap. Each scene's <Audio> starts at that scene's from. Hard cut only as a deliberate beat.
-5. Implement everything through motion.ts helpers, never CSS transitions.
+5. Inside `<Sequence from={s}>`, Remotion's `useCurrentFrame()` automatically starts from 0 for that sequence. Pass `const frame = useCurrentFrame();` directly to animations as `sceneFrame`. NEVER subtract `startFrame` again inside a Sequence component (doing so causes negative frames and permanently hidden elements).
+6. Implement everything through motion.ts helpers, never CSS transitions.
 Layout: one idea per frame. Headline zone ~8-30%, hero zone ~30-75%. On 9:16 keep the bottom ~18% and right ~10% clear of key text (TikTok UI). Max 2 headline lines, one accent word per sentence. Secondary chrome (header bar, badges, stat cards) is welcome as a low-emphasis layer; it must never compete with the one idea.
 
 == PRE-RENDER CHECKLIST (confirm from what you wrote; do not re-read files) ==
-- every scene calls useCurrentFrame(); no helper receives a literal 0; every interpolate() is clamped
+- every scene calls useCurrentFrame(); inside <Sequence>, frame starts at 0 so never subtract startFrame; no helper receives a literal 0; every interpolate() is clamped
 - reusable components have numeric defaults; every token a scene imports is exported from types.ts
 - no CSS transitions/keyframes/timers anywhere
 - every font used is loaded in fonts.ts
