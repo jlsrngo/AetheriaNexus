@@ -4,7 +4,32 @@
 
 use serde_json::{json, Value};
 use std::path::Path;
-use std::process::Command;
+use tokio::process::Command;
+
+/// Synchronize a generated audio file into both `workspace/public/` and the cached Remotion bundle
+/// `public/` directory so `staticFile(...)` always finds it without manual shell copies or re-bundling.
+fn sync_audio_to_public_dirs(root: &Path, target_out: &Path) {
+    if !target_out.is_file() {
+        return;
+    }
+    let Some(file_name) = target_out.file_name() else {
+        return;
+    };
+
+    let ws_pub = root.join("workspace").join("public");
+    let _ = std::fs::create_dir_all(&ws_pub);
+    let ws_dest = ws_pub.join(file_name);
+    if ws_dest != target_out {
+        let _ = std::fs::copy(target_out, &ws_dest);
+    }
+
+    let bundle_pub = crate::paths::render_cache_dir().join("public");
+    let _ = std::fs::create_dir_all(&bundle_pub);
+    let bundle_dest = bundle_pub.join(file_name);
+    if bundle_dest != target_out {
+        let _ = std::fs::copy(target_out, &bundle_dest);
+    }
+}
 
 pub fn voicebox_tool_definition() -> Value {
     json!({
@@ -39,7 +64,7 @@ pub fn voicebox_tool_definition() -> Value {
     })
 }
 
-pub fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
+pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
     let text = match arguments.get("text").and_then(|v| v.as_str()) {
         Some(t) if !t.trim().is_empty() => t.trim(),
         _ => return json!({ "error": "voicebox_speak requires a non-empty 'text' parameter." }),
@@ -70,6 +95,23 @@ pub fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
         ws.join(out_rel)
     };
 
+    // Fast Cache Hit: If the WAV file already exists and is non-empty (>1KB), reuse it immediately
+    // unless force=true is explicitly passed.
+    let force_regen = arguments.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
+    if !force_regen {
+        if let Ok(meta) = std::fs::metadata(&target_out) {
+            if meta.len() > 1024 {
+                sync_audio_to_public_dirs(&root, &target_out);
+                return json!({
+                    "success": true,
+                    "cached": true,
+                    "message": format!("Reused existing mastered voiceover at '{}' (synced to workspace/public & bundle/public)", target_out.display()),
+                    "outputPath": target_out.to_string_lossy().to_string()
+                });
+            }
+        }
+    }
+
     let script_path = root.join("core").join("voicebox").join("voicebox_engine.py");
 
     let mut cmd = Command::new("python");
@@ -85,7 +127,7 @@ pub fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
         cmd.arg("--voice").arg(v);
     }
 
-    match cmd.output() {
+    match cmd.output().await {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -95,6 +137,8 @@ pub fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
                     "error": format!("Voicebox execution failed: {}\nStderr: {}", stdout, stderr)
                 });
             }
+
+            sync_audio_to_public_dirs(&root, &target_out);
 
             // Parse json output from python if possible
             if let Some(idx) = stdout.rfind('{') {

@@ -80,7 +80,7 @@ pub async fn execute_tool_call(
             render::execute_render_video(session_id, workspace_dir, arguments)
         }
         "voicebox_speak" | "voicebox" | "generate_speech" | "tts" => {
-            voicebox::execute_voicebox(workspace_dir, arguments)
+            voicebox::execute_voicebox(workspace_dir, arguments).await
         }
         "read" | "read_file" => read::execute_read(workspace_dir, arguments),
         "write" | "write_file" | "create_file" => {

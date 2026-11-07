@@ -374,7 +374,7 @@ pub async fn run_agent_turn(
                     .unwrap_or(50)
             })
             .sum();
-        if (_step >= 18 && chat_messages.len() > 40) || total_chars > 180_000 {
+        if (_step >= 28 && chat_messages.len() > 65) || total_chars > 220_000 {
             crate::paths::log_engine(
                 "ai",
                 "📦 Proactive context compaction triggered during turn to maintain optimal token budget...",
@@ -589,6 +589,17 @@ pub async fn run_agent_turn(
         // Append assistant message with tool_calls to conversation
         chat_messages.push(msg.clone());
 
+        struct PreparedCall {
+            call_id: String,
+            fn_name: String,
+            args_str: String,
+            args_val: Value,
+            syntax_error: Option<String>,
+            loop_warning: Option<String>,
+            tool_start: u64,
+        }
+
+        let mut prepared_calls = Vec::with_capacity(tool_calls.len());
         for tc in tool_calls {
             let call_id = tc
                 .get("id")
@@ -603,10 +614,10 @@ pub async fn run_agent_turn(
             let args_str = tc
                 .pointer("/function/arguments")
                 .and_then(|v| v.as_str())
-                .unwrap_or("{}");
+                .unwrap_or("{}")
+                .to_string();
 
-            // Robust JSON Tool Argument Repair & Syntax Recovery (Item 1c)
-            let (args_val, syntax_error) = match crate::tool::json_repair::parse_or_repair_tool_args(args_str) {
+            let (args_val, syntax_error) = match crate::tool::json_repair::parse_or_repair_tool_args(&args_str) {
                 Ok(val) => (val, None),
                 Err(err) => (json!({}), Some(err)),
             };
@@ -630,32 +641,56 @@ pub async fn run_agent_turn(
                 &format!("🔧 Executing tool '{}' with input: {}", fn_name, args_str),
             );
 
-            // Doom-Loop Breaker & Syntax Guard
-            let loop_warning = doom_loop_detector.check_and_record(&fn_name, args_str);
-            let (tool_out, is_blocked) = if let Some(err_msg) = syntax_error {
-                crate::paths::log_engine(
-                    "tool",
-                    &format!("⚠️ JSON argument syntax error for tool '{}': {}", fn_name, err_msg),
-                );
-                (json!({ "error": err_msg, "blocked": true }), true)
-            } else if let Some(warning) = loop_warning {
-                crate::paths::log_engine(
-                    "tool",
-                    &format!("🛑 Doom-loop blocked: tool '{}' repeated identically with args: {}", fn_name, args_str),
-                );
-                (json!({ "error": warning, "blocked": true }), true)
-            } else {
-                let out = execute_tool_call(
-                    session_id,
-                    &assistant_msg_id,
-                    &call_id,
-                    &fn_name,
-                    &args_val,
-                    workspace_dir,
-                )
-                .await;
-                (out, false)
-            };
+            let loop_warning = doom_loop_detector.check_and_record(&fn_name, &args_str);
+            prepared_calls.push(PreparedCall {
+                call_id,
+                fn_name,
+                args_str,
+                args_val,
+                syntax_error,
+                loop_warning,
+                tool_start,
+            });
+        }
+
+        // Execute all tool calls in this step concurrently (e.g. parallel voicebox_speak or parallel file writes)
+        let futures_vec = prepared_calls.iter().map(|pc| {
+            let assistant_msg_id_ref = assistant_msg_id.as_str();
+            async move {
+                if let Some(err_msg) = &pc.syntax_error {
+                    crate::paths::log_engine(
+                        "tool",
+                        &format!("⚠️ JSON argument syntax error for tool '{}': {}", pc.fn_name, err_msg),
+                    );
+                    (json!({ "error": err_msg, "blocked": true }), true)
+                } else if let Some(warning) = &pc.loop_warning {
+                    crate::paths::log_engine(
+                        "tool",
+                        &format!("🛑 Doom-loop blocked: tool '{}' repeated identically with args: {}", pc.fn_name, pc.args_str),
+                    );
+                    (json!({ "error": warning, "blocked": true }), true)
+                } else {
+                    let out = execute_tool_call(
+                        session_id,
+                        assistant_msg_id_ref,
+                        &pc.call_id,
+                        &pc.fn_name,
+                        &pc.args_val,
+                        workspace_dir,
+                    )
+                    .await;
+                    (out, false)
+                }
+            }
+        });
+
+        let results = futures_util::future::join_all(futures_vec).await;
+
+        for (pc, (tool_out, is_blocked)) in prepared_calls.into_iter().zip(results.into_iter()) {
+            let call_id = pc.call_id;
+            let fn_name = pc.fn_name;
+            let args_val = pc.args_val;
+            let tool_start = pc.tool_start;
 
             let tool_out_str =
                 serde_json::to_string_pretty(&tool_out).unwrap_or_else(|_| "{}".to_string());

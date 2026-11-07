@@ -49,8 +49,40 @@ fn newest_mtime_ms(dir: &Path) -> u128 {
 /// Detects optimal multi-core thread count in Rust (`available_parallelism`).
 pub fn optimal_render_concurrency() -> usize {
     std::thread::available_parallelism()
-        .map(|n| n.get().clamp(2, 16))
-        .unwrap_or(4)
+        .map(|n| n.get().clamp(4, 16))
+        .unwrap_or(6)
+}
+
+/// Fast native Rust sync of `workspace/public` into the cached Remotion bundle's `public/`
+/// directory so `staticFile(...)` assets never 404 even when reusing a cached bundle.
+pub fn sync_workspace_public_to_bundle(root: &Path) {
+    let ws_pub = root.join("workspace").join("public");
+    if !ws_pub.is_dir() {
+        return;
+    }
+    let bundle_pub = crate::paths::render_cache_dir().join("public");
+    let _ = std::fs::create_dir_all(&bundle_pub);
+    if let Ok(entries) = std::fs::read_dir(&ws_pub) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(name) = path.file_name() {
+                    let dest = bundle_pub.join(name);
+                    let should_copy = match (std::fs::metadata(&path), std::fs::metadata(&dest)) {
+                        (Ok(src_m), Ok(dst_m)) => {
+                            src_m.len() != dst_m.len()
+                                || src_m.modified().ok() != dst_m.modified().ok()
+                        }
+                        (Ok(_), Err(_)) => true,
+                        _ => false,
+                    };
+                    if should_copy {
+                        let _ = std::fs::copy(&path, &dest);
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Single place that builds the `node scripts/render.mjs` invocation with Rust-computed
@@ -185,6 +217,8 @@ pub fn execute_render_video(
             }
         })
         .unwrap_or_else(|| "{}".to_string());
+
+    sync_workspace_public_to_bundle(&root);
 
     let mut cmd = build_command(&root, composition_id, &props_str, Some(&output_path));
 

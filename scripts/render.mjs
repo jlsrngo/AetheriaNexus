@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { bundle } from "@remotion/bundler";
-import { getCompositions, renderMedia } from "@remotion/renderer";
+import { getCompositions, openBrowser, renderMedia } from "@remotion/renderer";
 
 // Bridge between the Rust backend and the Remotion engine. Rust computes the bundle stamp,
 // multi-core concurrency, codec, frame range, and browser executable path; this script
@@ -139,43 +139,62 @@ async function main() {
     args.bundleStamp,
   );
 
-  const compositions = await getCompositions(serveUrl, { inputProps, browserExecutable });
-  const composition = args.composition
-    ? compositions.find((c) => c.id === args.composition) || compositions[0]
-    : compositions[0];
-
-  if (!composition) {
-    const available = compositions.map((c) => c.id).join(", ") || "(none)";
-    throw new Error(`Composition "${args.composition}" not found. Available: ${available}`);
-  }
-
-  emit({
-    type: "status",
-    message: `Rendering ${composition.id}...`,
-    compositionId: composition.id,
-    totalFrames: composition.durationInFrames,
-    fps: composition.fps,
-  });
-
-  await renderMedia({
-    composition,
-    serveUrl,
-    codec,
-    concurrency,
-    frameRange,
-    outputLocation,
-    inputProps,
+  const puppeteerInstance = await openBrowser("chrome", {
     browserExecutable,
     chromiumOptions: {
       gl: "angle",
     },
-    onProgress: ({ renderedFrames }) => {
-      const percent = Math.min(100, Math.round((renderedFrames / composition.durationInFrames) * 100));
-      emit({ type: "progress", percent, renderedFrames, totalFrames: composition.durationInFrames });
-    },
   });
 
-  emit({ type: "done", compositionId: composition.id, outputPath: outputLocation });
+  try {
+    const compositions = await getCompositions(serveUrl, {
+      inputProps,
+      browserExecutable,
+      puppeteerInstance,
+    });
+    const composition = args.composition
+      ? compositions.find((c) => c.id === args.composition) || compositions[0]
+      : compositions[0];
+
+    if (!composition) {
+      const available = compositions.map((c) => c.id).join(", ") || "(none)";
+      throw new Error(`Composition "${args.composition}" not found. Available: ${available}`);
+    }
+
+    emit({
+      type: "status",
+      message: `Rendering ${composition.id}...`,
+      compositionId: composition.id,
+      totalFrames: composition.durationInFrames,
+      fps: composition.fps,
+    });
+
+    await renderMedia({
+      composition,
+      serveUrl,
+      puppeteerInstance,
+      codec,
+      concurrency,
+      frameRange,
+      outputLocation,
+      inputProps,
+      browserExecutable,
+      imageFormat: "jpeg",
+      jpegQuality: 85,
+      x264Preset: "veryfast",
+      chromiumOptions: {
+        gl: "angle",
+      },
+      onProgress: ({ renderedFrames }) => {
+        const percent = Math.min(100, Math.round((renderedFrames / composition.durationInFrames) * 100));
+        emit({ type: "progress", percent, renderedFrames, totalFrames: composition.durationInFrames });
+      },
+    });
+
+    emit({ type: "done", compositionId: composition.id, outputPath: outputLocation });
+  } finally {
+    await puppeteerInstance.close({ silent: true }).catch(() => {});
+  }
 }
 
 main().catch((err) => {
