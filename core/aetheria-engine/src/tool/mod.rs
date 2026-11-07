@@ -8,8 +8,10 @@ pub mod grep;
 pub mod json_repair;
 pub mod question;
 pub mod read;
+pub mod ref_extractor;
 pub mod render;
 pub mod sfx;
+pub mod skill_manager;
 pub mod step_formatter;
 pub mod tasks;
 pub mod todo;
@@ -30,10 +32,11 @@ pub fn should_attach_document_tools(_prompt_text: &str, _history: &[Value]) -> b
 }
 
 pub fn build_tool_definitions() -> Vec<Value> {
-    vec![
+    let mut tools = vec![
         render::render_video_tool_definition(),
         voicebox::voicebox_tool_definition(),
         sfx::sfx_tool_definition(),
+        ref_extractor::ref_extractor_tool_definition(),
         websearch::fetch_web_image_tool_definition(),
         read::read_tool_definition(),
         write::write_tool_definition(),
@@ -45,7 +48,9 @@ pub fn build_tool_definitions() -> Vec<Value> {
         question::question_tool_definition(),
         tasks::tasks_tool_definition(),
         bash::bash_tool_definition(),
-    ]
+    ];
+    tools.extend(skill_manager::skill_tool_definitions());
+    tools
 }
 
 pub fn resolve_isolated_path(workspace_dir: &str, raw_file: &str) -> Result<PathBuf, String> {
@@ -93,6 +98,15 @@ pub async fn execute_tool_call(
         }
         "generate_smart_sfx" | "smart_sfx" | "sfx_cues" | "sfx" => {
             sfx::execute_smart_sfx(workspace_dir, arguments).await
+        }
+        "extract_video_reference" | "extract_reference" | "ref_extract" => {
+            ref_extractor::execute_ref_extractor(workspace_dir, arguments).await
+        }
+        "install_agent_skill" | "install_skill" | "install_plugin" => {
+            skill_manager::execute_install_skill(workspace_dir, arguments).await
+        }
+        "list_agent_skills" | "list_skills" | "list_plugins" => {
+            skill_manager::execute_list_skills(workspace_dir)
         }
         "read" | "read_file" => read::execute_read(workspace_dir, arguments),
         "write" | "write_file" | "create_file" => {
