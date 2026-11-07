@@ -82,8 +82,20 @@ pub async fn run_agent_turn(
     if !mentioned_files.is_empty() {
         context_additions.extend(mentioned_files);
     }
-    if let Some(ref_report) = resolve_reference_report(workspace_dir) {
-        context_additions.push(ref_report);
+    // Active reference report is injected ONLY on-demand (when requested or attached)
+    let prompt_lower = prompt_text.to_lowercase();
+    let has_reference_intent = prompt_lower.contains("referensi")
+        || prompt_lower.contains("reference")
+        || prompt_lower.contains("ref_report")
+        || prompt_lower.contains("tiru")
+        || prompt_lower.contains("ikut")
+        || prompt_lower.contains("contoh")
+        || !image_urls.is_empty();
+
+    if has_reference_intent {
+        if let Some(ref_report) = resolve_reference_report(workspace_dir) {
+            context_additions.push(ref_report);
+        }
     }
 
     let enriched_user_text = if !context_additions.is_empty() {
