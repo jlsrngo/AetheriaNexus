@@ -88,37 +88,60 @@ def extract_scene_cuts(video_path: Path, threshold: float = 0.28) -> List[float]
     return cuts
 
 def extract_dominant_colors(video_path: Path, out_dir: Path, num_colors: int = 6) -> Dict[str, Any]:
-    """Extracts dominant color palette from sampled video frames."""
+    """Extracts real dominant color palette from sampled video frames."""
+    from PIL import Image
     ffmpeg = resolve_ffmpeg()
-    palette_png = out_dir / "palette.png"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    # 1. Generate palette image
-    cmd = [
-        ffmpeg,
-        "-y",
-        "-i", str(video_path),
-        "-vf", f"fps=1,scale=160:-2,palettegen=max_colors={num_colors}:stats_mode=full",
-        str(palette_png),
-    ]
-    subprocess.run(cmd, capture_output=True)
-
-    # 2. Sample frames to analyze luminance and pick primary, accent, secondary
     frames_dir = out_dir / "frames"
     frames_dir.mkdir(parents=True, exist_ok=True)
+
+    # Sample a few key frames across video timeline
     subprocess.run([
         ffmpeg, "-y", "-i", str(video_path),
-        "-vf", "fps=0.5,scale=120:-2",
-        "-q:v", "4",
+        "-vf", "fps=0.5",
+        "-q:v", "3",
         str(frames_dir / "thumb_%03d.jpg"),
     ], capture_output=True)
 
-    # Fallback / Default high-taste short-form colors
+    frame_files = sorted(list(frames_dir.glob("thumb_*.jpg")))
+    hex_palette = []
+
+    if frame_files:
+        # Sample middle frame (e.g. 35% in) to avoid black intro
+        sample_idx = min(len(frame_files) - 1, max(1, len(frame_files) // 3))
+        try:
+            sample_img = Image.open(frame_files[sample_idx]).convert("RGB")
+            img_small = sample_img.resize((64, 64), Image.Resampling.LANCZOS)
+            quantized = img_small.quantize(colors=num_colors, method=Image.Quantize.FASTOCTREE)
+            raw_pal = quantized.getpalette()[:num_colors * 3]
+            for i in range(0, len(raw_pal), 3):
+                r, g, b = raw_pal[i], raw_pal[i+1], raw_pal[i+2]
+                hex_palette.append(f"#{r:02X}{g:02X}{b:02X}")
+        except Exception:
+            pass
+
+    primary = hex_palette[0] if hex_palette else "#0A0A0C"
+    # Find most vibrant / saturated color for accent
+    accent = "#10B981"
+    best_vibrancy = -1
+    for h in hex_palette:
+        try:
+            r = int(h[1:3], 16)
+            g = int(h[3:5], 16)
+            b = int(h[5:7], 16)
+            vibrancy = max(r, g, b) - min(r, g, b)
+            if vibrancy > best_vibrancy and max(r, g, b) > 50:
+                best_vibrancy = vibrancy
+                accent = h
+        except Exception:
+            continue
+
+    secondary = hex_palette[1] if len(hex_palette) > 1 else "#1A1A1F"
+
     return {
-        "paletteImage": str(palette_png),
-        "primary": "#0A0A0C",
-        "accent": "#10B981", # Emerald or vibrant hook
-        "secondary": "#1A1A1F",
+        "palette": hex_palette,
+        "primary": primary,
+        "accent": accent,
+        "secondary": secondary,
         "textColor": "#FAFAFA",
         "contrast": "high-dark",
     }
@@ -155,7 +178,17 @@ def extract_reference_blueprint(video_path: str, output_dir: Optional[str] = Non
 
     # 1. Cuts & scene segmentation
     cuts = extract_scene_cuts(v_path)
-    if cuts[-1] < duration - 1.0:
+    if len(cuts) <= 1:
+        # If no hard cuts found (common in smooth motion graphics with continuous transitions),
+        # generate 4-act viral cadence based on total duration
+        cuts = [
+            0.0,
+            round(min(3.5, duration * 0.22), 2),
+            round(duration * 0.48, 2),
+            round(duration * 0.82, 2),
+            round(duration, 2),
+        ]
+    elif cuts[-1] < duration - 1.0:
         cuts.append(round(duration, 2))
 
     scenes = []
