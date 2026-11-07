@@ -134,7 +134,7 @@ pub async fn run_agent_turn(
                         let cid = p.get("id").and_then(|v| v.as_str()).unwrap_or("call_0");
                         let fn_name = p.get("name").and_then(|v| v.as_str()).unwrap_or("tool");
                         let input_val = p.pointer("/state/input").cloned().unwrap_or_else(|| json!({}));
-                        let out_str = p
+                        let out_str_raw = p
                             .pointer("/state/content/0/text")
                             .and_then(|v| v.as_str())
                             .map(|s| s.to_string())
@@ -143,13 +143,32 @@ pub async fn run_agent_turn(
                                     .map(|v| serde_json::to_string(v).unwrap_or_default())
                             })
                             .unwrap_or_else(|| "{}".to_string());
+                        let out_str: String = if out_str_raw.len() > 600 {
+                            let mut truncated: String = out_str_raw.chars().take(600).collect();
+                            truncated.push_str("...[truncated historical output]");
+                            truncated
+                        } else {
+                            out_str_raw
+                        };
+
+                        let args_raw = serde_json::to_string(&input_val).unwrap_or_else(|_| "{}".to_string());
+                        let args_compact = if args_raw.len() > 600 {
+                            let fp = input_val
+                                .get("filePath")
+                                .or_else(|| input_val.get("path"))
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
+                            json!({ "filePath": fp, "_note": "historical content omitted" }).to_string()
+                        } else {
+                            args_raw
+                        };
 
                         tool_calls.push(json!({
                             "id": cid,
                             "type": "function",
                             "function": {
                                 "name": fn_name,
-                                "arguments": serde_json::to_string(&input_val).unwrap_or_else(|_| "{}".to_string())
+                                "arguments": args_compact
                             }
                         }));
 
@@ -355,7 +374,7 @@ pub async fn run_agent_turn(
                     .unwrap_or(50)
             })
             .sum();
-        if (_step >= 8 && chat_messages.len() > 14) || total_chars > 80_000 {
+        if (_step >= 18 && chat_messages.len() > 40) || total_chars > 180_000 {
             crate::paths::log_engine(
                 "ai",
                 "📦 Proactive context compaction triggered during turn to maintain optimal token budget...",

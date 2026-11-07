@@ -21,7 +21,7 @@ pub fn voicebox_tool_definition() -> Value {
                     },
                     "outputPath": {
                         "type": "string",
-                        "description": "Relative output path for the mastered WAV file. Defaults to 'apps/public/voiceover.wav'."
+                        "description": "Relative output path for the mastered WAV file. Defaults to 'workspace/public/voiceover.wav'."
                     },
                     "lang": {
                         "type": "string",
@@ -49,7 +49,7 @@ pub fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
         .get("outputPath")
         .or_else(|| arguments.get("output_path"))
         .and_then(|v| v.as_str())
-        .unwrap_or("apps/public/voiceover.wav");
+        .unwrap_or("workspace/public/voiceover.wav");
 
     let lang = arguments
         .get("lang")

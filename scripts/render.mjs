@@ -41,9 +41,16 @@ function parseArgs(argv) {
 }
 
 async function resolveServeUrl(entryPoint, bundleDir, rustStamp) {
+  const publicDirCandidates = [
+    path.resolve(process.cwd(), "workspace/public"),
+    path.resolve(process.cwd(), "apps/public"),
+    path.resolve(process.cwd(), "public"),
+  ];
+  const publicDir = publicDirCandidates.find((p) => fs.existsSync(p));
+
   if (!bundleDir) {
     emit({ type: "status", message: `Bundling ${path.basename(entryPoint)}...` });
-    return await bundle({ entryPoint });
+    return await bundle({ entryPoint, ...(publicDir ? { publicDir } : {}) });
   }
 
   const stampFile = path.join(bundleDir, ".stamp");
@@ -51,7 +58,8 @@ async function resolveServeUrl(entryPoint, bundleDir, rustStamp) {
   const cached =
     fs.existsSync(path.join(bundleDir, "index.html")) &&
     fs.existsSync(stampFile) &&
-    fs.readFileSync(stampFile, "utf8") === stamp;
+    fs.readFileSync(stampFile, "utf8") === stamp &&
+    (!publicDir || fs.existsSync(path.join(bundleDir, "public")));
 
   if (cached) {
     emit({ type: "status", message: "Reusing Rust-verified cached bundle..." });
@@ -59,7 +67,7 @@ async function resolveServeUrl(entryPoint, bundleDir, rustStamp) {
   }
 
   emit({ type: "status", message: `Bundling ${path.basename(entryPoint)}...` });
-  const serveUrl = await bundle({ entryPoint, outDir: bundleDir });
+  const serveUrl = await bundle({ entryPoint, outDir: bundleDir, ...(publicDir ? { publicDir } : {}) });
   fs.writeFileSync(stampFile, stamp);
   return serveUrl;
 }

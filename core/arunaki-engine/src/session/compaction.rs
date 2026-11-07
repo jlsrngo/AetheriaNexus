@@ -145,8 +145,8 @@ pub fn compact_session_history(history: &[Value], context_limit: usize) -> (Vec<
 }
 
 /// Performs aggressive emergency compaction on chat messages during a 400 overflow error.
-/// Preserves system instructions (msg 0), extracts key summary from middle turns,
-/// and retains the active prompt in strict provider-compliant alternating format (no orphan tool messages).
+/// Preserves system instructions (msg 0), retains the LATEST active user prompt (`.rfind`),
+/// extracts exact files already written in the current turn, and keeps the most recent tool turns intact.
 pub fn emergency_compact_messages(messages: &[Value]) -> Vec<Value> {
     if messages.len() <= 2 {
         return messages.to_vec();
@@ -156,53 +156,79 @@ pub fn emergency_compact_messages(messages: &[Value]) -> Vec<Value> {
     // 1. Preserve Root System Prompt
     compacted.push(messages[0].clone());
 
-    // 2. Find the original user prompt
-    let original_user_msg = messages.iter().find(|m| {
-        m.get("role").and_then(|v| v.as_str()) == Some("user")
-    });
+    // 2. Find the LATEST (active) user prompt index — NEVER `.find()` which grabs old turn #1 ("halo")!
+    let latest_user_idx = messages
+        .iter()
+        .rposition(|m| m.get("role").and_then(|v| v.as_str()) == Some("user"));
 
-    let mut files_touched = Vec::new();
+    let mut files_written = Vec::new();
     let mut last_actions = Vec::new();
 
-    for m in &messages[1..] {
+    let scan_slice = match latest_user_idx {
+        Some(idx) => &messages[idx..],
+        None => &messages[1..],
+    };
+
+    for m in scan_slice {
         let role = m.get("role").and_then(|v| v.as_str()).unwrap_or("");
-        let content = m.get("content").and_then(|v| v.as_str()).unwrap_or("");
-
-        if role == "tool" {
-            let name = m.get("name").and_then(|v| v.as_str()).unwrap_or("tool");
-            let action = format!("Executed tool '{}'", name);
-            if !last_actions.contains(&action) {
-                last_actions.push(action);
-            }
-        }
-
-        // Catch file references
-        for word in content.split_whitespace() {
-            let clean = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '.' && c != '_' && c != '-');
-            if (clean.ends_with(".tsx") || clean.ends_with(".ts") || clean.ends_with(".mp4") || clean.ends_with(".json"))
-                && !files_touched.contains(&clean.to_string())
-                && files_touched.len() < 10
-            {
-                files_touched.push(clean.to_string());
+        if role == "assistant" {
+            if let Some(tcs) = m.get("tool_calls").and_then(|v| v.as_array()) {
+                for tc in tcs {
+                    let tname = tc
+                        .pointer("/function/name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("tool");
+                    let args_str = tc
+                        .pointer("/function/arguments")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("{}");
+                    if let Ok(args_val) = serde_json::from_str::<Value>(args_str) {
+                        if let Some(fp) = args_val
+                            .get("filePath")
+                            .or_else(|| args_val.get("path"))
+                            .or_else(|| args_val.get("outputPath"))
+                            .and_then(|v| v.as_str())
+                        {
+                            let entry = format!("{} ({})", tname, fp);
+                            if !files_written.contains(&entry) {
+                                files_written.push(entry);
+                            }
+                        }
+                    }
+                    let act = format!("Called tool '{}'", tname);
+                    if !last_actions.contains(&act) {
+                        last_actions.push(act);
+                    }
+                }
             }
         }
     }
 
     let summary_md = format!(
-        "[Context Auto-Healed]\n\
-         Earlier conversation turns were compacted to fit the provider context window.\n\
-         Files involved: {}\n\
-         Actions executed:\n{}\n\
-         Proceed immediately to the next action (e.g. calling 'render_video' if composition is ready) without repeating prior reads.",
-        if files_touched.is_empty() { "(none)".to_string() } else { files_touched.join(", ") },
-        if last_actions.is_empty() { "- (none)".to_string() } else { last_actions.iter().take(6).map(|a| format!("- {}", a)).collect::<Vec<_>>().join("\n") }
+        "[In-Turn Progress Summary — Continue Immediately]\n\
+         Already completed in this turn:\n{}\n\
+         Actions executed: {}\n\
+         IMPORTANT: Do NOT greet the user and do NOT repeat files already written above. \
+         Continue immediately with creating the remaining files and calling 'render_video'.",
+        if files_written.is_empty() {
+            "- (none yet)".to_string()
+        } else {
+            files_written
+                .iter()
+                .map(|f| format!("- {}", f))
+                .collect::<Vec<_>>()
+                .join("\n")
+        },
+        if last_actions.is_empty() {
+            "(none)".to_string()
+        } else {
+            last_actions.join(", ")
+        }
     );
 
-    if let Some(user_msg) = original_user_msg {
-        let mut u = user_msg.clone();
-        let current_text = u.get("content")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+    if let Some(idx) = latest_user_idx {
+        let mut u = messages[idx].clone();
+        let current_text = u.get("content").and_then(|v| v.as_str()).unwrap_or("");
         let enriched = format!("{}\n\n{}", current_text, summary_md);
         u["content"] = json!(enriched);
         compacted.push(u);
