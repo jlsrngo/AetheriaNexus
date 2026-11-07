@@ -1,7 +1,20 @@
 import path from "node:path";
 import fs from "node:fs";
+import os from "node:os";
+import { execFileSync } from "node:child_process";
 import { bundle } from "@remotion/bundler";
 import { getCompositions, openBrowser, renderMedia } from "@remotion/renderer";
+
+function resolveBundledFfmpeg() {
+  const candidates = [
+    path.resolve(process.cwd(), "node_modules/@remotion/compositor-win32-x64-msvc/ffmpeg.exe"),
+    path.resolve(process.cwd(), "node_modules/@remotion/compositor-linux-x64-gnu/ffmpeg"),
+    path.resolve(process.cwd(), "node_modules/@remotion/compositor-linux-arm64-gnu/ffmpeg"),
+    path.resolve(process.cwd(), "node_modules/@remotion/compositor-darwin-arm64/ffmpeg"),
+    path.resolve(process.cwd(), "node_modules/@remotion/compositor-darwin-x64/ffmpeg"),
+  ];
+  return candidates.find((p) => fs.existsSync(p)) || null;
+}
 
 // Bridge between the Rust backend and the Remotion engine. Rust computes the bundle stamp,
 // multi-core concurrency, codec, frame range, and browser executable path; this script
@@ -161,35 +174,128 @@ async function main() {
       throw new Error(`Composition "${args.composition}" not found. Available: ${available}`);
     }
 
+    const startFrame = frameRange ? frameRange[0] : 0;
+    const endFrame = frameRange ? frameRange[1] : composition.durationInFrames - 1;
+    const targetFrames = endFrame - startFrame + 1;
+    const ffmpegBin = resolveBundledFfmpeg();
+    const shardCount =
+      ffmpegBin && codec === "h264" && targetFrames >= 120
+        ? Math.min(4, Math.max(2, Math.floor(concurrency / 2)))
+        : 1;
+
     emit({
       type: "status",
-      message: `Rendering ${composition.id}...`,
+      message: `Rendering ${composition.id} (${shardCount} parallel browser shards)...`,
       compositionId: composition.id,
-      totalFrames: composition.durationInFrames,
+      totalFrames: targetFrames,
       fps: composition.fps,
     });
 
-    await renderMedia({
-      composition,
-      serveUrl,
-      puppeteerInstance,
-      codec,
-      concurrency,
-      frameRange,
-      outputLocation,
-      inputProps,
-      browserExecutable,
-      imageFormat: "jpeg",
-      jpegQuality: 85,
-      x264Preset: "veryfast",
-      chromiumOptions: {
-        gl: "angle",
-      },
-      onProgress: ({ renderedFrames }) => {
-        const percent = Math.min(100, Math.round((renderedFrames / composition.durationInFrames) * 100));
-        emit({ type: "progress", percent, renderedFrames, totalFrames: composition.durationInFrames });
-      },
-    });
+    if (shardCount > 1) {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nexus-shards-"));
+      const extraBrowsers = [];
+      try {
+        for (let i = 1; i < shardCount; i++) {
+          extraBrowsers.push(
+            await openBrowser("chrome", {
+              browserExecutable,
+              chromiumOptions: { gl: "angle" },
+            }),
+          );
+        }
+        const allBrowsers = [puppeteerInstance, ...extraBrowsers];
+        const perShard = Math.ceil(targetFrames / shardCount);
+        const shardProgress = new Array(shardCount).fill(0);
+        const shardFiles = new Array(shardCount);
+
+        await Promise.all(
+          allBrowsers.map(async (browserInst, idx) => {
+            const s = startFrame + idx * perShard;
+            const e = Math.min(endFrame, startFrame + (idx + 1) * perShard - 1);
+            const shardOut = path.join(tmpDir, `shard-${idx}.mp4`);
+            shardFiles[idx] = shardOut;
+
+            await renderMedia({
+              composition,
+              serveUrl,
+              puppeteerInstance: browserInst,
+              codec,
+              concurrency: 1,
+              frameRange: [s, e],
+              outputLocation: shardOut,
+              inputProps,
+              browserExecutable,
+              imageFormat: "jpeg",
+              jpegQuality: 82,
+              x264Preset: "veryfast",
+              chromiumOptions: {
+                gl: "angle",
+              },
+              onProgress: ({ renderedFrames }) => {
+                shardProgress[idx] = renderedFrames;
+                const totalRendered = shardProgress.reduce((a, b) => a + b, 0);
+                const percent = Math.min(100, Math.round((totalRendered / targetFrames) * 100));
+                emit({
+                  type: "progress",
+                  percent,
+                  renderedFrames: totalRendered,
+                  totalFrames: targetFrames,
+                });
+              },
+            });
+          }),
+        );
+
+        const listPath = path.join(tmpDir, "concat.txt");
+        fs.writeFileSync(
+          listPath,
+          shardFiles.map((f) => `file '${f.replace(/\\/g, "/")}'`).join("\n"),
+          "utf8",
+        );
+        execFileSync(ffmpegBin, [
+          "-y",
+          "-hide_banner",
+          "-loglevel",
+          "error",
+          "-f",
+          "concat",
+          "-safe",
+          "0",
+          "-i",
+          listPath,
+          "-c",
+          "copy",
+          path.resolve(outputLocation),
+        ]);
+      } finally {
+        await Promise.all(
+          extraBrowsers.map((b) => b.close({ silent: true }).catch(() => {})),
+        );
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    } else {
+      await renderMedia({
+        composition,
+        serveUrl,
+        puppeteerInstance,
+        codec,
+        concurrency: Math.min(2, concurrency),
+        frameRange,
+        outputLocation,
+        inputProps,
+        browserExecutable,
+        imageFormat: "jpeg",
+        jpegQuality: 80,
+        x264Preset: "ultrafast",
+        chromiumOptions: {
+          gl: "angle",
+        },
+        onProgress: ({ renderedFrames }) => {
+          const percent = Math.min(100, Math.round((renderedFrames / targetFrames) * 100));
+          emit({ type: "progress", percent, renderedFrames, totalFrames: targetFrames });
+        },
+      });
+    }
 
     emit({ type: "done", compositionId: composition.id, outputPath: outputLocation });
   } finally {
