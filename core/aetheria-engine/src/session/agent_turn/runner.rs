@@ -8,7 +8,7 @@ use crate::session::session::{save_store, with_store};
 use crate::session::tools::{build_tool_definitions, execute_tool_call, should_attach_document_tools};
 use serde_json::{json, Value};
 
-use super::context::{assemble_system_prompt, resolve_mentioned_files, resolve_reference_report};
+use super::context::{assemble_system_prompt, resolve_mentioned_files};
 use super::history::build_chat_messages;
 use super::vision::{find_ffmpeg_bin, process_attached_files, process_social_links};
 
@@ -77,25 +77,10 @@ pub async fn run_agent_turn(
     let mut context_additions = file_transcriptions;
     context_additions.extend(social_transcriptions);
 
-    // Mentioned files & reference blueprint
+    // Mentioned files (@file.ext)
     let mentioned_files = resolve_mentioned_files(workspace_dir, prompt_text);
     if !mentioned_files.is_empty() {
         context_additions.extend(mentioned_files);
-    }
-    // Active reference report is injected ONLY on-demand (when requested or attached)
-    let prompt_lower = prompt_text.to_lowercase();
-    let has_reference_intent = prompt_lower.contains("referensi")
-        || prompt_lower.contains("reference")
-        || prompt_lower.contains("ref_report")
-        || prompt_lower.contains("tiru")
-        || prompt_lower.contains("ikut")
-        || prompt_lower.contains("contoh")
-        || !image_urls.is_empty();
-
-    if has_reference_intent {
-        if let Some(ref_report) = resolve_reference_report(workspace_dir) {
-            context_additions.push(ref_report);
-        }
     }
 
     let enriched_user_text = if !context_additions.is_empty() {
