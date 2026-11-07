@@ -326,7 +326,7 @@ pub fn execute_render_video_with_progress(
             let done = last_event(&stdout, "done");
             json!({
                 "success": true,
-                "message": "Video exported to MP4 via local Nexus render engine ($0 cloud cost).",
+                "message": "Video exported to MP4 successfully via local Remotion render engine.",
                 "compositionId": done
                     .as_ref()
                     .and_then(|value| value["compositionId"].as_str())
