@@ -56,6 +56,18 @@ pub fn voicebox_tool_definition() -> Value {
                     "voice": {
                         "type": "string",
                         "description": "Optional specific voice name (e.g. 'id-ID-ArdiNeural', 'id-ID-GadisNeural', 'af_heart', 'am_adam')."
+                    },
+                    "refAudio": {
+                        "type": "string",
+                        "description": "Optional path to a reference audio/video sample (e.g. 'workspace/public/ref_voice.wav') to match its vocal register, pitch, and cadence."
+                    },
+                    "rate": {
+                        "type": "string",
+                        "description": "Optional speaking rate adjustment (e.g. '+10%', '-5%')."
+                    },
+                    "pitch": {
+                        "type": "string",
+                        "description": "Optional vocal pitch adjustment (e.g. '+5Hz', '-8Hz')."
                     }
                 },
                 "required": ["text"]
@@ -123,8 +135,36 @@ pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
         .arg("--lang")
         .arg(lang);
 
-    if let Some(v) = arguments.get("voice").and_then(|v| v.as_str()) {
+    if let Some(v) = arguments.get("voice").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
         cmd.arg("--voice").arg(v);
+    }
+
+    let ref_audio_opt = arguments
+        .get("refAudio")
+        .or_else(|| arguments.get("ref_audio"))
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty());
+    if let Some(ref_rel) = ref_audio_opt {
+        let ref_path = if Path::new(ref_rel).is_absolute() {
+            std::path::PathBuf::from(ref_rel)
+        } else {
+            ws.join(ref_rel)
+        };
+        if ref_path.is_file() {
+            cmd.arg("--ref-audio").arg(ref_path);
+        }
+    } else {
+        let default_ref = root.join("workspace").join("public").join("ref_voice.wav");
+        if default_ref.is_file() {
+            cmd.arg("--ref-audio").arg(default_ref);
+        }
+    }
+
+    if let Some(r) = arguments.get("rate").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
+        cmd.arg("--rate").arg(r);
+    }
+    if let Some(p) = arguments.get("pitch").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
+        cmd.arg("--pitch").arg(p);
     }
 
     match cmd.output().await {

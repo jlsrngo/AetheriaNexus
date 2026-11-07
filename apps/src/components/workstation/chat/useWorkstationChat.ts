@@ -1272,19 +1272,31 @@ export function useWorkstationChat({
             clearTimeout(textEndFinalizeTimeout);
             textEndFinalizeTimeout = null;
           }
-          resetWatchdog(120000);
           const toolName = event.data?.toolName || "action";
           if (toolName.toLowerCase() === "question") {
             return;
           }
+          const isRenderOrVoice =
+            toolName.toLowerCase().includes("render") ||
+            toolName.toLowerCase().includes("voicebox");
+          resetWatchdog(isRenderOrVoice ? 300000 : 120000);
           const callId = event.data?.callID;
           const isFinished = event.data?.status === "completed" || event.data?.status === "failed";
           const rawArgs = event.data?.args || event.data?.input;
-          const label = rawArgs
-            ? formatToolStepLabel(toolName, rawArgs, isFinished)
-            : undefined;
+          const progressPreview =
+            event.type === "tool_progress" && typeof event.data?.preview === "string"
+              ? event.data.preview
+              : undefined;
+          const label =
+            progressPreview ||
+            (rawArgs ? formatToolStepLabel(toolName, rawArgs, isFinished) : undefined);
           setLiveStatus({
-            type: event.type === "tool_live_status" ? "tool_live_status" : "tool_start",
+            type:
+              event.type === "tool_live_status"
+                ? "tool_live_status"
+                : event.type === "tool_progress"
+                ? "tool_progress"
+                : "tool_start",
             ...event.data,
             toolName,
             preview: label || event.data?.preview || `${isFinished ? "Completed" : "Running"} ${toolName}`,
@@ -1302,6 +1314,8 @@ export function useWorkstationChat({
                 .replace(/^Reading\b/i, "Explored")
                 .replace(/^Editing\b/i, "Edited")
                 .replace(/^Writing\b/i, "Created")
+                .replace(/^Rendering\b/i, "Rendered")
+                .replace(/^Synthesizing\b/i, "Synthesized")
                 .replace(/^Running\b/i, "Executed");
             }
             existingStep.status = finalStatus;
@@ -1327,6 +1341,8 @@ export function useWorkstationChat({
                 .replace(/^Reading\b/i, "Explored")
                 .replace(/^Editing\b/i, "Edited")
                 .replace(/^Writing\b/i, "Created")
+                .replace(/^Rendering\b/i, "Rendered")
+                .replace(/^Synthesizing\b/i, "Synthesized")
                 .replace(/^Running\b/i, "Executed");
             }
             existingToolPart.step.status = finalStatus;

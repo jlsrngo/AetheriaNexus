@@ -595,6 +595,9 @@ export function mapEngineEvent(
         input.TargetFile ||
         input.filePath ||
         input.targetFile ||
+        input.outputPath ||
+        input.output_path ||
+        input.composition_id ||
         input.pattern ||
         (typeof input.command === "string" ? input.command.slice(0, 40) : undefined);
       const filePreview = target && typeof target === "string" ? target.split(/[/\\]/).pop() : undefined;
@@ -623,19 +626,34 @@ export function mapEngineEvent(
     }
     case "session.next.tool.progress": {
       const callID = payload.callID || event.callID || payload.id || event.id;
-      const toolName = payload.tool || event.tool || (callID ? toolCallNameMap.get(callID) : undefined) || "action";
+      const toolName =
+        payload.tool ||
+        event.tool ||
+        payload.name ||
+        event.name ||
+        (callID ? toolCallNameMap.get(callID) : undefined) ||
+        "action";
       return {
         type: "tool_progress",
         data: {
           callID,
           toolName,
-          preview: `Executing ${toolName}...`,
+          preview: payload.preview || event.preview || `Executing ${toolName}...`,
+          percent: payload.percent ?? event.percent,
+          renderedFrames: payload.renderedFrames ?? event.renderedFrames,
+          totalFrames: payload.totalFrames ?? event.totalFrames,
         },
       };
     }
     case "session.next.tool.success": {
       const callID = payload.callID || event.callID || payload.id || event.id;
-      const toolName = payload.tool || event.tool || (callID ? toolCallNameMap.get(callID) : undefined) || "action";
+      const toolName =
+        payload.tool ||
+        event.tool ||
+        payload.name ||
+        event.name ||
+        (callID ? toolCallNameMap.get(callID) : undefined) ||
+        "action";
       if (callID) toolCallNameMap.delete(callID);
       return {
         type: "tool_live_status",
@@ -649,7 +667,13 @@ export function mapEngineEvent(
     }
     case "session.next.tool.failed": {
       const callID = payload.callID || event.callID || payload.id || event.id;
-      const toolName = payload.tool || event.tool || (callID ? toolCallNameMap.get(callID) : undefined) || "action";
+      const toolName =
+        payload.tool ||
+        event.tool ||
+        payload.name ||
+        event.name ||
+        (callID ? toolCallNameMap.get(callID) : undefined) ||
+        "action";
       if (callID) toolCallNameMap.delete(callID);
       return {
         type: "tool_live_status",

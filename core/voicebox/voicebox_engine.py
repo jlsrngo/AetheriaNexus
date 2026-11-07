@@ -133,32 +133,116 @@ def generate_kokoro_speech(
     return samples, sample_rate
 
 
+def analyze_reference_voice(ref_audio_path: str, lang: str = "id") -> Dict[str, Any]:
+    """
+    Analyzes a reference audio WAV file (e.g. extracted from a user-uploaded video or voice sample)
+    to estimate fundamental frequency (F0 pitch in Hz), vocal register (male/female), pitch shift,
+    and speaking cadence so synthesized voiceovers match the reference voice character.
+    """
+    p = pathlib.Path(ref_audio_path)
+    if not p.is_file():
+        return {}
+    try:
+        data, sr = sf.read(str(p))
+        if data.ndim > 1:
+            data = np.mean(data, axis=1)
+        data = data.astype(np.float32)
+
+        # Estimate voiced segments and F0 via autocorrelation on 40ms frames
+        frame_len = int(sr * 0.04)
+        hop = int(sr * 0.02)
+        min_lag = max(1, int(sr / 320))  # 320 Hz max F0
+        max_lag = max(min_lag + 1, int(sr / 75))  # 75 Hz min F0
+        f0_list: List[float] = []
+        voiced_frames = 0
+        total_frames = 0
+
+        for start in range(0, min(len(data) - frame_len, sr * 15), hop):
+            frame = data[start : start + frame_len]
+            rms = float(np.sqrt(np.mean(frame * frame)))
+            total_frames += 1
+            if rms < 0.015:
+                continue
+            voiced_frames += 1
+            frame = frame - np.mean(frame)
+            corr = np.correlate(frame, frame, mode="full")[len(frame) - 1 :]
+            if max_lag < len(corr):
+                sub = corr[min_lag:max_lag]
+                if len(sub) > 0 and corr[0] > 0:
+                    peak_idx = int(np.argmax(sub)) + min_lag
+                    if corr[peak_idx] / corr[0] > 0.25:
+                        f0_list.append(float(sr) / float(peak_idx))
+
+        median_f0 = float(np.median(f0_list)) if f0_list else 135.0
+        is_female = median_f0 >= 165.0
+        is_id = lang.lower() == "id"
+        matched_voice = (
+            ("id-ID-GadisNeural" if is_female else "id-ID-ArdiNeural")
+            if is_id
+            else ("af_heart" if is_female else "am_adam")
+        )
+        base_f0 = 210.0 if is_female else 125.0
+        pitch_diff_hz = int(np.clip(round(median_f0 - base_f0), -18, 18))
+        pitch_str = f"{pitch_diff_hz:+d}Hz"
+
+        voiced_ratio = voiced_frames / max(1, total_frames)
+        rate_pct = int(np.clip(round((voiced_ratio - 0.55) * 35), -12, 18))
+        rate_str = f"{rate_pct:+d}%"
+
+        return {
+            "median_f0_hz": round(median_f0, 1),
+            "matched_voice": matched_voice,
+            "pitch": pitch_str,
+            "rate": rate_str,
+        }
+    except Exception as e:
+        print(f"[voicebox] Reference voice analysis warning: {e}")
+        return {}
+
+
 def generate_speech(
     text: str,
     output_path: str,
     voice: Optional[str] = None,
     lang: str = "id",
-    apply_dsp: bool = True
+    apply_dsp: bool = True,
+    ref_audio: Optional[str] = None,
+    rate: str = "+0%",
+    pitch: str = "+0Hz"
 ) -> Dict[str, Any]:
     """
     Unified entry point for voice generation.
     Automatically chooses Kokoro (English/Multilingual) or Indonesian Neural,
+    applies reference voice matching (when ref_audio is provided),
     applies Voicebox Pedalboard DSP mastering, and writes master WAV + word timings.
     """
     out_file = pathlib.Path(output_path).resolve()
     out_file.parent.mkdir(parents=True, exist_ok=True)
     words_json_path = out_file.with_suffix(".words.json")
 
+    ref_profile: Dict[str, Any] = {}
+    if ref_audio:
+        ref_profile = analyze_reference_voice(ref_audio, lang=lang)
+        if ref_profile:
+            if not voice:
+                voice = ref_profile.get("matched_voice")
+            if rate == "+0%" and ref_profile.get("rate"):
+                rate = ref_profile["rate"]
+            if pitch == "+0Hz" and ref_profile.get("pitch"):
+                pitch = ref_profile["pitch"]
+
     is_indonesian = (lang.lower() == "id") or (voice and "id-ID" in voice)
 
-    print(f"[voicebox] Generating audio (lang={lang}, voice={voice or ('Indonesian' if is_indonesian else 'Kokoro')})...")
+    print(f"[voicebox] Generating audio (lang={lang}, voice={voice or ('Indonesian' if is_indonesian else 'Kokoro')}, rate={rate}, pitch={pitch})...")
     start_time = time.time()
 
     words: List[Dict[str, Any]] = []
 
     if is_indonesian:
         v = voice or DEFAULT_ID_VOICE
-        audio_data, sample_rate, words = asyncio.run(generate_indonesian_speech(text, voice=v))
+        audio_data, sample_rate, words = asyncio.run(
+            generate_indonesian_speech(text, voice=v, rate=rate, pitch=pitch)
+        )
     else:
         v = voice or DEFAULT_EN_VOICE
         audio_data, sample_rate = generate_kokoro_speech(text, voice=v)
@@ -276,6 +360,9 @@ if __name__ == "__main__":
     parser.add_argument("--out", type=str, default="output/voicebox_test.wav", help="Output WAV path")
     parser.add_argument("--voice", type=str, default=None, help="Voice name")
     parser.add_argument("--lang", type=str, default="id", help="Language: id or en")
+    parser.add_argument("--ref-audio", type=str, default=None, help="Optional reference audio WAV for voice matching")
+    parser.add_argument("--rate", type=str, default="+0%", help="Speaking rate adjustment, e.g. +10% or -5%")
+    parser.add_argument("--pitch", type=str, default="+0Hz", help="Pitch adjustment, e.g. +5Hz or -8Hz")
     parser.add_argument("--no-dsp", action="store_true", help="Disable DSP mastering")
     parser.add_argument("--serve", action="store_true", help="Run HTTP server on port 17493")
     parser.add_argument("--port", type=int, default=17493, help="Server port")
@@ -290,7 +377,10 @@ if __name__ == "__main__":
             output_path=args.out,
             voice=args.voice,
             lang=args.lang,
-            apply_dsp=not args.no_dsp
+            apply_dsp=not args.no_dsp,
+            ref_audio=args.ref_audio,
+            rate=args.rate,
+            pitch=args.pitch
         )
         print(json.dumps(res, indent=2))
     else:

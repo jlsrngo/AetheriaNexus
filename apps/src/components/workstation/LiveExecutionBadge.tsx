@@ -23,6 +23,9 @@ import {
   HelpCircle,
   RotateCcw,
   Presentation,
+  Film,
+  Volume2,
+  ListChecks,
 } from "lucide-react";
 
 export interface LiveStatusData {
@@ -31,6 +34,9 @@ export interface LiveStatusData {
   preview?: string;
   screenshot?: string;
   timestamp?: string;
+  percent?: number;
+  renderedFrames?: number;
+  totalFrames?: number;
 }
 
 export interface StepItem {
@@ -69,6 +75,9 @@ export function formatToolStepLabel(
       argsOrTarget.targetFile ||
       argsOrTarget.path ||
       argsOrTarget.filePath ||
+      argsOrTarget.outputPath ||
+      argsOrTarget.output_path ||
+      argsOrTarget.composition_id ||
       argsOrTarget.file ||
       argsOrTarget.pattern ||
       argsOrTarget.CommandLine ||
@@ -237,7 +246,26 @@ export function formatToolStepLabel(
     return isFinished ? `Ran ${cmdPreview || "command"}` : `Running ${cmdPreview || "command"}`;
   }
 
-  // 8. Search / Knowledge
+  // 8. Studio Video Render, Voicebox TTS & Todo Checklist
+  if (t.includes("render_video") || t.includes("remotion_render") || t.includes("export_video")) {
+    const compName =
+      (argsOrTarget && typeof argsOrTarget === "object"
+        ? argsOrTarget.composition_id || argsOrTarget.output_path
+        : "") ||
+      fileName ||
+      "MP4 video";
+    return isFinished ? `Rendered video: ${compName}` : `Rendering video: ${compName}`;
+  }
+  if (t.includes("voicebox") || t.includes("generate_speech") || t === "tts") {
+    return isFinished
+      ? `Synthesized voiceover: ${fileName || "audio"}`
+      : `Synthesizing voiceover: ${fileName || "audio"}`;
+  }
+  if (t === "todowrite" || t === "todo") {
+    return isFinished ? `Updated studio production plan` : `Updating studio production plan`;
+  }
+
+  // 9. Search / Knowledge
   if (t.includes("knowledge") || t.includes("memory")) {
     if (queryText) return isFinished ? `Searched knowledge: ${queryText}` : `Searching knowledge: ${queryText}`;
     return isFinished ? `Searched knowledge base` : `Searching knowledge base`;
@@ -275,6 +303,9 @@ export function getActiveActionText(
     if (l && !l.startsWith("Executing:") && !l.startsWith("Preparing")) {
       return l.replace(/\.\.\.$/, "");
     }
+    if (t.includes("render")) return "Rendering video MP4";
+    if (t.includes("voicebox") || t.includes("tts")) return "Synthesizing voiceover audio";
+    if (t.includes("todo")) return "Updating studio checklist";
     if (t.includes("arunakizen") || t.includes("pos")) {
       if (t.includes("search") || t.includes("product") || t.includes("katalog") || t.includes("catalog")) return "Searching product catalog";
       if (t.includes("order") || t.includes("sale") || t.includes("penjualan")) return "Creating sales order";
@@ -284,26 +315,26 @@ export function getActiveActionText(
       if (t.includes("stock") || t.includes("stok")) return "Adjusting inventory stock";
     }
     if (t.includes("excel")) return "Updating Excel document";
-    if (t.includes("read") || t.includes("view")) return "Reading document";
-    if (t.includes("write") || t.includes("edit")) return "Writing document";
+    if (t.includes("read") || t.includes("view")) return "Reading script";
+    if (t.includes("write") || t.includes("edit")) return "Writing React video script";
     if (t.includes("search") || t.includes("grep")) return "Searching workspace";
-    return runningStep.toolName ? `Running ${runningStep.toolName}` : "Executing action";
+    return runningStep.toolName ? `Running ${runningStep.toolName}` : "Executing studio action";
   }
 
   // 2. If status preview provides active tool action
-  if (status?.preview && status.type && status.type !== "text_delta" && status.type !== "thinking") {
+  if (status?.preview && status.type && status.type !== "text_delta") {
     return status.preview.replace(/\.\.\.$/, "");
   }
 
   // 3. If tools have finished and now preparing / synthesizing response
   const hasCompletedTools = steps && steps.some((s) => s.iconType === "tool");
   if (hasCompletedTools && !hasVisibleContent) {
-    return "Synthesizing document data";
+    return "Planning next studio step";
   }
 
   // 4. If active reasoning / thinking
   if (isReasoning) {
-    return "Thinking";
+    return "Thinking & designing scenes";
   }
 
   // 5. If response is already streaming text
@@ -311,7 +342,7 @@ export function getActiveActionText(
     return "Generating response";
   }
 
-  return "Analyzing request";
+  return "Analyzing prompt & planning video";
 }
 
 /**
@@ -351,6 +382,16 @@ function renderStepIcon(step: StepItem) {
     return <Cpu size={12} className="text-[var(--text-muted)] shrink-0 mt-0.5" />;
   }
   const t = (step.toolName || step.label || "").toLowerCase();
+
+  if (t.includes("render") || t.includes("video")) {
+    return <Film size={12} className="text-rose-400 shrink-0 mt-0.5" />;
+  }
+  if (t.includes("voicebox") || t.includes("voiceover") || t.includes("tts")) {
+    return <Volume2 size={12} className="text-emerald-400 shrink-0 mt-0.5" />;
+  }
+  if (t.includes("todo") || t.includes("plan") || t.includes("checklist")) {
+    return <ListChecks size={12} className="text-amber-400 shrink-0 mt-0.5" />;
+  }
 
   // ArunakiZen Retail Specific Icons
   if (
@@ -424,17 +465,94 @@ interface LiveExecutionBadgeProps {
 }
 
 export function LiveExecutionBadge({ status, active = true }: LiveExecutionBadgeProps) {
-  if (!status || !active) return null;
+  const [elapsedSec, setElapsedSec] = useState(0);
 
-  const hasToolExecution =
-    status.type === "tool_preparing" ||
-    status.type === "tool_start" ||
-    status.type === "tool_live_status" ||
-    status.type === "tool_progress";
+  useEffect(() => {
+    if (!active) {
+      setElapsedSec(0);
+      return;
+    }
+    const start = Date.now();
+    const timer = setInterval(() => {
+      setElapsedSec(Math.max(1, Math.floor((Date.now() - start) / 1000)));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [active, status?.toolName, status?.type]);
 
-  if (!hasToolExecution) return null;
+  if (!active) return null;
 
-  return null;
+  const isRender =
+    (status?.toolName || "").toLowerCase().includes("render") ||
+    (status?.preview || "").toLowerCase().includes("rendering");
+  const percent =
+    typeof status?.percent === "number" && status.percent >= 0
+      ? Math.min(100, Math.round(status.percent))
+      : undefined;
+  const label =
+    status?.preview ||
+    (status?.toolName ? `Running ${status.toolName}...` : "Engine sedang memproses instruksi...");
+
+  return (
+    <div className="w-full rounded-[10px] bg-[var(--bg-card)] border border-[var(--border-color)] px-3 py-2 font-mono text-[11px] select-none shadow-xs animate-in fade-in duration-150">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span
+              className={cn(
+                "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                isRender ? "bg-rose-400" : "bg-emerald-400"
+              )}
+            />
+            <span
+              className={cn(
+                "relative inline-flex rounded-full h-2 w-2",
+                isRender ? "bg-rose-500" : "bg-emerald-500"
+              )}
+            />
+          </span>
+          <Loader2
+            size={12}
+            className={cn(
+              "animate-spin shrink-0",
+              isRender ? "text-rose-400" : "text-[#e59344]"
+            )}
+          />
+          <span className="text-[var(--text-primary)] font-medium truncate">
+            {label}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {typeof percent === "number" && (
+            <span className="px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 font-semibold text-[10px]">
+              {percent}%
+            </span>
+          )}
+          <span className="text-[10px] text-[var(--text-muted)]">
+            {elapsedSec}s
+          </span>
+        </div>
+      </div>
+
+      {isRender && (
+        <div className="mt-2 space-y-1">
+          <div className="w-full h-1.5 rounded-full bg-[var(--bg-panel)] overflow-hidden border border-[var(--border-color)]">
+            <div
+              className="h-full bg-rose-500 transition-all duration-300 rounded-full"
+              style={{ width: `${typeof percent === "number" && percent > 0 ? percent : 8}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
+            <span>
+              {typeof status?.renderedFrames === "number" && typeof status?.totalFrames === "number"
+                ? `Frame ${status.renderedFrames} / ${status.totalFrames} (4-Shard Parallel Engine)`
+                : "Menyiapkan 4 browser shard paralel & audio..."}
+            </span>
+            <span className="text-emerald-400 font-medium">LIVE</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -486,7 +604,7 @@ export function MessageThoughtBadge({
     const n = (s.toolName || s.label || "").toLowerCase();
     return n.includes("arunakizen") || n.includes("zen") || n.includes("pos") || n.includes("catalog") || n.includes("katalog") || n.includes("receipt") || n.includes("order") || n.includes("drawer");
   });
-  const taskCategory = isZenDomain ? "ArunakiZen" : "document";
+  const taskCategory = isZenDomain ? "ArunakiZen" : "studio";
 
   const displayReasoning = useMemo(() => {
     if (reasoning && reasoning.trim().length > 0) return reasoning.trim();

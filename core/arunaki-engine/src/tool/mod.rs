@@ -77,7 +77,13 @@ pub async fn execute_tool_call(
 ) -> Value {
     match name {
         "render_video" | "remotion_render" | "export_video" | "render_nexus_video" => {
-            render::execute_render_video(session_id, workspace_dir, arguments)
+            render::execute_render_video_with_progress(
+                session_id,
+                assistant_msg_id,
+                call_id,
+                workspace_dir,
+                arguments,
+            )
         }
         "voicebox_speak" | "voicebox" | "generate_speech" | "tts" => {
             voicebox::execute_voicebox(workspace_dir, arguments).await

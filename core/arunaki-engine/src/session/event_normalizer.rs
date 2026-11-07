@@ -128,10 +128,17 @@ pub fn normalize_engine_event(event: &Value, current_session_id: &str) -> Option
                 "data": text
             }))
         }
-        "session.next.step.started" => Some(json!({
-            "type": "thinking",
-            "data": "Processing..."
-        })),
+        "session.next.step.started" => {
+            let custom_label = payload
+                .get("label")
+                .or_else(|| event.get("label"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("Processing...");
+            Some(json!({
+                "type": "thinking",
+                "data": custom_label
+            }))
+        }
         "session.next.step.ended" => {
             let finish = payload
                 .get("finish")
@@ -237,14 +244,34 @@ pub fn normalize_engine_event(event: &Value, current_session_id: &str) -> Option
             let tool_name = payload
                 .get("tool")
                 .or_else(|| event.get("tool"))
+                .or_else(|| payload.get("name"))
+                .or_else(|| event.get("name"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("action");
+            let default_preview = format!("Executing {}...", tool_name);
+            let preview = payload
+                .get("preview")
+                .or_else(|| event.get("preview"))
+                .and_then(|v| v.as_str())
+                .unwrap_or(&default_preview);
+            let percent = payload.get("percent").or_else(|| event.get("percent")).cloned();
+            let rendered_frames = payload
+                .get("renderedFrames")
+                .or_else(|| event.get("renderedFrames"))
+                .cloned();
+            let total_frames = payload
+                .get("totalFrames")
+                .or_else(|| event.get("totalFrames"))
+                .cloned();
             Some(json!({
                 "type": "tool_progress",
                 "data": {
                     "callID": call_id,
                     "toolName": tool_name,
-                    "preview": format!("Executing {}...", tool_name)
+                    "preview": preview,
+                    "percent": percent,
+                    "renderedFrames": rendered_frames,
+                    "totalFrames": total_frames
                 }
             }))
         }
@@ -253,6 +280,8 @@ pub fn normalize_engine_event(event: &Value, current_session_id: &str) -> Option
             let tool_name = payload
                 .get("tool")
                 .or_else(|| event.get("tool"))
+                .or_else(|| payload.get("name"))
+                .or_else(|| event.get("name"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("action");
             Some(json!({
@@ -270,6 +299,8 @@ pub fn normalize_engine_event(event: &Value, current_session_id: &str) -> Option
             let tool_name = payload
                 .get("tool")
                 .or_else(|| event.get("tool"))
+                .or_else(|| payload.get("name"))
+                .or_else(|| event.get("name"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("action");
             Some(json!({
@@ -333,6 +364,9 @@ pub fn extract_target_preview(args: &Value) -> Option<String> {
         .or_else(|| args.get("TargetFile"))
         .or_else(|| args.get("filePath"))
         .or_else(|| args.get("targetFile"))
+        .or_else(|| args.get("outputPath"))
+        .or_else(|| args.get("output_path"))
+        .or_else(|| args.get("composition_id"))
         .or_else(|| args.get("pattern"))
         .and_then(|v| v.as_str());
 

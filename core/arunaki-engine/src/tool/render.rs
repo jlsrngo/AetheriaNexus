@@ -3,11 +3,13 @@
 //! in Rust before invoking the Remotion worker.
 
 use serde_json::{json, Value};
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::UNIX_EPOCH;
 
 use crate::paths::now_ms;
+use crate::session::message::emit_event;
 
 pub const DEFAULT_COMPOSITION: &str = "NexusEditorialVideo";
 
@@ -176,7 +178,17 @@ fn last_event<'a>(stdout: &'a str, event_type: &str) -> Option<Value> {
 }
 
 pub fn execute_render_video(
-    _session_id: &str,
+    session_id: &str,
+    workspace_dir: &str,
+    arguments: &Value,
+) -> Value {
+    execute_render_video_with_progress(session_id, "", "", workspace_dir, arguments)
+}
+
+pub fn execute_render_video_with_progress(
+    session_id: &str,
+    assistant_msg_id: &str,
+    call_id: &str,
     workspace_dir: &str,
     arguments: &Value,
 ) -> Value {
@@ -221,17 +233,92 @@ pub fn execute_render_video(
     sync_workspace_public_to_bundle(&root);
 
     let mut cmd = build_command(&root, composition_id, &props_str, Some(&output_path));
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
-    match cmd.output() {
-        Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    match cmd.spawn() {
+        Ok(mut child) => {
+            let mut stdout_lines = Vec::new();
+            let mut last_emitted_percent: i64 = -1;
 
-            if !output.status.success() {
+            if let Some(stdout_pipe) = child.stdout.take() {
+                let reader = BufReader::new(stdout_pipe);
+                for line in reader.lines().map_while(Result::ok) {
+                    let trimmed = line.trim();
+                    if let Ok(ev) = serde_json::from_str::<Value>(trimmed) {
+                        match ev.get("type").and_then(Value::as_str) {
+                            Some("status") => {
+                                let msg = ev
+                                    .get("message")
+                                    .and_then(Value::as_str)
+                                    .unwrap_or("Preparing video render...");
+                                emit_event(
+                                    workspace_dir,
+                                    "session.next.tool.progress",
+                                    json!({
+                                        "sessionID": session_id,
+                                        "messageID": assistant_msg_id,
+                                        "id": call_id,
+                                        "callID": call_id,
+                                        "tool": "render_video",
+                                        "name": "render_video",
+                                        "preview": msg,
+                                        "percent": 0
+                                    }),
+                                );
+                            }
+                            Some("progress") => {
+                                let percent = ev.get("percent").and_then(Value::as_i64).unwrap_or(0);
+                                let rendered = ev.get("renderedFrames").and_then(Value::as_i64).unwrap_or(0);
+                                let total = ev.get("totalFrames").and_then(Value::as_i64).unwrap_or(0);
+                                if percent != last_emitted_percent {
+                                    last_emitted_percent = percent;
+                                    let preview = format!(
+                                        "Rendering {} • {}% ({}/{})",
+                                        composition_id, percent, rendered, total
+                                    );
+                                    emit_event(
+                                        workspace_dir,
+                                        "session.next.tool.progress",
+                                        json!({
+                                            "sessionID": session_id,
+                                            "messageID": assistant_msg_id,
+                                            "id": call_id,
+                                            "callID": call_id,
+                                            "tool": "render_video",
+                                            "name": "render_video",
+                                            "preview": preview,
+                                            "percent": percent,
+                                            "renderedFrames": rendered,
+                                            "totalFrames": total
+                                        }),
+                                    );
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    stdout_lines.push(line);
+                }
+            }
+
+            let status = child.wait();
+            let stdout = stdout_lines.join("\n");
+            let mut stderr = String::new();
+            if let Some(mut stderr_pipe) = child.stderr.take() {
+                use std::io::Read;
+                let _ = stderr_pipe.read_to_string(&mut stderr);
+            }
+
+            let is_ok = status.as_ref().map(|s| s.success()).unwrap_or(false);
+            if !is_ok {
                 let reported = last_event(&stdout, "error")
                     .and_then(|value| value["error"].as_str().map(str::to_owned))
                     .unwrap_or_else(|| {
-                        format!("exit code {:?}\nStderr: {}", output.status.code(), stderr.trim())
+                        format!(
+                            "exit code {:?}\nStderr: {}",
+                            status.ok().and_then(|s| s.code()),
+                            stderr.trim()
+                        )
                     });
                 return json!({ "error": format!("Nexus render failed: {}", reported) });
             }
