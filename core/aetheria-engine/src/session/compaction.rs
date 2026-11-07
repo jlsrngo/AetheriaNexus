@@ -161,6 +161,80 @@ pub fn emergency_compact_messages(messages: &[Value]) -> Vec<Value> {
         .iter()
         .rposition(|m| m.get("role").and_then(|v| v.as_str()) == Some("user"));
 
+    // Synthesize earlier turns if any exist before latest_user_idx
+    let prior_slice = match latest_user_idx {
+        Some(idx) if idx > 1 => &messages[1..idx],
+        Some(_) => &[],
+        None => &messages[1..messages.len() - 1],
+    };
+
+    if !prior_slice.is_empty() {
+        let mut prior_files = Vec::new();
+        let mut prior_actions = Vec::new();
+
+        for m in prior_slice {
+            let role = m.get("role").and_then(|v| v.as_str()).unwrap_or("");
+            let content = m.get("content").and_then(|v| v.as_str()).unwrap_or("");
+
+            if role == "tool" {
+                let name = m.get("name").and_then(|v| v.as_str()).unwrap_or("tool");
+                prior_actions.push(format!("Executed tool '{}'", name));
+            } else if role == "user" && !content.is_empty() {
+                let line = content.lines().next().unwrap_or("").trim();
+                if !line.is_empty() && prior_actions.len() < 8 {
+                    prior_actions.push(format!("User requested: {}", line));
+                }
+            }
+
+            // Catch file references from text content
+            for word in content.split_whitespace() {
+                let clean = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '.' && c != '_' && c != '-');
+                if (clean.ends_with(".xlsx")
+                    || clean.ends_with(".csv")
+                    || clean.ends_with(".docx")
+                    || clean.ends_with(".pdf")
+                    || clean.ends_with(".md")
+                    || clean.ends_with(".tsx")
+                    || clean.ends_with(".ts")
+                    || clean.ends_with(".mp4")
+                    || clean.ends_with(".json"))
+                    && !prior_files.contains(&clean.to_string())
+                    && prior_files.len() < 10
+                {
+                    prior_files.push(clean.to_string());
+                }
+            }
+        }
+
+        let prior_summary_md = format!(
+            "[Emergency Context Auto-Heal]\n\
+             Earlier conversation turns were aggressively compacted by the harness to recover from provider context overflow.\n\
+             ## Active Files: {}\n\
+             ## Prior Steps:\n{}\n\
+             Please continue the task based on the latest prompt.",
+            if prior_files.is_empty() {
+                "(none)".to_string()
+            } else {
+                prior_files.join(", ")
+            },
+            if prior_actions.is_empty() {
+                "- (none)".to_string()
+            } else {
+                prior_actions
+                    .iter()
+                    .take(8)
+                    .map(|a| format!("- {}", a))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            }
+        );
+
+        compacted.push(json!({
+            "role": "system",
+            "content": prior_summary_md
+        }));
+    }
+
     let mut files_written = Vec::new();
     let mut last_actions = Vec::new();
 
@@ -204,38 +278,39 @@ pub fn emergency_compact_messages(messages: &[Value]) -> Vec<Value> {
         }
     }
 
-    let summary_md = format!(
-        "[In-Turn Progress Summary — Continue Immediately]\n\
-         Already completed in this turn:\n{}\n\
-         Actions executed: {}\n\
-         IMPORTANT: Do NOT greet the user and do NOT repeat files already written above. \
-         Continue immediately with creating the remaining files and calling 'render_video'.",
-        if files_written.is_empty() {
-            "- (none yet)".to_string()
-        } else {
-            files_written
-                .iter()
-                .map(|f| format!("- {}", f))
-                .collect::<Vec<_>>()
-                .join("\n")
-        },
-        if last_actions.is_empty() {
-            "(none)".to_string()
-        } else {
-            last_actions.join(", ")
-        }
-    );
-
     if let Some(idx) = latest_user_idx {
         let mut u = messages[idx].clone();
-        let current_text = u.get("content").and_then(|v| v.as_str()).unwrap_or("");
-        let enriched = format!("{}\n\n{}", current_text, summary_md);
-        u["content"] = json!(enriched);
+        if !files_written.is_empty() || !last_actions.is_empty() {
+            let summary_md = format!(
+                "[In-Turn Progress Summary — Continue Immediately]\n\
+                 Already completed in this turn:\n{}\n\
+                 Actions executed: {}\n\
+                 IMPORTANT: Do NOT greet the user and do NOT repeat files already written above. \
+                 Continue immediately with creating the remaining files and calling 'render_video'.",
+                if files_written.is_empty() {
+                    "- (none yet)".to_string()
+                } else {
+                    files_written
+                        .iter()
+                        .map(|f| format!("- {}", f))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                },
+                if last_actions.is_empty() {
+                    "(none)".to_string()
+                } else {
+                    last_actions.join(", ")
+                }
+            );
+            let current_text = u.get("content").and_then(|v| v.as_str()).unwrap_or("");
+            let enriched = format!("{}\n\n{}", current_text, summary_md);
+            u["content"] = json!(enriched);
+        }
         compacted.push(u);
     } else {
         compacted.push(json!({
             "role": "user",
-            "content": format!("Continue task execution.\n\n{}", summary_md)
+            "content": "Continue task execution."
         }));
     }
 
