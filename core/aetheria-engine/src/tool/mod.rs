@@ -9,6 +9,7 @@ pub mod json_repair;
 pub mod question;
 pub mod read;
 pub mod render;
+pub mod sfx;
 pub mod step_formatter;
 pub mod tasks;
 pub mod todo;
@@ -32,6 +33,7 @@ pub fn build_tool_definitions() -> Vec<Value> {
     vec![
         render::render_video_tool_definition(),
         voicebox::voicebox_tool_definition(),
+        sfx::sfx_tool_definition(),
         websearch::fetch_web_image_tool_definition(),
         read::read_tool_definition(),
         write::write_tool_definition(),
@@ -88,6 +90,9 @@ pub async fn execute_tool_call(
         }
         "voicebox_speak" | "voicebox" | "generate_speech" | "tts" => {
             voicebox::execute_voicebox(workspace_dir, arguments).await
+        }
+        "generate_smart_sfx" | "smart_sfx" | "sfx_cues" | "sfx" => {
+            sfx::execute_smart_sfx(workspace_dir, arguments).await
         }
         "read" | "read_file" => read::execute_read(workspace_dir, arguments),
         "write" | "write_file" | "create_file" => {

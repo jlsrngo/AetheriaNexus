@@ -6,3 +6,13 @@ export {
   type NexusVideoProps,
   type TikTokVideoProps,
 } from "./types";
+export {
+  SoundEffect,
+  SmartSfxTrack,
+  type SfxType,
+  type SmartSfxCue,
+  SFX_PRESETS,
+} from "./SoundEffect";
+export * from "./motion";
+
+
