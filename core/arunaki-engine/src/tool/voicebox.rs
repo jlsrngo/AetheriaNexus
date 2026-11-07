@@ -36,7 +36,7 @@ pub fn voicebox_tool_definition() -> Value {
         "type": "function",
         "function": {
             "name": "voicebox_speak",
-            "description": "Generates natural, human-sounding voiceover audio + word alignment mastered with Spotify Pedalboard DSP (highpass, compressor, -14 LUFS limiter). For Indonesian, use voice: 'id-ID-GadisNeural' (warm, clear, professional female dubbing) or 'id-ID-ArdiNeural' (authoritative male narrator). The engine automatically engages Project Voice Lock (.voice_lock.json) so the narrator identity remains 100% consistent across every scene. Use this tool whenever producing voiceover for a Remotion video scene or social media reel.",
+            "description": "Generates natural, human-sounding voiceover audio + word alignment mastered with Spotify Pedalboard DSP (highpass, compressor, -14 LUFS limiter). For Indonesian, use voice: 'pocketmyth' (permanent viral storytelling creator with youth energetic intonation), 'id-ID-GadisNeural' (warm, clear, professional female dubbing) or 'id-ID-ArdiNeural' (authoritative male narrator). The engine automatically engages Project Voice Lock (.voice_lock.json) so the narrator identity remains 100% consistent across every scene. Use this tool whenever producing voiceover for a Remotion video scene or social media reel.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -55,7 +55,7 @@ pub fn voicebox_tool_definition() -> Value {
                     },
                     "voice": {
                         "type": "string",
-                        "description": "Narrator voice. For Indonesian professional female dubbing use 'id-ID-GadisNeural'; for male use 'id-ID-ArdiNeural'. For English female use 'af_heart'; male use 'am_adam'. Automatically locked across all scenes."
+                        "description": "Narrator voice. For Indonesian viral storytelling creator use 'pocketmyth'; for female dubbing use 'id-ID-GadisNeural'; for authoritative male use 'id-ID-ArdiNeural'. For English female use 'af_heart'; male use 'am_adam'. Automatically locked across all scenes."
                     },
                     "voiceDesign": {
                         "type": "string",

@@ -45,10 +45,100 @@ SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 MODELS_DIR = SCRIPT_DIR / "models"
 ONNX_PATH = MODELS_DIR / "kokoro-v0_19.onnx"
 VOICES_PATH = MODELS_DIR / "voices-v1.0.bin"
+PRESETS_DIR = SCRIPT_DIR / "presets"
+PRESETS_JSON = PRESETS_DIR / "presets.json"
 
 # Fallback voice defaults
 DEFAULT_EN_VOICE = "af_heart"
 DEFAULT_ID_VOICE = "id-ID-ArdiNeural"
+
+
+def indonesian_number_to_words(n: int) -> str:
+    """Converts an integer to Indonesian spoken words."""
+    satuan = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas']
+    if n < 0:
+        return 'minus ' + indonesian_number_to_words(-n)
+    if n == 0:
+        return 'nol'
+    if n < 12:
+        return satuan[n]
+    if n < 20:
+        return satuan[n - 10] + ' belas'
+    if n < 100:
+        return satuan[n // 10] + ' puluh' + ((' ' + satuan[n % 10]) if (n % 10 != 0) else '')
+    if n < 200:
+        return 'seratus' + ((' ' + indonesian_number_to_words(n - 100)) if (n - 100 != 0) else '')
+    if n < 1000:
+        return satuan[n // 100] + ' ratus' + ((' ' + indonesian_number_to_words(n % 100)) if (n % 100 != 0) else '')
+    if n < 2000:
+        return 'seribu' + ((' ' + indonesian_number_to_words(n - 1000)) if (n - 1000 != 0) else '')
+    if n < 1000000:
+        return indonesian_number_to_words(n // 1000) + ' ribu' + ((' ' + indonesian_number_to_words(n % 1000)) if (n % 1000 != 0) else '')
+    return str(n)
+
+
+def normalize_indonesian_speech_text(text: str) -> str:
+    """
+    Normalizes Indonesian text for TTS:
+    - Automatically converts digits ('21', '1453') to spoken Indonesian words ('dua puluh satu')
+    - Cleans slang abbreviations so speech flows smoothly
+    """
+    import re
+    def replace_num(match):
+        num_str = match.group(0)
+        try:
+            return indonesian_number_to_words(int(num_str))
+        except Exception:
+            return num_str
+
+    res = re.sub(r'\b\d+\b', replace_num, text)
+    res = re.sub(r'\bwkwk+\b', 'haha', res, flags=re.IGNORECASE)
+    res = re.sub(r'\bbtw\b', 'ngomong-ngomong', res, flags=re.IGNORECASE)
+    return res
+
+
+def load_voice_presets() -> Dict[str, Any]:
+    """Loads permanent voice presets (e.g. pocketmyth cloned narrator) from disk."""
+    presets: Dict[str, Any] = {
+        "pocketmyth": {
+            "id": "pocketmyth",
+            "name": "PocketMyth (Storytelling Creator)",
+            "description": "Suara kreator TikTok storytelling sejarah & misteri ala @pocketmyth. Intonasi dinamis, ekspresif, santai seperti ngobrol, antusias.",
+            "gender": "male",
+            "lang": "id",
+            "engine": "voxcpm",
+            "sample_path": str(PRESETS_DIR / "pocketmyth.wav"),
+            "prompt_text": "Kalian tahu nggak kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu menaklukkan kota Konstantinopel dan dia melakukan itu pada usia dua puluh satu tahun",
+            "control_instruction": "Gaya bercerita antusias ala konten kreator TikTok, intonasi dinamis, ekspresif, santai seperti ngobrol langsung dengan penonton.",
+            "fallback_voice": "id-ID-ArdiNeural",
+            "fallback_pitch": "+14Hz",
+            "fallback_rate": "+10%",
+        }
+    }
+    if PRESETS_JSON.is_file():
+        try:
+            with open(PRESETS_JSON, "r", encoding="utf-8") as f:
+                data = json.load(f).get("presets", {})
+                for k, v in data.items():
+                    sample = v.get("sampleFile")
+                    sample_path = str(PRESETS_DIR / sample) if sample else ""
+                    presets[k.lower()] = {
+                        "id": k,
+                        "name": v.get("name", k),
+                        "description": v.get("description", ""),
+                        "gender": v.get("gender", "male"),
+                        "lang": v.get("lang", "id"),
+                        "engine": v.get("engine", "voxcpm"),
+                        "sample_path": sample_path,
+                        "prompt_text": v.get("promptText", ""),
+                        "control_instruction": v.get("controlInstruction", ""),
+                        "fallback_voice": v.get("fallback", {}).get("voice", "id-ID-ArdiNeural"),
+                        "fallback_pitch": v.get("fallback", {}).get("pitch", "+14Hz"),
+                        "fallback_rate": v.get("fallback", {}).get("rate", "+10%"),
+                    }
+        except Exception as e:
+            print(f"[voicebox] Warning loading presets from {PRESETS_JSON}: {e}")
+    return presets
 
 
 def apply_voicebox_dsp(audio_data: np.ndarray, sample_rate: int) -> np.ndarray:
@@ -170,11 +260,14 @@ def generate_voxcpm_speech(
     text: str,
     voice_design: str,
     clone_ref: Optional[str] = None,
+    prompt_text: Optional[str] = None,
+    control_instruction: Optional[str] = None,
 ) -> tuple[np.ndarray, int]:
     """
     Generates natural speech with OpenBMB VoxCPM2 (Apache-2.0) through its official Hugging Face Space.
     - Voice Design: `voice_design` describes the voice (gender, age, tone, pace).
     - Cloning: `clone_ref` is a WAV/audio sample to clone. Automatically trimmed to optimal duration (<30s).
+    - Prompt Text: `prompt_text` is the exact spoken text of `clone_ref` for perfect prosody/intonation alignment.
     Raises on any network/queue failure so the caller can fall back to the Indonesian Neural engine.
     """
     if not HAS_GRADIO_CLIENT or Client is None or handle_file is None:
@@ -204,13 +297,14 @@ def generate_voxcpm_speech(
 
     try:
         client = Client(VOXCPM_SPACE, verbose=False)
+        use_prompt = bool(ref_to_use and prompt_text and prompt_text.strip())
+        ctrl = control_instruction if control_instruction else (voice_design if not ref_to_use else "")
         job = client.submit(
             text_input=text,
-            # Control instruction is ignored by the Space when a clone reference is given.
-            control_instruction="" if ref_to_use else voice_design,
+            control_instruction=ctrl,
             reference_wav_path_input=handle_file(ref_to_use) if ref_to_use else None,
-            use_prompt_text=False,
-            prompt_text_input="",
+            use_prompt_text=use_prompt,
+            prompt_text_input=prompt_text if use_prompt else "",
             cfg_value_input=2.0,
             do_normalize=True,
             denoise=False,
@@ -381,6 +475,24 @@ def generate_speech(
             if pitch == "+0Hz" and ref_profile.get("pitch"):
                 pitch = ref_profile["pitch"]
 
+    # Permanent Voice Presets (e.g. pocketmyth cloned storytelling creator)
+    presets = load_voice_presets()
+    preset_key = (voice or "").lower().strip()
+    preset_info = presets.get(preset_key)
+    if preset_info:
+        print(f"[voicebox] Applying permanent voice preset '{preset_key}': {preset_info['name']}")
+        if not clone_ref and preset_info.get("sample_path") and os.path.isfile(preset_info["sample_path"]):
+            clone_ref = preset_info["sample_path"]
+        if engine == "auto":
+            engine = preset_info.get("engine", "voxcpm")
+        if not voice_design:
+            voice_design = preset_info.get("description")
+        lang = preset_info.get("lang", lang)
+
+    # Normalize Indonesian numbers & abbreviations so '21' is spoken as 'dua puluh satu', never 'twenty one'
+    if lang.lower() == "id" or (voice and "id-ID" in voice) or preset_key == "pocketmyth":
+        text = normalize_indonesian_speech_text(text)
+
     lock_file = get_voice_lock_path(out_file)
     if reset_voice_lock and lock_file.is_file():
         try:
@@ -433,9 +545,17 @@ def generate_speech(
 
     if engine in ("voxcpm",):
         design = voice_design or default_voice_design(voice, lang)
+        prompt_txt = preset_info.get("prompt_text") if preset_info else None
+        ctrl_inst = preset_info.get("control_instruction") if preset_info else None
         print(f"[voicebox] Generating with VoxCPM2 ({'clone' if clone_ref else 'voice design'}: {design if not clone_ref else clone_ref})...")
         try:
-            audio_data, sample_rate = generate_voxcpm_speech(text, design, clone_ref=clone_ref)
+            audio_data, sample_rate = generate_voxcpm_speech(
+                text,
+                design,
+                clone_ref=clone_ref,
+                prompt_text=prompt_txt,
+                control_instruction=ctrl_inst
+            )
             words = estimate_word_timings(text, len(audio_data) / sample_rate)
             used_engine = "voxcpm2"
             if is_scene_1 and lock_file.is_file():
@@ -452,6 +572,12 @@ def generate_speech(
     if not used_engine:
         if is_indonesian:
             v = voice or ("id-ID-GadisNeural" if is_female else "id-ID-ArdiNeural")
+            if preset_info and preset_info.get("fallback_voice"):
+                v = preset_info["fallback_voice"]
+                if pitch == "+0Hz":
+                    pitch = preset_info.get("fallback_pitch", "+14Hz")
+                if rate == "+0%":
+                    rate = preset_info.get("fallback_rate", "+10%")
             print(f"[voicebox] Generating audio (lang={lang}, voice={v}, rate={rate}, pitch={pitch})...")
             audio_data, sample_rate, words = asyncio.run(
                 generate_indonesian_speech(text, voice=v, rate=rate, pitch=pitch)
@@ -537,8 +663,13 @@ def run_http_server(host: str = "127.0.0.1", port: int = 17493):
 
     @app.get("/voices")
     def list_voices():
+        presets = load_voice_presets()
         return {
-            "indonesian": ["id-ID-ArdiNeural", "id-ID-GadisNeural"],
+            "presets": {
+                k: {"name": v["name"], "description": v["description"], "gender": v["gender"], "lang": v["lang"]}
+                for k, v in presets.items()
+            },
+            "indonesian": ["pocketmyth", "id-ID-ArdiNeural", "id-ID-GadisNeural"],
             "kokoro_default": DEFAULT_EN_VOICE,
             "kokoro_ready": ONNX_PATH.exists()
         }

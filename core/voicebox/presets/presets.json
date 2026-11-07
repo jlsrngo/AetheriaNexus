@@ -1,0 +1,20 @@
+{
+  "presets": {
+    "pocketmyth": {
+      "id": "pocketmyth",
+      "name": "PocketMyth (Storytelling Creator)",
+      "description": "Suara kreator TikTok storytelling sejarah & misteri ala @pocketmyth. Intonasi dinamis, ekspresif, santai seperti ngobrol, antusias.",
+      "gender": "male",
+      "lang": "id",
+      "engine": "voxcpm",
+      "sampleFile": "pocketmyth.wav",
+      "promptText": "Kalian tahu nggak kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu menaklukkan kota Konstantinopel dan dia melakukan itu pada usia dua puluh satu tahun",
+      "controlInstruction": "Gaya bercerita antusias ala konten kreator TikTok, intonasi dinamis, ekspresif, santai seperti ngobrol langsung dengan penonton.",
+      "fallback": {
+        "voice": "id-ID-ArdiNeural",
+        "pitch": "+14Hz",
+        "rate": "+10%"
+      }
+    }
+  }
+}
