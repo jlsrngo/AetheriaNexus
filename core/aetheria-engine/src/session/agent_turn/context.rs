@@ -210,8 +210,11 @@ pub fn resolve_reference_report(workspace_dir: &str) -> Option<String> {
     let bp_text = std::fs::read_to_string(&target_report).ok()?;
     Some(format!(
         "[Active Video Reference Analysis Report (from motioncraft ref report)]:\n\"\"\"\n{}\n\"\"\"\n\
-        DIRECTIVE: You MUST follow the color palette, typography hierarchy, and scene pacing from this reference report. \
-        NEVER render a black screen or set opacity to 0! ALWAYS drive animations with `const frame = useCurrentFrame();`!",
+        DIRECTIVES:\n\
+        1. VISUAL FIDELITY: Follow the color palette, typography hierarchy, and visual scene composition (mockups, cards, badges) from this reference report. Do not leave the composition as bare plain text on an empty background.\n\
+        2. SEQUENTIAL AUDIO: Voiceover narration must be strictly sequential (Scene N starts when Scene N-1 ends). Never overlap speech audio tracks.\n\
+        3. SYNTHESIZE AUDIO: Call `voicebox_speak` for each scene to generate matching voiceover for the current script.\n\
+        4. RELATIVE SEQUENCE FRAMES: Inside `<Sequence>`, `useCurrentFrame()` already starts at 0. Pass `const frame = useCurrentFrame();` directly without subtracting `startFrame`.",
         bp_text.trim()
     ))
 }
