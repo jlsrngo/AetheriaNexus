@@ -102,11 +102,20 @@ pub async fn execute_tool_call(
         "extract_video_reference" | "extract_reference" | "ref_extract" => {
             ref_extractor::execute_ref_extractor(workspace_dir, arguments).await
         }
-        "install_agent_skill" | "install_skill" | "install_plugin" => {
-            skill_manager::execute_install_skill(workspace_dir, arguments).await
+        "plugin_install" | "install_agent_skill" | "install_skill" | "install_plugin" => {
+            skill_manager::execute_install_plugin(workspace_dir, arguments).await
         }
-        "list_agent_skills" | "list_skills" | "list_plugins" => {
-            skill_manager::execute_list_skills(workspace_dir)
+        "plugin_list" | "list_agent_skills" | "list_skills" | "list_plugins" => {
+            skill_manager::execute_list_plugins(workspace_dir)
+        }
+        "plugin_toggle" | "toggle_plugin" => {
+            skill_manager::execute_toggle_plugin(workspace_dir, arguments)
+        }
+        "plugin_update" | "update_plugin" => {
+            skill_manager::execute_update_plugin(workspace_dir, arguments).await
+        }
+        "plugin_uninstall" | "remove_plugin" | "uninstall_plugin" => {
+            skill_manager::execute_uninstall_plugin(workspace_dir, arguments).await
         }
         "read" | "read_file" => read::execute_read(workspace_dir, arguments),
         "write" | "write_file" | "create_file" => {

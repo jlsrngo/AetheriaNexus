@@ -17,13 +17,32 @@ use crate::session::session::{save_store, with_store};
 use crate::session::tools::{build_tool_definitions, execute_tool_call, should_attach_document_tools};
 use serde_json::{json, Value};
 
-/// Scans workspace directory for installed agent skills (.agents/skills/*/SKILL.md)
+/// Scans workspace directory for installed agent skills (.agents/skills/*/SKILL.md, .aetheria/plugins/*/SKILL.md, .opencode/skills/)
 pub fn discover_workspace_skills(workspace_dir: &str) -> String {
     let ws_path = std::path::Path::new(workspace_dir);
-    let mut search_dirs = vec![ws_path.join(".agents").join("skills"), ws_path.join("skills")];
+    let mut search_dirs = vec![
+        ws_path.join(".agents").join("skills"),
+        ws_path.join("skills"),
+        ws_path.join(".opencode").join("skills"),
+    ];
     let root = crate::paths::project_root();
     if ws_path != root {
         search_dirs.push(root.join(".agents").join("skills"));
+        search_dirs.push(root.join(".opencode").join("skills"));
+    }
+
+    // Also include enabled plugins from .aetheria/plugins
+    let plugins_dir = ws_path.join(".aetheria").join("plugins");
+    if plugins_dir.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&plugins_dir) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    search_dirs.push(p.clone());
+                    search_dirs.push(p.join("skills"));
+                }
+            }
+        }
     }
 
     let mut discovered: Vec<(String, String, std::path::PathBuf)> = Vec::new();
@@ -82,6 +101,49 @@ pub fn discover_workspace_skills(workspace_dir: &str) -> String {
     }
     out.push_str("</skills>\n");
     out
+}
+
+/// Discovers and loads active plugin rules from .aetheria/plugins/*/rules/*.md
+pub fn discover_workspace_plugin_rules(workspace_dir: &str) -> String {
+    let ws_path = std::path::Path::new(workspace_dir);
+    let plugins_dir = ws_path.join(".aetheria").join("plugins");
+    if !plugins_dir.is_dir() {
+        return String::new();
+    }
+
+    let mut rules_out = String::new();
+    if let Ok(entries) = std::fs::read_dir(&plugins_dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_dir() {
+                let plugin_name = p.file_name().and_then(|n| n.to_str()).unwrap_or("plugin");
+                let rules_dir = p.join("rules");
+                if rules_dir.is_dir() {
+                    if let Ok(rule_files) = std::fs::read_dir(&rules_dir) {
+                        for rf in rule_files.flatten() {
+                            let rpath = rf.path();
+                            if rpath.extension().and_then(|e| e.to_str()) == Some("md") {
+                                if let Ok(rule_text) = std::fs::read_to_string(&rpath) {
+                                    rules_out.push_str(&format!(
+                                        "\n<!-- Rule from plugin: {} ({}) -->\n{}\n",
+                                        plugin_name,
+                                        rpath.file_name().and_then(|f| f.to_str()).unwrap_or(""),
+                                        rule_text.trim()
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if rules_out.is_empty() {
+        return String::new();
+    }
+
+    format!("<plugin_rules>\n{}\n</plugin_rules>", rules_out)
 }
 
 pub async fn run_agent_turn(
@@ -157,6 +219,13 @@ pub async fn run_agent_turn(
     if !ws_skills.is_empty() {
         sys_prompt.push_str("\n\n");
         sys_prompt.push_str(&ws_skills);
+    }
+
+    // 5. Active Plugin Rules from .aetheria/plugins/*/rules/*.md
+    let plugin_rules = discover_workspace_plugin_rules(workspace_dir);
+    if !plugin_rules.is_empty() {
+        sys_prompt.push_str("\n\n");
+        sys_prompt.push_str(&plugin_rules);
     }
 
     // Proactive Context Compaction (OpenCode Item 2a)
