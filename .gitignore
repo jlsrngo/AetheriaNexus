@@ -27,6 +27,7 @@ ehthumbs.db
 # Archived reference files (not active code)
 ref/
 references/
+reference/
 
 # Scratch & test artifacts
 output/
@@ -67,7 +68,15 @@ packages/aetheria-poe-auth/dist/*.map
 
 aetheria.json
 
-.aetheria/
+# Ignored agent and tooling configuration folders
+.agents/
+.github/
+.hallmark/
+.kiro/
+.opencode/
+
+.aetheria/*
+!.aetheria/skills/
 
 # scratch: throwaway launcher probe scripts
 .launch-test*.ts
@@ -109,3 +118,5 @@ core/voicebox/models/
 workspace/public/
 workspace/src/*
 !workspace/src/.gitkeep
+workspace/storyboard.json
+workspace/styles/
