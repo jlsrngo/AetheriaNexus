@@ -32,14 +32,25 @@ const workspaceModules = import.meta.glob<Record<string, unknown>>(
 function resolveWorkspaceComponent(compositionId: string): React.ComponentType<any> | null {
   for (const [modPath, mod] of Object.entries(workspaceModules)) {
     if (!mod || typeof mod !== "object") continue;
-    // Match by explicit export name === compositionId
+    // 1. Match by explicit export name === compositionId
     if (typeof mod[compositionId] === "function") {
       return mod[compositionId] as React.ComponentType<any>;
     }
-    // Or match if file path contains the compositionId and exports Main / Composition / default
-    if (modPath.toLowerCase().includes(compositionId.toLowerCase())) {
+    // 2. Fuzzy match export name (e.g. LinusMainTimeline vs LinusTorvalds)
+    for (const [key, val] of Object.entries(mod)) {
+      if (typeof val === "function") {
+        const kLow = key.toLowerCase();
+        const idLow = compositionId.toLowerCase();
+        if (kLow === idLow || (idLow.includes("linus") && kLow.includes("linus"))) {
+          return val as React.ComponentType<any>;
+        }
+      }
+    }
+    // 3. Or match if file path contains the compositionId/keyword and exports Main / Composition / default
+    const cleanId = compositionId.toLowerCase().replace(/video|composition/g, "");
+    if (modPath.toLowerCase().includes(cleanId) || (cleanId.includes("linus") && modPath.toLowerCase().includes("linus"))) {
       for (const [key, val] of Object.entries(mod)) {
-        if (typeof val === "function" && (key === "default" || key.endsWith("Composition") || key === "Main")) {
+        if (typeof val === "function" && (key === "default" || key.endsWith("Composition") || key.endsWith("Timeline") || key === "Main")) {
           return val as React.ComponentType<any>;
         }
       }
@@ -139,22 +150,43 @@ export const StudioPreview: React.FC = () => {
   useEffect(() => {
     if (!playerInstance) return;
 
+    let lastFrameTime = 0;
+    const PLAY_THROTTLE_MS = 50; // ~20 FPS throttle for external React app tree during playback
+
     const handleFrame = (event: { detail: { frame: number } }) => {
-      actions.setCurrentFrame(event.detail.frame);
+      // If playing, throttle external store notification to prevent 60 FPS React reconciliation choke
+      if (playerInstance.isPlaying()) {
+        const now = performance.now();
+        if (now - lastFrameTime >= PLAY_THROTTLE_MS) {
+          lastFrameTime = now;
+          actions.setCurrentFrame(event.detail.frame);
+        }
+      } else {
+        actions.setCurrentFrame(event.detail.frame);
+      }
     };
     const handlePlay = () => actions.setIsPlaying(true);
-    const handlePause = () => actions.setIsPlaying(false);
+    const handlePause = () => {
+      actions.setIsPlaying(false);
+      const current = playerInstance.getCurrentFrame();
+      if (typeof current === "number") {
+        actions.setCurrentFrame(current);
+      }
+    };
+    const handleSeeked = (event: { detail: { frame: number } }) => {
+      actions.setCurrentFrame(event.detail.frame);
+    };
 
     playerInstance.addEventListener("frameupdate", handleFrame as any);
     playerInstance.addEventListener("play", handlePlay);
     playerInstance.addEventListener("pause", handlePause);
-    playerInstance.addEventListener("seeked", handleFrame as any);
+    playerInstance.addEventListener("seeked", handleSeeked as any);
 
     return () => {
       playerInstance.removeEventListener("frameupdate", handleFrame as any);
       playerInstance.removeEventListener("play", handlePlay);
       playerInstance.removeEventListener("pause", handlePause);
-      playerInstance.removeEventListener("seeked", handleFrame as any);
+      playerInstance.removeEventListener("seeked", handleSeeked as any);
     };
   }, [playerInstance, actions]);
 
@@ -636,13 +668,14 @@ export const StudioPreview: React.FC = () => {
 
   const scaleStyle: React.CSSProperties =
     canvas.zoom === "fit"
-      ? { width: "100%", height: "100%" }
+      ? { width: "100%", height: "100%", willChange: "transform", transform: "translateZ(0)" }
       : {
           width: "100%",
           height: "100%",
-          transform: `translate(${panX}px, ${panY}px) scale(${numericZoom})`,
+          transform: `translate(${panX}px, ${panY}px) scale(${numericZoom}) translateZ(0)`,
           transformOrigin: "center center",
           transition: isPanning ? "none" : "transform 0.05s ease-out",
+          willChange: "transform",
         };
 
   const gridCols = Math.max(1, Math.min(64, canvas.gridCols || 3));
