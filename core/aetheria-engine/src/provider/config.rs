@@ -145,6 +145,54 @@ pub fn read_aetheria_config() -> Value {
         }
     }
 
+    // Ensure default free cloud provider (Kenari Cloud) is available if missing
+    let has_kenari = val.pointer("/provider/kenari").is_some() || val.pointer("/providers/kenari").is_some();
+    if !has_kenari {
+        val["provider"]["kenari"] = json!({
+            "name": "Kenari Cloud",
+            "type": "openai",
+            "active": true,
+            "priority": 1,
+            "defaultModel": "nemotron-3-super-120b-a12b:free",
+            "api": "https://kenari.id/v1",
+            "options": {
+                "baseURL": "https://kenari.id/v1",
+                "apiKey": "kn-free-community"
+            },
+            "models": {
+                "nemotron-3-super-120b-a12b:free": {
+                    "name": "Nemotron 3 Super 120B (Free)",
+                    "attachment": true,
+                    "reasoning": true,
+                    "tool_call": true,
+                    "limit": { "context": 128000, "output": 16384 }
+                },
+                "glm-4-7-flash:free": {
+                    "name": "GLM 4.7 Flash (Free)",
+                    "attachment": true,
+                    "reasoning": true,
+                    "tool_call": true,
+                    "limit": { "context": 128000, "output": 16384 }
+                },
+                "mimo-v2-5:free": {
+                    "name": "Mimo v2.5 (Free)",
+                    "attachment": true,
+                    "reasoning": true,
+                    "tool_call": true,
+                    "limit": { "context": 128000, "output": 16384 }
+                },
+                "llama-3-3-70b-instruct:free": {
+                    "name": "Llama 3.3 70B Instruct (Free)",
+                    "attachment": true,
+                    "reasoning": true,
+                    "tool_call": true,
+                    "limit": { "context": 128000, "output": 16384 }
+                }
+            }
+        });
+        changed = true;
+    }
+
     // Mirror to "providers" key for backward compatibility across all modules
     val["providers"] = val["provider"].clone();
 
