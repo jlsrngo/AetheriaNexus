@@ -1,19 +1,123 @@
 {
   "presets": {
-    "pocketmyth": {
-      "id": "pocketmyth",
-      "name": "PocketMyth (Storytelling Creator)",
-      "description": "Suara kreator TikTok storytelling sejarah & misteri ala @pocketmyth. Intonasi dinamis, ekspresif, santai seperti ngobrol, antusias.",
+    "aetheria": {
+      "id": "aetheria",
+      "name": "Aetheria (Indonesian Storytelling Creator)",
+      "description": "Suara kreator motion grafis & storytelling Aetheria (Bahasa Indonesia). Intonasi dinamis, ekspresif, santai seperti ngobrol, antusias. Mendukung pilihan style: default, energetic, casual, mystery, serious.",
       "gender": "male",
       "lang": "id",
       "engine": "voxcpm",
-      "sampleFile": "pocketmyth.wav",
-      "promptText": "Kalian tahu nggak, kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu mengakhiri kekuasaan Romawi Timur dengan menaklukkan kota Konstantinopel, dan dia melakukan itu pada usia dua puluh satu tahun.",
-      "controlInstruction": "Gaya bercerita antusias ala konten kreator TikTok, intonasi dinamis, ekspresif, santai seperti ngobrol langsung dengan penonton.",
+      "sampleFile": "aetheria_id.wav",
+      "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
+      "controlInstruction": "Gaya bercerita antusias ala konten kreator, artikulasi lepas dan plong, intonasi dinamis, ekspresif, santai seperti ngobrol langsung dengan penonton.",
+      "defaultStyle": "default",
+      "cfgValue": 1.48,
+      "styles": {
+        "default": {
+          "label": "Original Storytelling (Default)",
+          "mode": "ultimate",
+          "sampleFile": "aetheria_id.wav",
+          "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
+          "cfgValue": 1.48,
+          "controlInstruction": "Gaya bercerita antusias ala konten kreator, artikulasi lepas dan plong, intonasi dinamis, ekspresif."
+        },
+        "energetic": {
+          "label": "Energetic & Lepas (Tech / Hook)",
+          "mode": "ultimate",
+          "sampleFile": "aetheria_id.wav",
+          "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
+          "cfgValue": 1.42,
+          "controlInstruction": "Gaya bicara kreator yang lantang, lepas, plong, sangat antusias dan bertenaga."
+        },
+        "casual": {
+          "label": "Casual Ngobrol (Santai / Review)",
+          "mode": "ultimate",
+          "sampleFile": "aetheria_id.wav",
+          "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
+          "cfgValue": 1.48,
+          "controlInstruction": "Gaya ngobrol santai dan akrab langsung ke penonton."
+        },
+        "mystery": {
+          "label": "Mystery & Suspense (Sejarah / Konspirasi)",
+          "mode": "ultimate",
+          "sampleFile": "aetheria_id.wav",
+          "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
+          "cfgValue": 1.68,
+          "controlInstruction": "Gaya bercerita misterius dan dramatis, bikin penasaran."
+        },
+        "serious": {
+          "label": "Serious & Tegas (Warning / Fakta)",
+          "mode": "ultimate",
+          "sampleFile": "aetheria_id.wav",
+          "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
+          "cfgValue": 1.62,
+          "controlInstruction": "Gaya bicara serius, tegas, lugas, dan menekankan poin penting."
+        }
+      },
       "fallback": {
         "voice": "id-ID-ArdiNeural",
         "pitch": "+14Hz",
         "rate": "+10%"
+      }
+    },
+    "aetheria_en": {
+      "id": "aetheria_en",
+      "name": "Aetheria English (Global Motion Graphics Creator)",
+      "description": "Aetheria English motion graphics & storytelling creator voice. Dynamic, conversational, upbeat intonation. Supports styles: default, energetic, casual, mystery, serious.",
+      "gender": "male",
+      "lang": "en",
+      "engine": "voxcpm",
+      "sampleFile": "aetheria_en.wav",
+      "promptText": "Did you know that this is Aetheria, an automated motion graphics agent that brings your video content to life with cinematic quality.",
+      "controlInstruction": "Upbeat, conversational tech & motion graphics creator, open and natural vocal delivery, engaging storytelling cadence.",
+      "defaultStyle": "default",
+      "cfgValue": 1.48,
+      "styles": {
+        "default": {
+          "label": "Original Storytelling (Default)",
+          "mode": "ultimate",
+          "sampleFile": "aetheria_en.wav",
+          "promptText": "Did you know that this is Aetheria, an automated motion graphics agent that brings your video content to life with cinematic quality.",
+          "cfgValue": 1.48,
+          "controlInstruction": "Upbeat, conversational tech & motion graphics creator, open and natural vocal delivery."
+        },
+        "energetic": {
+          "label": "Energetic & Punchy (Tech / Hook)",
+          "mode": "ultimate",
+          "sampleFile": "aetheria_en.wav",
+          "promptText": "Did you know that this is Aetheria, an automated motion graphics agent that brings your video content to life with cinematic quality.",
+          "cfgValue": 1.42,
+          "controlInstruction": "High-energy, punchy, open and enthusiastic creator hook."
+        },
+        "casual": {
+          "label": "Casual Conversational (Review / Explainer)",
+          "mode": "ultimate",
+          "sampleFile": "aetheria_en.wav",
+          "promptText": "Did you know that this is Aetheria, an automated motion graphics agent that brings your video content to life with cinematic quality.",
+          "cfgValue": 1.48,
+          "controlInstruction": "Relaxed, friendly, conversational delivery like chatting with a friend."
+        },
+        "mystery": {
+          "label": "Mystery & Cinematic (Documentary)",
+          "mode": "ultimate",
+          "sampleFile": "aetheria_en.wav",
+          "promptText": "Did you know that this is Aetheria, an automated motion graphics agent that brings your video content to life with cinematic quality.",
+          "cfgValue": 1.68,
+          "controlInstruction": "Intriguing, dramatic, cinematic storytelling tone."
+        },
+        "serious": {
+          "label": "Serious & Authoritative (Facts / Warning)",
+          "mode": "ultimate",
+          "sampleFile": "aetheria_en.wav",
+          "promptText": "Did you know that this is Aetheria, an automated motion graphics agent that brings your video content to life with cinematic quality.",
+          "cfgValue": 1.62,
+          "controlInstruction": "Firm, clear, authoritative delivery emphasizing key facts."
+        }
+      },
+      "fallback": {
+        "voice": "am_adam",
+        "pitch": "+0Hz",
+        "rate": "+5%"
       }
     }
   }

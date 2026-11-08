@@ -192,22 +192,128 @@ def normalize_indonesian_speech_text(text: str) -> str:
 
 
 def load_voice_presets() -> Dict[str, Any]:
-    """Loads permanent voice presets (e.g. pocketmyth cloned narrator) from disk."""
+    """Loads permanent Aetheria voice presets (Indonesian & English) and their selectable styles from disk."""
+    id_prompt = "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik."
+    en_prompt = "Did you know that this is Aetheria, an automated motion graphics agent that brings your video content to life with cinematic quality."
+    default_id_styles = {
+        "default": {
+            "label": "Original Storytelling (Default)",
+            "mode": "ultimate",
+            "sampleFile": "aetheria_id.wav",
+            "promptText": id_prompt,
+            "cfgValue": 1.48,
+            "controlInstruction": "Gaya bercerita antusias ala konten kreator, artikulasi lepas dan plong, intonasi dinamis, ekspresif.",
+        },
+        "energetic": {
+            "label": "Energetic & Lepas (Tech / Hook)",
+            "mode": "ultimate",
+            "sampleFile": "aetheria_id.wav",
+            "promptText": id_prompt,
+            "cfgValue": 1.42,
+            "controlInstruction": "Gaya bicara kreator yang lantang, lepas, plong, sangat antusias dan bertenaga.",
+        },
+        "casual": {
+            "label": "Casual Ngobrol (Santai / Review)",
+            "mode": "ultimate",
+            "sampleFile": "aetheria_id.wav",
+            "promptText": id_prompt,
+            "cfgValue": 1.48,
+            "controlInstruction": "Gaya ngobrol santai dan akrab langsung ke penonton.",
+        },
+        "mystery": {
+            "label": "Mystery & Suspense (Sejarah / Konspirasi)",
+            "mode": "ultimate",
+            "sampleFile": "aetheria_id.wav",
+            "promptText": id_prompt,
+            "cfgValue": 1.68,
+            "controlInstruction": "Gaya bercerita misterius dan dramatis, bikin penasaran.",
+        },
+        "serious": {
+            "label": "Serious & Tegas (Warning / Fakta)",
+            "mode": "ultimate",
+            "sampleFile": "aetheria_id.wav",
+            "promptText": id_prompt,
+            "cfgValue": 1.62,
+            "controlInstruction": "Gaya bicara serius, tegas, lugas, dan menekankan poin penting.",
+        },
+    }
+    default_en_styles = {
+        "default": {
+            "label": "Original Storytelling (Default)",
+            "mode": "ultimate",
+            "sampleFile": "aetheria_en.wav",
+            "promptText": en_prompt,
+            "cfgValue": 1.48,
+            "controlInstruction": "Upbeat, conversational tech & motion graphics creator, open and natural vocal delivery.",
+        },
+        "energetic": {
+            "label": "Energetic & Punchy (Tech / Hook)",
+            "mode": "ultimate",
+            "sampleFile": "aetheria_en.wav",
+            "promptText": en_prompt,
+            "cfgValue": 1.42,
+            "controlInstruction": "High-energy, punchy, open and enthusiastic creator hook.",
+        },
+        "casual": {
+            "label": "Casual Conversational (Review / Explainer)",
+            "mode": "ultimate",
+            "sampleFile": "aetheria_en.wav",
+            "promptText": en_prompt,
+            "cfgValue": 1.48,
+            "controlInstruction": "Relaxed, friendly, conversational delivery like chatting with a friend.",
+        },
+        "mystery": {
+            "label": "Mystery & Cinematic (Documentary)",
+            "mode": "ultimate",
+            "sampleFile": "aetheria_en.wav",
+            "promptText": en_prompt,
+            "cfgValue": 1.68,
+            "controlInstruction": "Intriguing, dramatic, cinematic storytelling tone.",
+        },
+        "serious": {
+            "label": "Serious & Authoritative (Facts / Warning)",
+            "mode": "ultimate",
+            "sampleFile": "aetheria_en.wav",
+            "promptText": en_prompt,
+            "cfgValue": 1.62,
+            "controlInstruction": "Firm, clear, authoritative delivery emphasizing key facts.",
+        },
+    }
     presets: Dict[str, Any] = {
-        "pocketmyth": {
-            "id": "pocketmyth",
-            "name": "PocketMyth (Storytelling Creator)",
-            "description": "Suara kreator TikTok storytelling sejarah & misteri ala @pocketmyth. Intonasi dinamis, ekspresif, santai seperti ngobrol, antusias.",
+        "aetheria": {
+            "id": "aetheria",
+            "name": "Aetheria (Indonesian Storytelling Creator)",
+            "description": "Suara kreator motion grafis & storytelling Aetheria (Bahasa Indonesia). Intonasi dinamis, ekspresif, santai seperti ngobrol, antusias. Mendukung pilihan style: default, energetic, casual, mystery, serious.",
             "gender": "male",
             "lang": "id",
             "engine": "voxcpm",
-            "sample_path": str(PRESETS_DIR / "pocketmyth.wav"),
-            "prompt_text": "Kalian tahu nggak, kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu mengakhiri kekuasaan Romawi Timur dengan menaklukkan kota Konstantinopel, dan dia melakukan itu pada usia dua puluh satu tahun.",
-            "control_instruction": "Gaya bercerita antusias ala konten kreator TikTok, intonasi dinamis, ekspresif, santai seperti ngobrol langsung dengan penonton.",
+            "sample_path": str(PRESETS_DIR / "aetheria_id.wav"),
+            "prompt_text": id_prompt,
+            "control_instruction": "Gaya bercerita antusias ala konten kreator, artikulasi lepas dan plong, intonasi dinamis, ekspresif, santai seperti ngobrol langsung dengan penonton.",
+            "default_style": "default",
+            "cfg_value": 1.48,
+            "styles": default_id_styles,
             "fallback_voice": "id-ID-ArdiNeural",
             "fallback_pitch": "+14Hz",
             "fallback_rate": "+10%",
-        }
+        },
+        "aetheria_en": {
+            "id": "aetheria_en",
+            "name": "Aetheria English (Global Motion Graphics Creator)",
+            "description": "Aetheria English motion graphics & storytelling creator voice. Dynamic, conversational, upbeat intonation. Supports styles: default, energetic, casual, mystery, serious.",
+            "gender": "male",
+            "lang": "en",
+            "engine": "voxcpm",
+            "sample_path": str(PRESETS_DIR / "aetheria_en.wav"),
+            "prompt_text": en_prompt,
+            "control_instruction": "Upbeat, conversational tech & motion graphics creator, open and natural vocal delivery, engaging storytelling cadence.",
+            "default_style": "default",
+            "cfg_value": 1.48,
+            "styles": default_en_styles,
+            "fallback_voice": "am_adam",
+            "fallback_pitch": "+0Hz",
+            "fallback_rate": "+5%",
+        },
     }
     if PRESETS_JSON.is_file():
         try:
@@ -226,6 +332,9 @@ def load_voice_presets() -> Dict[str, Any]:
                         "sample_path": sample_path,
                         "prompt_text": v.get("promptText", ""),
                         "control_instruction": v.get("controlInstruction", ""),
+                        "default_style": v.get("defaultStyle", "default"),
+                        "cfg_value": float(v.get("cfgValue", 1.48)),
+                        "styles": v.get("styles", default_id_styles),
                         "fallback_voice": v.get("fallback", {}).get("voice", "id-ID-ArdiNeural"),
                         "fallback_pitch": v.get("fallback", {}).get("pitch", "+14Hz"),
                         "fallback_rate": v.get("fallback", {}).get("rate", "+10%"),
@@ -235,33 +344,41 @@ def load_voice_presets() -> Dict[str, Any]:
     return presets
 
 
-def apply_voicebox_dsp(audio_data: np.ndarray, sample_rate: int) -> np.ndarray:
+def apply_voicebox_dsp(
+    audio_data: np.ndarray,
+    sample_rate: int,
+    gentle_cloning: bool = False,
+) -> np.ndarray:
     """
     Applies Voicebox's studio DSP mastering pipeline using Spotify's Pedalboard.
-    Chain:
-    1. HighpassFilter at 80Hz: cuts low mic mud and AC hum
-    2. Compressor: ratio=3.5, threshold=-16dB: broadcast voice warmth & presence
-    3. Gain / Limiter: peaks at -1.0 dBFS, TikTok/Shorts broadcast loudness
+    When `gentle_cloning=True` (used for VoxCPM2 cloned voices whose reference audio is
+    already broadcast-compressed), uses a transparent 1.6:1 compressor with slower
+    28ms attack so emphatic pitch peaks are never squashed or held back ("ketahan").
     """
     if not HAS_PEDALBOARD:
-        # Fallback: simple peak normalization
         peak = np.max(np.abs(audio_data))
         if peak > 0:
             return (audio_data / peak) * 0.92
         return audio_data
 
-    # Ensure float32 shape
     audio_f32 = audio_data.astype(np.float32)
     if audio_f32.ndim == 1:
-        # Mono to stereo for pedalboard if needed or keep 1D
         audio_f32 = audio_f32.reshape(1, -1)
 
-    board = Pedalboard([
-        HighpassFilter(cutoff_frequency_hz=80.0),
-        Compressor(threshold_db=-16.0, ratio=3.5, attack_ms=6.0, release_ms=65.0),
-        Gain(gain_db=2.0),
-        Limiter(threshold_db=-1.0, release_ms=80.0)
-    ])
+    if gentle_cloning:
+        board = Pedalboard([
+            HighpassFilter(cutoff_frequency_hz=70.0),
+            Compressor(threshold_db=-11.5, ratio=1.6, attack_ms=28.0, release_ms=110.0),
+            Gain(gain_db=1.2),
+            Limiter(threshold_db=-0.8, release_ms=90.0),
+        ])
+    else:
+        board = Pedalboard([
+            HighpassFilter(cutoff_frequency_hz=80.0),
+            Compressor(threshold_db=-16.0, ratio=3.5, attack_ms=6.0, release_ms=65.0),
+            Gain(gain_db=2.0),
+            Limiter(threshold_db=-1.0, release_ms=80.0),
+        ])
 
     effected = board(audio_f32, sample_rate)
     return effected.squeeze()
@@ -343,13 +460,13 @@ def trim_tts_output(
     audio_data: np.ndarray,
     sample_rate: int,
     top_db: float = 42.0,
-    max_internal_silence_ms: int = 300,
+    max_internal_silence_ms: int = 380,
 ) -> np.ndarray:
     """
-    Trims leading/trailing silence and compacts unnatural internal pauses (>300ms)
+    Trims leading/trailing silence and compacts unnatural internal pauses (>380ms)
     in synthesized TTS audio (adapted from jamiepine/voicebox `trim_tts_output`).
-    Uses a conservative 42dB threshold and 120ms trailing tail margin so softer
-    sentence-final syllables are never clipped.
+    Applies a 15ms cosine crossfade whenever an internal silence gap is shortened
+    so breath transitions and vowel tails never sound choked or held back ("ketahan").
     """
     if len(audio_data) < sample_rate * 0.15:
         return audio_data
@@ -376,28 +493,33 @@ def trim_tts_output(
     if len(voiced_indices) == 0:
         return data
 
-    # 1. Trim leading and trailing silence with 40ms lead and 120ms trailing tail margin
+    # 1. Trim leading and trailing silence with 40ms lead and 140ms trailing tail margin
     first_f = max(0, int(voiced_indices[0]) - 2)
-    last_f = min(n_frames, int(voiced_indices[-1]) + 6)
+    last_f = min(n_frames, int(voiced_indices[-1]) + 7)
 
-    # 2. Compact internal silence gaps exceeding max_internal_silence_ms
-    max_silent_frames = max(3, int(max_internal_silence_ms / 20))
-    kept_Touch: List[np.ndarray] = []
+    # 2. Compact internal silence gaps exceeding max_internal_silence_ms with smooth fade
+    max_silent_frames = max(4, int(max_internal_silence_ms / 20))
+    kept_frames: List[np.ndarray] = []
     silent_run = 0
 
     for idx in range(first_f, last_f):
         if is_voiced[idx]:
             silent_run = 0
-            kept_Touch.append(frames[idx])
+            kept_frames.append(frames[idx].copy())
         else:
             silent_run += 1
             if silent_run <= max_silent_frames:
-                kept_Touch.append(frames[idx])
+                frame_copy = frames[idx].copy()
+                if silent_run == max_silent_frames:
+                    # Gentle fade-out on the last kept silent frame so cut is imperceptible
+                    fade = np.linspace(1.0, 0.15, len(frame_copy), dtype=np.float32)
+                    frame_copy *= fade
+                kept_frames.append(frame_copy)
 
-    if not kept_Touch:
+    if not kept_frames:
         return data
 
-    return np.concatenate(kept_Touch).astype(np.float32)
+    return np.concatenate(kept_frames).astype(np.float32)
 
 
 def sanitize_voice_audio(audio_data: np.ndarray, sample_rate: int) -> np.ndarray:
@@ -424,7 +546,7 @@ def sanitize_voice_audio(audio_data: np.ndarray, sample_rate: int) -> np.ndarray
             data = data[cut_point:]
 
     # Compact dead-air silence & trim leading/trailing silence (TikTok snappy pacing)
-    data = trim_tts_output(data, sample_rate, top_db=42.0, max_internal_silence_ms=300)
+    data = trim_tts_output(data, sample_rate, top_db=42.0, max_internal_silence_ms=380)
 
     # Smooth 25ms cosine fade in
     fade_in_len = min(int(sample_rate * 0.025), len(data))
@@ -620,16 +742,20 @@ def generate_voxcpm_speech(
     clone_ref: Optional[str] = None,
     prompt_text: Optional[str] = None,
     control_instruction: Optional[str] = None,
+    cfg_value: float = 1.55,
+    cloning_mode: str = "ultimate",
 ) -> tuple[np.ndarray, int]:
     """
     Generates natural speech with OpenBMB VoxCPM2 (Apache-2.0) through its official Hugging Face Space.
     - Voice Design: `voice_design` describes the voice (gender, age, tone, pace).
     - Cloning: `clone_ref` is a WAV/audio sample to clone. Preprocessed to clean 7-12s voice reference.
     - Prompt Text: `prompt_text` is the exact spoken text of `clone_ref` for perfect prosody/intonation alignment.
-    - Disables server-side English `do_normalize` (`do_normalize=False`) so Indonesian text/punctuation
-      is never mangled by the English `wetext` normalizer.
-    - Splits multi-sentence paragraphs into clause chunks (`<= 135 chars`) so prosody stays energetic.
-    Raises on any network/queue failure so the caller can fall back to the Indonesian Neural engine.
+    - Cloning Mode:
+      * `"ultimate"` (`use_prompt_text=True`): Replicates exact reference audio cadence + prosody.
+      * `"controllable"` (`use_prompt_text=False`): Clones speaker timbre from `clone_ref` while steering
+        delivery style via `control_instruction` (e.g. `energetic`, `mystery`, `casual`, `serious`).
+    - `cfg_value`: Defaults to `1.55` (instead of `2.0`) so vocal delivery is open, natural, and never
+      sounds held back ("ketahan").
     """
     if not HAS_GRADIO_CLIENT or Client is None or handle_file is None:
         raise ImportError("gradio_client is not installed in the current environment.")
@@ -651,8 +777,28 @@ def generate_voxcpm_speech(
             print(f"[voicebox] Warning preprocessing clone_ref: {e}")
 
     try:
-        client = Client(VOXCPM_SPACE, verbose=False)
-        use_prompt = bool(ref_to_use and prompt_text and prompt_text.strip())
+        client = None
+        for init_attempt in range(3):
+            try:
+                client = Client(
+                    VOXCPM_SPACE,
+                    verbose=False,
+                    httpx_kwargs={"timeout": 60.0},
+                )
+                break
+            except Exception as init_err:
+                if init_attempt == 2:
+                    raise init_err
+                print(f"[voicebox] VoxCPM2 client init timeout (attempt {init_attempt + 1}/3: {init_err}), retrying in 3s...")
+                time.sleep(3.0)
+
+        assert client is not None
+        use_prompt = bool(
+            cloning_mode != "controllable"
+            and ref_to_use
+            and prompt_text
+            and prompt_text.strip()
+        )
         ctrl = control_instruction if control_instruction else (voice_design if not ref_to_use else "")
 
         clauses = split_text_into_clauses(text, max_chars=240)
@@ -674,7 +820,7 @@ def generate_voxcpm_speech(
                         reference_wav_path_input=handle_file(ref_to_use) if ref_to_use else None,
                         use_prompt_text=use_prompt,
                         prompt_text_input=prompt_text if use_prompt else "",
-                        cfg_value_input=2.0,
+                        cfg_value_input=float(cfg_value),
                         do_normalize=False,
                         denoise=False,
                         api_name="/generate",
@@ -693,8 +839,14 @@ def generate_voxcpm_speech(
                     wait_s = 3.0 * (attempt + 1)
                     print(f"[voicebox] VoxCPM2 slot busy (attempt {attempt + 1}/4: {err}), retrying in {wait_s}s...")
                     time.sleep(wait_s)
-                    # Recreate client session if session limit remained stuck
-                    client = Client(VOXCPM_SPACE, verbose=False)
+                    try:
+                        client = Client(
+                            VOXCPM_SPACE,
+                            verbose=False,
+                            httpx_kwargs={"timeout": 60.0},
+                        )
+                    except Exception:
+                        pass
 
             if last_err is not None:
                 raise last_err
@@ -909,13 +1061,12 @@ def generate_speech(
     voice_design: Optional[str] = None,
     clone_ref: Optional[str] = None,
     reset_voice_lock: bool = False,
+    style: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Unified entry point for voice generation with Project Voice Lock.
-    Ensures 100% consistent speaker identity across all scenes in a video project:
-    - Indonesian: id-ID-GadisNeural (female dubbing) & id-ID-ArdiNeural (male dubbing) + Spotify Pedalboard DSP.
-    - Locks narrator profile in .voice_lock.json so scenes never switch voices or drift mid-video.
-    - Exact word boundary synchronization for Remotion kinetic captions.
+    Unified entry point for voice generation with Project Voice Lock & Selectable Preset Styles.
+    - Supports `voice="aetheria:energetic"` or `voice="aetheria_en:casual"` or `style="energetic" | "mystery" | "casual" | "serious" | "default"`.
+    - Ensures 100% consistent speaker identity across all scenes in a video project.
     """
     out_file = pathlib.Path(output_path).resolve()
     out_file.parent.mkdir(parents=True, exist_ok=True)
@@ -932,21 +1083,40 @@ def generate_speech(
             if pitch == "+0Hz" and ref_profile.get("pitch"):
                 pitch = ref_profile["pitch"]
 
-    # Permanent Voice Presets (e.g. pocketmyth cloned storytelling creator)
+    # Support shorthand `voice="aetheria:energetic"` as well as explicit `style="energetic"`
+    raw_voice = (voice or "").strip()
+    if ":" in raw_voice and not style:
+        parts = raw_voice.split(":", 1)
+        voice = parts[0].strip()
+        style = parts[1].strip().lower()
+
+    # Permanent Voice Presets (aetheria & aetheria_en)
     presets = load_voice_presets()
     preset_key = (voice or "").lower().strip()
+    if preset_key in ("aetheria_id", "pocketmyth"):
+        preset_key = "aetheria"
     preset_info = presets.get(preset_key)
+    selected_style_key = (style or "").lower().strip()
+    selected_style_info: Dict[str, Any] = {}
+
     if preset_info:
-        print(f"[voicebox] Applying permanent voice preset '{preset_key}': {preset_info['name']}")
-        if not clone_ref and preset_info.get("sample_path") and os.path.isfile(preset_info["sample_path"]):
-            clone_ref = preset_info["sample_path"]
+        styles_map = preset_info.get("styles") or {}
+        if not selected_style_key:
+            selected_style_key = preset_info.get("default_style", "default")
+        selected_style_info = styles_map.get(selected_style_key) or styles_map.get("default") or {}
+        style_label = selected_style_info.get("label", selected_style_key)
+        print(f"[voicebox] Applying permanent voice preset '{preset_key}' (style='{selected_style_key}' - {style_label}): {preset_info['name']}")
+        style_sample = selected_style_info.get("sampleFile")
+        style_sample_path = str(PRESETS_DIR / style_sample) if style_sample else preset_info.get("sample_path")
+        if not clone_ref and style_sample_path and os.path.isfile(style_sample_path):
+            clone_ref = style_sample_path
         engine = preset_info.get("engine", "voxcpm")
         if not voice_design:
-            voice_design = preset_info.get("description")
+            voice_design = selected_style_info.get("controlInstruction") or preset_info.get("description")
         lang = preset_info.get("lang", lang)
 
     # Normalize Indonesian numbers & abbreviations so '21' is spoken as 'dua puluh satu', never 'twenty one'
-    if lang.lower() == "id" or (voice and "id-ID" in voice) or preset_key == "pocketmyth":
+    if lang.lower() == "id" or (voice and "id-ID" in voice) or preset_key == "aetheria":
         text = normalize_indonesian_speech_text(text)
 
     lock_file = get_voice_lock_path(out_file)
@@ -962,6 +1132,11 @@ def generate_speech(
     if lock_data:
         print(f"[voicebox] Enforcing Project Voice Lock from {lock_file.name}: {lock_data.get('voice')} ({lock_data.get('gender')})")
         voice = lock_data.get("voice", voice)
+        if not style and lock_data.get("style"):
+            selected_style_key = lock_data["style"]
+            if preset_info:
+                styles_map = preset_info.get("styles") or {}
+                selected_style_info = styles_map.get(selected_style_key) or selected_style_info
         gender = lock_data.get("gender")
         is_female = (gender == "female")
         if lock_data.get("engine") and not preset_info:
@@ -985,6 +1160,7 @@ def generate_speech(
 
         write_voice_lock(lock_file, {
             "voice": voice,
+            "style": selected_style_key or "default",
             "gender": "female" if is_female else "male",
             "engine": engine,
             "lang": lang,
@@ -1001,16 +1177,33 @@ def generate_speech(
 
     if engine in ("voxcpm",):
         design = voice_design or default_voice_design(voice, lang)
-        prompt_txt = preset_info.get("prompt_text") if preset_info else None
-        ctrl_inst = preset_info.get("control_instruction") if preset_info else None
-        print(f"[voicebox] Generating with VoxCPM2 ({'clone' if clone_ref else 'voice design'}: {design if not clone_ref else clone_ref})...")
+        prompt_txt = (
+            selected_style_info.get("promptText")
+            or (preset_info.get("prompt_text") if preset_info else None)
+        )
+        ctrl_inst = (
+            selected_style_info.get("controlInstruction")
+            or (preset_info.get("control_instruction") if preset_info else None)
+            or voice_design
+        )
+        cfg_val = float(
+            selected_style_info.get("cfgValue")
+            or (preset_info.get("cfg_value", 1.55) if preset_info else 1.55)
+        )
+        cloning_mode = str(selected_style_info.get("mode", "ultimate"))
+        print(
+            f"[voicebox] Generating with VoxCPM2 (mode={cloning_mode}, cfg={cfg_val}, style={selected_style_key or 'default'}, "
+            f"{'clone' if clone_ref else 'voice design'}: {design if not clone_ref else clone_ref})..."
+        )
         try:
             audio_data, sample_rate = generate_voxcpm_speech(
                 text,
                 design,
                 clone_ref=clone_ref,
                 prompt_text=prompt_txt,
-                control_instruction=ctrl_inst
+                control_instruction=ctrl_inst,
+                cfg_value=cfg_val,
+                cloning_mode=cloning_mode,
             )
             words = estimate_word_timings(text, len(audio_data) / sample_rate)
             used_engine = "voxcpm2"
@@ -1049,10 +1242,11 @@ def generate_speech(
     # Sanitize voiceover audio (trim pre-speech transient spikes, compact dead-air pauses, cosine fade-in/out)
     audio_data = sanitize_voice_audio(audio_data, sample_rate)
 
-    # Apply Voicebox studio DSP mastering
+    # Apply Voicebox studio DSP mastering (use gentle transparent compressor for cloned voices so pitch peaks aren't squashed)
     if apply_dsp:
-        print("[voicebox] Applying Spotify Pedalboard broadcast DSP (Highpass + Compressor + -14 LUFS Limiter)...")
-        mastered_audio = apply_voicebox_dsp(audio_data, sample_rate)
+        is_cloned = (used_engine == "voxcpm2" and bool(clone_ref))
+        print(f"[voicebox] Applying Spotify Pedalboard broadcast DSP ({'Gentle Cloning 1.6:1' if is_cloned else 'Broadcast 3.5:1'} + Limiter)...")
+        mastered_audio = apply_voicebox_dsp(audio_data, sample_rate, gentle_cloning=is_cloned)
     else:
         mastered_audio = audio_data
 
@@ -1070,6 +1264,7 @@ def generate_speech(
             "text": text,
             "duration": round(duration_sec, 3),
             "sample_rate": sample_rate,
+            "style": selected_style_key or "default",
             "words": words
         }, f, indent=2, ensure_ascii=False)
 
@@ -1079,6 +1274,7 @@ def generate_speech(
     result: Dict[str, Any] = {
         "success": True,
         "engine": used_engine,
+        "style": selected_style_key or "default",
         "audio_path": str(out_file),
         "words_path": str(words_json_path),
         "duration": duration_sec,
@@ -1112,6 +1308,7 @@ def run_http_server(host: str = "127.0.0.1", port: int = 17493):
     class SpeakRequest(BaseModel):
         text: str
         voice: Optional[str] = None
+        style: Optional[str] = None
         lang: str = "id"
         output_path: Optional[str] = None
         dsp: bool = True
@@ -1129,10 +1326,18 @@ def run_http_server(host: str = "127.0.0.1", port: int = 17493):
         presets = load_voice_presets()
         return {
             "presets": {
-                k: {"name": v["name"], "description": v["description"], "gender": v["gender"], "lang": v["lang"]}
+                k: {
+                    "name": v["name"],
+                    "description": v["description"],
+                    "gender": v["gender"],
+                    "lang": v["lang"],
+                    "defaultStyle": v.get("default_style", "default"),
+                    "styles": v.get("styles", {}),
+                }
                 for k, v in presets.items()
             },
-            "indonesian": ["pocketmyth", "id-ID-ArdiNeural", "id-ID-GadisNeural"],
+            "indonesian": ["aetheria", "id-ID-ArdiNeural", "id-ID-GadisNeural"],
+            "english": ["aetheria_en", "af_heart", "am_adam"],
             "kokoro_default": DEFAULT_EN_VOICE,
             "kokoro_ready": ONNX_PATH.exists()
         }
@@ -1145,6 +1350,7 @@ def run_http_server(host: str = "127.0.0.1", port: int = 17493):
                 text=req.text,
                 output_path=target_out,
                 voice=req.voice,
+                style=req.style,
                 lang=req.lang,
                 apply_dsp=req.dsp
             )
@@ -1160,7 +1366,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Voicebox Engine for AetheriaNexus")
     parser.add_argument("--text", type=str, help="Text to speak")
     parser.add_argument("--out", type=str, default="output/voicebox_test.wav", help="Output WAV path")
-    parser.add_argument("--voice", type=str, default=None, help="Voice name")
+    parser.add_argument("--voice", type=str, default=None, help="Voice name (e.g. 'aetheria', 'aetheria_en', or 'aetheria:energetic')")
+    parser.add_argument("--style", type=str, default=None, help="Preset delivery style: default, energetic, mystery, casual, serious")
     parser.add_argument("--lang", type=str, default="id", help="Language: id or en")
     parser.add_argument("--ref-audio", type=str, default=None, help="Optional reference audio WAV for voice matching")
     parser.add_argument("--rate", type=str, default="+0%", help="Speaking rate adjustment, e.g. +10%% or -5%%")
@@ -1182,6 +1389,7 @@ if __name__ == "__main__":
             text=args.text,
             output_path=args.out,
             voice=args.voice,
+            style=args.style,
             lang=args.lang,
             apply_dsp=not args.no_dsp,
             ref_audio=args.ref_audio,

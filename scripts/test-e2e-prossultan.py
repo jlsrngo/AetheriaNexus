@@ -10,12 +10,12 @@ OUTPUT_MP4 = os.path.join(WORKSPACE_DIR, "output", "prossultan-gemini-flash.mp4"
 
 def main():
     print("=" * 72)
-    print("  AETHERIA E2E VIDEO TEST (KENARI API + @PROSSULTAN + @POCKETMYTH)")
+    print("  AETHERIA E2E VIDEO TEST (KENARI API + @PROSSULTAN + AETHERIA VOICE)")
     print("=" * 72)
 
     # 1. Create a session on the engine with Kenari API (Qwen 3.5 397B)
     create_payload = {
-        "title": "E2E Video: @prossultan Gemini 3.8 Flash x @pocketmyth Voice",
+        "title": "E2E Video: @prossultan Gemini 3.8 Flash x Aetheria Voice",
         "directory": WORKSPACE_DIR,
         "location": {"directory": WORKSPACE_DIR},
         "model": {
@@ -34,15 +34,12 @@ def main():
         print(f"[*] Engine Session Created: {sid}")
         print(f"[*] Provider: kenari | Model: qwen3-5-397b-a17b:free")
 
-    # 2. Dispatch E2E prompt (pure user request with both TikTok links)
+    # 2. Dispatch E2E prompt
     prompt_text = """buat video dengan refrensi ini 
 
 https://www.tiktok.com/@prossultan/video/7704517278666198279?is_from_webapp=1&sender_device=pc&web_id=7705460684746360327
 
-audionya ini 
-https://www.tiktok.com/@pocketmyth/video/7278334667198188805?is_from_webapp=1&sender_device=pc&web_id=7705460684746360327
-
-tone dan intonasinya (gunakan voice: "pocketmyth" di voicebox_speak tanpa engine: "edge", baca laporan referensi di workspace/ref/extracted/ref_report.md, buat komponen Remotion di workspace/src/prossultan-gemini/ dengan setiap <Audio src={staticFile("vo_sceneN.wav")} /> WAJIB berada DI DALAM <Sequence from={SCENE_START_FRAMES[i]} durationInFrames={SCENE_FRAMES[i]}> agar suara tidak double/tumpuk di frame 0, daftarkan ProssultanComposition di workspace/src/Root.tsx, dan jalankan render_video ke output/prossultan-gemini-flash.mp4)."""
+tone dan intonasinya (gunakan voice: "aetheria" di voicebox_speak tanpa engine: "edge", baca laporan referensi di workspace/ref/extracted/ref_report.md, buat komponen Remotion di workspace/src/prossultan-gemini/ dengan setiap <Audio src={staticFile("vo_sceneN.wav")} /> WAJIB berada DI DALAM <Sequence from={SCENE_START_FRAMES[i]} durationInFrames={SCENE_FRAMES[i]}> agar suara tidak double/tumpuk di frame 0, daftarkan ProssultanComposition di workspace/src/Root.tsx, dan jalankan render_video ke output/prossultan-gemini-flash.mp4)."""
 
     prompt_req = urllib.request.Request(
         f"{ENGINE_URL}/api/session/{sid}/prompt",

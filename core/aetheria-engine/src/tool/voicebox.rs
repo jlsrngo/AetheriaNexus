@@ -36,7 +36,7 @@ pub fn voicebox_tool_definition() -> Value {
         "type": "function",
         "function": {
             "name": "voicebox_speak",
-            "description": "Generates natural, human-sounding voiceover audio + word alignment mastered with Spotify Pedalboard DSP (highpass, compressor, -14 LUFS limiter). For Indonesian, use voice: 'pocketmyth' (permanent viral storytelling creator with youth energetic intonation), 'id-ID-GadisNeural' (warm, clear, professional female dubbing) or 'id-ID-ArdiNeural' (authoritative male narrator). The engine automatically engages Project Voice Lock (.voice_lock.json) so the narrator identity remains 100% consistent across every scene. Use this tool whenever producing voiceover for a Remotion video scene or social media reel.",
+            "description": "Generates natural, human-sounding voiceover audio + word alignment mastered with Spotify Pedalboard DSP (highpass, compressor, -14 LUFS limiter). For Indonesian, use voice: 'aetheria' (permanent Aetheria viral storytelling creator with youth energetic intonation), 'id-ID-GadisNeural' (warm, clear, professional female dubbing) or 'id-ID-ArdiNeural' (authoritative male narrator). For English, use voice: 'aetheria_en' (Aetheria English storytelling creator), 'af_heart' (female), or 'am_adam' (male). The engine automatically engages Project Voice Lock (.voice_lock.json) so the narrator identity remains 100% consistent across every scene. Use this tool whenever producing voiceover for a Remotion video scene or social media reel.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -55,7 +55,12 @@ pub fn voicebox_tool_definition() -> Value {
                     },
                     "voice": {
                         "type": "string",
-                        "description": "Narrator voice. For Indonesian viral storytelling creator use 'pocketmyth'; for female dubbing use 'id-ID-GadisNeural'; for authoritative male use 'id-ID-ArdiNeural'. For English female use 'af_heart'; male use 'am_adam'. Automatically locked across all scenes."
+                        "description": "Narrator voice. For Indonesian viral storytelling creator use 'aetheria' (or 'aetheria:energetic', 'aetheria:mystery', 'aetheria:casual', 'aetheria:serious'); for female dubbing use 'id-ID-GadisNeural'; for authoritative male use 'id-ID-ArdiNeural'. For English storytelling creator use 'aetheria_en' (or 'aetheria_en:energetic', 'aetheria_en:casual', 'aetheria_en:mystery', 'aetheria_en:serious'); for English female use 'af_heart'; male use 'am_adam'. Automatically locked across all scenes."
+                    },
+                    "style": {
+                        "type": "string",
+                        "enum": ["default", "energetic", "mystery", "casual", "serious"],
+                        "description": "Delivery style for preset voices like 'aetheria' or 'aetheria_en': 'default' (original storytelling cadence), 'energetic' (open, loud, fast hook for tech/news), 'mystery' (dramatic suspense for history/conspiracy), 'casual' (relaxed friend chat), 'serious' (firm warning/facts)."
                     },
                     "voiceDesign": {
                         "type": "string",
@@ -64,7 +69,7 @@ pub fn voicebox_tool_definition() -> Value {
                     "engine": {
                         "type": "string",
                         "enum": ["auto", "voxcpm", "edge", "kokoro"],
-                        "description": "TTS engine. Defaults to 'auto' (uses VoxCPM2 zero-shot voice cloning for presets like 'pocketmyth' or refAudio, and neural TTS otherwise). Leave as 'auto' when using 'pocketmyth'."
+                        "description": "TTS engine. Defaults to 'auto' (uses VoxCPM2 zero-shot voice cloning for presets like 'aetheria' / 'aetheria_en' or refAudio, and neural TTS otherwise). Leave as 'auto' when using 'aetheria' or 'aetheria_en'."
                     },
                     "resetVoiceLock": {
                         "type": "boolean",
@@ -155,6 +160,9 @@ pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
 
     if let Some(v) = arguments.get("voice").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
         cmd.arg("--voice").arg(v);
+    }
+    if let Some(st) = arguments.get("style").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
+        cmd.arg("--style").arg(st);
     }
 
     let ref_audio_opt = arguments
