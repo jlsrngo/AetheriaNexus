@@ -13,6 +13,7 @@
 pub mod assets;
 pub mod compositions;
 pub mod gpu;
+pub mod native_renderer;
 pub mod presets;
 pub mod renderer;
 pub mod scheduler;
@@ -68,6 +69,10 @@ pub fn router() -> Router {
         .route("/api/studio/format-captions", post(subtitles::handle_format_captions))
         // 3. Media Vault & Fast Multi-Threaded Asset Scanner
         .route("/api/studio/scan-media-vault", post(assets::handle_scan_media_vault))
+        // High-Performance Native Rust GPU Video Streamer (HTTP 206 Partial Content)
+        .route("/api/studio/stream-video", get(assets::handle_stream_video))
+        // 100% Direct Pure Rust Native Video Renderer (Zero Browser Overhead)
+        .route("/api/studio/native-render", post(native_renderer::handle_native_render))
         // 4. Background Scheduler & Auto-Posting Queue Daemon
         .route("/api/studio/schedule-post", post(scheduler::handle_schedule_post))
         .route(

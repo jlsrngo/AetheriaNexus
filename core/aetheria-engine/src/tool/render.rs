@@ -148,6 +148,16 @@ pub fn build_command_with_options(
         cmd.arg("--output").arg(output);
     }
 
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        // 0x00004000 = BELOW_NORMAL_PRIORITY_CLASS: Render worker runs at lower OS priority
+        // so foreground browser preview and UI remain 100% responsive without lagging.
+        const BELOW_NORMAL_PRIORITY_CLASS: u32 = 0x00004000;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(BELOW_NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW);
+    }
+
     cmd
 }
 
