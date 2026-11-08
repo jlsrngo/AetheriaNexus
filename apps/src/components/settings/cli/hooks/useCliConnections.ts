@@ -469,6 +469,23 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.data?.requestId) throw new Error(json.data?.message ?? `HTTP ${res.status}`);
       const requestId = json.data.requestId as string;
+      const authUrl = (json.data.authUrl as string | undefined) || "";
+
+      if (authUrl) {
+        try {
+          window.open(authUrl, "_blank", "noopener,noreferrer");
+        } catch {
+          /* popup blocker fallback */
+        }
+        toast.info("Opening Login Page...", {
+          description: "If the browser tab didn't open automatically, click 'Open Page'.",
+          action: {
+            label: "Open Page",
+            onClick: () => window.open(authUrl, "_blank", "noopener,noreferrer"),
+          },
+          duration: 30000,
+        });
+      }
 
       for (let attempt = 0; attempt < 120; attempt++) {
         await new Promise((r) => setTimeout(r, 1500));

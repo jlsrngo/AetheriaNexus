@@ -27,9 +27,14 @@ pub fn get_oauth_status(request_id: &str) -> Option<OauthResult> {
 pub fn open_browser_url(url: &str) {
     #[cfg(windows)]
     {
-        let _ = std::process::Command::new("rundll32.exe")
-            .args(["url.dll,FileProtocolHandler", url])
-            .spawn();
+        if let Err(_) = std::process::Command::new("cmd")
+            .args(["/c", "start", "", url])
+            .spawn()
+        {
+            let _ = std::process::Command::new("rundll32.exe")
+                .args(["url.dll,FileProtocolHandler", url])
+                .spawn();
+        }
     }
     #[cfg(not(windows))]
     {
