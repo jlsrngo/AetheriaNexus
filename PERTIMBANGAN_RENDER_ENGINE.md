@@ -128,85 +128,81 @@ Menggabungkan keunggulan interaktivitas Remotion dengan kecepatan rendering Rust
 
 ## 5. Bagaimana Cara LLM Menulis Konten Jika Menggunakan Rust Engine?
 
-Salah satu pertanyaan terpenting adalah: *Jika rendering dialihkan ke Rust, apakah LLM tetap menulis TSX atau beralih format lain?*
+Jika rendernya menggunakan Rust, ada 2 pendekatan utama bagaimana LLM menulis kontennya. Keduanya sangat mungkin dilakukan:
 
-Terdapat dua pendekatan konkret yang dapat diadopsi:
+### Pendekatan 1: LLM Tetap Menulis .tsx (React Component)
 
-### Pendekatan A: LLM Tetap Menulis `.tsx` (Komponen Semantik React)
+**Pendekatan:** Kodingan tetap TSX, Rust membaca strukturnya.
 
-Pada pendekatan ini, alur kerja LLM **tidak berubah sama sekali**. LLM tetap menulis file `.tsx` menggunakan pustaka komponen terstandarisasi:
+LLM tetap menulis kode .tsx seperti biasa menggunakan komponen Remotion:
 
 ```tsx
-// workspace/src/linus/MainTimeline.tsx
-import { Sequence } from "remotion";
-import { Badge, HookTitle, StockVideo, Voiceover } from "@/components/studio";
-
-export const LinusTorvaldsVideo = () => {
+export const MyTikTokVideo = () => {
   return (
     <Sequence from={0} durationInFrames={120}>
-      <StockVideo src="stock/coding_terminal.mp4" />
-      <Badge text="OPEN SOURCE" color="#06B6D4" position="top-left" />
-      <HookTitle text="Tahukah Kamu? Mahasiswa Pengubah Dunia!" animation="spring" />
-      <Voiceover src="audio/voiceover.mp3" volume={1.0} />
+      {/* Rust mengekstrak properti teks & warna ini */}
+      <Badge text="OPEN SOURCE" color="#06B6D4" />
+      <HookTitle text="Tahukah Kamu? Mahasiswa Pengubah Dunia!" />
+      <StockVideo src="workspace/stock/terminal.mp4" />
+      <Voiceover src="output/voiceover.mp3" />
     </Sequence>
   );
 };
 ```
 
-#### Cara Kerjanya:
-1. **Di Layar Studio Canvas (Browser):**
-   * File `.tsx` dieksekusi oleh React Player seperti biasa sehingga pengguna dapat melakukan scrubbing timeline, preview gerak, dan memutar audio secara interaktif.
-2. **Saat Tombol "Export MP4" Ditekan (Rust Engine):**
-   * Rust menggunakan AST parser super cepat (`oxc` / `swc` yang ditulis dalam Rust) untuk membaca struktur komponen JSX tanpa membuka browser.
-   * Rust mengekstrak properti: `from: 0`, `duration: 120`, teks badge, path audio, dan path video.
-   * Rust langsung menyusun pipeline FFmpeg native dan merender video dalam hitungan milidetik.
+**Bagaimana cara kerjanya di balik layar?**
 
-* **Kelebihan:** Pengalaman koding tetap 100% berbasis React TSX, ekosistem visual fleksibel.
-* **Syarat:** LLM diarahkan menggunakan komponen semantik baku (`<Badge>`, `<HookTitle>`, `<StockVideo>`), bukan menulis tag HTML/CSS div sembarangan.
+* **Di Layar Canvas:** Browser menjalankan file .tsx ini menggunakan React biasa agar Anda bisa melihat preview, play, pause, dan geser timeline.
+* **Saat Export MP4 di Rust:**
+  * Rust memiliki parser TypeScript tercepat di dunia (oxc / swc yang memang dibuat dengan Rust).
+  * Rust membaca file .tsx tersebut, mengekstrak teks, durasi, warna, dan link video/audio-nya, lalu me-render video MP4 langsung tanpa browser.
+* **Kelebihan:** Cara kerja LLM tidak berubah (tetap menulis kode TSX).
+* **Catatan:** LLM harus memakai komponen standar yang kita tentukan (<Badge>, <HookTitle>, <StockVideo>), bukan menulis tag HTML/CSS bebas yang aneh-aneh.
 
 ---
 
-### Pendekatan B: LLM Menulis Storyboard JSON (Standar Industri Otomasi)
+### Pendekatan 2: LLM Menulis Storyboard JSON (Standar Industri: CapCut / InVideo)
 
-Pada pendekatan ini, LLM bertindak sebagai *Director/Scriptwriter* murni yang menghasilkan data terstruktur (**Storyboard JSON**):
+**Pendekatan:** LLM menghasilkan data terstruktur murni.
+
+Alih-alih menulis kode HTML yang panjang (dan rentan error sintaks / kurung kurawal), LLM cukup menghasilkan Storyboard JSON:
 
 ```json
 {
-  "project": "Linus Torvalds Story",
-  "resolution": { "width": 1080, "height": 1920, "fps": 60 },
+  "title": "Linus Torvalds Story",
+  "fps": 60,
   "scenes": [
     {
-      "id": "scene_01",
-      "duration_frames": 120,
-      "stock_video": "stock/terminal.mp4",
-      "audio_track": "audio/scene1_vo.mp3",
-      "overlays": [
-        {
-          "type": "badge",
-          "text": "OPEN SOURCE",
-          "color": "#06B6D4",
-          "animation": "slide_down"
-        },
-        {
-          "type": "hook_title",
-          "text": "Tahukah Kamu? Mahasiswa Pengubah Dunia!",
-          "animation": "spring_bounce"
-        }
-      ]
+      "duration_sec": 3.5,
+      "stock_video": "coding_terminal.mp4",
+      "voiceover": "scene1_vo.mp3",
+      "hook_title": "Tahukah Kamu? Mahasiswa Pengubah Dunia!",
+      "badge": { "text": "OPEN SOURCE", "color": "#06B6D4" },
+      "animation": "slide_up_spring"
     }
   ]
 }
 ```
 
-#### Cara Kerjanya:
-1. **Di Layar Studio Canvas:** Template universal React membaca JSON ini dan langsung menampilkan preview secara *instant* tanpa perlu waktu kompilasi Webpack bundler (menghemat 10–15 detik saat LLM selesai membuat naskah).
-2. **Di Sisi Rust Engine:** Rust mem-parsing JSON secara *zero-copy* (`serde_json`), menghitung fisika animasi, lalu memotong klip video stok dan menempelkan teks secara native.
-3. **Di Sisi Pengguna (UI):** Pengguna non-koder dapat langsung mengedit kata-kata teks, mengganti warna, atau menukar video stok lewat form input di UI aplikasi tanpa perlu mengutak-atik kode program.
+**Bagaimana cara kerjanya di balik layar?**
 
-* **Kelebihan:** 
-  * Bebas dari error sintaks/kurung kurawal LLM (LLM 99.9% akurat saat menghasilkan JSON terstruktur).
-  * Preview langsung muncul tanpa proses Webpack build.
-  * Membuka pintu bagi pengguna awam untuk mengedit konten dengan UI form.
+* **Di Layar Canvas:** Template React di browser membaca JSON ini dan langsung menampilkan preview secara instan (tanpa perlu waktu Webpack bundling 10–15 detik).
+* **Di Rust Engine:** Rust membaca JSON yang sama dan mengeksekusi render MP4 dalam 1 detik.
+* **Di Sisi Pengguna (UI):** Pengguna bisa mengedit teks, mengganti warna, atau menukar video stok langsung lewat form/panel editor UI yang rapi tanpa menyentuh kode.
+* **Kelebihan:**
+  * **Zero Bug:** LLM hampir tidak pernah salah membuat JSON terstruktur (tidak ada error SyntaxError atau salah import library).
+  * **Super Cepat:** Tidak ada proses bundling Webpack sama sekali.
+  * **Fleksibel:** Pengguna awam yang tidak paham koding bisa mengedit teks video langsung dari form UI.
+
+---
+
+### Rekomendasi untuk AetheriaNexus:
+
+Jika Anda ingin:
+* **Pengalaman seperti Remotion koding murni:** Pilih Pendekatan 1 (Tetap TSX). Kita sediakan pustaka komponen semantik (<HookTitle>, <Badge>, <StockVideo>).
+* **Pengalaman seperti CapCut / Auto-TikTok Generator profesional:** Pilih Pendekatan 2 (Storyboard JSON). LLM menghasilkan skenario video terstruktur, preview instan di canvas, dan export hitungan detik lewat Rust.
+
+Di antara dua pendekatan ini, mana yang lebih sesuai dengan alur kerja yang Anda inginkan?
 
 ---
 
