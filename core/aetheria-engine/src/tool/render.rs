@@ -55,36 +55,47 @@ pub fn optimal_render_concurrency() -> usize {
         .unwrap_or(6)
 }
 
-/// Fast native Rust sync of `workspace/public` into the cached Remotion bundle's `public/`
-/// directory so `staticFile(...)` assets never 404 even when reusing a cached bundle.
+/// Fast native Rust sync of `workspace/public` (including subdirectories like `sfx/`)
+/// into the cached Remotion bundle's `public/` directory so `staticFile(...)` assets never 404.
 pub fn sync_workspace_public_to_bundle(root: &Path) {
-    let ws_pub = root.join("workspace").join("public");
-    if !ws_pub.is_dir() {
-        return;
-    }
     let bundle_pub = crate::paths::render_cache_dir().join("public");
     let _ = std::fs::create_dir_all(&bundle_pub);
-    if let Ok(entries) = std::fs::read_dir(&ws_pub) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_file() {
-                if let Some(name) = path.file_name() {
-                    let dest = bundle_pub.join(name);
-                    let should_copy = match (std::fs::metadata(&path), std::fs::metadata(&dest)) {
-                        (Ok(src_m), Ok(dst_m)) => {
-                            src_m.len() != dst_m.len()
-                                || src_m.modified().ok() != dst_m.modified().ok()
-                        }
-                        (Ok(_), Err(_)) => true,
-                        _ => false,
-                    };
-                    if should_copy {
-                        let _ = std::fs::copy(&path, &dest);
-                    }
+
+    // Also copy root/public/sfx into workspace/public/sfx if present
+    let root_sfx = root.join("public").join("sfx");
+    let ws_sfx = root.join("workspace").join("public").join("sfx");
+    if root_sfx.is_dir() {
+        let _ = copy_dir_recursive_if_newer(&root_sfx, &ws_sfx);
+    }
+
+    let ws_pub = root.join("workspace").join("public");
+    if ws_pub.is_dir() {
+        let _ = copy_dir_recursive_if_newer(&ws_pub, &bundle_pub);
+    }
+}
+
+fn copy_dir_recursive_if_newer(src: &Path, dst: &Path) -> std::io::Result<()> {
+    let _ = std::fs::create_dir_all(dst);
+    for entry in std::fs::read_dir(src)?.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name() else { continue };
+        let dest = dst.join(name);
+        if path.is_dir() {
+            let _ = copy_dir_recursive_if_newer(&path, &dest);
+        } else if path.is_file() {
+            let should_copy = match (std::fs::metadata(&path), std::fs::metadata(&dest)) {
+                (Ok(src_m), Ok(dst_m)) => {
+                    src_m.len() != dst_m.len() || src_m.modified().ok() != dst_m.modified().ok()
                 }
+                (Ok(_), Err(_)) => true,
+                _ => false,
+            };
+            if should_copy {
+                let _ = std::fs::copy(&path, &dest);
             }
         }
     }
+    Ok(())
 }
 
 /// Single place that builds the `node scripts/render.mjs` invocation with Rust-computed

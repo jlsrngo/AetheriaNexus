@@ -13,6 +13,7 @@ pub mod render;
 pub mod sfx;
 pub mod skill_manager;
 pub mod step_formatter;
+pub mod storyboard;
 pub mod tasks;
 pub mod todo;
 pub mod truncator;
@@ -33,6 +34,7 @@ pub fn should_attach_document_tools(_prompt_text: &str, _history: &[Value]) -> b
 
 pub fn build_tool_definitions() -> Vec<Value> {
     let mut tools = vec![
+        storyboard::produce_video_tool_definition(),
         render::render_video_tool_definition(),
         voicebox::voicebox_tool_definition(),
         sfx::sfx_tool_definition(),
@@ -48,9 +50,38 @@ pub fn build_tool_definitions() -> Vec<Value> {
         question::question_tool_definition(),
         tasks::tasks_tool_definition(),
         bash::bash_tool_definition(),
+        register_style_tool_definition(),
     ];
     tools.extend(skill_manager::skill_tool_definitions());
     tools
+}
+
+pub fn register_style_tool_definition() -> Value {
+    json!({
+        "type": "function",
+        "function": {
+            "name": "register_motion_style",
+            "description": "Registers a new motion graphics style / skill from an uploaded markdown brief file. Automatically generates style.md, tokens.json, REMOTION_BRIEF.md, and makes it available as a slash command (e.g. /editorial-kinetic).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "The style name or slug, e.g. 'editorial-kinetic' or 'cyber-neon'"
+                    },
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the markdown brief / instruction file (e.g. 'instruksi_remotion_agent_kinetic_motion_graphics_v2.md')"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Optional short summary or style description"
+                    }
+                },
+                "required": ["name", "file_path"]
+            }
+        }
+    })
 }
 
 pub fn resolve_isolated_path(workspace_dir: &str, raw_file: &str) -> Result<PathBuf, String> {
@@ -84,6 +115,16 @@ pub async fn execute_tool_call(
     workspace_dir: &str,
 ) -> Value {
     match name {
+        "produce_video" | "storyboard_video" | "build_storyboard_video" => {
+            storyboard::execute_produce_video(
+                session_id,
+                assistant_msg_id,
+                call_id,
+                workspace_dir,
+                arguments,
+            )
+            .await
+        }
         "render_video" | "remotion_render" | "export_video" | "render_nexus_video" => {
             render::execute_render_video_with_progress(
                 session_id,
@@ -146,6 +187,21 @@ pub async fn execute_tool_call(
         }
         "bash" | "shell" | "terminal" => {
             bash::execute_bash(session_id, workspace_dir, arguments).await
+        }
+        "register_motion_style" | "register_style" | "add_style" | "add_skill" => {
+            let name = arguments.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let file_path = arguments.get("file_path").and_then(|v| v.as_str());
+            let desc = arguments.get("description").and_then(|v| v.as_str());
+            let content = arguments.get("content").and_then(|v| v.as_str());
+            match crate::studio::styles::register_style_internal(name, file_path, content, desc) {
+                Ok(style) => json!({
+                    "success": true,
+                    "style": style,
+                    "command": style.command,
+                    "message": format!("Style '{}' successfully registered! Available as {}", style.name, style.command)
+                }),
+                Err(e) => json!({ "error": e }),
+            }
         }
         _ => json!({ "error": format!("Unknown tool: {}", name) }),
     }

@@ -84,21 +84,29 @@ def write_wav(file_path: Path, samples: List[float]):
         w.writeframes(raw)
 
 def ensure_soundbank(sfx_dir: Path):
-    """Generates the studio soundbank files if not already present."""
+    """Generates the studio soundbank files in both sfx_dir and its parent public dir."""
     sfx_dir.mkdir(parents=True, exist_ok=True)
+    parent_dir = sfx_dir.parent
     files = {
-        "sfx_typewriter.wav": lambda: generate_sine_blip(2200, 1600, 0.035, 120.0, 0.20),
-        "sfx_pop.wav": lambda: generate_sine_blip(950, 480, 0.075, 45.0, 0.35),
-        "sfx_whoosh.wav": lambda: generate_noise_sweep(0.380, 400, 4500, 0.32),
-        "sfx_impact.wav": lambda: generate_sub_impact(0.450, 0.55),
-        "sfx_chime.wav": lambda: generate_chime([1046.5, 1318.5, 1567.98], 0.35, 0.30),
-        "sfx_riser.wav": lambda: generate_noise_sweep(0.750, 250, 6000, 0.30),
+        "sfx_typewriter.wav": lambda: generate_sine_blip(2200, 1600, 0.035, 120.0, 0.24),
+        "sfx_pop.wav": lambda: generate_sine_blip(950, 480, 0.075, 45.0, 0.42),
+        "sfx_whoosh.wav": lambda: generate_noise_sweep(0.380, 400, 4500, 0.38),
+        "sfx_impact.wav": lambda: generate_sub_impact(0.450, 0.65),
+        "sfx_chime.wav": lambda: generate_chime([1046.5, 1318.5, 1567.98], 0.35, 0.36),
+        "sfx_riser.wav": lambda: generate_noise_sweep(0.750, 250, 6000, 0.36),
     }
     for name, gen_fn in files.items():
         target = sfx_dir / name
+        samples = None
         if not target.exists() or target.stat().st_size < 100:
             samples = gen_fn()
             write_wav(target, samples)
+        # Also ensure top-level workspace/public/sfx_*.wav exists so staticFile("sfx_whoosh.wav") works directly
+        flat_target = parent_dir / name
+        if not flat_target.exists() or flat_target.stat().st_size < 100:
+            if samples is None:
+                samples = gen_fn()
+            write_wav(flat_target, samples)
 
 class SmartSfxScheduler:
     """

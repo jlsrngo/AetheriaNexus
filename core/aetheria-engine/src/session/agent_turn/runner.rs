@@ -8,7 +8,10 @@ use crate::session::session::{save_store, with_store};
 use crate::session::tools::{build_tool_definitions, execute_tool_call, should_attach_document_tools};
 use serde_json::{json, Value};
 
-use super::context::{assemble_system_prompt, resolve_mentioned_files};
+use super::context::{
+    assemble_system_prompt, resolve_mentioned_files, resolve_motioncraft_style_command,
+    resolve_reference_report,
+};
 use super::history::build_chat_messages;
 use super::vision::{find_ffmpeg_bin, process_attached_files, process_social_links};
 
@@ -81,6 +84,16 @@ pub async fn run_agent_turn(
     let mentioned_files = resolve_mentioned_files(workspace_dir, prompt_text);
     if !mentioned_files.is_empty() {
         context_additions.extend(mentioned_files);
+    }
+
+    // Active Motioncraft style slash command (e.g. /mono-editorial, /pi-v2, etc.)
+    if let Some(style_ctx) = resolve_motioncraft_style_command(workspace_dir, prompt_text) {
+        context_additions.push(style_ctx);
+    }
+
+    // Active video reference report
+    if let Some(ref_report) = resolve_reference_report(workspace_dir) {
+        context_additions.push(ref_report);
     }
 
     let enriched_user_text = if !context_additions.is_empty() {

@@ -58,11 +58,28 @@ def analyze_frame_layout(frame_bgr: np.ndarray, ocr_engine: Optional[Any] = None
         except Exception:
             pass
 
-    # Detect central cards / container boxes with OpenCV contours
+    # Detect central cards, floating pills/particles, and visual archetype with OpenCV
     has_card = False
     card_count = 0
+    pill_count = 0
+    scatter_count = 0
+    mean_luma = 128.0
+    bg_hex = "#FFFFFF"
+    visual_archetype = "editorial-kinetic"
+
     try:
+        # Dominant background color from border pixels
+        border_pixels = np.vstack([
+            frame_bgr[0:8, :, :].reshape(-1, 3),
+            frame_bgr[-8:, :, :].reshape(-1, 3),
+            frame_bgr[:, 0:8, :].reshape(-1, 3),
+            frame_bgr[:, -8:, :].reshape(-1, 3),
+        ])
+        med_bgr = np.median(border_pixels, axis=0)
+        bg_hex = f"#{int(med_bgr[2]):02X}{int(med_bgr[1]):02X}{int(med_bgr[0]):02X}"
+
         gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        mean_luma = float(np.mean(gray))
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         thresh = cv2.adaptiveThreshold(
             blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
@@ -71,11 +88,25 @@ def analyze_frame_layout(frame_bgr: np.ndarray, ocr_engine: Optional[Any] = None
         valid_cards = []
         for cnt in contours:
             x, y, cw, ch = cv2.boundingRect(cnt)
-            # A prominent UI card typically spans >= 35% width and >= 15% height in vertical reels
-            if cw >= 0.35 * w and ch >= 0.15 * h and y < 0.8 * h and (y + ch) > 0.18 * h:
+            area = cw * ch
+            if cw >= 0.30 * w and ch >= 0.12 * h and y < 0.85 * h and (y + ch) > 0.15 * h:
                 valid_cards.append({"x": x, "y": y, "w": cw, "h": ch})
+            elif cw >= 0.18 * w and 0.04 * h <= ch <= 0.16 * h:
+                pill_count += 1
+            elif (0.0004 * w * h) <= area <= (0.03 * w * h):
+                scatter_count += 1
+
         card_count = len(valid_cards)
         has_card = card_count > 0
+
+        if mean_luma < 45.0 and scatter_count >= 12:
+            visual_archetype = "dark-3d-particle-explosion (Dark #0C0B0B bg + 25-35 floating 3D capsules/pills/stars with depth-of-field blur + giant 130px center typography)"
+        elif pill_count >= 2 or card_count >= 2:
+            visual_archetype = "staggered-pill-stack-or-node-tree (Warm editorial grid bg + 3-4 staggered white pill cards with left circular SVG icons, soft elevation shadow, and curved SVG Bezier connector paths)"
+        elif has_card and card_count == 1:
+            visual_archetype = "screen-studio-macro-zoom-ui ( Tilted/zoomed-in hardware UI window frame with status badge pill, huge 110px serif/sans metric readout, and animated cursor interaction)"
+        else:
+            visual_archetype = "high-density-kinetic-showcase (Multi-layered typography + floating status pills + animated SVG accent graphics)"
     except Exception:
         pass
 
@@ -85,6 +116,11 @@ def analyze_frame_layout(frame_bgr: np.ndarray, ocr_engine: Optional[Any] = None
         "bottom": bottom_items,
         "has_card": has_card,
         "card_count": card_count,
+        "pill_count": pill_count,
+        "scatter_count": scatter_count,
+        "bg_hex": bg_hex,
+        "is_dark_scene": mean_luma < 70.0,
+        "visual_archetype": visual_archetype,
     }
 
 
@@ -301,10 +337,9 @@ def extract_reference_blueprint(video_path_str: str, out_dir_str: str = None) ->
     for s in scenes:
         ly = s["layout"]
         md += f"\n### Scene {s['index']}: {s['role'].upper()} ({s['start']}s - {s['end']}s)\n"
-        if ly["has_card"]:
-            md += f"- **Hero Layout:** Central UI / Card Mockup detected ({ly['card_count']} container box)\n"
-        else:
-            md += "- **Hero Layout:** Content & Typography Block\n"
+        md += f"- **Scene Background Color:** `{ly.get('bg_hex', primary_bg)}` ({'DARK CONTRAST SCENE' if ly.get('is_dark_scene') else 'LIGHT EDITORIAL SCENE'})\n"
+        md += f"- **Visual Archetype (MUST RECONSTRUCT):** `{ly.get('visual_archetype', 'editorial-kinetic')}`\n"
+        md += f"- **Detected Object Density:** `{ly.get('card_count', 0)}` large cards, `{ly.get('pill_count', 0)}` pill cards, `{ly.get('scatter_count', 0)}` floating particles/badges\n"
 
         if ly["top"]:
             md += f"- **Top Zone:** {', '.join([f'\"{t}\"' for t in ly['top'][:4]])}\n"
@@ -314,12 +349,12 @@ def extract_reference_blueprint(video_path_str: str, out_dir_str: str = None) ->
             md += f"- **Bottom Zone:** {', '.join([f'\"{t}\"' for t in ly['bottom'][:3]])}\n"
 
     md += f"""
-## 💡 Remotion Directives:
-1. Container `background: '{primary_bg}'`.
-2. Text contrast: `{text_color}` on `{primary_bg}` with `{accent_color}` highlights.
-3. VISUAL FIDELITY: Reconstruct the detected Hero components (card mockups, grids, badges, step pills) in React. Never leave the canvas as plain text on an empty background!
-4. SEQUENTIAL AUDIO: Voiceover narration must be strictly sequential (Scene N starts after Scene N-1 finishes). ZERO voiceover overlap.
-5. SEQUENCE FRAMES: Inside `<Sequence>`, `useCurrentFrame()` starts at 0. Use `const frame = useCurrentFrame();` directly without subtracting `startFrame`.
+## 💡 Remotion Directives (Prompt-Motion Studio Quality):
+1. PER-SCENE CONTRAST: Match each scene's own `Scene Background Color` (e.g., if Scene 1 is `#0C0B0B` Dark Contrast and Scene 2 is `#F2ECE5` Light Editorial, switch backgrounds dramatically between scenes!).
+2. NEVER RENDER FLAT SLIDES: Every scene MUST reconstruct its `Visual Archetype` (20+ floating 3D capsules/stars with depth-of-field blur on dark hook scenes; staggered pill stacks with circular SVG icons; extreme Screen-Studio camera zoom `scale(1.65)` on UI cards; animated SVG Bezier connector curves `<path strokeDasharray strokeDashoffset>`).
+3. MULTI-BEAT CHOREOGRAPHY: If a scene lasts > 4 seconds, split the scene into 2-3 visual sub-beats driven by `frame` (e.g. Beat 1: Headline + initial card -> Beat 2: Camera push-in + staggered pills pop in -> Beat 3: Animated cursor clicks button / SVG connectors draw in).
+4. SOUND EFFECTS (SFX): Always include transition whooshes (`sfx_whoosh.wav`), UI card pops (`sfx_pop.wav`), stat chimes (`sfx_chime.wav`), and bass impacts (`sfx_impact.wav`) using `<Sequence from={{...}}><Audio src={{staticFile("sfx/sfx_pop.wav")}} volume={{0.28}} /></Sequence>`.
+5. SEQUENCE FRAMES: Inside `<Sequence>`, `useCurrentFrame()` ALREADY starts at 0! Always pass `startFrame = 0` (or small local stagger `8`, `16`, `24`) inside `SceneN.tsx`. NEVER pass `SCENE_START_FRAMES[i]` inside `SceneN.tsx`!
 """
 
     with open(report_md, "w", encoding="utf-8") as f:

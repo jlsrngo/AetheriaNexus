@@ -129,20 +129,29 @@ pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
         ws.join(out_rel)
     };
 
-    // Fast Cache Hit: If the WAV file already exists and is non-empty (>1KB), reuse it immediately
-    // unless force=true or resetVoiceLock=true is explicitly passed.
+    // Fast Cache Hit: Only reuse existing WAV if the text actually matches what was requested!
+    // Never reuse an old file with different text just because the filename is the same.
     let force_regen = arguments.get("force").and_then(|v| v.as_bool()).unwrap_or(false)
         || arguments.get("resetVoiceLock").and_then(|v| v.as_bool()).unwrap_or(false);
     if !force_regen {
-        if let Ok(meta) = std::fs::metadata(&target_out) {
+        let words_path = target_out.with_extension("words.json");
+        if let (Ok(meta), Ok(words_content)) = (std::fs::metadata(&target_out), std::fs::read_to_string(&words_path)) {
             if meta.len() > 1024 {
-                sync_audio_to_public_dirs(&root, &target_out);
-                return json!({
-                    "success": true,
-                    "cached": true,
-                    "message": format!("Reused existing mastered voiceover at '{}' (synced to workspace/public & bundle/public)", target_out.display()),
-                    "outputPath": target_out.to_string_lossy().to_string()
-                });
+                if let Ok(words_json) = serde_json::from_str::<serde_json::Value>(&words_content) {
+                    if let Some(cached_text) = words_json.get("text").and_then(|v| v.as_str()) {
+                        let clean_cached = cached_text.split_whitespace().collect::<Vec<_>>().join(" ");
+                        let clean_requested = text.split_whitespace().collect::<Vec<_>>().join(" ");
+                        if clean_cached == clean_requested {
+                            sync_audio_to_public_dirs(&root, &target_out);
+                            return json!({
+                                "success": true,
+                                "cached": true,
+                                "message": format!("Reused existing mastered voiceover at '{}' (synced to workspace/public & bundle/public)", target_out.display()),
+                                "outputPath": target_out.to_string_lossy().to_string()
+                            });
+                        }
+                    }
+                }
             }
         }
     }
