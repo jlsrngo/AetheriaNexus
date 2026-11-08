@@ -41,14 +41,17 @@ export const CompositionsPanel = memo(function CompositionsPanel({
 
   const grouped = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    const filtered = q
-      ? compositions.filter(
-          (c) =>
-            c.name.toLowerCase().includes(q) ||
-            c.id.toLowerCase().includes(q) ||
-            c.folder.toLowerCase().includes(q)
-        )
-      : compositions;
+    const staleFolders = new Set(["TIKTOK AUTOMATION", "VIRAL HOOK TEMPLATES", "SOCIAL FORMATS"]);
+    const filtered = (
+      q
+        ? compositions.filter(
+            (c) =>
+              c.name.toLowerCase().includes(q) ||
+              c.id.toLowerCase().includes(q) ||
+              c.folder.toLowerCase().includes(q)
+          )
+        : compositions
+    ).filter((c) => !staleFolders.has((c.folder || "").toUpperCase()));
 
     const map = new Map<string, StudioComposition[]>();
     for (const comp of filtered) {

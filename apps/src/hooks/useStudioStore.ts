@@ -10,82 +10,62 @@ import type {
   StudioSubtitleCue,
 } from "../types/studio";
 
-const STORAGE_KEY = "aetheria_nexus_studio_compositions_v2";
-const DEFAULT_PROPS_SIG_KEY = "aetheria_nexus_default_props_sig_v2";
+const STORAGE_KEY = "aetheria_nexus_studio_compositions_v4";
+const DEFAULT_PROPS_SIG_KEY = "aetheria_nexus_default_props_sig_v4";
+
+const STALE_FOLDERS = new Set([
+  "TIKTOK AUTOMATION",
+  "VIRAL HOOK TEMPLATES",
+  "SOCIAL FORMATS",
+]);
+
+const STALE_DUMMY_IDS = new Set([
+  "NexusEditorialVideo",
+  "TikTokVideo",
+  "nexus-vertical",
+  "nexus-square",
+  "nexus-landscape",
+  "hook-morning-habits",
+  "hook-finance-failure",
+  "hook-dopamine-reset",
+]);
 
 const DEFAULT_COMPOSITIONS: StudioComposition[] = [
   {
-    id: nexusVideoSpec.id,
-    name: "NexusEditorialVideo",
-    folder: "TIKTOK AUTOMATION",
+    id: "LinusTorvalds",
+    name: "Linus Torvalds — The Man Behind Linux",
+    folder: "AI WORKSPACE",
     ratio: "9:16",
-    duration: nexusVideoSpec.durationInFrames / nexusVideoSpec.fps,
-    fps: nexusVideoSpec.fps,
-    width: nexusVideoSpec.width,
-    height: nexusVideoSpec.height,
-    props: { ...defaultNexusVideoProps },
-  },
-  {
-    id: "TikTokVideo",
-    name: "TikTokVideo Viral Hook",
-    folder: "TIKTOK AUTOMATION",
-    ratio: "9:16",
-    duration: 5,
-    fps: 30,
+    duration: 62,
+    fps: 60,
     width: 1080,
     height: 1920,
     props: {
-      hookText: "Why 99% of People Fail Financially in Their 20s",
-      bodyText:
-        "1. Confusing high income with building real wealth\n2. Financing depreciating lifestyle assets on credit\n3. Never automating monthly index fund investments",
-      authorHandle: "@nexus.creative",
-      themeColor: "amber",
-      category: "FINANCE",
-      subCategory: "WEALTH ARCHITECTURE",
+      hookText: "Tahukah Kamu? Mahasiswa Yang Mengubah Dunia Teknologi!",
+      bodyText: "Linus Torvalds, 1991 Finland. Kernel monolitik Linux & Git.",
+      category: "DOCUMENTARY",
+      subCategory: "OPEN SOURCE",
+      authorHandle: "@torvalds",
       showText: true,
       showBackground: true,
       isMuted: false,
     },
   },
   {
-    id: "nexus-square",
-    name: "SquarePost (1:1)",
-    folder: "SOCIAL FORMATS",
-    ratio: "1:1",
-    duration: 5,
-    fps: 30,
+    id: "RustHistory",
+    name: "Rust History (60s Kinetic)",
+    folder: "AI WORKSPACE",
+    ratio: "9:16",
+    duration: 60,
+    fps: 60,
     width: 1080,
-    height: 1080,
+    height: 1920,
     props: {
-      hookText: "The Golden Rule of Visual Hook Retention",
-      bodyText:
-        "1. First 2 seconds determines 80% of video reach\n2. Keep headline under 8 words with bold contrast\n3. Maintain constant micro-motion throughout video",
-      authorHandle: "@nexus.creative",
-      themeColor: "violet",
-      category: "GROWTH",
-      subCategory: "ALGORITHM METRICS",
-      showText: true,
-      showBackground: true,
-      isMuted: false,
-    },
-  },
-  {
-    id: "nexus-landscape",
-    name: "LandscapeShort (16:9)",
-    folder: "SOCIAL FORMATS",
-    ratio: "16:9",
-    duration: 5,
-    fps: 30,
-    width: 1920,
-    height: 1080,
-    props: {
-      hookText: "Zero-Cost Automated Video Architecture",
-      bodyText:
-        "1. Nexus React runtime executes locally on CPU/GPU\n2. Axum background engine renders native MP4\n3. Total cloud rendering and API cost = Rp 0",
-      authorHandle: "@nexus.creative",
-      themeColor: "cyan",
-      category: "ENGINEERING",
-      subCategory: "ZERO CLOUD COST",
+      hookText: "The Story of Rust: From Broken Elevator to Global Infra",
+      bodyText: "Graydon Hoare, Mozilla 2006. Memory safety without garbage collection.",
+      category: "TECH HISTORY",
+      subCategory: "SYSTEMS",
+      authorHandle: "@rustlang",
       showText: true,
       showBackground: true,
       isMuted: false,
@@ -138,44 +118,35 @@ interface StudioStoreState {
   redoStack: NexusVideoProps[];
 }
 
+function isStaleComposition(c: { id: string; folder?: string }) {
+  if (STALE_DUMMY_IDS.has(c.id)) return true;
+  if (c.folder && STALE_FOLDERS.has(c.folder.toUpperCase())) return true;
+  return false;
+}
+
 function loadInitialCompositions(): StudioComposition[] {
   if (typeof localStorage === "undefined") return DEFAULT_COMPOSITIONS;
   try {
-    const currentCodeSig = JSON.stringify(defaultNexusVideoProps);
-    const savedCodeSig = localStorage.getItem(DEFAULT_PROPS_SIG_KEY);
-    const codeChangedByLlm = savedCodeSig !== currentCodeSig;
-
-    if (codeChangedByLlm) {
-      localStorage.setItem(DEFAULT_PROPS_SIG_KEY, currentCodeSig);
-    }
-
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as StudioComposition[];
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const existingIds = new Set(parsed.map((comp) => comp.id));
+        // Strip any obsolete mockup templates or folders
+        const cleaned = parsed.filter((c) => !isStaleComposition(c));
+        const existingIds = new Set(cleaned.map((comp) => comp.id));
         const missingDefaults = DEFAULT_COMPOSITIONS.filter((comp) => !existingIds.has(comp.id));
-        const combined = [...missingDefaults, ...parsed];
-
-        if (codeChangedByLlm || missingDefaults.length > 0) {
-          const updated = combined.map((comp) =>
-            comp.id === nexusVideoSpec.id
-              ? { ...comp, props: { ...defaultNexusVideoProps } }
-              : comp
-          );
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-          return updated;
-        }
+        const combined = [...missingDefaults, ...cleaned];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(combined));
         return combined;
       }
     }
-  } catch {}
+  } catch { }
   return DEFAULT_COMPOSITIONS;
 }
 
 let state: StudioStoreState = {
   compositions: loadInitialCompositions(),
-  activeCompositionId: nexusVideoSpec.id,
+  activeCompositionId: "LinusTorvalds",
   currentFrame: 0,
   isPlaying: false,
   canvas: {
@@ -214,7 +185,7 @@ function emit() {
   storageTimer = setTimeout(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state.compositions));
-    } catch {}
+    } catch { }
   }, 250);
 }
 
@@ -284,7 +255,7 @@ export const studioActions = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ compositionId: active.id, props: nextProps }),
-      }).catch(() => {});
+      }).catch(() => { });
     }, 300);
   },
 
@@ -344,8 +315,8 @@ export const studioActions = {
       ratio === "1:1"
         ? { width: 1080, height: 1080 }
         : ratio === "16:9"
-        ? { width: 1920, height: 1080 }
-        : { width: 1080, height: 1920 };
+          ? { width: 1920, height: 1080 }
+          : { width: 1080, height: 1920 };
     const cleanId =
       input.name
         .trim()
@@ -457,9 +428,9 @@ export const studioActions = {
       if (res.ok) {
         const json = (await res.json()) as { success?: boolean; data?: StudioComposition[] };
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          const merged = [...state.compositions];
+          const merged = state.compositions.filter((m) => !isStaleComposition(m));
           for (const item of json.data) {
-            if (!merged.some((m) => m.id === item.id)) {
+            if (!isStaleComposition(item) && !merged.some((m) => m.id === item.id)) {
               merged.push({
                 ...item,
                 ratio: (item.ratio as "9:16" | "1:1" | "16:9") || "9:16",
@@ -473,30 +444,30 @@ export const studioActions = {
       }
     } catch {}
 
-    try {
-      const res = await apiFetch(`${API_BASE}/get-static-files`);
-      if (res.ok) {
-        const json = (await res.json()) as { success?: boolean; data?: StudioStaticAsset[] };
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          state = { ...state, assets: json.data };
-          emit();
+      try {
+        const res = await apiFetch(`${API_BASE}/get-static-files`);
+        if (res.ok) {
+          const json = (await res.json()) as { success?: boolean; data?: StudioStaticAsset[] };
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            state = { ...state, assets: json.data };
+            emit();
+          }
         }
-      }
-    } catch {}
-  },
-};
-
-export function useStudioStore() {
-  const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-  const activeComposition =
-    snap.compositions.find((c) => c.id === snap.activeCompositionId) ?? snap.compositions[0];
-  const durationInFrames = Math.max(15, Math.round(activeComposition.duration * activeComposition.fps));
-
-  return {
-    ...snap,
-    activeComposition,
-    durationInFrames,
-    actions: studioActions,
+      } catch { }
+    },
   };
+
+  export function useStudioStore() {
+    const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+const activeComposition =
+  snap.compositions.find((c) => c.id === snap.activeCompositionId) ?? snap.compositions[0];
+const durationInFrames = Math.max(15, Math.round(activeComposition.duration * activeComposition.fps));
+
+return {
+  ...snap,
+  activeComposition,
+  durationInFrames,
+  actions: studioActions,
+};
 }
 
