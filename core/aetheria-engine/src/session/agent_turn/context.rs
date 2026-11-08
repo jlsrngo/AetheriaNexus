@@ -245,3 +245,89 @@ pub fn resolve_mentioned_files(workspace_dir: &str, prompt_text: &str) -> Vec<St
     out
 }
 
+pub fn resolve_motioncraft_style_command(workspace_dir: &str, prompt_text: &str) -> Option<String> {
+    resolve_dynamic_style_or_skill_command(workspace_dir, prompt_text)
+}
+
+/// Dynamically detects and resolves style or design skill slash commands from:
+/// 1. Motioncraft locked styles (`.agents/skills/motioncraft/styles/*`)
+/// 2. User-defined custom styles (`workspace/styles/*` or `styles/*`)
+/// 3. Installed UI / Design skills (`.agents/skills/*`, e.g. `/industrial-brutalist`, `/minimalist`, etc.)
+/// 4. Fuzzy keyword aliases (e.g. `/neon` -> `tech-neon-soft`, `/brutalist` -> `industrial-brutalist-ui`)
+pub fn resolve_dynamic_style_or_skill_command(_workspace_dir: &str, prompt_text: &str) -> Option<String> {
+    let root = crate::paths::project_root();
+
+    // Extract all candidate slash commands from the user prompt
+    let mut slash_tags: Vec<String> = Vec::new();
+    for token in prompt_text.split_whitespace() {
+        let t = token.trim();
+        if let Some(rest) = t.strip_prefix('/') {
+            let tag = rest
+                .trim_start_matches("style:")
+                .trim_start_matches("style=")
+                .trim_matches(|c: char| !c.is_alphanumeric() && c != '-' && c != '_')
+                .to_lowercase();
+            if !tag.is_empty() {
+                slash_tags.push(tag);
+            }
+        }
+    }
+
+    if slash_tags.is_empty() {
+        return None;
+    }
+
+    let aetheria_skills_dir = root.join(".aetheria").join("skills");
+
+    for tag in &slash_tags {
+        // Direct & fuzzy match strictly inside .aetheria/skills/
+        if aetheria_skills_dir.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&aetheria_skills_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        let name = path
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("")
+                            .to_lowercase();
+                        let is_match = name == *tag || (tag.len() >= 3 && name.contains(tag));
+
+                        if is_match {
+                            let skill_md = std::fs::read_to_string(path.join("SKILL.md"))
+                                .or_else(|_| std::fs::read_to_string(path.join("style.md")))
+                                .or_else(|_| std::fs::read_to_string(path.join("README.md")))
+                                .unwrap_or_default();
+                            let tokens_json = std::fs::read_to_string(path.join("tokens.json"))
+                                .unwrap_or_default();
+                            let brief_content = std::fs::read_to_string(path.join("REMOTION_BRIEF.md"))
+                                .or_else(|_| std::fs::read_to_string(path.join("brief.md")))
+                                .unwrap_or_default();
+                            let brief_section = if !brief_content.is_empty() {
+                                format!("\n\nEXACT MOTION SKILL SPECIFICATIONS:\n{brief_content}\n")
+                            } else {
+                                String::new()
+                            };
+
+                            return Some(format!(
+                                "[Active Motion Skill Triggered: /{name}]:\n\"\"\"\n\
+                                SKILL DIRECTIVES (from {path_display}/SKILL.md):\n{skill_md}\n\n\
+                                DESIGN TOKENS (from {path_display}/tokens.json):\n{tokens_json}\
+                                {brief_section}\
+                                \"\"\"\n\
+                                MANDATORY RULES FOR THIS GENERATION:\n\
+                                1. When producing via `produce_video`, set `\"style\": \"{name}\"` in storyboard.json.\n\
+                                2. When writing custom .tsx, strictly apply these exact colors, fonts, camera movement rules, scale law (u(refPx)), and motion curves.\n\
+                                3. Follow the Do's and Don'ts from the skill guidelines and exact brief specifications.",
+                                path_display = path.display()
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+

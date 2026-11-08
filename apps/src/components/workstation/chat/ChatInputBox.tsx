@@ -19,12 +19,15 @@ import {
   Paperclip,
   Minimize2,
   Sliders,
+  Sparkles,
+  Film,
 } from "lucide-react";
 import { AetheriaLogo } from "../../common/AetheriaLogo";
 import { toast } from "sonner";
 import { useI18n } from "../../../lib/i18n";
 import { useTheme } from "../../../lib/theme";
 import { cn } from "../../../lib/utils";
+import { API_BASE, apiFetch } from "../../../lib/api";
 import {
   ChatAttachmentChips,
   ChatMentionsPopup,
@@ -32,10 +35,11 @@ import {
   ChatModelPickerDropdown,
   ChatReasoningEffortDropdown,
   useChatInputClipboard,
-  SlashCommandItem,
-  AttachedFileItem,
+  type SlashCommandItem,
+  type AttachedFileItem,
 } from "./input";
 import { PresetStudioModal } from "./presets/PresetStudioModal";
+import { AddSkillModal } from "./presets/AddSkillModal";
 
 export type { AttachedFileItem };
 
@@ -112,6 +116,26 @@ export const ChatInputBox = memo(function ChatInputBox({
   const [commandQuery, setCommandQuery] = useState("");
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [showPresetModal, setShowPresetModal] = useState(false);
+  const [showAddSkillModal, setShowAddSkillModal] = useState(false);
+  const [registeredSkills, setRegisteredSkills] = useState<
+    Array<{ id: string; name: string; command: string; description: string }>
+  >([]);
+
+  const loadRegisteredSkills = async () => {
+    try {
+      const res = await apiFetch(`${API_BASE}/skills`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.skills)) {
+        setRegisteredSkills(data.skills);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    loadRegisteredSkills();
+  }, []);
 
   // Reasoning effort dropdown & Model dropdown states
   const [isEffortDropdownOpen, setIsEffortDropdownOpen] = useState(false);
@@ -147,8 +171,13 @@ export const ChatInputBox = memo(function ChatInputBox({
       .slice(0, 8);
   }, [showMentions, mentionQuery, files]);
 
-  const availableCommands: SlashCommandItem[] = useMemo(
-    () => [
+  const availableCommands: SlashCommandItem[] = useMemo(() => {
+    const base: SlashCommandItem[] = [
+      {
+        name: "/add skill",
+        description: "Upload brief & register new motion graphics style",
+        icon: Sparkles,
+      },
       {
         name: "/add preset",
         description: "Add or tune Audio Voice Preset & Video Reference Template",
@@ -176,9 +205,17 @@ export const ChatInputBox = memo(function ChatInputBox({
         icon: FileSearch,
       },
       { name: "/clear", description: "Clear current conversation", icon: Eraser },
-    ],
-    [showThinking]
-  );
+    ];
+
+    // Dynamic registered motion skills loaded exclusively from .aetheria/skills/
+    const skillCmds: SlashCommandItem[] = registeredSkills.map((s) => ({
+      name: s.command.startsWith("/") ? s.command : `/${s.command}`,
+      description: s.description || `Motion skill: ${s.name}`,
+      icon: Film,
+    }));
+
+    return [...base, ...skillCmds];
+  }, [showThinking, registeredSkills]);
 
   const filteredCommands = useMemo(() => {
     if (!showCommands) return [];
@@ -244,7 +281,7 @@ export const ChatInputBox = memo(function ChatInputBox({
       try {
         localStorage.setItem("aetheria_show_thinking", String(next));
         localStorage.setItem("aetheria_reasoning_effort", next ? "high" : "");
-      } catch {}
+      } catch { }
       setShowThinking?.(next);
       setCollapseThinking?.(!next);
       toast.info(next ? "Thinking expanded" : "Thinking collapsed");
@@ -294,6 +331,12 @@ export const ChatInputBox = memo(function ChatInputBox({
   };
 
   const handleCommandSelect = (cmdName: string) => {
+    if (cmdName === "/add skill" || cmdName === "/add-skill") {
+      setLocalPrompt("");
+      setShowCommands(false);
+      setShowAddSkillModal(true);
+      return;
+    }
     if (cmdName === "/add preset" || cmdName === "/add-preset" || cmdName === "/add") {
       setLocalPrompt("");
       setShowCommands(false);
@@ -308,7 +351,7 @@ export const ChatInputBox = memo(function ChatInputBox({
       try {
         localStorage.setItem("aetheria_show_thinking", String(next));
         localStorage.setItem("aetheria_reasoning_effort", next ? "high" : "");
-      } catch {}
+      } catch { }
       setShowThinking?.(next);
       setCollapseThinking?.(!next);
       toast.info(next ? "Thinking expanded" : "Thinking collapsed");
@@ -395,7 +438,7 @@ export const ChatInputBox = memo(function ChatInputBox({
               handleAddImageDataUrl(dataUrl, "screenshot");
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       }
     }
 
@@ -433,6 +476,17 @@ export const ChatInputBox = memo(function ChatInputBox({
         open={showPresetModal}
         onClose={() => setShowPresetModal(false)}
         onSendMessage={onSendMessage}
+      />
+
+      {/* Add Skill Modal (/add skill) */}
+      <AddSkillModal
+        open={showAddSkillModal}
+        onClose={() => setShowAddSkillModal(false)}
+        onSkillRegistered={(cmd) => {
+          loadRegisteredSkills();
+          setLocalPrompt(`${cmd} `);
+          if (textareaRef.current) textareaRef.current.focus();
+        }}
       />
 
       {/* Attached Files & Images Preview Chips */}

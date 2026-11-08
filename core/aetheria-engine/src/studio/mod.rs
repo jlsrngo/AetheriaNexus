@@ -16,11 +16,12 @@ pub mod gpu;
 pub mod presets;
 pub mod renderer;
 pub mod scheduler;
+pub mod styles;
 pub mod subtitles;
 pub mod timeline;
 pub mod types;
 
-use axum::{routing::post, Router};
+use axum::{routing::{get, post}, Router};
 
 pub use compositions::default_presets;
 pub use scheduler::start_scheduler_daemon;
@@ -97,5 +98,20 @@ pub fn router() -> Router {
         .route(
             "/api/studio/video-reference/extract",
             post(presets::handle_extract_video_reference),
+        )
+        // 8. Isolated Skill Manager (/add skill, /menu, slash skills in .aetheria/skills)
+        .route(
+            "/api/skills",
+            get(styles::handle_list_styles).post(styles::handle_list_styles),
+        )
+        .route("/api/skills/add", post(styles::handle_add_style))
+        .route(
+            "/api/styles",
+            get(styles::handle_list_styles).post(styles::handle_list_styles),
+        )
+        .route("/api/styles/add", post(styles::handle_add_style))
+        .route(
+            "/api/skills/styles",
+            get(styles::handle_list_styles).post(styles::handle_list_styles),
         )
 }
