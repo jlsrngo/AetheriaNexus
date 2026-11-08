@@ -2,6 +2,8 @@ import React from "react";
 import { Composition } from "remotion";
 import { NexusVideoComposition } from "./NexusVideoComposition";
 import { defaultNexusVideoProps, nexusVideoSpec } from "./types";
+import { AetheriaLaunchComposition } from "./aetheria-launch/AetheriaLaunchComposition";
+import { TOTAL_FRAMES, FPS, WIDTH, HEIGHT } from "./aetheria-launch/types";
 
 export const NexusVideoRoot: React.FC = () => {
   return (
@@ -24,6 +26,15 @@ export const NexusVideoRoot: React.FC = () => {
         width={nexusVideoSpec.width}
         height={nexusVideoSpec.height}
         defaultProps={defaultNexusVideoProps}
+      />
+      {/* Aetheria Launch Composition */}
+      <Composition
+        id="AetheriaLaunch"
+        component={AetheriaLaunchComposition}
+        durationInFrames={TOTAL_FRAMES}
+        fps={FPS}
+        width={WIDTH}
+        height={HEIGHT}
       />
     </>
   );
