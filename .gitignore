@@ -120,3 +120,9 @@ workspace/src/*
 !workspace/src/.gitkeep
 workspace/storyboard.json
 workspace/styles/
+workspace/.aetheria/
+
+# Runtime video assets in apps/public
+apps/public/vo_linus*
+apps/public/sfx/linus_master.wav
+

@@ -23,6 +23,13 @@ fn sync_audio_to_public_dirs(root: &Path, target_out: &Path) {
         let _ = std::fs::copy(target_out, &ws_dest);
     }
 
+    let apps_pub = root.join("apps").join("public");
+    let _ = std::fs::create_dir_all(&apps_pub);
+    let apps_dest = apps_pub.join(file_name);
+    if apps_dest != target_out {
+        let _ = std::fs::copy(target_out, &apps_dest);
+    }
+
     let bundle_pub = crate::paths::render_cache_dir().join("public");
     let _ = std::fs::create_dir_all(&bundle_pub);
     let bundle_dest = bundle_pub.join(file_name);
