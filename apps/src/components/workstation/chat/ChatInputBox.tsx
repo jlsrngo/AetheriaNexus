@@ -18,6 +18,7 @@ import {
   Square,
   Paperclip,
   Minimize2,
+  Sliders,
 } from "lucide-react";
 import { AetheriaLogo } from "../../common/AetheriaLogo";
 import { toast } from "sonner";
@@ -34,6 +35,7 @@ import {
   SlashCommandItem,
   AttachedFileItem,
 } from "./input";
+import { PresetStudioModal } from "./presets/PresetStudioModal";
 
 export type { AttachedFileItem };
 
@@ -109,6 +111,7 @@ export const ChatInputBox = memo(function ChatInputBox({
   const [showCommands, setShowCommands] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
+  const [showPresetModal, setShowPresetModal] = useState(false);
 
   // Reasoning effort dropdown & Model dropdown states
   const [isEffortDropdownOpen, setIsEffortDropdownOpen] = useState(false);
@@ -147,6 +150,11 @@ export const ChatInputBox = memo(function ChatInputBox({
   const availableCommands: SlashCommandItem[] = useMemo(
     () => [
       {
+        name: "/add preset",
+        description: "Add or tune Audio Voice Preset & Video Reference Template",
+        icon: Sliders,
+      },
+      {
         name: "/thinking",
         description: showThinking ? "Collapse thinking" : "Expand thinking",
         icon: AetheriaLogo,
@@ -174,8 +182,12 @@ export const ChatInputBox = memo(function ChatInputBox({
 
   const filteredCommands = useMemo(() => {
     if (!showCommands) return [];
-    const q = commandQuery.toLowerCase();
-    return availableCommands.filter((cmd) => cmd.name.toLowerCase().includes(q));
+    const q = commandQuery.toLowerCase().trim();
+    return availableCommands.filter(
+      (cmd) =>
+        cmd.name.toLowerCase().includes(q) ||
+        cmd.name.replace(/\s+/g, "-").toLowerCase().includes(q)
+    );
   }, [showCommands, commandQuery, availableCommands]);
 
   const handleInputChange = (val: string) => {
@@ -198,8 +210,8 @@ export const ChatInputBox = memo(function ChatInputBox({
 
     // Fast-path guard: only run regex if text starts with '/'
     if (val.startsWith("/")) {
-      const commandMatch = val.match(/^\/([\w-]*)$/);
-      if (commandMatch) {
+      const commandMatch = val.match(/^\/([\w\s-]*)$/);
+      if (commandMatch && val.length <= 20) {
         setShowCommands(true);
         setCommandQuery(commandMatch[1] || "");
         setSelectedCommandIndex(0);
@@ -213,6 +225,19 @@ export const ChatInputBox = memo(function ChatInputBox({
 
   const submitPrompt = () => {
     const promptTrimmed = localPrompt.trim();
+    const promptLower = promptTrimmed.toLowerCase();
+    if (
+      promptLower === "/add" ||
+      promptLower === "/add preset" ||
+      promptLower === "/add-preset" ||
+      promptLower === "/preset"
+    ) {
+      setLocalPrompt("");
+      setShowCommands(false);
+      setShowPresetModal(true);
+      return;
+    }
+
     if (promptTrimmed === "/thinking") {
       const current = showThinking !== undefined ? showThinking : true;
       const next = !current;
@@ -269,6 +294,12 @@ export const ChatInputBox = memo(function ChatInputBox({
   };
 
   const handleCommandSelect = (cmdName: string) => {
+    if (cmdName === "/add preset" || cmdName === "/add-preset" || cmdName === "/add") {
+      setLocalPrompt("");
+      setShowCommands(false);
+      setShowPresetModal(true);
+      return;
+    }
     if (cmdName === "/thinking") {
       setLocalPrompt("");
       setShowCommands(false);
@@ -395,6 +426,13 @@ export const ChatInputBox = memo(function ChatInputBox({
         filteredCommands={filteredCommands}
         selectedCommandIndex={selectedCommandIndex}
         onSelectCommand={handleCommandSelect}
+      />
+
+      {/* Preset & Reference Studio Modal (/add preset) */}
+      <PresetStudioModal
+        open={showPresetModal}
+        onClose={() => setShowPresetModal(false)}
+        onSendMessage={onSendMessage}
       />
 
       {/* Attached Files & Images Preview Chips */}

@@ -488,5 +488,30 @@ mod origin_tests {
         let resp: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(resp["success"], true);
         assert!(resp["composition"]["id"].is_string());
+
+        // 4. Voice Presets Studio (/add preset backend E2E: list, save custom tuning, restore)
+        let (status, _, body) = super::handle_local_request(
+            "GET",
+            "/api/studio/voice-presets",
+            vec![],
+            None,
+        ).await;
+        assert_eq!(status, 200);
+        let resp: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(resp["success"], true);
+        assert_eq!(resp["presets"]["aetheria"]["id"].as_str(), Some("aetheria"));
+        assert_eq!(resp["presets"]["aetheria_en"]["id"].as_str(), Some("aetheria_en"));
+
+        // 5. Voice Preset Test Synthesis Endpoint (Zero-LLM preview)
+        let (status, _, body) = super::handle_local_request(
+            "POST",
+            "/api/studio/voice-presets/test",
+            vec![("content-type".to_string(), "application/json".to_string())],
+            Some(r#"{"text":"Halo ini tes cepat suara Aetheria.","voice":"id-ID-ArdiNeural","lang":"id","rate":"+10%","pitch":"+14Hz"}"#.as_bytes().to_vec()),
+        ).await;
+        assert_eq!(status, 200);
+        let test_resp: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(test_resp["success"], true);
+        assert!(test_resp["audioDataUrl"].as_str().unwrap_or("").starts_with("data:audio/wav;base64,"));
     }
 }

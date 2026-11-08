@@ -13,6 +13,7 @@
 pub mod assets;
 pub mod compositions;
 pub mod gpu;
+pub mod presets;
 pub mod renderer;
 pub mod scheduler;
 pub mod subtitles;
@@ -79,5 +80,22 @@ pub fn router() -> Router {
         .route(
             "/api/studio/layers",
             post(timeline::handle_compute_layers).get(timeline::handle_get_active_layers),
+        )
+        // 7. Voicebox Preset & Video Reference Studio (/add-preset)
+        .route(
+            "/api/studio/voice-presets",
+            post(presets::handle_get_voice_presets).get(presets::handle_get_voice_presets),
+        )
+        .route(
+            "/api/studio/voice-presets/save",
+            post(presets::handle_save_voice_preset),
+        )
+        .route(
+            "/api/studio/voice-presets/test",
+            post(presets::handle_test_voice_preset),
+        )
+        .route(
+            "/api/studio/video-reference/extract",
+            post(presets::handle_extract_video_reference),
         )
 }
