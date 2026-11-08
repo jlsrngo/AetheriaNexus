@@ -477,10 +477,12 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
         } catch {
           /* popup blocker fallback */
         }
-        toast.info("Opening Login Page...", {
-          description: "If the browser tab didn't open automatically, click 'Open Page'.",
+        toast.info(isEn ? "Opening Login Page..." : "Membuka Halaman Login...", {
+          description: isEn
+            ? "If the browser tab didn't open automatically, click 'Open Page'."
+            : "Jika tab browser tidak terbuka otomatis, klik 'Buka Halaman'.",
           action: {
-            label: "Open Page",
+            label: isEn ? "Open Page" : "Buka Halaman",
             onClick: () => window.open(authUrl, "_blank", "noopener,noreferrer"),
           },
           duration: 30000,
