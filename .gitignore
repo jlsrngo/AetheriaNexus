@@ -123,6 +123,8 @@ workspace/styles/
 workspace/.aetheria/
 
 # Runtime video assets in apps/public
-apps/public/vo_linus*
-apps/public/sfx/linus_master.wav
+apps/public/*.wav
+apps/public/*.words.json
+apps/public/.voice_lock.json
+public/
 

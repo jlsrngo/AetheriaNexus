@@ -51,6 +51,14 @@ pub fn voicebox_tool_definition() -> Value {
                         "type": "string",
                         "description": "The exact script or narration text to synthesize. Write it the way people actually talk (casual particles like 'jadi', 'nah', 'gue', commas for breathing)."
                     },
+                    "spokenText": {
+                        "type": "string",
+                        "description": "Optional phonetic spoken script override for the TTS vocal tract (e.g. 'sembilan belas tiga puluh sembilan', 'Yu-bot'). When provided, the TTS speaks this phonetic text while visual subtitle text remains the original clean 'text'."
+                    },
+                    "lexicon": {
+                        "type": "string",
+                        "description": "Optional path to a custom pronunciation lexicon JSON file for domain-specific name/word pronunciations."
+                    },
                     "outputPath": {
                         "type": "string",
                         "description": "Relative output path for the mastered WAV file. Defaults to 'workspace/public/voiceover.wav'."
@@ -189,6 +197,13 @@ pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
         .arg(&target_out)
         .arg("--lang")
         .arg(lang);
+
+    if let Some(spoken) = arguments.get("spokenText").or_else(|| arguments.get("spoken_text")).and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
+        cmd.arg("--spoken-text").arg(spoken);
+    }
+    if let Some(lex) = arguments.get("lexicon").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
+        cmd.arg("--lexicon").arg(lex);
+    }
 
     if let Some(v) = arguments.get("voice").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
         cmd.arg("--voice").arg(v);

@@ -211,7 +211,7 @@ pub fn resolve_reference_report(workspace_dir: &str) -> Option<String> {
         DIRECTIVES:\n\
         1. VISUAL FIDELITY: Follow the color palette, typography hierarchy, and visual scene composition (mockups, cards, badges) from this reference report. Do not leave the composition as bare plain text on an empty background.\n\
         2. SEQUENTIAL AUDIO: Voiceover narration must be strictly sequential (Scene N starts when Scene N-1 ends). Never overlap speech audio tracks.\n\
-        3. SYNTHESIZE AUDIO: Call `voicebox_speak` for each scene to generate matching voiceover for the current script.\n\
+        3. SYNTHESIZE AUDIO: Call `voicebox_speak` for each scene (pass `spokenText` with Indonesian-friendly phonetic spelling for foreign names, ships, acronyms, or historical years while keeping pristine visual `text` for subtitles).\n\
         4. RELATIVE SEQUENCE FRAMES: Inside `<Sequence>`, `useCurrentFrame()` already starts at 0. Pass `const frame = useCurrentFrame();` directly without subtracting `startFrame`.",
         bp_text.trim()
     ))

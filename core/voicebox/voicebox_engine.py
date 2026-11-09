@@ -97,15 +97,96 @@ def _digits_after_decimal_to_words(frac_str: str) -> str:
     return ' '.join(digit_map[d] for d in frac_str if d in digit_map)
 
 
-def normalize_indonesian_speech_text(text: str) -> str:
+def normalize_year_to_indonesian_words(year: int) -> str:
+    """Converts a 4-digit historical year (e.g. 1939, 2024) into natural spoken Indonesian."""
+    satuan = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas']
+    def num_to_w(n: int) -> str:
+        if n < 12:
+            return satuan[n]
+        if n < 20:
+            return satuan[n - 10] + ' belas'
+        return satuan[n // 10] + ' puluh' + ((' ' + satuan[n % 10]) if n % 10 != 0 else '')
+
+    if 1500 <= year <= 1999:
+        c = year // 100
+        d = year % 100
+        century_words = {
+            15: 'lima belas', 16: 'enam belas', 17: 'tujuh belas',
+            18: 'delapan belas', 19: 'sembilan belas'
+        }
+        cw = century_words.get(c, str(c))
+        if d == 0:
+            return f"{cw} ratus"
+        elif d < 10:
+            return f"{cw} nol {satuan[d]}"
+        else:
+            return f"{cw} {num_to_w(d)}"
+    elif 2000 <= year <= 2099:
+        d = year % 1000
+        if d == 0:
+            return "dua ribu"
+        elif d < 10:
+            return f"dua ribu {satuan[d]}"
+        elif d < 100:
+            return f"dua ribu {num_to_w(d)}"
+        else:
+            return f"dua ribu {indonesian_number_to_words(d)}"
+    return indonesian_number_to_words(year)
+
+
+_CACHED_PRONUNCIATION_LEXICON: Optional[Dict[str, str]] = None
+
+
+def load_pronunciation_lexicon(custom_path: Optional[str] = None) -> Dict[str, str]:
+    """Loads and merges global and workspace custom pronunciation lexicons."""
+    global _CACHED_PRONUNCIATION_LEXICON
+    if _CACHED_PRONUNCIATION_LEXICON is not None and not custom_path:
+        return _CACHED_PRONUNCIATION_LEXICON
+
+    lexicon: Dict[str, str] = {}
+    base_lex_path = SCRIPT_DIR / "lexicon" / "pronunciation_lexicon.json"
+    if base_lex_path.is_file():
+        try:
+            with open(base_lex_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict) and "terms" in data:
+                    lexicon.update(data["terms"])
+        except Exception as e:
+            print(f"[voicebox] Warning: Failed to load base lexicon: {e}")
+
+    # Check workspace-level custom lexicon
+    ws_lex_path = SCRIPT_DIR.parent.parent / "workspace" / "pronunciation_lexicon.json"
+    if ws_lex_path.is_file():
+        try:
+            with open(ws_lex_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                terms = data.get("terms", data) if isinstance(data, dict) else {}
+                lexicon.update(terms)
+        except Exception as e:
+            print(f"[voicebox] Warning: Failed to load workspace lexicon: {e}")
+
+    if custom_path and pathlib.Path(custom_path).is_file():
+        try:
+            with open(custom_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                terms = data.get("terms", data) if isinstance(data, dict) else {}
+                lexicon.update(terms)
+        except Exception as e:
+            print(f"[voicebox] Warning: Failed to load custom lexicon: {e}")
+
+    _CACHED_PRONUNCIATION_LEXICON = lexicon
+    return lexicon
+
+
+def normalize_indonesian_speech_text(text: str, custom_lexicon: Optional[Dict[str, str]] = None) -> str:
     """
     Comprehensive Indonesian TTS phonetic & prosody normalizer:
-    1. Strips non-spoken elements (#hashtags, markdown symbols, URLs) so TTS never reads '#gemini' aloud.
-    2. Converts currency & decimal numbers BEFORE standalone integers so '3.8' becomes 'tiga koma delapan'
-       and '$0,75' becomes 'nol koma tujuh lima dolar' (never 'tiga.delapan' or 'nol,tujuh puluh lima'
-       which injects a period/comma mid-word and breaks TTS intonation).
-    3. Converts percentages ('100%' -> 'seratus persen') and multipliers ('2x' -> 'dua kali').
-    4. Expands slang & Indonesian conversational abbreviations smoothly.
+    1. Strips non-spoken elements (#hashtags, markdown symbols, URLs).
+    2. Applies pronunciation lexicon for proper names, historical figures, foreign terms, ships, military entities.
+    3. Normalizes years (e.g. '1939' -> 'sembilan belas tiga puluh sembilan', '1939-1945').
+    4. Converts currency & decimal numbers BEFORE standalone integers.
+    5. Converts percentages and multipliers.
+    6. Expands conversational abbreviations and prosody punctuation.
     """
     import re
 
@@ -116,7 +197,40 @@ def normalize_indonesian_speech_text(text: str) -> str:
     res = re.sub(r'(?:^|\s)#\w+', ' ', res)
     res = re.sub(r'[*`~_]+', '', res)
 
-    # 2. Currency with decimals or integers: $0.75, $0,75, $15 -> 'nol koma tujuh lima dolar'
+    # 2. Apply Pronunciation Lexicon (longest match first)
+    lex = load_pronunciation_lexicon()
+    if custom_lexicon:
+        lex = {**lex, **custom_lexicon}
+
+    if lex:
+        sorted_terms = sorted(lex.keys(), key=len, reverse=True)
+        for term in sorted_terms:
+            replacement = lex[term]
+            escaped = re.escape(term)
+            # Use non-word boundary matching that properly handles hyphens like U-Boat
+            pattern = rf'(?<![A-Za-z0-9]){escaped}(?![A-Za-z0-9])'
+            res = re.sub(pattern, replacement, res, flags=re.IGNORECASE)
+
+    # 3. Year Ranges: 1939-1945 -> 'sembilan belas tiga puluh sembilan sampai sembilan belas empat puluh lima'
+    def replace_year_range(m):
+        y1 = normalize_year_to_indonesian_words(int(m.group(1)))
+        y2 = normalize_year_to_indonesian_words(int(m.group(2)))
+        return f"{y1} sampai {y2}"
+
+    res = re.sub(r'\b(1[5-9]\d{2}|20\d{2})\s*[-–—]\s*(1[5-9]\d{2}|20\d{2})\b', replace_year_range, res)
+
+    # 4. Contextual Years: 'tahun 1939', 'sejak 1939', 'pada 1939', '(1939)'
+    def replace_context_year(m):
+        prefix = m.group(1)
+        yr = normalize_year_to_indonesian_words(int(m.group(2)))
+        return f"{prefix} {yr}"
+
+    res = re.sub(r'\b(tahun|sejak|pada|sekitar|era|periode|abad|dari|sampai|hingga)\s+(1[5-9]\d{2}|20\d{2})\b', replace_context_year, res, flags=re.IGNORECASE)
+
+    # Parenthesized years: (1939) -> '(sembilan belas tiga puluh sembilan)'
+    res = re.sub(r'\((1[5-9]\d{2}|20\d{2})\)', lambda m: f"({normalize_year_to_indonesian_words(int(m.group(1)))})", res)
+
+    # 5. Currency with decimals or integers: $0.75, $0,75, $15 -> 'nol koma tujuh lima dolar'
     def replace_usd_decimal(m):
         whole = indonesian_number_to_words(int(m.group(1)))
         frac = _digits_after_decimal_to_words(m.group(2))
@@ -138,7 +252,7 @@ def normalize_indonesian_speech_text(text: str) -> str:
 
     res = re.sub(r'\bRp\.?\s*(\d+(?:[.,]\d{3})*)\b', replace_idr, res, flags=re.IGNORECASE)
 
-    # 3. Thousands separators (e.g. '1.000.000' or '10.000' where groups after dot are exactly 3 digits)
+    # 6. Thousands separators (e.g. '1.000.000' or '10.000' where groups after dot are exactly 3 digits)
     def replace_thousands(m):
         raw_digits = m.group(0).replace('.', '')
         if raw_digits.isdigit():
@@ -147,7 +261,7 @@ def normalize_indonesian_speech_text(text: str) -> str:
 
     res = re.sub(r'\b\d{1,3}(?:\.\d{3})+\b', replace_thousands, res)
 
-    # 4. Decimal numbers (e.g. '3.8', '3,8', '0,75', '1.5') -> 'tiga koma delapan', 'nol koma tujuh lima'
+    # 7. Decimal numbers (e.g. '3.8', '3,8', '0,75', '1.5') -> 'tiga koma delapan', 'nol koma tujuh lima'
     def replace_decimal(m):
         whole = indonesian_number_to_words(int(m.group(1)))
         frac = _digits_after_decimal_to_words(m.group(2))
@@ -155,7 +269,7 @@ def normalize_indonesian_speech_text(text: str) -> str:
 
     res = re.sub(r'\b(\d+)[.,](\d+)\b', replace_decimal, res)
 
-    # 5. Percentages ('100%' -> 'seratus persen') and multipliers ('2x' -> 'dua kali')
+    # 8. Percentages ('100%' -> 'seratus persen') and multipliers ('2x' -> 'dua kali')
     res = re.sub(
         r'\b(\d+)\s*%',
         lambda m: f"{indonesian_number_to_words(int(m.group(1)))} persen",
@@ -168,11 +282,14 @@ def normalize_indonesian_speech_text(text: str) -> str:
         flags=re.IGNORECASE,
     )
 
-    # 6. Standalone integers ('21' -> 'dua puluh satu', '2027' -> 'dua ribu dua puluh tujuh')
+    # 9. Standalone integers
     def replace_num(match):
         num_str = match.group(0)
         try:
-            return indonesian_number_to_words(int(num_str))
+            val = int(num_str)
+            if (1500 <= val <= 1999) or (2000 <= val <= 2099):
+                return normalize_year_to_indonesian_words(val)
+            return indonesian_number_to_words(val)
         except Exception:
             return num_str
 
@@ -1118,6 +1235,8 @@ def write_voice_lock(lock_file: pathlib.Path, profile: Dict[str, Any]):
 def generate_speech(
     text: str,
     output_path: str,
+    spoken_text: Optional[str] = None,
+    lexicon_path: Optional[str] = None,
     voice: Optional[str] = None,
     lang: str = "id",
     apply_dsp: bool = True,
@@ -1132,6 +1251,7 @@ def generate_speech(
 ) -> Dict[str, Any]:
     """
     Unified entry point for voice generation with Project Voice Lock & Selectable Preset Styles.
+    - Supports `spoken_text` for explicit phonetic vocalization while preserving `text` for visual subtitles.
     - Supports `voice="aetheria:energetic"` or `voice="aetheria_en:casual"` or `style="energetic" | "mystery" | "casual" | "serious" | "default"`.
     - Ensures 100% consistent speaker identity across all scenes in a video project.
     """
@@ -1182,9 +1302,16 @@ def generate_speech(
             voice_design = selected_style_info.get("controlInstruction") or preset_info.get("description")
         lang = preset_info.get("lang", lang)
 
+    # Dual-track text handling: visual_text for subtitles, spoken_candidate for TTS voice synthesis
+    visual_text = text
+    spoken_candidate = spoken_text if spoken_text and spoken_text.strip() else text
+
     # Normalize Indonesian numbers & abbreviations so '21' is spoken as 'dua puluh satu', never 'twenty one'
     if lang.lower() == "id" or (voice and "id-ID" in voice) or preset_key == "aetheria":
-        text = normalize_indonesian_speech_text(text)
+        custom_lex = load_pronunciation_lexicon(lexicon_path) if lexicon_path else None
+        text = normalize_indonesian_speech_text(spoken_candidate, custom_lexicon=custom_lex)
+    else:
+        text = spoken_candidate
 
     lock_file = get_voice_lock_path(out_file)
     if reset_voice_lock and lock_file.is_file():
@@ -1323,12 +1450,13 @@ def generate_speech(
 
     # Re-align word timings against the final compacted & mastered waveform if not provided by Edge WordBoundary
     if used_engine in ("voxcpm2", "kokoro") or not words:
-        words = align_words_to_audio_energy(text, mastered_audio, sample_rate)
+        words = align_words_to_audio_energy(visual_text, mastered_audio, sample_rate)
 
     # Write word alignment for Remotion kinetic subtitles
     with open(words_json_path, "w", encoding="utf-8") as f:
         json.dump({
-            "text": text,
+            "text": visual_text,
+            "spoken_text": text,
             "duration": round(duration_sec, 3),
             "sample_rate": sample_rate,
             "style": selected_style_key or "default",
@@ -1432,6 +1560,8 @@ def run_http_server(host: str = "127.0.0.1", port: int = 17493):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Voicebox Engine for AetheriaNexus")
     parser.add_argument("--text", type=str, help="Text to speak")
+    parser.add_argument("--spoken-text", type=str, default=None, help="Explicit phonetic spoken text overrides visual text for TTS synthesis")
+    parser.add_argument("--lexicon", type=str, default=None, help="Path to custom pronunciation lexicon JSON")
     parser.add_argument("--out", type=str, default="output/voicebox_test.wav", help="Output WAV path")
     parser.add_argument("--voice", type=str, default=None, help="Voice name (e.g. 'aetheria', 'aetheria_en', or 'aetheria:energetic')")
     parser.add_argument("--style", type=str, default=None, help="Preset delivery style: default, energetic, mystery, casual, serious")
@@ -1455,6 +1585,8 @@ if __name__ == "__main__":
         res = generate_speech(
             text=args.text,
             output_path=args.out,
+            spoken_text=args.spoken_text,
+            lexicon_path=args.lexicon,
             voice=args.voice,
             style=args.style,
             lang=args.lang,

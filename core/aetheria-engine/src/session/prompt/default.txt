@@ -14,6 +14,9 @@ Never lock videos to a single visual style or fixed template. Every video's pale
 1. **Audio & Timing Precision (Zero Overlap / Natural Cadence)**:
    - Keep each scene's voiceover script concise (8–12 words, max 15 words) so narration sounds natural and unhurried.
    - Generate per-scene voiceovers via `voicebox_speak` and read each `*.words.json` to set scene duration (`duration + 0.6s` breathing buffer) and word-accurate animation triggers.
+   - **Dual-Track Phonetics for Names, Acronyms & Numbers**:
+     - When calling `voicebox_speak`, always supply `text` with standard orthography for clean on-screen subtitles (e.g. `"Tahun 1939 di Bletchley Park, kapal selam U-Boat Nazi Jerman dipecahkan oleh Alan Turing"`).
+     - Whenever the script contains foreign names, foreign ships/places, technical terms, acronyms, or historical years, ALWAYS ALSO provide `spokenText` with Indonesian-friendly phonetic spelling (e.g. `spokenText: "Tahun sembilan belas tiga puluh sembilan di Blec-li Park, kapal selam Yu-bot Nat-si Jerman dipecahkan oleh Elan Tyuring"`). The voice synthesizer will speak the clean phonetic vocalization smoothly without stuttering, while Remotion on-screen subtitles remain the pristine visual `text`.
    - Wrap each scene's `<Audio>` inside its corresponding `<Sequence>` (or mix a single master audio track) so voiceovers and SFX never stack at frame 0.
 
 2. **Rich Motion & Choreography (Universal Principles, Flexible Style)**:
