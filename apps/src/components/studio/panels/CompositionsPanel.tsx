@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -38,6 +38,10 @@ export const CompositionsPanel = memo(function CompositionsPanel({
   const [newDuration, setNewDuration] = useState(5);
   const [newFps, setNewFps] = useState(30);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    void actions.syncFromBackend();
+  }, [actions]);
 
   const grouped = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();

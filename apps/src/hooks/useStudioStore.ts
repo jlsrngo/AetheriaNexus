@@ -431,7 +431,16 @@ export const studioActions = {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
           const merged = state.compositions.filter((m) => !isStaleComposition(m));
           for (const item of json.data) {
-            if (!isStaleComposition(item) && !merged.some((m) => m.id === item.id)) {
+            if (isStaleComposition(item)) continue;
+            const existingIdx = merged.findIndex((m) => m.id === item.id);
+            if (existingIdx >= 0) {
+              merged[existingIdx] = {
+                ...merged[existingIdx],
+                ...item,
+                ratio: (item.ratio as "9:16" | "1:1" | "16:9") || merged[existingIdx].ratio || "9:16",
+                props: { ...defaultNexusVideoProps, ...(merged[existingIdx].props || {}), ...(item.props || {}) },
+              };
+            } else {
               merged.push({
                 ...item,
                 ratio: (item.ratio as "9:16" | "1:1" | "16:9") || "9:16",
@@ -445,20 +454,30 @@ export const studioActions = {
       }
     } catch {}
 
-      try {
-        const res = await apiFetch(`${API_BASE}/get-static-files`);
-        if (res.ok) {
-          const json = (await res.json()) as { success?: boolean; data?: StudioStaticAsset[] };
-          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-            state = { ...state, assets: json.data };
-            emit();
-          }
+    try {
+      const res = await apiFetch(`${API_BASE}/get-static-files`);
+      if (res.ok) {
+        const json = (await res.json()) as { success?: boolean; data?: StudioStaticAsset[] };
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          state = { ...state, assets: json.data };
+          emit();
         }
-      } catch { }
-    },
-  };
+      }
+    } catch { }
+  },
+};
 
-  export function useStudioStore() {
+if (typeof window !== "undefined") {
+  setTimeout(() => {
+    void studioActions.syncFromBackend();
+  }, 400);
+
+  window.addEventListener("focus", () => {
+    void studioActions.syncFromBackend();
+  });
+}
+
+export function useStudioStore() {
     const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 const activeComposition =
   snap.compositions.find((c) => c.id === snap.activeCompositionId) ?? snap.compositions[0];

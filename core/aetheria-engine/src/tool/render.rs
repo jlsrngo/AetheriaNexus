@@ -361,18 +361,23 @@ pub fn execute_render_video_with_progress(
             }
 
             let done = last_event(&stdout, "done");
+            let final_comp_id = done
+                .as_ref()
+                .and_then(|value| value["compositionId"].as_str())
+                .unwrap_or(composition_id);
+            let final_output = done
+                .as_ref()
+                .and_then(|value| value["outputPath"].as_str())
+                .map(str::to_owned)
+                .unwrap_or_else(|| output_path.to_string_lossy().to_string());
+
+            crate::studio::compositions::register_rendered_composition(final_comp_id, Some(&final_output));
+
             json!({
                 "success": true,
                 "message": "Video exported to MP4 successfully via local Remotion render engine.",
-                "compositionId": done
-                    .as_ref()
-                    .and_then(|value| value["compositionId"].as_str())
-                    .unwrap_or(composition_id),
-                "outputPath": done
-                    .as_ref()
-                    .and_then(|value| value["outputPath"].as_str())
-                    .map(str::to_owned)
-                    .unwrap_or_else(|| output_path.to_string_lossy().to_string()),
+                "compositionId": final_comp_id,
+                "outputPath": final_output,
             })
         }
         Err(e) => json!({
