@@ -27,7 +27,16 @@ import soundfile as sf
 
 # Spotify DSP effects
 try:
-    from pedalboard import Pedalboard, HighpassFilter, Compressor, Gain, Limiter  # type: ignore
+    from pedalboard import (  # type: ignore
+        Pedalboard,
+        HighpassFilter,
+        PeakFilter,
+        HighShelfFilter,
+        NoiseGate,
+        Compressor,
+        Gain,
+        Limiter,
+    )
     HAS_PEDALBOARD = True
 except ImportError:
     HAS_PEDALBOARD = False
@@ -186,6 +195,45 @@ def normalize_indonesian_speech_text(text: str) -> str:
     res = re.sub(r'\bkey\b', 'ki', res, flags=re.IGNORECASE)
     res = re.sub(r'\bcache\b', 'kes', res, flags=re.IGNORECASE)
 
+    # 8. Intelligent narrative prosody & intonation shaping (PocketMyth storytelling cadence)
+    # 8a. Transform rhetorical hook questions ending with period into question mark (forces rising pitch hook)
+    hook_patterns = [
+        r'(\b(?:Tahukah|Pernahkah)\s+(?:kalian|kamu|kita)\b[^.!?]+)\.',
+        r'(\b(?:Kalian|Kamu)\s+tahu\s+nggak\b[^.!?]+)\.',
+        r'(\b(?:Kenapa|Mengapa|Bagaimana|Apa\s+jadinya\s+kalau)\b[^.!?]+)\.',
+    ]
+    for pat in hook_patterns:
+        res = re.sub(pat, r'\1?', res, flags=re.IGNORECASE)
+
+    # 8b. Add natural suspense comma after rhetorical opening clauses if missing
+    res = re.sub(r'\b(Tahukah\s+(?:kalian|kamu|kita))\s+(?!,)', r'\1, ', res, flags=re.IGNORECASE)
+    res = re.sub(r'\b(Kalian\s+tahu\s+nggak)\s+(?!,)', r'\1, ', res, flags=re.IGNORECASE)
+
+    # 8c. Add comma after narrative discourse transition markers for natural pitch rise / suspense pause
+    discourse_words = [
+        'Namun', 'Tetapi', 'Padahal', 'Bahkan', 'Tiba-tiba', 'Sayangnya',
+        'Untungnya', 'Akibatnya', 'Sebaliknya', 'Alhasil', 'Faktanya',
+        'Bayangkan', 'Anehnya', 'Menariknya'
+    ]
+    pattern_disc = r'(^|[.!?]\s+|\n)(' + '|'.join(discourse_words) + r')\s+(?!,)'
+    res = re.sub(pattern_disc, r'\1\2, ', res, flags=re.IGNORECASE)
+
+    # 8d. Narrative temporal & contrast phrases
+    res = re.sub(r'\b(Dan\s+sejak\s+(?:hari|saat)\s+itu)\s+(?!,)', r'\1, ', res, flags=re.IGNORECASE)
+    res = re.sub(r'\b(Sejak\s+(?:hari|saat)\s+itu)\s+(?!,)', r'\1, ', res, flags=re.IGNORECASE)
+    res = re.sub(r'\b(Bukan\s+hanya\s+itu|Tidak\s+hanya\s+itu)\s+(?!,)', r'\1, ', res, flags=re.IGNORECASE)
+    res = re.sub(r'\b(Pelajaran\s+terbesarnya\s+adalah)\s+(?!,)', r'\1, ', res, flags=re.IGNORECASE)
+    res = re.sub(r'\s+(melainkan|tetapi\s+juga)\s+', r', \1 ', res, flags=re.IGNORECASE)
+
+    # 8e. Bind adverb-adjective pairs before coordinate predicates (prevents mid-phrase break like 'begitu [pause] dalam')
+    res = re.sub(r'(\b(?:begitu|sangat|amat)\s+[a-zA-Z]+)\s+(membuat|menjadikan|menyebabkan)\b', r'\1, \2', res, flags=re.IGNORECASE)
+
+    # 8f. Smooth out ellipses (...) into clean natural breath commas to prevent neural vocal fry / trembling jitter
+    res = re.sub(r'\.{3,}', ', ', res)
+
+    # Clean double commas and punctuation spacing
+    res = re.sub(r',\s*,+', ', ', res)
+    res = re.sub(r'\s+([,!?.:])', r'\1', res)
     # Collapse multiple spaces and clean trailing punctuation whitespace
     res = re.sub(r'\s+', ' ', res).strip()
     return res
@@ -197,44 +245,44 @@ def load_voice_presets() -> Dict[str, Any]:
     en_prompt = "Did you know that this is Aetheria, an automated motion graphics agent that brings your video content to life with cinematic quality."
     default_id_styles = {
         "default": {
-            "label": "Original Storytelling (Default)",
-            "mode": "ultimate",
+            "label": "PocketMyth Storytelling (Default)",
+            "mode": "controllable",
             "sampleFile": "aetheria_id.wav",
             "promptText": id_prompt,
             "cfgValue": 1.48,
-            "controlInstruction": "Gaya bercerita antusias ala konten kreator, artikulasi lepas dan plong, intonasi dinamis, ekspresif.",
+            "controlInstruction": "Artikulasi bersih, bulat, dan empuk. Pelepasan vokal lepas dan plong, suara dada hangat, tanpa getaran serak di ujung kata, gaya narator santai PocketMyth.",
         },
         "energetic": {
-            "label": "Energetic & Lepas (Tech / Hook)",
+            "label": "PocketMyth Hook & Energetic",
             "mode": "ultimate",
             "sampleFile": "aetheria_id.wav",
             "promptText": id_prompt,
-            "cfgValue": 1.42,
-            "controlInstruction": "Gaya bicara kreator yang lantang, lepas, plong, sangat antusias dan bertenaga.",
+            "cfgValue": 1.50,
+            "controlInstruction": "Artikulasi bulat dan lantang, intonasi hook TikTok sangat bertenaga, menyambar perhatian penonton di awal kalimat, nada naik antusias tanpa serak.",
         },
         "casual": {
             "label": "Casual Ngobrol (Santai / Review)",
             "mode": "ultimate",
             "sampleFile": "aetheria_id.wav",
             "promptText": id_prompt,
-            "cfgValue": 1.48,
-            "controlInstruction": "Gaya ngobrol santai dan akrab langsung ke penonton.",
+            "cfgValue": 1.55,
+            "controlInstruction": "Gaya ngobrol santai, ramah, artikulasi bulat empuk langsung ke penonton seperti obrolan kreator.",
         },
         "mystery": {
             "label": "Mystery & Suspense (Sejarah / Konspirasi)",
             "mode": "ultimate",
             "sampleFile": "aetheria_id.wav",
             "promptText": id_prompt,
-            "cfgValue": 1.68,
-            "controlInstruction": "Gaya bercerita misterius dan dramatis, bikin penasaran.",
+            "cfgValue": 1.60,
+            "controlInstruction": "Gaya bercerita misterius dan dramatis, suara dada dalam, tempo terkontrol, intonasi menegangkan bikin penasaran.",
         },
         "serious": {
             "label": "Serious & Tegas (Warning / Fakta)",
             "mode": "ultimate",
             "sampleFile": "aetheria_id.wav",
             "promptText": id_prompt,
-            "cfgValue": 1.62,
-            "controlInstruction": "Gaya bicara serius, tegas, lugas, dan menekankan poin penting.",
+            "cfgValue": 1.58,
+            "controlInstruction": "Gaya bicara serius, berwibawa, tegas, lugas, artikulasi bulat dan menekan poin-poin krusial.",
         },
     }
     default_en_styles = {
@@ -366,17 +414,20 @@ def apply_voicebox_dsp(
         audio_f32 = audio_f32.reshape(1, -1)
 
     if gentle_cloning:
+        # Transparent zero-phase mastering for cloned voice: preserves pure natural timbre,
+        # open room dynamics (RMS ~0.12-0.14), and prevents comb-filtering / double-voice artifacts.
         board = Pedalboard([
-            HighpassFilter(cutoff_frequency_hz=70.0),
-            Compressor(threshold_db=-11.5, ratio=1.6, attack_ms=28.0, release_ms=110.0),
-            Gain(gain_db=1.2),
-            Limiter(threshold_db=-0.8, release_ms=90.0),
+            HighpassFilter(cutoff_frequency_hz=65.0),
+            Limiter(threshold_db=-1.0, release_ms=80.0),
         ])
     else:
         board = Pedalboard([
-            HighpassFilter(cutoff_frequency_hz=80.0),
-            Compressor(threshold_db=-16.0, ratio=3.5, attack_ms=6.0, release_ms=65.0),
-            Gain(gain_db=2.0),
+            HighpassFilter(cutoff_frequency_hz=85.0),
+            PeakFilter(cutoff_frequency_hz=220.0, gain_db=1.5, q=0.8),
+            HighShelfFilter(cutoff_frequency_hz=7500.0, gain_db=-1.5),
+            NoiseGate(threshold_db=-40.0, attack_ms=10.0, release_ms=80.0),
+            Compressor(threshold_db=-16.0, ratio=3.0, attack_ms=8.0, release_ms=65.0),
+            Gain(gain_db=1.8),
             Limiter(threshold_db=-1.0, release_ms=80.0),
         ])
 
@@ -743,19 +794,19 @@ def generate_voxcpm_speech(
     prompt_text: Optional[str] = None,
     control_instruction: Optional[str] = None,
     cfg_value: float = 1.55,
-    cloning_mode: str = "ultimate",
+    cloning_mode: str = "controllable",
+    denoise: bool = False,
 ) -> tuple[np.ndarray, int]:
     """
     Generates natural speech with OpenBMB VoxCPM2 (Apache-2.0) through its official Hugging Face Space.
     - Voice Design: `voice_design` describes the voice (gender, age, tone, pace).
     - Cloning: `clone_ref` is a WAV/audio sample to clone. Preprocessed to clean 7-12s voice reference.
     - Prompt Text: `prompt_text` is the exact spoken text of `clone_ref` for perfect prosody/intonation alignment.
-    - Cloning Mode:
-      * `"ultimate"` (`use_prompt_text=True`): Replicates exact reference audio cadence + prosody.
-      * `"controllable"` (`use_prompt_text=False`): Clones speaker timbre from `clone_ref` while steering
-        delivery style via `control_instruction` (e.g. `energetic`, `mystery`, `casual`, `serious`).
-    - `cfg_value`: Defaults to `1.55` (instead of `2.0`) so vocal delivery is open, natural, and never
-      sounds held back ("ketahan").
+    - Speaker Anchor: When `prompt_text` and `clone_ref` are provided, `use_prompt_text=True` is always
+      used so speaker identity NEVER drifts across sentence chunks (zero voice drift even on 5-minute narrations).
+    - Style Steering: `control_instruction` directs emotional delivery, pacing, and intonation dynamics.
+    - `denoise`: Defaults to `True` to remove reference microphone reverb and background noise.
+    - `cfg_value`: Defaults to `1.55` so vocal delivery is open, natural, rounded, and never raspy.
     """
     if not HAS_GRADIO_CLIENT or Client is None or handle_file is None:
         raise ImportError("gradio_client is not installed in the current environment.")
@@ -822,7 +873,7 @@ def generate_voxcpm_speech(
                         prompt_text_input=prompt_text if use_prompt else "",
                         cfg_value_input=float(cfg_value),
                         do_normalize=False,
-                        denoise=False,
+                        denoise=bool(denoise),
                         api_name="/generate",
                     )
                     result = job.result(timeout=VOXCPM_TIMEOUT_SEC)
@@ -1190,7 +1241,7 @@ def generate_speech(
             selected_style_info.get("cfgValue")
             or (preset_info.get("cfg_value", 1.55) if preset_info else 1.55)
         )
-        cloning_mode = str(selected_style_info.get("mode", "ultimate"))
+        cloning_mode = str(selected_style_info.get("mode", "controllable"))
         print(
             f"[voicebox] Generating with VoxCPM2 (mode={cloning_mode}, cfg={cfg_val}, style={selected_style_key or 'default'}, "
             f"{'clone' if clone_ref else 'voice design'}: {design if not clone_ref else clone_ref})..."

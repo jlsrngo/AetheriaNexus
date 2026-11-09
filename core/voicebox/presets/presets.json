@@ -11,23 +11,23 @@
       "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
       "controlInstruction": "Gaya bercerita antusias ala konten kreator, artikulasi lepas dan plong, intonasi dinamis, ekspresif, santai seperti ngobrol langsung dengan penonton.",
       "defaultStyle": "default",
-      "cfgValue": 1.55,
+      "cfgValue": 1.48,
       "styles": {
         "default": {
           "label": "PocketMyth Storytelling (Default)",
           "mode": "controllable",
           "sampleFile": "aetheria_id.wav",
           "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
-          "cfgValue": 1.55,
-          "controlInstruction": "Bicara santai, berwibawa, artikulasi empuk dan jelas, ritme natural tidak terburu-buru, gaya narasi edukasi PocketMyth."
+          "cfgValue": 1.48,
+          "controlInstruction": "Artikulasi bersih, bulat, dan empuk. Pelepasan vokal lepas dan plong, suara dada hangat, tanpa getaran serak di ujung kata, gaya narator santai PocketMyth."
         },
         "energetic": {
           "label": "PocketMyth Hook & Energetic",
-          "mode": "ultimate",
+          "mode": "controllable",
           "sampleFile": "aetheria_id.wav",
           "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
-          "cfgValue": 1.55,
-          "controlInstruction": "Artikulasi bulat dan hangat, intonasi edukasi PocketMyth, santai dan berwibawa, bertenaga tanpa serak."
+          "cfgValue": 1.50,
+          "controlInstruction": "Artikulasi bulat empuk dan lantang, intonasi hook sangat bertenaga, menyambar perhatian penonton di awal kalimat tanpa serak."
         },
         "casual": {
           "label": "Casual Ngobrol (Santai / Review)",
@@ -35,15 +35,15 @@
           "sampleFile": "aetheria_id.wav",
           "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
           "cfgValue": 1.55,
-          "controlInstruction": "Gaya ngobrol santai, ramah, artikulasi jelas dan empuk langsung ke penonton."
+          "controlInstruction": "Gaya ngobrol santai, ramah, artikulasi jelas dan empuk langsung ke penonton seperti obrolan kreator."
         },
         "mystery": {
           "label": "Mystery & Suspense (Sejarah / Konspirasi)",
           "mode": "controllable",
           "sampleFile": "aetheria_id.wav",
           "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
-          "cfgValue": 1.62,
-          "controlInstruction": "Gaya bercerita misterius, dramatis, suara dada dalam, tempo terkontrol, dan bikin penasaran."
+          "cfgValue": 1.60,
+          "controlInstruction": "Gaya bercerita misterius dan dramatis, suara dada dalam, tempo terkontrol, intonasi menegangkan bikin penasaran."
         },
         "serious": {
           "label": "Serious & Tegas (Warning / Fakta)",
