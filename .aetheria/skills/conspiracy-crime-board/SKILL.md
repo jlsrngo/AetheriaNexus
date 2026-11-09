@@ -95,3 +95,4 @@ Gaya visual video investigasi dokumenter / kejahatan arsip (*crime board & class
 1. **Dilarang memakai CSS transitions:** Selalu gunakan frame-based math (`spring()` / `interpolate()`).
 2. **Dilarang membiarkan tali merah tertutup di belakang foto polaroid.**
 3. **Dilarang menggunakan background polos:** Selalu sertakan tekstur koran robek dan soft lighting.
+

@@ -37,6 +37,15 @@ export interface ConspiracyCrimeBoardProps {
 export const CONSPIRACY_FPS = 30;
 export const CONSPIRACY_WIDTH = 1080;
 export const CONSPIRACY_HEIGHT = 1920;
-export const SCENE_1_DURATION_FRAMES = 180; // 6 detik di 30 fps
-export const TOTAL_CONSPIRACY_FRAMES = 180; // Default untuk Scene 1 (bisa diperpanjang saat Scene 2+ ditambahkan)
+
+// Alan Turing Documentary — Scene Durations (duration + 0.6s buffer)
+export const SCENE_1_DURATION_FRAMES = 151; // Hook "Tahukah Kamu?"
+export const SCENE_2_DURATION_FRAMES = 257; // Peta Perang & U-Boat
+export const SCENE_3_DURATION_FRAMES = 242; // Bletchley Park & Turing Portrait
+export const SCENE_4_DURATION_FRAMES = 248; // Mesin Bombe vs Enigma
+export const SCENE_5_DURATION_FRAMES = 266; // Pesan Terpecahkan & Nyawa Terselamatkan
+export const SCENE_6_DURATION_FRAMES = 323; // Masa Depan Komputer & Turing Test
+export const SCENE_7_DURATION_FRAMES = 265; // Tragedi Pengadilan 1952
+export const SCENE_8_DURATION_FRAMES = 270; // Warisan Abadi & Royal Pardon 2013
+export const TOTAL_CONSPIRACY_FRAMES = SCENE_1_DURATION_FRAMES + SCENE_2_DURATION_FRAMES + SCENE_3_DURATION_FRAMES + SCENE_4_DURATION_FRAMES + SCENE_5_DURATION_FRAMES + SCENE_6_DURATION_FRAMES + SCENE_7_DURATION_FRAMES + SCENE_8_DURATION_FRAMES;
 

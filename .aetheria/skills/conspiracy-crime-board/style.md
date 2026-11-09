@@ -17,3 +17,4 @@ Crime investigation board, classified archival dossier, and mystery hook.
 - Do not use CSS transitions or setTimeout.
 - Do not let red threads disappear behind photos.
 - Do not crowd all cards at the top leaving the bottom empty.
+
