@@ -33,6 +33,7 @@ function parseArgs(argv) {
     codec: "h264",
     frames: "",
     browser: "",
+    shards: "",
   };
   for (let i = 0; i < argv.length; i++) {
     const value = argv[i + 1];
@@ -44,6 +45,7 @@ function parseArgs(argv) {
     else if (argv[i] === "--bundle-dir") parsed.bundleDir = value;
     else if (argv[i] === "--bundle-stamp") parsed.bundleStamp = value;
     else if (argv[i] === "--concurrency") parsed.concurrency = value;
+    else if (argv[i] === "--shards") parsed.shards = value;
     else if (argv[i] === "--codec") parsed.codec = value;
     else if (argv[i] === "--frames") parsed.frames = value;
     else if (argv[i] === "--browser-executable") parsed.browser = value;
@@ -178,10 +180,15 @@ async function main() {
     const endFrame = frameRange ? frameRange[1] : composition.durationInFrames - 1;
     const targetFrames = endFrame - startFrame + 1;
     const ffmpegBin = resolveBundledFfmpeg();
+    const explicitShards = args.shards ? Number.parseInt(args.shards, 10) : null;
+    // Sweet spot formula: min(4, max(2, floor(concurrency / 2)))
+    // Exactly allocates 1 Chromium browser per physical core (caps at 4 to prevent CPU thrashing/RAM exhaustion)
     const shardCount =
-      ffmpegBin && codec === "h264" && targetFrames >= 120
-        ? Math.min(4, Math.max(2, Math.floor(concurrency / 2)))
-        : 1;
+      explicitShards && explicitShards >= 1
+        ? explicitShards
+        : ffmpegBin && codec === "h264" && targetFrames >= 120
+          ? Math.min(4, Math.max(2, Math.floor(concurrency / 2)))
+          : 1;
 
     emit({
       type: "status",
