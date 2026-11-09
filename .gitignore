@@ -32,6 +32,7 @@ reference/
 # Scratch & test artifacts
 output/
 out/
+testing/
 *.traineddata
 scratch/
 

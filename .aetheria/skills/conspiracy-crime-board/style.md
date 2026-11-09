@@ -1,20 +1,22 @@
-# conspiracy-crime-board
+# Conspiracy Crime Board — Visual Styling & Motion Directives
 
-REMOTION AGENT BRIEF — Vintage Conspiracy & Crime Investigation Board (v1)
+## 1. Core Visual Archetype
+The **conspiracy-crime-board** style embodies vintage police investigation rooms, wartime intelligence dossiers, and declassified Cold War archives.
 
-Crime investigation board, classified archival dossier, and mystery hook.
+## 2. Canvas & Aspect Ratio
+* **Resolution:** Vertical 9:16 (1080 × 1920).
+* **Frame Rate:** 30 FPS.
+* **Safe Margins:** 80px horizontal, 120px top, 160px bottom (leaving room for TikTok/Reels UI overlay controls).
 
-**Fonts:** Anton, Caveat, Courier Prime. **Scale Law:** `u(refPx) = refPx * (1080 / 390)`.
+## 3. Motion Primitives
+* **No CSS Transitions:** Only frame-based mathematical springs (`spring({ frame, fps, config })`) and `interpolate()`.
+* **Layer Depth:** Every element has a designated Z-index. Threads (`z-index: 60`) and Pins (`z-index: 70`) must never be placed behind evidence photos.
+* **Camera Movement:** Continuous subtle push-in (`scale: 1.0` -> `1.08`) and organic micro-drift.
+* **Typography:**
+  - Headlines: `Anton` stencil with heavy letter tracking.
+  - Case notes: `Caveat` cursive with natural handwriting tilt.
+  - Dossier codes: `Courier Prime` monospace.
 
-## Do
-- Follow all specifications in SKILL.md verbatim.
-- Place red strings (`z-index: 60`) and 3D pushpins (`z-index: 70`) strictly above all polaroid cards.
-- Center Hero card must drop last (frame 60+) and sit proud on top of surrounding cards (`z-index: 50`).
-- Use frame-based physics (`spring({ damping: 15, stiffness: 80, mass: 0.95 })`).
-- Keep background textured with permanent torn paper, grid lines, and warm spotlight vignette.
-
-## Don't
-- Do not use CSS transitions or setTimeout.
-- Do not let red threads disappear behind photos.
-- Do not crowd all cards at the top leaving the bottom empty.
-
+## 4. Voiceover & Audio Engine Rules
+* Preset: `voice: "aetheria"`, `style: "crime_conspiracy"`.
+* Always supply clean, natural sentences. Never split words with hyphens in `spokenText`.
