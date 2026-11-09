@@ -23,7 +23,6 @@ pub fn set_active_workspace_root(dir: &str) {
         .lock()
     {
         crate::session::watcher::seed_baseline_snapshot(&norm);
-        crate::files::ensure_workspace_baseline(Path::new(&norm));
         *guard = Some(norm);
     }
 }

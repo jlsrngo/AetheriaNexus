@@ -38,6 +38,7 @@ scratch/
 
 # Runtime sessions & workspace caches
 .aetheria/sessions/
+.aetheria/config.json
 **/.aetheria/sessions/
 **/.aetheria/backups/
 **/.aetheria/attachments/
@@ -75,9 +76,6 @@ aetheria.json
 .hallmark/
 .kiro/
 .opencode/
-
-.aetheria/*
-!.aetheria/skills/
 
 # scratch: throwaway launcher probe scripts
 .launch-test*.ts

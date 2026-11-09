@@ -397,70 +397,12 @@ pub fn extract_diffable_text_from_bytes(file_path: &Path, bytes: &[u8]) -> Strin
 
     String::from_utf8_lossy(bytes).replace("\r\n", "\n")
 }
-pub fn ensure_workspace_baseline(base_dir: &Path) {
-    if !base_dir.exists() {
-        return;
-    }
-    let baseline_root = base_dir.join(".aetheria").join("baseline");
-    let init_marker = baseline_root.join(".initialized");
-    if init_marker.exists() {
-        return;
-    }
-    let _ = std::fs::create_dir_all(&baseline_root);
-    let mut existing_files = Vec::new();
-    collect_files_recursive(base_dir, base_dir, &mut existing_files, 1500);
-    for f in existing_files {
-        let Ok(rel) = f.strip_prefix(base_dir) else {
-            continue;
-        };
-        let rel_str = rel.to_string_lossy().replace('\\', "/");
-        if is_ignored_change_path(&rel_str) {
-            continue;
-        }
-        let size = f.metadata().map(|m| m.len()).unwrap_or(0);
-        if size > 25 * 1024 * 1024 {
-            continue;
-        }
-        let bf = baseline_root.join(&rel_str);
-        let new_marker = baseline_root.join(format!("{}.__new__", rel_str));
-        if !bf.exists() && !new_marker.exists() {
-            if let Some(parent) = bf.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-            let _ = std::fs::copy(&f, &bf);
-        }
-    }
-    let _ = std::fs::write(&init_marker, b"1");
+pub fn ensure_workspace_baseline(_base_dir: &Path) {
+    // Baseline auto-spawning removed
 }
 
-pub fn capture_baseline_before_write(workspace_dir: &str, file: &str) {
-    if workspace_dir.trim().is_empty() || is_ignored_change_path(file) {
-        return;
-    }
-    let base = Path::new(workspace_dir);
-    ensure_workspace_baseline(base);
-    let rel = normalize_rel_file(base, file);
-    if is_ignored_change_path(&rel) {
-        return;
-    }
-    let target = base.join(&rel);
-    let baseline_root = base.join(".aetheria").join("baseline");
-    let baseline_file = baseline_root.join(&rel);
-    let new_marker = baseline_root.join(format!("{}.__new__", rel));
-
-    if !contains_path(&baseline_root, &baseline_file) {
-        return;
-    }
-    if !baseline_file.exists() && !new_marker.exists() {
-        if let Some(parent) = baseline_file.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        if target.exists() {
-            let _ = std::fs::copy(&target, &baseline_file);
-        } else {
-            let _ = std::fs::write(&new_marker, b"");
-        }
-    }
+pub fn capture_baseline_before_write(_workspace_dir: &str, _file: &str) {
+    // Baseline auto-spawning removed
 }
 
 pub fn remove_baseline_for_path(workspace_dir: &str, file: &str) {
@@ -469,13 +411,6 @@ pub fn remove_baseline_for_path(workspace_dir: &str, file: &str) {
     }
     let base = Path::new(workspace_dir);
     let rel = normalize_rel_file(base, file);
-    let baseline_root = base.join(".aetheria").join("baseline");
-    let baseline_file = baseline_root.join(&rel);
-    let new_marker = baseline_root.join(format!("{}.__new__", rel));
-    if contains_path(&baseline_root, &baseline_file) {
-        let _ = std::fs::remove_file(&baseline_file);
-        let _ = std::fs::remove_file(&new_marker);
-    }
     remove_document_change(&rel);
 }
 
@@ -503,25 +438,6 @@ pub fn record_document_change(workspace_dir: &str, file: &str, before: &str, aft
                     crate::paths::now_ms(),
                 ),
             );
-        }
-    }
-
-    if !workspace_dir.trim().is_empty() {
-        let baseline_root = base.join(".aetheria").join("baseline");
-        let baseline_file = baseline_root.join(&rel);
-        let new_marker = baseline_root.join(format!("{}.__new__", rel));
-        if contains_path(&baseline_root, &baseline_file)
-            && !baseline_file.exists()
-            && !new_marker.exists()
-        {
-            if let Some(parent) = baseline_file.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-            if before.is_empty() {
-                let _ = std::fs::write(&new_marker, b"");
-            } else {
-                let _ = std::fs::write(&baseline_file, before);
-            }
         }
     }
 }
