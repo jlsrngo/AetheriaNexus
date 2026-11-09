@@ -137,6 +137,7 @@ class SmartSfxScheduler:
             if idx > 0:
                 cues.append({
                     "type": "whoosh",
+                    "file": "sfx/minimal/swipe.mp3",
                     "frame": max(0, current_frame - 2),
                     "volume": 0.22
                 })
@@ -145,6 +146,7 @@ class SmartSfxScheduler:
             headline_offset = scene.get("headlineFrame", 6)
             cues.append({
                 "type": "pop",
+                "file": "sfx/minimal/pop.mp3",
                 "frame": current_frame + headline_offset,
                 "volume": 0.20
             })
@@ -153,18 +155,21 @@ class SmartSfxScheduler:
             if "stat" in scene_type or "proof" in scene_type or scene.get("hasStat"):
                 cues.append({
                     "type": "chime",
+                    "file": "sfx/glass/complete.mp3",
                     "frame": current_frame + int(duration_frames * 0.35),
                     "volume": 0.24
                 })
             elif "climax" in scene_type or "twist" in scene_type or scene.get("isClimax"):
                 cues.append({
                     "type": "impact",
+                    "file": "sfx/cinematic/complete.mp3",
                     "frame": current_frame + int(duration_frames * 0.25),
                     "volume": 0.32
                 })
             elif "cta" in scene_type or "end" in scene_type or idx == len(scenes) - 1:
                 cues.append({
                     "type": "chime",
+                    "file": "sfx/arcade/badge.mp3",
                     "frame": current_frame + int(duration_frames * 0.30),
                     "volume": 0.22
                 })
