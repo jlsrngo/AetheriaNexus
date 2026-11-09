@@ -55,6 +55,8 @@ export const Timeline: React.FC<TimelineProps> = ({
   const subtitles = subtitleCues;
 
   const [timelineHeight, setTimelineHeight] = useState<number>(280);
+  const [isTimelineCollapsed, setIsTimelineCollapsed] = useState<boolean>(false);
+  const [rulerWidth, setRulerWidth] = useState<number>(1000);
   const [timelineZoom, setTimelineZoom] = useState<number>(0);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>("text-hook");
   const [modalLayer, setModalLayer] = useState<VideoLayerSpec | null>(null);
@@ -71,6 +73,19 @@ export const Timeline: React.FC<TimelineProps> = ({
   const rulerRef = useRef<HTMLDivElement>(null);
   const leftScrollRef = useRef<HTMLDivElement>(null);
   const rightScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = rulerRef.current;
+    if (!el) return;
+    const updateWidth = () => {
+      const w = el.getBoundingClientRect().width;
+      if (w > 0) setRulerWidth(w);
+    };
+    updateWidth();
+    const ro = new ResizeObserver(updateWidth);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const lastFrame = Math.max(0, durationInFrames - 1);
   const progress = lastFrame === 0 ? 0 : currentFrame / lastFrame;
@@ -841,15 +856,17 @@ export const Timeline: React.FC<TimelineProps> = ({
 
   return (
     <section
-      className="shrink-0 border-t border-[var(--border-color)] bg-[var(--bg-app)] flex flex-col select-none relative"
-      style={{ height: timelineHeight }}
+      className="shrink-0 border-t border-[var(--border-color)] bg-[var(--bg-app)] flex flex-col select-none relative transition-all duration-150"
+      style={{ height: isTimelineCollapsed ? "auto" : timelineHeight }}
     >
-      {/* Top Drag Handle to Resize Timeline Height */}
-      <div
-        onMouseDown={startResizeHeight}
-        className="h-1 w-full cursor-row-resize hover:bg-[#cf6613] transition-colors shrink-0"
-        title="Drag to resize Timeline height"
-      />
+      {/* Top Drag Handle to Resize Timeline Height (hidden when collapsed) */}
+      {!isTimelineCollapsed && (
+        <div
+          onMouseDown={startResizeHeight}
+          className="h-1 w-full cursor-row-resize hover:bg-[#cf6613] transition-colors shrink-0"
+          title="Drag to resize Timeline height"
+        />
+      )}
 
       {/* Sleek Vertical Icon-and-Label Header Toolbar (Matching User Design) */}
       <TimelineHeaderToolbar
@@ -865,6 +882,8 @@ export const Timeline: React.FC<TimelineProps> = ({
         activeRatio={activeComposition.ratio}
         selectedLayer={selectedLayer ?? null}
         isExporting={isExporting}
+        isCollapsed={isTimelineCollapsed}
+        onToggleCollapse={() => setIsTimelineCollapsed((c) => !c)}
         onTogglePlay={onTogglePlay}
         onStep={step}
         onUndo={() => {
@@ -910,9 +929,9 @@ export const Timeline: React.FC<TimelineProps> = ({
         onZoomChange={setTimelineZoom}
       />
 
-
-      {/* 2. Premiere-Style Multi-Track Body */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
+      {/* 2. Premiere-Style Multi-Track Body (collapsible) */}
+      {!isTimelineCollapsed && (
+        <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Left Column: Track Code (V12..V1) + Component Name + Edit/Visibility */}
         <div className="w-[245px] shrink-0 border-r border-[var(--border-color)] bg-[var(--bg-panel)] flex flex-col min-h-0">
           <div className="h-6 px-2.5 border-b border-[var(--border-color)] flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] shrink-0">
@@ -1075,10 +1094,10 @@ export const Timeline: React.FC<TimelineProps> = ({
               />
             )}
 
-            {/* Time Ruler (Shows Finer Single-Frame Graduations When Zoomed In) */}
+            {/* Time Ruler (Shows Clean, Pixel-Aware Timecode & Ticks without Clutter) */}
             <div
               ref={rulerRef}
-              className="h-6 border-b border-[var(--border-color)] bg-[var(--bg-panel)] relative shrink-0 cursor-col-resize"
+              className="h-6 border-b border-[var(--border-color)] bg-[var(--bg-panel)] relative shrink-0 cursor-col-resize overflow-hidden"
               onPointerDown={(e) => {
                 e.currentTarget.setPointerCapture(e.pointerId);
                 seekFromClientX(e.clientX);
@@ -1091,44 +1110,105 @@ export const Timeline: React.FC<TimelineProps> = ({
               }
             >
               {(() => {
-                let frameStep = fps;
-                if (timelineZoom >= 75) frameStep = 1; // 1 frame per tick!
-                else if (timelineZoom >= 50) frameStep = 2; // 2 frames per tick
-                else if (timelineZoom >= 30) frameStep = 5; // 5 frames per tick
-                else if (timelineZoom >= 15) frameStep = Math.max(1, Math.round(fps / 2)); // half second
-                else if (timelineZoom <= -60) frameStep = fps * 4; // every 4 seconds when heavily compacted
-                else if (timelineZoom <= -30) frameStep = fps * 2; // every 2 seconds
-                else frameStep = fps; // 1 second
+                const totalDurationSec = durationInFrames / fps;
+                if (totalDurationSec <= 0 || lastFrame <= 0) return null;
 
-                const totalTicks = Math.ceil(durationInFrames / frameStep);
-                return Array.from({ length: totalTicks + 1 }, (_, idx) => {
-                  const frameVal = idx * frameStep;
-                  if (frameVal > durationInFrames) return null;
-                  const left = Math.min(100, (frameVal / Math.max(1, lastFrame)) * 100);
-                  const isMajor = frameVal % fps === 0 || (frameStep <= 2 && frameVal % 5 === 0);
-                  const secVal = (frameVal / fps).toFixed(frameStep === 1 ? 2 : 1);
-                  return (
-                    <div
-                      key={frameVal}
-                      className={cn(
-                        "absolute top-0 bottom-0 border-l font-mono text-[9px] leading-6",
-                        isMajor
-                          ? "border-[var(--border-strong)] text-[var(--text-secondary)]"
-                          : "border-[var(--border-color)]/70 text-[var(--text-muted)]",
-                        left >= 100
-                          ? "-translate-x-full pr-1 text-right"
-                          : "pl-1"
-                      )}
-                      style={{ left: `${left}%` }}
-                    >
-                      {timelineZoom >= 50
-                        ? `${frameVal}f`
-                        : isMajor
-                        ? `${secVal}s (${frameVal}f)`
-                        : `${frameVal}f`}
-                    </div>
-                  );
-                });
+                // Total rendered pixel width of this lane
+                const totalWidthPx = Math.max(200, rulerWidth);
+                const pxPerSec = (fps / lastFrame) * totalWidthPx;
+                const pxPerFrame = totalWidthPx / lastFrame;
+
+                // Guarantee at least 80px between major timestamp text labels so they NEVER collide
+                const MIN_LABEL_GAP_PX = 80;
+
+                // 1. Extreme zoom: frame-based ticks
+                if (pxPerFrame >= 25) {
+                  const candidateFrameSteps = [1, 2, 5, 10, 15, 30, 60];
+                  const frameStep =
+                    candidateFrameSteps.find((s) => s * pxPerFrame >= MIN_LABEL_GAP_PX) ??
+                    Math.ceil(MIN_LABEL_GAP_PX / pxPerFrame);
+                  const totalMajor = Math.floor(durationInFrames / frameStep);
+
+                  const ticks: React.ReactNode[] = [];
+                  for (let i = 0; i <= totalMajor; i++) {
+                    const f = i * frameStep;
+                    if (f > durationInFrames) break;
+                    const left = Math.min(100, (f / lastFrame) * 100);
+                    ticks.push(
+                      <div
+                        key={`f-${f}`}
+                        className={cn(
+                          "absolute top-0 bottom-0 border-l font-mono text-[9px] leading-6 whitespace-nowrap pointer-events-none select-none",
+                          "border-[var(--border-strong)] text-[var(--text-secondary)]",
+                          left >= 98 ? "-translate-x-full pr-1 text-right" : "pl-1"
+                        )}
+                        style={{ left: `${left}%` }}
+                      >
+                        {f}f
+                      </div>
+                    );
+                  }
+                  return ticks;
+                }
+
+                // 2. Standard time-based ticks
+                const CANDIDATE_SECONDS = [
+                  0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 20, 30, 60, 120, 300, 600, 1200, 1800, 3600
+                ];
+                const majorStepSec =
+                  CANDIDATE_SECONDS.find((s) => s * pxPerSec >= MIN_LABEL_GAP_PX) ??
+                  Math.ceil(MIN_LABEL_GAP_PX / Math.max(0.001, pxPerSec));
+
+                // Minor tick divisor: 5 divisions if step >= 10s, 2 if step >= 2s, else 1
+                const minorDiv = majorStepSec >= 10 ? 5 : majorStepSec >= 2 ? 2 : 1;
+                const minorStepSec = majorStepSec / minorDiv;
+
+                const ticks: React.ReactNode[] = [];
+                const totalMinorSteps = Math.floor(totalDurationSec / minorStepSec);
+
+                for (let i = 0; i <= totalMinorSteps; i++) {
+                  const sec = i * minorStepSec;
+                  if (sec > totalDurationSec + 0.001) break;
+                  const isMajor = i % minorDiv === 0;
+                  const frameVal = Math.min(durationInFrames, Math.round(sec * fps));
+                  const left = Math.min(100, (frameVal / lastFrame) * 100);
+
+                  if (isMajor) {
+                    const isSubSec = majorStepSec < 1;
+                    const formattedTime = (() => {
+                      if (isSubSec) return `${sec.toFixed(1)}s`;
+                      const m = Math.floor(sec / 60);
+                      const s = Math.floor(sec % 60);
+                      if (m > 0) return `${m}:${s.toString().padStart(2, "0")}`;
+                      return `${s}s`;
+                    })();
+
+                    ticks.push(
+                      <div
+                        key={`maj-${i}`}
+                        className={cn(
+                          "absolute top-0 bottom-0 border-l font-mono text-[9px] leading-6 whitespace-nowrap pointer-events-none select-none",
+                          "border-[var(--border-strong)] text-[var(--text-secondary)]",
+                          left >= 98 ? "-translate-x-full pr-1 text-right" : "pl-1"
+                        )}
+                        style={{ left: `${left}%` }}
+                      >
+                        {formattedTime}
+                      </div>
+                    );
+                  } else {
+                    // Subtle minor tick mark (line only, no text!)
+                    ticks.push(
+                      <div
+                        key={`min-${i}`}
+                        className="absolute bottom-0 h-1.5 border-l border-[var(--border-color)]/60 pointer-events-none"
+                        style={{ left: `${left}%` }}
+                      />
+                    );
+                  }
+                }
+
+                return ticks;
               })()}
             </div>
 
@@ -1286,6 +1366,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* Floating Clip Edit Modal (Triggered on Double-Click or Pencil Click) */}
       {modalLayer && (

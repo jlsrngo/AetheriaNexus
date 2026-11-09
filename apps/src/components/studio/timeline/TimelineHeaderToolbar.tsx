@@ -4,6 +4,8 @@ import {
   Pause,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   RotateCcw,
   RotateCw,
   LayoutTemplate,
@@ -63,6 +65,8 @@ export interface TimelineHeaderToolbarProps {
   onExport: () => void;
   onShare?: () => void;
   onZoomChange: (zoom: number) => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
@@ -94,6 +98,8 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
   onExport,
   onShare,
   onZoomChange,
+  isCollapsed = false,
+  onToggleCollapse,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const toolsScrollRef = useRef<HTMLDivElement>(null);
@@ -663,6 +669,31 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           )}
           {!isCompact && <span>Export</span>}
         </button>
+
+        {/* 4. PINNED SECTION: Collapse / Expand Timeline Toggle */}
+        {onToggleCollapse && (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            title={isCollapsed ? "Buka Timeline (Tampilkan Tracks)" : "Tutup Timeline (Hanya Header)"}
+            className={cn(
+              "ml-1.5 rounded-full border border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] active:scale-95 text-[var(--text-secondary)] hover:text-white transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1 shadow-sm",
+              isCompact ? "w-8 h-8 p-0" : "h-8 px-2.5 text-xs"
+            )}
+          >
+            {isCollapsed ? (
+              <>
+                <ChevronUp className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                {!isCompact && <span className="text-amber-400 font-medium text-[11px]">Buka</span>}
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                {!isCompact && <span className="font-medium text-[11px]">Tutup</span>}
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );
