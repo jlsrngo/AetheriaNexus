@@ -1326,7 +1326,22 @@ def generate_speech(
     if lock_data:
         print(f"[voicebox] Enforcing Project Voice Lock from {lock_file.name}: {lock_data.get('voice')} ({lock_data.get('gender')})")
         voice = lock_data.get("voice", voice)
-        if not style and lock_data.get("style"):
+        preset_key = (voice or "").lower().strip()
+        if preset_key in ("aetheria_id", "pocketmyth"):
+            preset_key = "aetheria"
+        if not preset_info and preset_key in presets:
+            preset_info = presets[preset_key]
+            styles_map = preset_info.get("styles") or {}
+            if not selected_style_key:
+                selected_style_key = lock_data.get("style") or preset_info.get("default_style", "default")
+            selected_style_info = styles_map.get(selected_style_key) or styles_map.get("default") or {}
+            style_sample = selected_style_info.get("sampleFile")
+            style_sample_path = str(PRESETS_DIR / style_sample) if style_sample else preset_info.get("sample_path")
+            if not clone_ref and style_sample_path and os.path.isfile(style_sample_path):
+                clone_ref = style_sample_path
+            if not voice_design:
+                voice_design = selected_style_info.get("controlInstruction") or preset_info.get("description")
+        elif not style and lock_data.get("style"):
             selected_style_key = lock_data["style"]
             if preset_info:
                 styles_map = preset_info.get("styles") or {}
