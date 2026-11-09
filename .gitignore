@@ -118,6 +118,9 @@ core/voicebox/models/
 workspace/public/
 workspace/src/*
 !workspace/src/.gitkeep
+!workspace/src/Root.tsx
+!workspace/src/conspiracy-crime-board/
+!workspace/src/conspiracy-crime-board/**
 workspace/storyboard.json
 workspace/styles/
 workspace/.aetheria/
