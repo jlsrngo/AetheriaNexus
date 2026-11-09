@@ -676,21 +676,12 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
             type="button"
             onClick={onToggleCollapse}
             title={isCollapsed ? "Buka Timeline (Tampilkan Tracks)" : "Tutup Timeline (Hanya Header)"}
-            className={cn(
-              "ml-1.5 rounded-full border border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] active:scale-95 text-[var(--text-secondary)] hover:text-white transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1 shadow-sm",
-              isCompact ? "w-8 h-8 p-0" : "h-8 px-2.5 text-xs"
-            )}
+            className="ml-1.5 w-8 h-8 rounded-full border border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] active:scale-95 text-[var(--text-secondary)] hover:text-white transition-all cursor-pointer shrink-0 flex items-center justify-center shadow-sm"
           >
             {isCollapsed ? (
-              <>
-                <ChevronUp className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                {!isCompact && <span className="text-amber-400 font-medium text-[11px]">Buka</span>}
-              </>
+              <ChevronUp className="w-4 h-4 text-amber-400 shrink-0" />
             ) : (
-              <>
-                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
-                {!isCompact && <span className="font-medium text-[11px]">Tutup</span>}
-              </>
+              <ChevronDown className="w-4 h-4 shrink-0" />
             )}
           </button>
         )}
