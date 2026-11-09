@@ -107,8 +107,11 @@ async function main() {
   }
 
   const workspaceEntryCandidates = [
+    path.resolve(process.cwd(), "workspace/src/entry.tsx"),
     path.resolve(process.cwd(), "workspace/src/entry.ts"),
+    path.resolve(process.cwd(), "workspace/src/index.tsx"),
     path.resolve(process.cwd(), "workspace/src/index.ts"),
+    path.resolve(process.cwd(), "workspace/entry.tsx"),
     path.resolve(process.cwd(), "workspace/entry.ts"),
   ];
   const detectedWorkspaceEntry = workspaceEntryCandidates.find((p) => fs.existsSync(p));

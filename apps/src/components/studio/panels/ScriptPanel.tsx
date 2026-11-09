@@ -180,6 +180,55 @@ export const ScriptPanel = memo(function ScriptPanel({
         }
       }
 
+      // Fallback: Also scan workspace/src and workspace/src/scenes on disk so files are never lost
+      try {
+        const srcRes = await engineFetch(`/file?path=workspace/src`);
+        if (srcRes.ok) {
+          const srcFiles = await srcRes.json();
+          for (const item of Array.isArray(srcFiles) ? srcFiles : []) {
+            if (item.type === "file" && CODE_EXT_REGEX.test(item.name)) {
+              const normKey = item.path.replace(/\\/g, "/").toLowerCase();
+              if (!fileMap.has(normKey)) {
+                fileMap.set(normKey, {
+                  id: normKey,
+                  name: item.name,
+                  relativePath: toDisplayRelativePath(item.path, activeFolder),
+                  fullPath: item.path,
+                  status: "added",
+                  addedLines: 60,
+                  removedLines: 0,
+                  updatedAt: Date.now(),
+                });
+              }
+            } else if (item.type === "directory" && (item.name === "scenes" || item.name === "_storyboard")) {
+              const subRes = await engineFetch(`/file?path=${encodeURIComponent(item.path)}`);
+              if (subRes.ok) {
+                const subFiles = await subRes.json();
+                for (const sub of Array.isArray(subFiles) ? subFiles : []) {
+                  if (sub.type === "file" && CODE_EXT_REGEX.test(sub.name)) {
+                    const subKey = sub.path.replace(/\\/g, "/").toLowerCase();
+                    if (!fileMap.has(subKey)) {
+                      fileMap.set(subKey, {
+                        id: subKey,
+                        name: sub.name,
+                        relativePath: toDisplayRelativePath(sub.path, activeFolder),
+                        fullPath: sub.path,
+                        status: "added",
+                        addedLines: 80,
+                        removedLines: 0,
+                        updatedAt: Date.now(),
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch {
+        // Ignore file listing errors cleanly
+      }
+
       setSessionFiles(Array.from(fileMap.values()));
     } catch {
       // Ignore network errors cleanly

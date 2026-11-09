@@ -38,7 +38,8 @@ pub fn bound_tool_output(tool_name: &str, raw_output: &str) -> (String, bool) {
 
     for line in raw_lines.iter().take(MAX_TOOL_OUTPUT_LINES) {
         let clean_line = if line.len() > MAX_LINE_LENGTH {
-            format!("{}... [line truncated]", &line[..MAX_LINE_LENGTH])
+            let split_pos = line.floor_char_boundary(MAX_LINE_LENGTH);
+            format!("{}... [line truncated]", &line[..split_pos])
         } else {
             line.to_string()
         };
@@ -100,6 +101,17 @@ mod tests {
         assert!(truncated);
         assert!(output.contains("[Output truncated by harness"));
         assert!(output.len() <= MAX_TOOL_OUTPUT_BYTES + 1024);
+    }
+
+    #[test]
+    fn test_multibyte_utf8_char_boundary_truncation() {
+        // Construct a line with multi-byte characters (e.g. '─' which is 3 bytes: \u{2500})
+        // crossing the MAX_LINE_LENGTH boundary (2,000 bytes) with a newline
+        let prefix = format!("{}\nend", "─".repeat(700)); // 700 * 3 = 2,100 bytes
+        let (output, truncated) = bound_tool_output("read", &prefix);
+
+        assert!(truncated);
+        assert!(output.contains("[line truncated]"));
     }
 }
 

@@ -111,17 +111,16 @@ fn friendly_name_for_id(id: &str) -> String {
     }
 }
 
-/// Dynamically scan `workspace/src/Root.tsx` and merge discovered Remotion compositions.
+/// Dynamically scan workspace entry/root files and merge discovered Remotion compositions.
 pub fn scan_and_merge_workspace_compositions(store: &mut Vec<CompositionPreset>) {
     let root = project_root();
     let root_tsx_candidates = [
         root.join("workspace").join("src").join("Root.tsx"),
+        root.join("workspace").join("src").join("entry.tsx"),
+        root.join("workspace").join("src").join("entry.ts"),
+        root.join("workspace").join("src").join("index.tsx"),
         root.join("src").join("Root.tsx"),
     ];
-
-    let root_tsx_path = root_tsx_candidates.iter().find(|p| p.exists());
-    let Some(root_path) = root_tsx_path else { return; };
-    let Ok(content) = std::fs::read_to_string(root_path) else { return; };
 
     let mut constants = HashMap::new();
     let ws_src = root.join("workspace").join("src");
@@ -129,79 +128,86 @@ pub fn scan_and_merge_workspace_compositions(store: &mut Vec<CompositionPreset>)
         collect_workspace_numeric_constants(&ws_src, &mut constants);
     }
 
-    // Find all `<Composition` blocks
-    let mut search_from = 0;
-    while let Some(comp_idx) = content[search_from..].find("<Composition") {
-        let abs_idx = search_from + comp_idx;
-        let rest = &content[abs_idx..];
-        let end_idx = rest.find("/>").or_else(|| rest.find("</Composition>")).unwrap_or(rest.len());
-        let block = &rest[..end_idx];
-        search_from = abs_idx + end_idx;
-
-        // Extract id="Foo" or id={'Foo'}
-        let Some(id_pos) = block.find("id=") else { continue; };
-        let after_id = &block[id_pos + 3..].trim_start();
-        let id_val = if after_id.starts_with('"') || after_id.starts_with('\'') {
-            let quote = after_id.chars().next().unwrap();
-            let end = after_id[1..].find(quote).unwrap_or(after_id.len() - 1);
-            after_id[1..end + 1].trim().to_string()
-        } else if after_id.starts_with('{') {
-            let end = after_id.find('}').unwrap_or(after_id.len());
-            after_id[1..end].trim().trim_matches('"').trim_matches('\'').to_string()
-        } else {
-            continue;
-        };
-
-        if id_val.is_empty() {
+    for root_path in root_tsx_candidates.iter() {
+        if !root_path.exists() {
             continue;
         }
+        let Ok(content) = std::fs::read_to_string(root_path) else { continue; };
 
-        let fps = extract_prop_value(block, "fps", &constants, 30);
-        let width = extract_prop_value(block, "width", &constants, 1080);
-        let height = extract_prop_value(block, "height", &constants, 1920);
-        let total_frames = extract_prop_value(block, "durationInFrames", &constants, 1800);
-        let duration = if fps > 0 {
-            (total_frames as f64 / fps as f64).round()
-        } else {
-            60.0
-        };
+        // Find all `<Composition` blocks
+        let mut search_from = 0;
+        while let Some(comp_idx) = content[search_from..].find("<Composition") {
+            let abs_idx = search_from + comp_idx;
+            let rest = &content[abs_idx..];
+            let end_idx = rest.find("/>").or_else(|| rest.find("</Composition>")).unwrap_or(rest.len());
+            let block = &rest[..end_idx];
+            search_from = abs_idx + end_idx;
 
-        let ratio = if width == 1080 && height == 1920 {
-            "9:16"
-        } else if width == 1920 && height == 1080 {
-            "16:9"
-        } else if width == height {
-            "1:1"
-        } else {
-            "9:16"
-        };
+            // Extract id="Foo" or id={'Foo'}
+            let Some(id_pos) = block.find("id=") else { continue; };
+            let after_id = &block[id_pos + 3..].trim_start();
+            let id_val = if after_id.starts_with('"') || after_id.starts_with('\'') {
+                let quote = after_id.chars().next().unwrap();
+                let end = after_id[1..].find(quote).unwrap_or(after_id.len() - 1);
+                after_id[1..end + 1].trim().to_string()
+            } else if after_id.starts_with('{') {
+                let end = after_id.find('}').unwrap_or(after_id.len());
+                after_id[1..end].trim().trim_matches('"').trim_matches('\'').to_string()
+            } else {
+                continue;
+            };
 
-        let existing = store.iter_mut().find(|c| c.id == id_val);
-        if let Some(comp) = existing {
-            // Keep up to date with Root.tsx
-            comp.fps = fps;
-            comp.width = width;
-            comp.height = height;
-            comp.duration = duration;
-            comp.ratio = ratio.to_string();
-        } else {
-            let friendly = friendly_name_for_id(&id_val);
-            store.push(CompositionPreset {
-                id: id_val.clone(),
-                name: friendly.clone(),
-                folder: "AI WORKSPACE".to_string(),
-                ratio: ratio.to_string(),
-                duration,
-                fps,
-                width,
-                height,
-                props: json!({
-                    "hookText": friendly,
-                    "category": "AI CREATED",
-                    "subCategory": "AUTONOMOUS",
-                    "authorHandle": "@aetheria"
-                }),
-            });
+            if id_val.is_empty() {
+                continue;
+            }
+
+            let fps = extract_prop_value(block, "fps", &constants, 30);
+            let width = extract_prop_value(block, "width", &constants, 1080);
+            let height = extract_prop_value(block, "height", &constants, 1920);
+            let total_frames = extract_prop_value(block, "durationInFrames", &constants, 1800);
+            let duration = if fps > 0 {
+                (total_frames as f64 / fps as f64).round()
+            } else {
+                60.0
+            };
+
+            let ratio = if width == 1080 && height == 1920 {
+                "9:16"
+            } else if width == 1920 && height == 1080 {
+                "16:9"
+            } else if width == height {
+                "1:1"
+            } else {
+                "9:16"
+            };
+
+            let existing = store.iter_mut().find(|c| c.id == id_val);
+            if let Some(comp) = existing {
+                // Keep up to date with Root.tsx
+                comp.fps = fps;
+                comp.width = width;
+                comp.height = height;
+                comp.duration = duration;
+                comp.ratio = ratio.to_string();
+            } else {
+                let friendly = friendly_name_for_id(&id_val);
+                store.push(CompositionPreset {
+                    id: id_val.clone(),
+                    name: friendly.clone(),
+                    folder: "AI WORKSPACE".to_string(),
+                    ratio: ratio.to_string(),
+                    duration,
+                    fps,
+                    width,
+                    height,
+                    props: json!({
+                        "hookText": friendly,
+                        "category": "AI CREATED",
+                        "subCategory": "AUTONOMOUS",
+                        "authorHandle": "@aetheria"
+                    }),
+                });
+            }
         }
     }
 }
