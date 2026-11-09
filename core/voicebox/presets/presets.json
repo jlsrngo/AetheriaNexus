@@ -8,64 +8,64 @@
       "lang": "id",
       "engine": "voxcpm",
       "sampleFile": "aetheria_id.wav",
-      "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
+      "promptText": "Kalian tahu nggak, kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu mengakhiri kekuasaan Romawi Timur dengan menaklukkan kota Konstantinopel, dan dia melakukan itu pada usia dua puluh satu tahun.",
       "controlInstruction": "Gaya bercerita antusias ala konten kreator, artikulasi lepas dan plong, intonasi dinamis, ekspresif, santai seperti ngobrol langsung dengan penonton.",
       "defaultStyle": "default",
       "cfgValue": 1.48,
       "styles": {
         "default": {
-          "label": "PocketMyth Storytelling (Default)",
-          "mode": "controllable",
+          "label": "Aetheria Storytelling (Default)",
+          "mode": "ultimate",
           "sampleFile": "aetheria_id.wav",
-          "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
+          "promptText": "Kalian tahu nggak, kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu mengakhiri kekuasaan Romawi Timur dengan menaklukkan kota Konstantinopel, dan dia melakukan itu pada usia dua puluh satu tahun.",
           "cfgValue": 1.48,
-          "controlInstruction": "Artikulasi bersih, bulat, dan empuk. Pelepasan vokal lepas dan plong, suara dada hangat, tanpa getaran serak di ujung kata, gaya narator santai PocketMyth."
+          "controlInstruction": "Artikulasi bersih, bulat, dan empuk. Pelepasan vokal lepas dan plong, suara dada hangat, tanpa getaran serak di ujung kata, gaya narator santai Aetheria."
         },
         "energetic": {
-          "label": "PocketMyth Hook & Energetic",
-          "mode": "controllable",
+          "label": "Aetheria Hook & Energetic",
+          "mode": "ultimate",
           "sampleFile": "aetheria_id.wav",
-          "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
+          "promptText": "Kalian tahu nggak, kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu mengakhiri kekuasaan Romawi Timur dengan menaklukkan kota Konstantinopel, dan dia melakukan itu pada usia dua puluh satu tahun.",
           "cfgValue": 1.50,
           "controlInstruction": "Artikulasi bulat empuk dan lantang, intonasi hook sangat bertenaga, menyambar perhatian penonton di awal kalimat tanpa serak."
         },
         "casual": {
           "label": "Casual Ngobrol (Santai / Review)",
-          "mode": "controllable",
+          "mode": "ultimate",
           "sampleFile": "aetheria_id.wav",
-          "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
+          "promptText": "Kalian tahu nggak, kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu mengakhiri kekuasaan Romawi Timur dengan menaklukkan kota Konstantinopel, dan dia melakukan itu pada usia dua puluh satu tahun.",
           "cfgValue": 1.55,
           "controlInstruction": "Gaya ngobrol santai, ramah, artikulasi jelas dan empuk langsung ke penonton seperti obrolan kreator."
         },
         "mystery": {
           "label": "Mystery & Suspense (Sejarah / Misteri)",
-          "mode": "controllable",
+          "mode": "ultimate",
           "sampleFile": "aetheria_id.wav",
-          "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
+          "promptText": "Kalian tahu nggak, kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu mengakhiri kekuasaan Romawi Timur dengan menaklukkan kota Konstantinopel, dan dia melakukan itu pada usia dua puluh satu tahun.",
           "cfgValue": 1.58,
           "controlInstruction": "Gaya bercerita misterius dan dramatis, suara dada dalam, tempo terkontrol, intonasi menegangkan bikin penasaran."
         },
         "horror": {
           "label": "Horor & Supranatural (Mencekam / Gelap)",
-          "mode": "controllable",
+          "mode": "ultimate",
           "sampleFile": "aetheria_id.wav",
-          "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
+          "promptText": "Kalian tahu nggak, kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu mengakhiri kekuasaan Romawi Timur dengan menaklukkan kota Konstantinopel, dan dia melakukan itu pada usia dua puluh satu tahun.",
           "cfgValue": 1.60,
           "controlInstruction": "Gaya narator storytelling horor mencekam. Nada rendah, suara dada dalam, tempo lambat dan dingin, artikulasi bulat berbisik intens, jeda hening menegangkan, menciptakan suasana misterius dan menyeramkan."
         },
         "crime_conspiracy": {
           "label": "Kriminal & Konspirasi (True Crime / Dokumen Rahasia)",
-          "mode": "controllable",
+          "mode": "ultimate",
           "sampleFile": "aetheria_id.wav",
-          "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
+          "promptText": "Kalian tahu nggak, kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu mengakhiri kekuasaan Romawi Timur dengan menaklukkan kota Konstantinopel, dan dia melakukan itu pada usia dua puluh satu tahun.",
           "cfgValue": 1.54,
           "controlInstruction": "Gaya narator dokumenter kriminal dan konspirasi investigatif. Nada dingin, serius, penuh tanda tanya, tempo terukur dan tenang, artikulasi tajam dan berwibawa, menekan fakta-fakta ganjil yang mencurigakan."
         },
         "serious": {
           "label": "Serious & Tegas (Warning / Fakta)",
-          "mode": "controllable",
+          "mode": "ultimate",
           "sampleFile": "aetheria_id.wav",
-          "promptText": "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik.",
+          "promptText": "Kalian tahu nggak, kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu mengakhiri kekuasaan Romawi Timur dengan menaklukkan kota Konstantinopel, dan dia melakukan itu pada usia dua puluh satu tahun.",
           "cfgValue": 1.58,
           "controlInstruction": "Gaya bicara serius, berwibawa, tegas, lugas, artikulasi bulat dan menekan poin-poin krusial."
         }

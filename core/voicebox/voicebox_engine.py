@@ -312,7 +312,7 @@ def normalize_indonesian_speech_text(text: str, custom_lexicon: Optional[Dict[st
     res = re.sub(r'\bkey\b', 'ki', res, flags=re.IGNORECASE)
     res = re.sub(r'\bcache\b', 'kes', res, flags=re.IGNORECASE)
 
-    # 8. Intelligent narrative prosody & intonation shaping (PocketMyth storytelling cadence)
+    # 8. Intelligent narrative prosody & intonation shaping (Aetheria storytelling cadence)
     # 8a. Transform rhetorical hook questions ending with period into question mark (forces rising pitch hook)
     hook_patterns = [
         r'(\b(?:Tahukah|Pernahkah)\s+(?:kalian|kamu|kita)\b[^.!?]+)\.',
@@ -358,19 +358,19 @@ def normalize_indonesian_speech_text(text: str, custom_lexicon: Optional[Dict[st
 
 def load_voice_presets() -> Dict[str, Any]:
     """Loads permanent Aetheria voice presets (Indonesian & English) and their selectable styles from disk."""
-    id_prompt = "Kalian tahu nggak, kalau ini Aetheria, agen motion grafis otomatis yang bikin konten video jadi makin hidup dan sinematik."
+    id_prompt = "Kalian tahu nggak, kalau dulu ada seorang pemimpin dari kerajaan Islam yang mampu mengakhiri kekuasaan Romawi Timur dengan menaklukkan kota Konstantinopel, dan dia melakukan itu pada usia dua puluh satu tahun."
     en_prompt = "Did you know that this is Aetheria, an automated motion graphics agent that brings your video content to life with cinematic quality."
     default_id_styles = {
         "default": {
-            "label": "PocketMyth Storytelling (Default)",
-            "mode": "controllable",
+            "label": "Aetheria Storytelling (Default)",
+            "mode": "ultimate",
             "sampleFile": "aetheria_id.wav",
             "promptText": id_prompt,
             "cfgValue": 1.48,
-            "controlInstruction": "Artikulasi bersih, bulat, dan empuk. Pelepasan vokal lepas dan plong, suara dada hangat, tanpa getaran serak di ujung kata, gaya narator santai PocketMyth.",
+            "controlInstruction": "Artikulasi bersih, bulat, dan empuk. Pelepasan vokal lepas dan plong, suara dada hangat, tanpa getaran serak di ujung kata, gaya narator santai Aetheria.",
         },
         "energetic": {
-            "label": "PocketMyth Hook & Energetic",
+            "label": "Aetheria Hook & Energetic",
             "mode": "ultimate",
             "sampleFile": "aetheria_id.wav",
             "promptText": id_prompt,
@@ -387,7 +387,7 @@ def load_voice_presets() -> Dict[str, Any]:
         },
         "mystery": {
             "label": "Mystery & Suspense (Sejarah / Misteri)",
-            "mode": "controllable",
+            "mode": "ultimate",
             "sampleFile": "aetheria_id.wav",
             "promptText": id_prompt,
             "cfgValue": 1.58,
@@ -395,7 +395,7 @@ def load_voice_presets() -> Dict[str, Any]:
         },
         "horror": {
             "label": "Horor & Supranatural (Mencekam / Gelap)",
-            "mode": "controllable",
+            "mode": "ultimate",
             "sampleFile": "aetheria_id.wav",
             "promptText": id_prompt,
             "cfgValue": 1.60,
@@ -403,7 +403,7 @@ def load_voice_presets() -> Dict[str, Any]:
         },
         "crime_conspiracy": {
             "label": "Kriminal & Konspirasi (True Crime / Dokumen Rahasia)",
-            "mode": "controllable",
+            "mode": "ultimate",
             "sampleFile": "aetheria_id.wav",
             "promptText": id_prompt,
             "cfgValue": 1.54,
@@ -411,7 +411,7 @@ def load_voice_presets() -> Dict[str, Any]:
         },
         "serious": {
             "label": "Serious & Tegas (Warning / Fakta)",
-            "mode": "controllable",
+            "mode": "ultimate",
             "sampleFile": "aetheria_id.wav",
             "promptText": id_prompt,
             "cfgValue": 1.58,
@@ -1280,7 +1280,7 @@ def generate_speech(
     # Permanent Voice Presets (aetheria & aetheria_en)
     presets = load_voice_presets()
     preset_key = (voice or "").lower().strip()
-    if preset_key in ("aetheria_id", "pocketmyth"):
+    if preset_key in ("aetheria_id", "aetheria_narrator", "aetheria_creator", "storyteller", "creator"):
         preset_key = "aetheria"
     preset_info = presets.get(preset_key)
     selected_style_key = (style or "").lower().strip()
@@ -1327,7 +1327,7 @@ def generate_speech(
         print(f"[voicebox] Enforcing Project Voice Lock from {lock_file.name}: {lock_data.get('voice')} ({lock_data.get('gender')})")
         voice = lock_data.get("voice", voice)
         preset_key = (voice or "").lower().strip()
-        if preset_key in ("aetheria_id", "pocketmyth"):
+        if preset_key in ("aetheria_id", "aetheria_narrator", "aetheria_creator", "storyteller", "creator"):
             preset_key = "aetheria"
         if not preset_info and preset_key in presets:
             preset_info = presets[preset_key]
