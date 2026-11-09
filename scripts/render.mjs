@@ -168,12 +168,12 @@ async function main() {
       puppeteerInstance,
     });
     const composition = args.composition
-      ? compositions.find((c) => c.id === args.composition) || compositions[0]
+      ? compositions.find((c) => c.id === args.composition)
       : compositions[0];
 
     if (!composition) {
       const available = compositions.map((c) => c.id).join(", ") || "(none)";
-      throw new Error(`Composition "${args.composition}" not found. Available: ${available}`);
+      throw new Error(`Composition "${args.composition}" not found in Root.tsx. Available compositions: [${available}]`);
     }
 
     const startFrame = frameRange ? frameRange[0] : 0;

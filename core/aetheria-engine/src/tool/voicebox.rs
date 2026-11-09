@@ -130,10 +130,26 @@ pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
         std::path::PathBuf::from(workspace_dir)
     };
 
-    let target_out = if Path::new(out_rel).is_absolute() {
-        std::path::PathBuf::from(out_rel)
+    let mut clean_out = out_rel.trim();
+    let ws_is_workspace = ws
+        .file_name()
+        .and_then(|n| n.to_str())
+        .map(|n| n.eq_ignore_ascii_case("workspace"))
+        .unwrap_or(false);
+
+    if ws_is_workspace {
+        while clean_out.starts_with("workspace/") || clean_out.starts_with("workspace\\") {
+            clean_out = &clean_out["workspace/".len()..];
+        }
+        while clean_out.starts_with("./workspace/") || clean_out.starts_with(".\\workspace\\") {
+            clean_out = &clean_out["./workspace/".len()..];
+        }
+    }
+
+    let target_out = if Path::new(clean_out).is_absolute() {
+        std::path::PathBuf::from(clean_out)
     } else {
-        ws.join(out_rel)
+        ws.join(clean_out)
     };
 
     // Fast Cache Hit: Only reuse existing WAV if the text actually matches what was requested!

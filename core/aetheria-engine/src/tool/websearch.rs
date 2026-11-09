@@ -192,14 +192,40 @@ pub async fn execute_fetch_web_image(workspace_dir: &str, arguments: &Value) -> 
         std::path::PathBuf::from(workspace_dir)
     };
 
-    let clean_rel = if raw_out.starts_with("workspace/public/") || raw_out.starts_with("workspace\\public\\") {
-        raw_out.to_string()
-    } else if raw_out.starts_with("public/") || raw_out.starts_with("public\\") {
-        format!("workspace/{}", raw_out)
-    } else if !raw_out.contains('/') && !raw_out.contains('\\') {
-        format!("workspace/public/{}", raw_out)
+    let ws_is_workspace = ws
+        .file_name()
+        .and_then(|n| n.to_str())
+        .map(|n| n.eq_ignore_ascii_case("workspace"))
+        .unwrap_or(false);
+
+    let mut clean_raw = raw_out.trim();
+    if ws_is_workspace {
+        while clean_raw.starts_with("workspace/") || clean_raw.starts_with("workspace\\") {
+            clean_raw = &clean_raw["workspace/".len()..];
+        }
+        while clean_raw.starts_with("./workspace/") || clean_raw.starts_with(".\\workspace\\") {
+            clean_raw = &clean_raw["./workspace/".len()..];
+        }
+    }
+
+    let clean_rel = if ws_is_workspace {
+        if clean_raw.starts_with("public/") || clean_raw.starts_with("public\\") {
+            clean_raw.to_string()
+        } else if !clean_raw.contains('/') && !clean_raw.contains('\\') {
+            format!("public/{}", clean_raw)
+        } else {
+            clean_raw.to_string()
+        }
     } else {
-        raw_out.to_string()
+        if clean_raw.starts_with("workspace/public/") || clean_raw.starts_with("workspace\\public\\") {
+            clean_raw.to_string()
+        } else if clean_raw.starts_with("public/") || clean_raw.starts_with("public\\") {
+            format!("workspace/{}", clean_raw)
+        } else if !clean_raw.contains('/') && !clean_raw.contains('\\') {
+            format!("workspace/public/{}", clean_raw)
+        } else {
+            clean_raw.to_string()
+        }
     };
 
     let target_out = if std::path::Path::new(&clean_rel).is_absolute() {

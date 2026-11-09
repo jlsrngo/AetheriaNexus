@@ -153,6 +153,78 @@ pub fn normalize_openai_schema(schema: &Value) -> Value {
     }
 }
 
+/// Sanitizes a JSON Schema for AWS Bedrock / Amazon Q (`toolSpecification.inputSchema.json`).
+/// AWS Bedrock strictly requires JSON Schema Draft 2020-12:
+/// 1. Root MUST be `{"type": "object", "properties": { ... }}`
+/// 2. Disallows top-level non-draft keywords like `$schema`, `title`, `additionalProperties`.
+/// 3. Ensures every property in `properties` is an object with a valid `type`.
+/// 4. Filters `required` so only declared property names are present.
+pub fn sanitize_bedrock_schema(schema: &Value) -> Value {
+    let mut out = match schema {
+        Value::Object(map) => map.clone(),
+        _ => serde_json::Map::new(),
+    };
+
+    // Strip top-level metadata keywords
+    out.remove("$schema");
+    out.remove("title");
+    out.remove("additionalProperties");
+
+    // Force root type = "object"
+    out.insert("type".to_string(), Value::String("object".to_string()));
+
+    // Sanitize properties map
+    let mut clean_props = serde_json::Map::new();
+    if let Some(props) = out.get("properties").and_then(|p| p.as_object()) {
+        for (pk, pv) in props {
+            if let Value::Object(pmap) = pv {
+                let mut prop_obj = pmap.clone();
+                prop_obj.remove("$schema");
+                prop_obj.remove("title");
+                prop_obj.remove("additionalProperties");
+
+                // Ensure property has a type
+                if !prop_obj.contains_key("type") {
+                    prop_obj.insert("type".to_string(), Value::String("string".to_string()));
+                } else if let Some(t_val) = prop_obj.get("type") {
+                    // Bedrock disallows union array types like ["string", "null"]
+                    if let Some(t_arr) = t_val.as_array() {
+                        let single_type = t_arr
+                            .iter()
+                            .filter_map(|x| x.as_str())
+                            .find(|&t| t != "null")
+                            .unwrap_or("string");
+                        prop_obj.insert("type".to_string(), Value::String(single_type.to_string()));
+                    }
+                }
+                clean_props.insert(pk.clone(), Value::Object(prop_obj));
+            } else {
+                clean_props.insert(pk.clone(), serde_json::json!({ "type": "string" }));
+            }
+        }
+    }
+    out.insert("properties".to_string(), Value::Object(clean_props));
+
+    // Filter required
+    if let Some(Value::Array(req)) = out.get("required").cloned() {
+        let props = out.get("properties").and_then(|p| p.as_object());
+        let filtered: Vec<Value> = req
+            .into_iter()
+            .filter(|r| {
+                r.as_str()
+                    .map_or(false, |name| props.map_or(false, |p| p.contains_key(name)))
+            })
+            .collect();
+        if filtered.is_empty() {
+            out.remove("required");
+        } else {
+            out.insert("required".to_string(), Value::Array(filtered));
+        }
+    }
+
+    Value::Object(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

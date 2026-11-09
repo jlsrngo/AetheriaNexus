@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use super::{extract_content_text, make_completion_response, make_sse_response_from_result};
+use super::schema::sanitize_bedrock_schema;
 use crate::cred_store::{ensure_fresh_credential, refresh_credential_source};
 use crate::paths::gen_id;
 
@@ -139,11 +140,12 @@ pub(crate) async fn handle_kiro_request(body: Value, model: &str, is_stream: boo
                     .get("parameters")
                     .cloned()
                     .unwrap_or_else(|| json!({ "type": "object", "properties": {} }));
+                let clean_schema = sanitize_bedrock_schema(&schema);
                 kiro_tools.push(json!({
                     "toolSpecification": {
                         "name": name,
                         "description": desc,
-                        "inputSchema": { "json": schema }
+                        "inputSchema": { "json": clean_schema }
                     }
                 }));
             }

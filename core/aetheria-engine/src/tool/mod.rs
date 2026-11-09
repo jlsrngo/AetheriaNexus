@@ -91,11 +91,29 @@ pub fn resolve_isolated_path(workspace_dir: &str, raw_file: &str) -> Result<Path
         PathBuf::from(workspace_dir)
     };
     let base = ws_buf.as_path();
-    let candidate = Path::new(raw_file);
+    let mut clean_raw = raw_file.trim();
+
+    // Deduplicate redundant "workspace/" or "workspace\" prefix when base already ends in "workspace"
+    let base_is_workspace = base
+        .file_name()
+        .and_then(|n| n.to_str())
+        .map(|n| n.eq_ignore_ascii_case("workspace"))
+        .unwrap_or(false);
+
+    if base_is_workspace {
+        while clean_raw.starts_with("workspace/") || clean_raw.starts_with("workspace\\") {
+            clean_raw = &clean_raw["workspace/".len()..];
+        }
+        while clean_raw.starts_with("./workspace/") || clean_raw.starts_with(".\\workspace\\") {
+            clean_raw = &clean_raw["./workspace/".len()..];
+        }
+    }
+
+    let candidate = Path::new(clean_raw);
     let resolved = if candidate.is_absolute() {
         candidate.to_path_buf()
     } else {
-        base.join(raw_file)
+        base.join(clean_raw)
     };
     if !contains_path(base, &resolved) {
         return Err(format!(
@@ -204,5 +222,31 @@ pub async fn execute_tool_call(
             }
         }
         _ => json!({ "error": format!("Unknown tool: {}", name) }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resolve_isolated_path_deduplicates_workspace_prefix() {
+        let ws = "E:\\JS\\ArunakiNexus\\workspace";
+
+        // When raw_file has "workspace/" prefix
+        let p1 = resolve_isolated_path(ws, "workspace/src/Root.tsx").unwrap();
+        assert_eq!(p1, PathBuf::from("E:\\JS\\ArunakiNexus\\workspace\\src\\Root.tsx"));
+
+        // When raw_file has "workspace\" prefix
+        let p2 = resolve_isolated_path(ws, "workspace\\src\\Root.tsx").unwrap();
+        assert_eq!(p2, PathBuf::from("E:\\JS\\ArunakiNexus\\workspace\\src\\Root.tsx"));
+
+        // When raw_file is already clean "src/Root.tsx"
+        let p3 = resolve_isolated_path(ws, "src/Root.tsx").unwrap();
+        assert_eq!(p3, PathBuf::from("E:\\JS\\ArunakiNexus\\workspace\\src\\Root.tsx"));
+
+        // When raw_file has "./workspace/src/Root.tsx"
+        let p4 = resolve_isolated_path(ws, "./workspace/src/Root.tsx").unwrap();
+        assert_eq!(p4, PathBuf::from("E:\\JS\\ArunakiNexus\\workspace\\src\\Root.tsx"));
     }
 }

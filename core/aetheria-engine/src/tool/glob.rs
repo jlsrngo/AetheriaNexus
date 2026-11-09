@@ -56,6 +56,13 @@ pub fn matches_glob_pattern(pattern: &str, target: &str) -> bool {
         }
     }
 
+    // If pattern starts with "workspace/", also test with the prefix stripped
+    if let Some(stripped) = p_lower.strip_prefix("workspace/") {
+        if matches_glob_pattern(stripped, target) {
+            return true;
+        }
+    }
+
     false
 }
 

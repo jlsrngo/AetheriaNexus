@@ -228,7 +228,23 @@ pub fn execute_render_video_with_progress(
 
     let output_path = match arguments["output_path"].as_str() {
         Some(raw) if !raw.trim().is_empty() => {
-            let candidate = Path::new(raw);
+            let mut clean_raw = raw.trim();
+            let ws_is_workspace = workspace
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(|n| n.eq_ignore_ascii_case("workspace"))
+                .unwrap_or(false);
+
+            if ws_is_workspace {
+                while clean_raw.starts_with("workspace/") || clean_raw.starts_with("workspace\\") {
+                    clean_raw = &clean_raw["workspace/".len()..];
+                }
+                while clean_raw.starts_with("./workspace/") || clean_raw.starts_with(".\\workspace\\") {
+                    clean_raw = &clean_raw["./workspace/".len()..];
+                }
+            }
+
+            let candidate = Path::new(clean_raw);
             if candidate.is_absolute() {
                 candidate.to_path_buf()
             } else {
