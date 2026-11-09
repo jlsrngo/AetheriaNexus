@@ -23,51 +23,13 @@ pub fn get_compositions_store() -> &'static RwLock<Vec<CompositionPreset>> {
                 }
             }
         }
-        if initial.is_empty() {
-            initial = default_presets();
-        }
         scan_and_merge_workspace_compositions(&mut initial);
         RwLock::new(initial)
     })
 }
 
 pub fn default_presets() -> Vec<CompositionPreset> {
-    vec![
-        CompositionPreset {
-            id: "LinusTorvalds".to_string(),
-            name: "Linus Torvalds — The Man Behind Linux".to_string(),
-            folder: "AI WORKSPACE".to_string(),
-            ratio: "9:16".to_string(),
-            duration: 62.0,
-            fps: 60,
-            width: 1080,
-            height: 1920,
-            props: json!({
-                "hookText": "Tahukah Kamu? Mahasiswa Yang Mengubah Dunia Teknologi!",
-                "bodyText": "Linus Torvalds, 1991 Finland. Kernel monolitik Linux & Git.",
-                "category": "DOCUMENTARY",
-                "subCategory": "OPEN SOURCE",
-                "authorHandle": "@torvalds"
-            }),
-        },
-        CompositionPreset {
-            id: "RustHistory".to_string(),
-            name: "Rust History (60s Kinetic)".to_string(),
-            folder: "AI WORKSPACE".to_string(),
-            ratio: "9:16".to_string(),
-            duration: 60.0,
-            fps: 60,
-            width: 1080,
-            height: 1920,
-            props: json!({
-                "hookText": "The Story of Rust: From Broken Elevator to Global Infra",
-                "bodyText": "Graydon Hoare, Mozilla 2006. Memory safety without garbage collection.",
-                "category": "TECH HISTORY",
-                "subCategory": "SYSTEMS",
-                "authorHandle": "@rustlang"
-            }),
-        },
-    ]
+    Vec::new()
 }
 
 /// Recursively collect all numeric constant definitions `const FOO = 123` or `export const FOO = 123`

@@ -19,6 +19,8 @@ const STALE_FOLDERS = new Set([
 ]);
 
 const STALE_DUMMY_IDS = new Set([
+  "LinusTorvalds",
+  "RustHistory",
   "NexusEditorialVideo",
   "TikTokVideo",
   "nexus-vertical",
@@ -29,50 +31,7 @@ const STALE_DUMMY_IDS = new Set([
   "hook-dopamine-reset",
 ]);
 
-const DEFAULT_COMPOSITIONS: StudioComposition[] = [
-  {
-    id: "LinusTorvalds",
-    name: "Linus Torvalds — The Man Behind Linux",
-    folder: "AI WORKSPACE",
-    ratio: "9:16",
-    duration: 62,
-    fps: 60,
-    width: 1080,
-    height: 1920,
-    props: {
-      themeColor: "orange",
-      hookText: "Tahukah Kamu? Mahasiswa Yang Mengubah Dunia Teknologi!",
-      bodyText: "Linus Torvalds, 1991 Finland. Kernel monolitik Linux & Git.",
-      category: "DOCUMENTARY",
-      subCategory: "OPEN SOURCE",
-      authorHandle: "@torvalds",
-      showText: true,
-      showBackground: true,
-      isMuted: false,
-    },
-  },
-  {
-    id: "RustHistory",
-    name: "Rust History (60s Kinetic)",
-    folder: "AI WORKSPACE",
-    ratio: "9:16",
-    duration: 60,
-    fps: 60,
-    width: 1080,
-    height: 1920,
-    props: {
-      themeColor: "orange",
-      hookText: "The Story of Rust: From Broken Elevator to Global Infra",
-      bodyText: "Graydon Hoare, Mozilla 2006. Memory safety without garbage collection.",
-      category: "TECH HISTORY",
-      subCategory: "SYSTEMS",
-      authorHandle: "@rustlang",
-      showText: true,
-      showBackground: true,
-      isMuted: false,
-    },
-  },
-];
+const DEFAULT_COMPOSITIONS: StudioComposition[] = [];
 
 const DEFAULT_ASSETS: StudioStaticAsset[] = [
   {
@@ -145,9 +104,11 @@ function loadInitialCompositions(): StudioComposition[] {
   return DEFAULT_COMPOSITIONS;
 }
 
+const initialCompositions = loadInitialCompositions();
+
 let state: StudioStoreState = {
-  compositions: loadInitialCompositions(),
-  activeCompositionId: "LinusTorvalds",
+  compositions: initialCompositions,
+  activeCompositionId: initialCompositions[0]?.id || "",
   currentFrame: 0,
   isPlaying: false,
   canvas: {
@@ -448,7 +409,13 @@ export const studioActions = {
               });
             }
           }
-          state = { ...state, compositions: merged };
+          const activeStillExists = merged.some((c) => c.id === state.activeCompositionId);
+          const nextActiveId = activeStillExists ? state.activeCompositionId : (merged[0]?.id || "");
+          state = {
+            ...state,
+            compositions: merged,
+            activeCompositionId: nextActiveId,
+          };
           emit();
         }
       }
@@ -477,17 +444,29 @@ if (typeof window !== "undefined") {
   });
 }
 
-export function useStudioStore() {
-    const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-const activeComposition =
-  snap.compositions.find((c) => c.id === snap.activeCompositionId) ?? snap.compositions[0];
-const durationInFrames = Math.max(15, Math.round(activeComposition.duration * activeComposition.fps));
-
-return {
-  ...snap,
-  activeComposition,
-  durationInFrames,
-  actions: studioActions,
+const EMPTY_COMPOSITION: StudioComposition = {
+  id: "empty",
+  name: "No compositions",
+  folder: "AI WORKSPACE",
+  ratio: "9:16",
+  duration: 5,
+  fps: 30,
+  width: 1080,
+  height: 1920,
+  props: defaultNexusVideoProps,
 };
+
+export function useStudioStore() {
+  const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const activeComposition =
+    snap.compositions.find((c) => c.id === snap.activeCompositionId) ?? snap.compositions[0] ?? EMPTY_COMPOSITION;
+  const durationInFrames = Math.max(15, Math.round(activeComposition.duration * activeComposition.fps));
+
+  return {
+    ...snap,
+    activeComposition,
+    durationInFrames,
+    actions: studioActions,
+  };
 }
 
