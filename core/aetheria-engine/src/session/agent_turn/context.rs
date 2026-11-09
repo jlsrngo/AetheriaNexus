@@ -265,6 +265,8 @@ pub fn resolve_dynamic_style_or_skill_command(_workspace_dir: &str, prompt_text:
             let tag = rest
                 .trim_start_matches("style:")
                 .trim_start_matches("style=")
+                .trim_start_matches("skill:")
+                .trim_start_matches("skill=")
                 .trim_matches(|c: char| !c.is_alphanumeric() && c != '-' && c != '_')
                 .to_lowercase();
             if !tag.is_empty() {
@@ -326,6 +328,66 @@ pub fn resolve_dynamic_style_or_skill_command(_workspace_dir: &str, prompt_text:
                 }
             }
         }
+    }
+
+    None
+}
+
+/// Dynamically detects audio preset commands (/audio:<style>, /preset:<style>, /voice:<style>)
+/// and loads the corresponding voice styling directives.
+pub fn resolve_voice_preset_command(prompt_text: &str) -> Option<String> {
+    let mut requested_style = None;
+    for token in prompt_text.split_whitespace() {
+        let t = token.trim();
+        if let Some(rest) = t.strip_prefix('/') {
+            let lower = rest.to_lowercase();
+            if let Some(s) = lower.strip_prefix("audio:").or_else(|| lower.strip_prefix("audio="))
+                .or_else(|| lower.strip_prefix("voice:")).or_else(|| lower.strip_prefix("voice="))
+                .or_else(|| lower.strip_prefix("preset:")).or_else(|| lower.strip_prefix("preset=")) {
+                let clean = s.trim_matches(|c: char| !c.is_alphanumeric() && c != '-' && c != '_');
+                if !clean.is_empty() {
+                    requested_style = Some(clean.to_string());
+                    break;
+                }
+            }
+        }
+    }
+
+    let style_key = requested_style?;
+    let root = crate::paths::project_root();
+    let presets_path = root.join("core").join("voicebox").join("presets").join("presets.json");
+    if !presets_path.is_file() {
+        return None;
+    }
+
+    let content = std::fs::read_to_string(&presets_path).ok()?;
+    let json_val: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let styles_obj = json_val.get("presets")?.get("aetheria")?.get("styles")?;
+
+    // Normalize alias: pocketmyth -> default
+    let effective_key = match style_key.as_str() {
+        "pocketmyth" | "pm" => "default",
+        "kriminal" | "conspiracy" => "crime_conspiracy",
+        other => other,
+    };
+
+    if let Some(style_data) = styles_obj.get(effective_key) {
+        let label = style_data.get("label").and_then(|v| v.as_str()).unwrap_or(effective_key);
+        let instruction = style_data.get("controlInstruction").and_then(|v| v.as_str()).unwrap_or("");
+        let cfg = style_data.get("cfgValue").and_then(|v| v.as_f64()).unwrap_or(1.48);
+
+        return Some(format!(
+            "[Active Voicebox Audio Preset Directive: /audio:{effective_key}]:\n\"\"\"\n\
+            NARRATOR VOICE STYLE: {label}\n\
+            CONTROL INSTRUCTION: \"{instruction}\"\n\
+            CFG VALUE: {cfg:.2}\n\
+            \"\"\"\n\
+            MANDATORY RULES FOR AUDIO GENERATION:\n\
+            1. When calling `voicebox_speak`, pass:\n\
+               - voice: \"aetheria\"\n\
+               - style: \"{effective_key}\"\n\
+            2. When producing video scenes, deliver narration with this exact tone ({label})."
+        ));
     }
 
     None

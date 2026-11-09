@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { API_BASE, apiFetch } from "../lib/api";
-import { defaultNexusVideoProps, nexusVideoSpec, type NexusVideoProps } from "../remotion/types";
+import { defaultNexusVideoProps, type NexusVideoProps } from "../remotion/types";
 import type {
   StudioCanvasSettings,
   StudioComposition,
@@ -11,7 +11,6 @@ import type {
 } from "../types/studio";
 
 const STORAGE_KEY = "aetheria_nexus_studio_compositions_v4";
-const DEFAULT_PROPS_SIG_KEY = "aetheria_nexus_default_props_sig_v4";
 
 const STALE_FOLDERS = new Set([
   "TIKTOK AUTOMATION",
@@ -41,6 +40,7 @@ const DEFAULT_COMPOSITIONS: StudioComposition[] = [
     width: 1080,
     height: 1920,
     props: {
+      themeColor: "orange",
       hookText: "Tahukah Kamu? Mahasiswa Yang Mengubah Dunia Teknologi!",
       bodyText: "Linus Torvalds, 1991 Finland. Kernel monolitik Linux & Git.",
       category: "DOCUMENTARY",
@@ -61,6 +61,7 @@ const DEFAULT_COMPOSITIONS: StudioComposition[] = [
     width: 1080,
     height: 1920,
     props: {
+      themeColor: "orange",
       hookText: "The Story of Rust: From Broken Elevator to Global Infra",
       bodyText: "Graydon Hoare, Mozilla 2006. Memory safety without garbage collection.",
       category: "TECH HISTORY",

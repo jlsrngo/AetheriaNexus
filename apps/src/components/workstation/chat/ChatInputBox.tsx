@@ -21,6 +21,7 @@ import {
   Sliders,
   Sparkles,
   Film,
+  Volume2,
 } from "lucide-react";
 import { AetheriaLogo } from "../../common/AetheriaLogo";
 import { toast } from "sonner";
@@ -120,8 +121,11 @@ export const ChatInputBox = memo(function ChatInputBox({
   const [registeredSkills, setRegisteredSkills] = useState<
     Array<{ id: string; name: string; command: string; description: string }>
   >([]);
+  const [voicePresets, setVoicePresets] = useState<
+    Array<{ id: string; name: string; command: string; description: string }>
+  >([]);
 
-  const loadRegisteredSkills = async () => {
+  const loadRegisteredSkillsAndPresets = async () => {
     try {
       const res = await apiFetch(`${API_BASE}/skills`);
       const data = await res.json();
@@ -131,10 +135,33 @@ export const ChatInputBox = memo(function ChatInputBox({
     } catch {
       // ignore
     }
+
+    try {
+      const res = await apiFetch(`${API_BASE}/studio/voice-presets`);
+      const data = await res.json();
+      if (data.success && data.presets?.aetheria?.styles) {
+        const styles = data.presets.aetheria.styles;
+        const mapped: Array<{ id: string; name: string; command: string; description: string }> = [];
+        for (const [key, val] of Object.entries<any>(styles)) {
+          const cmdName = key === "default" ? "/audio:pocketmyth" : `/audio:${key}`;
+          mapped.push({
+            id: key,
+            name: val.label || key,
+            command: cmdName,
+            description: val.controlInstruction
+              ? `${val.label || key}: ${val.controlInstruction}`
+              : (val.label || "Preset gaya suara narator"),
+          });
+        }
+        setVoicePresets(mapped);
+      }
+    } catch {
+      // ignore
+    }
   };
 
   useEffect(() => {
-    loadRegisteredSkills();
+    loadRegisteredSkillsAndPresets();
   }, []);
 
   // Reasoning effort dropdown & Model dropdown states
@@ -175,12 +202,12 @@ export const ChatInputBox = memo(function ChatInputBox({
     const base: SlashCommandItem[] = [
       {
         name: "/add skill",
-        description: "Upload brief & register new motion graphics style",
+        description: "Upload brief & register new motion graphics style to .aetheria/skills/",
         icon: Sparkles,
       },
       {
         name: "/add preset",
-        description: "Add or tune Audio Voice Preset & Video Reference Template",
+        description: "Add or tune Audio Voice Preset & Video Reference style in Studio",
         icon: Sliders,
       },
       {
@@ -214,18 +241,46 @@ export const ChatInputBox = memo(function ChatInputBox({
       icon: Film,
     }));
 
-    return [...base, ...skillCmds];
-  }, [showThinking, registeredSkills]);
+    // Dynamic Voicebox audio preset styles (/audio:pocketmyth, /audio:horror, /audio:crime_conspiracy, etc.)
+    const audioCmds: SlashCommandItem[] = voicePresets.map((vp) => ({
+      name: vp.command,
+      description: vp.description,
+      icon: Volume2,
+    }));
+
+    return [...base, ...skillCmds, ...audioCmds];
+  }, [showThinking, registeredSkills, voicePresets]);
 
   const filteredCommands = useMemo(() => {
     if (!showCommands) return [];
     const q = commandQuery.toLowerCase().trim();
+    if (!q) return availableCommands;
+
+    // Direct category aliases
+    if (q === "skill" || q === "skills" || q === "motion" || q === "style") {
+      return availableCommands.filter(
+        (cmd) =>
+          cmd.name.startsWith("/add skill") ||
+          cmd.icon === Film ||
+          registeredSkills.some((s) => s.command.toLowerCase().includes(cmd.name.toLowerCase()))
+      );
+    }
+    if (q === "audio" || q === "suara" || q === "voice" || q === "preset" || q === "sound") {
+      return availableCommands.filter(
+        (cmd) =>
+          cmd.name.startsWith("/add preset") ||
+          cmd.name.startsWith("/audio") ||
+          cmd.icon === Volume2
+      );
+    }
+
     return availableCommands.filter(
       (cmd) =>
         cmd.name.toLowerCase().includes(q) ||
-        cmd.name.replace(/\s+/g, "-").toLowerCase().includes(q)
+        cmd.description.toLowerCase().includes(q) ||
+        cmd.name.replace(/[\s:-]+/g, "-").toLowerCase().includes(q)
     );
-  }, [showCommands, commandQuery, availableCommands]);
+  }, [showCommands, commandQuery, availableCommands, registeredSkills]);
 
   const handleInputChange = (val: string) => {
     setLocalPrompt(val);
@@ -245,10 +300,10 @@ export const ChatInputBox = memo(function ChatInputBox({
       setShowMentions(false);
     }
 
-    // Fast-path guard: only run regex if text starts with '/'
-    if (val.startsWith("/")) {
-      const commandMatch = val.match(/^\/([\w\s-]*)$/);
-      if (commandMatch && val.length <= 20) {
+    // Slash command trigger: matches '/' at the start or after a space
+    if (val.includes("/")) {
+      const commandMatch = val.match(/(?:^|\s)\/([\w:-]*)$/);
+      if (commandMatch) {
         setShowCommands(true);
         setCommandQuery(commandMatch[1] || "");
         setSelectedCommandIndex(0);
@@ -375,7 +430,13 @@ export const ChatInputBox = memo(function ChatInputBox({
       onNewChat?.();
       return;
     }
-    setLocalPrompt(`${cmdName} `);
+    const hasTrailingSlash = /(?:^|\s)\/[\w:-]*$/.test(localPrompt);
+    const updated = hasTrailingSlash
+      ? localPrompt.replace(/(?:^|\s)\/[\w:-]*$/, (match) =>
+          match.startsWith(" ") ? ` ${cmdName} ` : `${cmdName} `
+        )
+      : `${localPrompt.trim()} ${cmdName} `;
+    setLocalPrompt(updated);
     setShowCommands(false);
     if (textareaRef.current) textareaRef.current.focus();
   };
@@ -483,7 +544,7 @@ export const ChatInputBox = memo(function ChatInputBox({
         open={showAddSkillModal}
         onClose={() => setShowAddSkillModal(false)}
         onSkillRegistered={(cmd) => {
-          loadRegisteredSkills();
+          loadRegisteredSkillsAndPresets();
           setLocalPrompt(`${cmd} `);
           if (textareaRef.current) textareaRef.current.focus();
         }}

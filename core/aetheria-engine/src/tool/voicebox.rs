@@ -66,8 +66,8 @@ pub fn voicebox_tool_definition() -> Value {
                     },
                     "style": {
                         "type": "string",
-                        "enum": ["default", "energetic", "mystery", "casual", "serious"],
-                        "description": "Delivery style for preset voices like 'aetheria' or 'aetheria_en': 'default' (original storytelling cadence), 'energetic' (open, loud, fast hook for tech/news), 'mystery' (dramatic suspense for history/conspiracy), 'casual' (relaxed friend chat), 'serious' (firm warning/facts)."
+                        "enum": ["default", "energetic", "mystery", "casual", "serious", "horror", "crime_conspiracy"],
+                        "description": "Delivery style for preset voices like 'aetheria' or 'aetheria_en': 'default' (PocketMyth storytelling cadence), 'horror' (chilling supernatural suspense), 'crime_conspiracy' (investigative true crime / mystery), 'energetic' (open, loud hook for tech/news), 'mystery' (dramatic suspense), 'casual' (relaxed friend chat), 'serious' (firm warning/facts)."
                     },
                     "voiceDesign": {
                         "type": "string",

@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 
 use super::context::{
     assemble_system_prompt, resolve_mentioned_files, resolve_motioncraft_style_command,
-    resolve_reference_report,
+    resolve_reference_report, resolve_voice_preset_command,
 };
 use super::history::build_chat_messages;
 use super::vision::{find_ffmpeg_bin, process_attached_files, process_social_links};
@@ -89,6 +89,11 @@ pub async fn run_agent_turn(
     // Active Motioncraft style slash command (e.g. /mono-editorial, /pi-v2, etc.)
     if let Some(style_ctx) = resolve_motioncraft_style_command(workspace_dir, prompt_text) {
         context_additions.push(style_ctx);
+    }
+
+    // Active Voicebox Audio Preset slash command (e.g. /audio:horror, /audio:pocketmyth, etc.)
+    if let Some(audio_ctx) = resolve_voice_preset_command(prompt_text) {
+        context_additions.push(audio_ctx);
     }
 
     // Active video reference report
