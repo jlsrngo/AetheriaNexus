@@ -1,14 +1,22 @@
 /**
- * Scene 3 — THE INVISIBLE ENEMY
+ * Scene 3 — THE INVISIBLE ENEMY  (437 frames · 14.575s)
  * "Enigma bukan sekadar mesin biasa..."
  *
- * Beat 1 (0–B2):   Europe battle map rises + CipherStreamOverlay ticks
- * Beat 2 (B2–B3):  U-boat card slaps in from left; red thread from map to uboat
- * Beat 3 (B3–B4):  "⚠ UNBREAKABLE CIPHER" badge slams
- * Beat 4 (B4–end): Camera snap-zoom; cipher overlay intensifies
+ * /mg-cutout-collage beats:
+ *  B1 (0):   Europe battle map CollagePiece rises. CipherStream ticks dark green.
+ *  B2 (65):  U-boat card SLAPS in from left. RedThread map → uboat. "U-BOOT" label.
+ *  B3 (150): Enigma machine card drops with stamp "⚠ UNBREAKABLE CIPHER".
+ *  B4 (240): Cipher overlay intensifies. Morse ticker strip. Camera push.
  */
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, spring, staticFile, useCurrentFrame } from "remotion";
+import {
+  AbsoluteFill,
+  Audio,
+  interpolate,
+  spring,
+  staticFile,
+  useCurrentFrame,
+} from "remotion";
 import { ArchivalBackground } from "../components/ArchivalBackground";
 import { CipherStreamOverlay } from "../components/CipherStreamOverlay";
 import { CollagePiece } from "../components/CollagePiece";
@@ -19,21 +27,26 @@ import { TURING_SCENES, TURING_WORDS } from "../types";
 import { cameraSnapZoom } from "../motion/collageMotion";
 
 const B1 = 0;
-const B2 = 65;   // 2.2s — U-boat card
-const B3 = 145;  // 4.8s — badge slam
-const B4 = 230;  // 7.7s — camera push
+const B2 = 65;
+const B3 = 150;
+const B4 = 240;
+
+const MORSE = "... . -.-. .-. . - / . -. .. --. -- .";
 
 export const Scene3: React.FC = () => {
   const frame = useCurrentFrame();
   const meta = TURING_SCENES.s3;
   const cam = cameraSnapZoom(frame, [B1, B2, B3, B4]);
 
-  // Badge entrance
-  const badgeSpr = spring({ frame: Math.max(0, frame - B3), fps: 30, config: { damping: 8, stiffness: 220 } });
+  // Badge entrance at B3
+  const badgeSpr = spring({
+    frame: Math.max(0, frame - B3), fps: 30,
+    config: { damping: 8, stiffness: 220 },
+  });
   const badgeScale = interpolate(badgeSpr, [0, 1], [3.8, 1]);
   const badgeOpacity = interpolate(badgeSpr, [0, 1], [0, 1]);
 
-  // Cipher overlay intensifies at B4
+  // Cipher overlay intensifies
   const cipherAlpha = interpolate(frame, [B1, B4], [0.18, 0.55], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
   });
@@ -42,117 +55,199 @@ export const Scene3: React.FC = () => {
   const morseOpacity = interpolate(frame, [B4, B4 + 20], [0, 1], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
   });
-  const MORSE = "... . -.-. .-. . - / . -. .. --. -- .-  / -. .- --.. .. ";
-  const morseChars = Math.floor(interpolate(frame - B4, [0, 60], [0, MORSE.length], {
-    extrapolateLeft: "clamp", extrapolateRight: "clamp",
-  }));
-
-  // Thread opacity
-  const threadOpacity = interpolate(frame, [B2 + 5, B2 + 30], [0, 1], {
+  const morseX = interpolate(frame, [B4, B4 + 160], [0, -1600], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
   });
 
-  return (
-    <AbsoluteFill style={{ background: "#080808", overflow: "hidden" }}>
-      <Audio src={staticFile(meta.audioFile)} />
-      <SceneTransition type="flash" />
-      <ArchivalBackground durationInFrames={meta.durationInFrames} />
+  // Thread opacity
+  const threadOpacity = interpolate(frame, [B2 + 8, B2 + 30], [0, 1], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+  });
 
-      {/* CipherStream always rendered at scene level (not under cam) */}
-      <div style={{ position: "absolute", inset: 0, opacity: cipherAlpha, pointerEvents: "none", zIndex: 2 }}>
-        <CipherStreamOverlay />
+  const flashOpacity = interpolate(
+    frame,
+    [meta.durationInFrames - 6, meta.durationInFrames - 1],
+    [0, 1],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+
+  return (
+    <AbsoluteFill
+      style={{
+        background: "#0E1A12",
+        overflow: "hidden",
+        transform: `scale(${cam.scale}) translate(${cam.panX}px, ${cam.panY}px)`,
+      }}
+    >
+      <Audio src={staticFile(meta.audioFile)} />
+
+      <ArchivalBackground variant="dark" />
+
+      {/* Cipher stream overlay */}
+      <CipherStreamOverlay opacity={cipherAlpha} color="#2D6A3F" />
+
+      {/* B1: Europe battle map */}
+      <CollagePiece
+        id={301}
+        src={staticFile("img_europe_battle_map.jpg")}
+        top={200}
+        left={60}
+        width={960}
+        height={680}
+        rotation={-1.0}
+        dropFrame={B1 + 12}
+        hasPin
+        pinColor="#D94030"
+        zIndex={12}
+      />
+
+      {/* B2: U-boat card from left */}
+      <CollagePiece
+        id={302}
+        src={staticFile("img_uboat.jpg")}
+        top={780}
+        left={40}
+        width={520}
+        height={340}
+        rotation={2.5}
+        dropFrame={B2}
+        hasPin
+        pinColor="#FFDE59"
+        tapeColor="#D94030"
+        zIndex={14}
+      />
+
+      {/* B2: U-BOOT label */}
+      <div
+        style={{
+          position: "absolute",
+          top: 1130,
+          left: 50,
+          opacity: threadOpacity,
+          transform: "rotate(-2deg)",
+          zIndex: 16,
+        }}
+      >
+        <div
+          style={{
+            background: "#D94030",
+            color: "#F4EFE4",
+            fontFamily: "Impact, sans-serif",
+            fontSize: 38,
+            fontWeight: 900,
+            padding: "6px 20px",
+            letterSpacing: "0.1em",
+          }}
+        >
+          ⚡ U-BOOT KRIEGSMARINE
+        </div>
       </div>
+
+      {/* B2: RedThread connecting map → uboat */}
+      <div style={{ position: "absolute", inset: 0, zIndex: 11, opacity: threadOpacity }}>
+        <RedThread x1={540} y1={880} x2={280} y2={960} color="#D94030" />
+      </div>
+
+      {/* B3: Enigma machine card */}
+      <CollagePiece
+        id={303}
+        src={staticFile("img_enigma.jpg")}
+        top={680}
+        left={520}
+        width={480}
+        height={360}
+        rotation={-3.0}
+        dropFrame={B3}
+        hasPin
+        pinColor="#2B4A8F"
+        stampText="⚠ UNBREAKABLE"
+        stampFrame={B3 + 15}
+        stampColor="#FFDE59"
+        zIndex={16}
+      />
+
+      {/* B3: Badge */}
+      <div
+        style={{
+          position: "absolute",
+          top: 388,
+          left: 110,
+          transform: `scale(${badgeScale}) rotate(4deg)`,
+          opacity: badgeOpacity,
+          border: "4px solid #FFDE59",
+          padding: "10px 22px",
+          background: "rgba(0,0,0,0.75)",
+          zIndex: 22,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "Impact, sans-serif",
+            fontSize: 44,
+            color: "#FFDE59",
+            fontWeight: 900,
+            letterSpacing: "0.06em",
+          }}
+        >
+          ⚠ CIPHER UNBREAKABLE
+        </span>
+      </div>
+
+      {/* B4: Morse ticker */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 320,
+          left: 0,
+          right: 0,
+          height: 44,
+          background: "rgba(0,0,0,0.85)",
+          overflow: "hidden",
+          opacity: morseOpacity,
+          zIndex: 24,
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            left: morseX,
+            top: 0,
+            height: 44,
+            display: "flex",
+            alignItems: "center",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "'Courier New', monospace",
+              fontSize: 24,
+              color: "#4CAF50",
+              letterSpacing: "0.22em",
+              padding: "0 1600px 0 20px",
+            }}
+          >
+            {MORSE} — {MORSE} — {MORSE}
+          </span>
+        </div>
+      </div>
+
+      <HormoziSubtitle
+        words={TURING_WORDS["s3"]}
+        top={1430}
+        highlightColor="#FFDE59"
+        maxWordsPerChunk={4}
+      />
 
       <AbsoluteFill
         style={{
-          transform: `translate3d(${cam.panX}px,${cam.panY}px,0) scale(${cam.scale})`,
-          transformOrigin: "center center",
-          zIndex: 5,
+          background: `rgba(255,255,255,${flashOpacity})`,
+          zIndex: 99,
+          pointerEvents: "none",
         }}
-      >
-        {/* Beat 1 — Europe battle map */}
-        <CollagePiece
-          id={4}
-          src="img_europe_battle_map.jpg"
-          top={120}
-          left={60}
-          width={960}
-          height={520}
-          rotation={1}
-          dropFrame={B1}
-          hasPin={false}
-          tapeColor="rgba(240,220,170,0.7)"
-          zIndex={10}
-        />
+      />
 
-        {/* Beat 2 — U-boat card */}
-        <CollagePiece
-          id={5}
-          src="img_uboat.jpg"
-          top={690}
-          left={80}
-          width={480}
-          height={320}
-          rotation={-4}
-          dropFrame={B2}
-          hasPin={true}
-          pinColor="#CC2200"
-          stampText="U-BOOT KRIEGSMARINE"
-          stampFrame={B2 + 25}
-          stampColor="#8B0000"
-          zIndex={12}
-        />
-
-        {/* Red thread: map → uboat */}
-        <div style={{ opacity: threadOpacity, position: "absolute", inset: 0, zIndex: 13 }}>
-          <RedThread x1={540} y1={640} x2={320} y2={760} startFrame={B2 + 5} sag={34} />
-        </div>
-
-        {/* Beat 3 — UNBREAKABLE CIPHER badge */}
-        <div style={{
-          position: "absolute",
-          top: 680,
-          left: 580,
-          transform: `scale(${badgeScale}) rotate(-6deg)`,
-          transformOrigin: "center center",
-          opacity: badgeOpacity,
-          zIndex: 20,
-          border: "5px solid #E8C040",
-          borderRadius: 10,
-          padding: "12px 24px",
-          background: "rgba(10,8,4,0.88)",
-          fontFamily: "'Special Elite', monospace",
-          fontSize: 30,
-          color: "#E8C040",
-          letterSpacing: "0.1em",
-          textTransform: "uppercase",
-          whiteSpace: "nowrap",
-          textAlign: "center",
-        }}>
-          ⚠ UNBREAKABLE{"\n"}CIPHER
-        </div>
-
-        {/* Beat 4 — Morse ticker */}
-        <div style={{
-          position: "absolute",
-          bottom: 220,
-          left: 60,
-          right: 60,
-          opacity: morseOpacity,
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 22,
-          color: "#70FF90",
-          letterSpacing: "0.18em",
-          textShadow: "0 0 10px #40FF60",
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-        }}>
-          {MORSE.slice(0, morseChars)}
-          <span style={{ opacity: (Math.floor(frame / 8) % 2) === 0 ? 1 : 0 }}>_</span>
-        </div>
-      </AbsoluteFill>
-
-      <HormoziSubtitle words={TURING_WORDS.s3} top={1385} highlightColor="#FFDE59" />
+      <SceneTransition frame={frame} totalFrames={meta.durationInFrames} type="flash" />
     </AbsoluteFill>
   );
 };

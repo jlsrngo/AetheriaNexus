@@ -37,6 +37,7 @@ export interface MessageFileAttachment {
 export interface Message {
   id: string;
   role: "user" | "assistant";
+  agent?: string;
   content: string;
   createdAt?: string;
   executionSteps?: StepItem[];

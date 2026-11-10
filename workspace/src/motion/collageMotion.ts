@@ -80,6 +80,19 @@ export function slapPhysics(
 }
 
 /**
+ * boilOffset — alias for boilJitter (x/y only) for CollagePiece compatibility.
+ * Returns { x, y } micro-displacement at the current frame, quantised to 12fps.
+ */
+export function boilOffset(
+  frame: number,
+  id: number,
+  amp: number = 2.0
+): { x: number; y: number } {
+  const { x, y } = boilJitter(id, frame, amp, 12);
+  return { x, y };
+}
+
+/**
  * Snap Zoom Camera: Generates Hormozi-style camera punch-ins on key impact beats.
  * E.g., at beatFrame, snaps scale from 1.0 to 1.12 with spring overshoot,
  * plus subtle continuous handheld organic drift.

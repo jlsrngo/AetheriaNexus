@@ -3,9 +3,10 @@
 
 use serde_json::{json, Value};
 
-use crate::paths::gen_id;
+use crate::paths::{gen_id, now_ms};
 use crate::provider::read_aetheria_config;
 use crate::session::message::emit_event;
+use crate::session::session::{save_store, with_store};
 use crate::session::tools::execute_tool_call;
 
 /// Tool definition for the Main Agent to spawn/delegate tasks to a subagent
@@ -306,6 +307,44 @@ pub async fn execute_subagent(
         }
     }
 
+    let summary_text = if !final_summary.is_empty() {
+        final_summary
+    } else {
+        format!("Subagent [{}] successfully executed tasks.", role_display)
+    };
+
+    // Record subagent message as an independent assistant turn in chat history
+    let subagent_msg = json!({
+        "id": gen_id("submsg"),
+        "type": "assistant",
+        "role": "assistant",
+        "agent": role_display,
+        "content": [{
+            "type": "text",
+            "id": gen_id("txt"),
+            "text": summary_text
+        }],
+        "finish": "stop",
+        "time": {
+            "created": now_ms(),
+            "completed": now_ms()
+        }
+    });
+
+    with_store(|store| {
+        store.messages.entry(session_id.to_string()).or_default().push(subagent_msg.clone());
+        save_store(store);
+    });
+
+    emit_event(
+        workspace_dir,
+        "session.message.created",
+        json!({
+            "sessionID": session_id,
+            "message": subagent_msg
+        }),
+    );
+
     emit_event(
         workspace_dir,
         "session.next.step.started",
@@ -320,10 +359,6 @@ pub async fn execute_subagent(
         "role": role,
         "role_display": role_display,
         "steps_executed": steps_executed,
-        "summary": if !final_summary.is_empty() {
-            final_summary
-        } else {
-            format!("Subagent [{}] successfully executed tasks.", role_display)
-        }
+        "summary": summary_text
     })
 }

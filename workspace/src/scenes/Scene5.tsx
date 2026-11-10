@@ -1,189 +1,275 @@
 /**
- * Scene 5 — THE DARK IRONY
+ * Scene 5 — WAR WON  (582 frames · 19.395s)
  * "Tapi setelah perang, kisahnya berubah drastis..."
  *
- * Beat 1 (0–B2):   Turing OBE portrait CollagePiece drops
- * Beat 2 (B2–B3):  Court trial document card swings in from right
- * Beat 3 (B3–B4):  "★ GUILTY ★" stamp slams in red
- * Beat 4 (B4–end): Redaction bars animate left-to-right revealing charges
+ * /mg-cutout-collage beats:
+ *  B1 (0):   Victory headline slams. Europe map CollagePiece drops.
+ *  B2 (70):  Allies celebration cutout from left. "VICTORY" diagonal banner.
+ *  B3 (180): Counter stat: "14 MILLION LIVES SAVED". Red underline sweep.
+ *  B4 (300): Camera snap zoom. Transition to dark tone (betrayal coming next).
+ *
+ * Note: Scene 5 carries the full persecution narration from turing_s5.wav
+ * "Tapi setelah perang... chemical castration..."
  */
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, spring, staticFile, useCurrentFrame } from "remotion";
+import {
+  AbsoluteFill,
+  Audio,
+  interpolate,
+  spring,
+  staticFile,
+  useCurrentFrame,
+} from "remotion";
 import { ArchivalBackground } from "../components/ArchivalBackground";
 import { CollagePiece } from "../components/CollagePiece";
 import { HormoziSubtitle } from "../components/HormoziSubtitle";
-import { RedThread } from "../components/RedThread";
 import { SceneTransition } from "../components/SceneTransition";
 import { TURING_SCENES, TURING_WORDS } from "../types";
-import { cameraSnapZoom } from "../motion/collageMotion";
+import { cameraSnapZoom, boilJitter } from "../motion/collageMotion";
 
 const B1 = 0;
-const B2 = 90;   // 3.0s — court doc card
-const B3 = 200;  // 6.7s — GUILTY stamp
-const B4 = 320;  // 10.7s — redaction bars
-
-// Individual redaction bar (reveals left → right)
-const RedactionBar: React.FC<{ text: string; revealFrame: number; frame: number; color?: string }> = ({
-  text, revealFrame, frame, color = "rgba(200,20,20,0.88)",
-}) => {
-  const spr = spring({ frame: Math.max(0, frame - revealFrame), fps: 30, config: { damping: 18, stiffness: 110 } });
-  const w = interpolate(spr, [0, 1], [0, 820]);
-  const textOp = interpolate(frame, [revealFrame + 12, revealFrame + 32], [0, 1], {
-    extrapolateLeft: "clamp", extrapolateRight: "clamp",
-  });
-  return (
-    <div style={{ position: "relative", height: 58, marginBottom: 10, display: "flex", alignItems: "center" }}>
-      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "100%", background: "rgba(0,0,0,0.9)", borderRadius: 4 }} />
-      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: w, background: color, borderRadius: 4, maxWidth: "100%" }} />
-      <span style={{
-        position: "relative", zIndex: 2, paddingLeft: 18,
-        fontFamily: "'Special Elite', monospace",
-        fontSize: 24, color: "#fff", letterSpacing: "0.1em",
-        opacity: textOp, whiteSpace: "nowrap",
-      }}>
-        {text}
-      </span>
-    </div>
-  );
-};
+const B2 = 70;
+const B3 = 180;
+const B4 = 300;
 
 export const Scene5: React.FC = () => {
   const frame = useCurrentFrame();
   const meta = TURING_SCENES.s5;
   const cam = cameraSnapZoom(frame, [B1, B2, B3, B4]);
 
-  // GUILTY stamp
-  const guiltySpr = spring({ frame: Math.max(0, frame - B3), fps: 30, config: { damping: 7, stiffness: 310 } });
-  const guiltyScale = interpolate(guiltySpr, [0, 1], [4.0, 1]);
-  const guiltyOpacity = interpolate(guiltySpr, [0, 1], [0, 1]);
+  // B1: Victory title punch
+  const victoryTitleSpr = spring({ frame, fps: 30, config: { damping: 9, stiffness: 190 } });
+  const victoryTitleScale = interpolate(victoryTitleSpr, [0, 1], [2.8, 1]);
+  const victoryTitleOpacity = interpolate(victoryTitleSpr, [0, 1], [0, 1]);
 
-  // Thread
-  const threadOpacity = interpolate(frame, [B2 + 5, B2 + 30], [0, 1], {
+  // B2: Victory banner
+  const bannerSpr = spring({
+    frame: Math.max(0, frame - B2), fps: 30,
+    config: { damping: 11, stiffness: 180 },
+  });
+  const bannerX = interpolate(bannerSpr, [0, 1], [-1200, 0]);
+  const bannerOpacity = interpolate(bannerSpr, [0, 1], [0, 1]);
+
+  // B3: Stat counter
+  const statSpr = spring({
+    frame: Math.max(0, frame - B3), fps: 30,
+    config: { damping: 10, stiffness: 220 },
+  });
+  const statScale = interpolate(statSpr, [0, 1], [3.5, 1]);
+  const statOpacity = interpolate(statSpr, [0, 1], [0, 1]);
+  const redUnderlineW = interpolate(frame, [B3 + 20, B3 + 55], [0, 580], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
   });
 
-  return (
-    <AbsoluteFill style={{ background: "#080608", overflow: "hidden" }}>
-      <Audio src={staticFile(meta.audioFile)} />
-      <SceneTransition type="flash" />
-      <ArchivalBackground durationInFrames={meta.durationInFrames} />
+  // B4: Mood darkens — court trial image fades in (betrayal foreshadow)
+  const darkOverlayAlpha = interpolate(frame, [B4, B4 + 60], [0, 0.65], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+  });
+  const courtOpacity = interpolate(frame, [B4 + 20, B4 + 60], [0, 1], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+  });
 
-      <AbsoluteFill
+  // Boil jitter on map
+  const mapJitter = boilJitter(501, frame, 1.8, 12);
+
+  // Cut flash on exit (dramatic fade-to-black for the betrayal transition)
+  const exitBlack = interpolate(
+    frame,
+    [meta.durationInFrames - 15, meta.durationInFrames],
+    [0, 1],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+
+  return (
+    <AbsoluteFill
+      style={{
+        background: "#1A1512",
+        overflow: "hidden",
+        transform: `scale(${cam.scale}) translate(${cam.panX}px, ${cam.panY}px)`,
+      }}
+    >
+      <Audio src={staticFile(meta.audioFile)} />
+
+      <ArchivalBackground variant="newsprint" />
+
+      {/* B1: Europe map — centrepiece */}
+      <div
         style={{
-          transform: `translate3d(${cam.panX}px,${cam.panY}px,0) scale(${cam.scale})`,
-          transformOrigin: "center center",
+          position: "absolute",
+          top: 300,
+          left: 60,
+          transform: `translate(${mapJitter.x}px, ${mapJitter.y}px)`,
+          zIndex: 12,
         }}
       >
-        {/* Beat 1 — Turing OBE portrait */}
         <CollagePiece
-          id={8}
-          src="img_turing_obe.jpg"
-          top={120}
-          left={80}
-          width={480}
-          height={580}
-          rotation={-3}
-          dropFrame={B1}
-          hasPin={true}
-          pinColor="#2244CC"
-          tapeColor="rgba(240,220,170,0.72)"
-          zIndex={10}
+          id={501}
+          src={staticFile("img_europe_battle_map.jpg")}
+          top={0}
+          left={0}
+          width={960}
+          height={640}
+          rotation={-0.8}
+          dropFrame={B1 + 12}
+          hasPin
+          pinColor="#2B4A8F"
+          zIndex={12}
         />
+      </div>
 
-        {/* Beat 2 — Court trial doc card */}
-        <CollagePiece
-          id={9}
-          src="img_turing_obe.jpg"
-          top={160}
-          left={560}
-          width={420}
-          height={380}
-          rotation={5}
-          dropFrame={B2}
-          hasPin={false}
-          tapeColor="rgba(240,220,170,0.72)"
-          zIndex={11}
-        />
-
-        {/* Court doc overlay text */}
-        {frame >= B2 && (
-          <div style={{
-            position: "absolute",
-            top: 185,
-            left: 575,
-            width: 388,
-            height: 350,
-            zIndex: 15,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            padding: "24px 20px",
-            background: "rgba(252,248,232,0.92)",
-            borderRadius: 2,
-            fontFamily: "'Special Elite', monospace",
-            fontSize: 20,
-            color: "#1A1200",
-            lineHeight: 1.7,
-            letterSpacing: "0.04em",
-            opacity: interpolate(frame, [B2 + 5, B2 + 25], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
-          }}>
-            <div style={{ fontWeight: 900, fontSize: 22, marginBottom: 8, letterSpacing: "0.1em" }}>
-              REGINA v. TURING
-            </div>
-            <div>MANCHESTER CROWN COURT</div>
-            <div>31 MARCH 1952</div>
-            <div style={{ marginTop: 8, color: "#8B0000" }}>
-              CHARGE: GROSS INDECENCY
-            </div>
-            <div style={{ color: "#8B0000" }}>
-              s.11 Criminal Law Amendment Act 1885
-            </div>
-          </div>
-        )}
-
-        {/* Thread: portrait → doc */}
-        <div style={{ opacity: threadOpacity, position: "absolute", inset: 0, zIndex: 13 }}>
-          <RedThread x1={560} y1={380} x2={700} y2={380} startFrame={B2 + 5} sag={22} />
-        </div>
-
-        {/* Beat 3 — GUILTY stamp */}
-        <div style={{
+      {/* B1: Victory title */}
+      <div
+        style={{
           position: "absolute",
-          top: 450,
-          left: "50%",
-          transform: `translateX(-50%) scale(${guiltyScale}) rotate(-10deg)`,
-          transformOrigin: "center center",
-          opacity: guiltyOpacity,
-          zIndex: 25,
-          border: "6px solid #DC2626",
-          borderRadius: 8,
-          padding: "16px 36px",
-          background: "rgba(8,0,0,0.90)",
-          fontFamily: "'Special Elite', monospace",
-          fontSize: 54,
-          color: "#DC2626",
-          letterSpacing: "0.14em",
-          textTransform: "uppercase",
-          whiteSpace: "nowrap",
-        }}>
-          ★ GUILTY ★
+          top: 148,
+          left: 0,
+          right: 0,
+          display: "flex",
+          justifyContent: "center",
+          zIndex: 22,
+          transform: `scale(${victoryTitleScale})`,
+          opacity: victoryTitleOpacity,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "Impact, 'Arial Black', sans-serif",
+            fontSize: 86,
+            fontWeight: 900,
+            color: "#F4EFE4",
+            textTransform: "uppercase",
+            letterSpacing: "-1px",
+            textAlign: "center",
+            textShadow: "4px 4px 0 #1A1A1A",
+          }}
+        >
+          PERANG
+          <span style={{ color: "#D94030" }}> DIMENANGKAN</span>
         </div>
+      </div>
 
-        {/* Beat 4 — Redaction bars */}
-        <div style={{
+      {/* B2: Diagonal "VICTORY" banner */}
+      <div
+        style={{
           position: "absolute",
-          bottom: 240,
-          left: 80,
-          right: 80,
+          top: 920,
+          left: bannerX,
+          opacity: bannerOpacity,
+          transform: "rotate(-3deg)",
+          background: "#D94030",
+          padding: "12px 60px",
           zIndex: 20,
-        }}>
-          <RedactionBar text="CHEMICAL CASTRATION ORDERED" revealFrame={B4} frame={frame} />
-          <RedactionBar text="SECURITY CLEARANCE: REVOKED" revealFrame={B4 + 20} frame={frame} color="rgba(80,20,160,0.88)" />
-          <RedactionBar text="DISMISSED FROM GCHQ SERVICE" revealFrame={B4 + 40} frame={frame} color="rgba(180,80,0,0.88)" />
-        </div>
-      </AbsoluteFill>
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "Impact, sans-serif",
+            fontSize: 58,
+            fontWeight: 900,
+            color: "#F4EFE4",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+          }}
+        >
+          ✦ ALLIES VICTORY · 1945 ✦
+        </span>
+      </div>
 
-      <HormoziSubtitle words={TURING_WORDS.s5} top={1365} highlightColor="#FFDE59" />
+      {/* B3: 14 million stat */}
+      <div
+        style={{
+          position: "absolute",
+          top: 1020,
+          left: 100,
+          transform: `scale(${statScale}) rotate(-1.5deg)`,
+          opacity: statOpacity,
+          zIndex: 24,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "Impact, 'Arial Black', sans-serif",
+            fontSize: 68,
+            fontWeight: 900,
+            color: "#FFDE59",
+            textShadow: "3px 3px 0 #1A1A1A",
+          }}
+        >
+          14 JUTA JIWA
+        </div>
+        <div
+          style={{
+            fontFamily: "'Courier New', monospace",
+            fontSize: 26,
+            color: "#F4EFE4",
+            letterSpacing: "0.08em",
+          }}
+        >
+          DISELAMATKAN
+        </div>
+        {/* Red underline */}
+        <div
+          style={{
+            marginTop: 6,
+            height: 5,
+            width: redUnderlineW,
+            background: "#D94030",
+          }}
+        />
+      </div>
+
+      {/* B4: Court trial card foreshadow */}
+      <CollagePiece
+        id={502}
+        src={staticFile("img_court_trial_1952.jpg")}
+        top={1030}
+        left={500}
+        width={520}
+        height={380}
+        rotation={3.5}
+        dropFrame={B4 + 20}
+        hasPin={false}
+        stampText="BETRAYED"
+        stampFrame={B4 + 50}
+        stampColor="#D94030"
+        zIndex={16}
+      />
+      <div style={{ position: "absolute", inset: 0, zIndex: 18, opacity: courtOpacity }}>
+        <AbsoluteFill
+          style={{
+            background: "transparent",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+
+      {/* B4: Darkening overlay */}
+      <AbsoluteFill
+        style={{
+          background: `rgba(10,8,6,${darkOverlayAlpha})`,
+          zIndex: 30,
+          pointerEvents: "none",
+        }}
+      />
+
+      <HormoziSubtitle
+        words={TURING_WORDS["s5"]}
+        top={1430}
+        highlightColor="#FFDE59"
+        maxWordsPerChunk={4}
+      />
+
+      {/* Fade-to-black exit */}
+      <AbsoluteFill
+        style={{
+          background: `rgba(0,0,0,${exitBlack})`,
+          zIndex: 99,
+          pointerEvents: "none",
+        }}
+      />
+
+      <SceneTransition frame={frame} totalFrames={meta.durationInFrames} type="fade" />
     </AbsoluteFill>
   );
 };

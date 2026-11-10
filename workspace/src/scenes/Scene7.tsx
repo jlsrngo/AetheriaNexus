@@ -1,170 +1,326 @@
 /**
- * Scene 7 — THE FINAL MESSAGE
- * "Hari ini, dunia komputasi dan kecerdasan buatan berdiri..."
+ * Scene 7 — LEGACY & REDEMPTION  (563 frames · 18.775s)
+ * "Hari ini, dunia komputasi dan kecerdasan buatan berdiri di atas gagasan..."
  *
- * Beat 1 (0–B2):   Supercomputer CollagePiece rises + ModernAiMatrixOverlay pulses
- * Beat 2 (B2–B3):  Turing portrait returns (CollagePiece from left)
- * Beat 3 (B3–B4):  ROYAL PARDON stamp slams (royal blue)
- * Beat 4 (B4–end): Final rhetorical question card fades in
+ * /mg-cutout-collage beats:
+ *  B1 (0):   Black fades to kraft warmth. Turing statue CollagePiece rises.
+ *  B2 (80):  AI/computing elements slap in — circuit traces, modern laptop.
+ *  B3 (200): "ROYAL PARDON 2013" badge slams. Typewriter text: "Turing Test · AI".
+ *  B4 (340): End card: "DIA MENYELAMATKAN DUNIA" — centred, micro-motion boil. Held 1.2s.
  */
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, spring, staticFile, useCurrentFrame } from "remotion";
+import {
+  AbsoluteFill,
+  Audio,
+  interpolate,
+  spring,
+  staticFile,
+  useCurrentFrame,
+} from "remotion";
 import { ArchivalBackground } from "../components/ArchivalBackground";
 import { CollagePiece } from "../components/CollagePiece";
 import { HormoziSubtitle } from "../components/HormoziSubtitle";
-import { ModernAiMatrixOverlay } from "../components/ModernAiMatrixOverlay";
 import { SceneTransition } from "../components/SceneTransition";
 import { TURING_SCENES, TURING_WORDS } from "../types";
-import { cameraSnapZoom } from "../motion/collageMotion";
+import { cameraSnapZoom, boilJitter } from "../motion/collageMotion";
 
 const B1 = 0;
-const B2 = 90;   // 3.0s — Turing portrait
-const B3 = 185;  // 6.2s — ROYAL PARDON stamp
-const B4 = 320;  // 10.7s — final question card
+const B2 = 80;
+const B3 = 200;
+const B4 = 340;
 
 export const Scene7: React.FC = () => {
   const frame = useCurrentFrame();
   const meta = TURING_SCENES.s7;
   const cam = cameraSnapZoom(frame, [B1, B2, B3, B4]);
 
-  // AI matrix opacity ramp
-  const matrixAlpha = interpolate(frame, [B1, B2], [0.3, 0.65], {
+  // B1: Background lightens from black to warm kraft
+  const bgLightness = interpolate(frame, [B1, B1 + 60], [0, 1], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+  });
+  const bgColor = `rgb(${Math.round(10 + bgLightness * 237)}, ${Math.round(8 + bgLightness * 231)}, ${Math.round(6 + bgLightness * 220)})`;
+
+  // B1: Statue rise from bottom
+  const statueSpr = spring({
+    frame: Math.max(0, frame - B1 - 15), fps: 30,
+    config: { damping: 14, stiffness: 120 },
+  });
+  const statueY = interpolate(statueSpr, [0, 1], [600, 0]);
+  const statueOpacity = interpolate(statueSpr, [0, 1], [0, 1]);
+
+  // B2: Laptop slap
+  const laptopSpr = spring({
+    frame: Math.max(0, frame - B2), fps: 30,
+    config: { damping: 11, stiffness: 190 },
+  });
+  const laptopX = interpolate(laptopSpr, [0, 1], [680, 0]);
+  const laptopOpacity = interpolate(laptopSpr, [0, 1], [0, 1]);
+
+  // B2: Circuit annotation
+  const circuitOpacity = interpolate(frame, [B2 + 20, B2 + 50], [0, 1], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
   });
 
-  // ROYAL PARDON stamp
-  const pardonSpr = spring({ frame: Math.max(0, frame - B3), fps: 30, config: { damping: 8, stiffness: 240 } });
-  const pardonScale = interpolate(pardonSpr, [0, 1], [3.2, 1]);
+  // B3: Pardon badge slam
+  const pardonSpr = spring({
+    frame: Math.max(0, frame - B3), fps: 30,
+    config: { damping: 7, stiffness: 260 },
+  });
+  const pardonScale = interpolate(pardonSpr, [0, 1], [4.5, 1]);
   const pardonOpacity = interpolate(pardonSpr, [0, 1], [0, 1]);
 
-  // Final question card
-  const questionSpr = spring({ frame: Math.max(0, frame - B4), fps: 30, config: { damping: 14, stiffness: 80 } });
-  const questionY = interpolate(questionSpr, [0, 1], [80, 0]);
-  const questionOpacity = interpolate(questionSpr, [0, 1], [0, 1]);
+  // B3: Typewriter text reveals
+  const typewriterProgress = interpolate(frame, [B3 + 10, B3 + 90], [0, 1], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+  });
+  const typewriterText = "TURING TEST · ARTIFICIAL INTELLIGENCE · COMPUTER SCIENCE";
+  const charsVisible = Math.floor(typewriterProgress * typewriterText.length);
+
+  // B4: End card centred
+  const endCardOpacity = interpolate(frame, [B4, B4 + 30], [0, 1], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+  });
+  const endCardJitter = boilJitter(701, frame, 1.2, 6);
+
+  // B1–B4: subtle candle-warmth vignette lightens
+  const vignetteAlpha = interpolate(frame, [B1, B4], [0.0, 0.3], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+  });
+
+  // Final micro-hold — no fade-out (end card lives on)
+  const holdOpacity = interpolate(
+    frame,
+    [meta.durationInFrames - 20, meta.durationInFrames - 5],
+    [1, 1],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
 
   return (
-    <AbsoluteFill style={{ background: "#04040C", overflow: "hidden" }}>
+    <AbsoluteFill
+      style={{
+        background: bgColor,
+        overflow: "hidden",
+        transform: `scale(${cam.scale}) translate(${cam.panX}px, ${cam.panY}px)`,
+      }}
+    >
       <Audio src={staticFile(meta.audioFile)} />
-      <SceneTransition type="flash" />
-      <ArchivalBackground durationInFrames={meta.durationInFrames} />
 
-      {/* AI Matrix always at scene level */}
-      <div style={{ position: "absolute", inset: 0, opacity: matrixAlpha, pointerEvents: "none", zIndex: 2 }}>
-        <ModernAiMatrixOverlay />
-      </div>
+      <ArchivalBackground variant="kraft" />
 
+      {/* Warm vignette */}
       <AbsoluteFill
         style={{
-          transform: `translate3d(${cam.panX}px,${cam.panY}px,0) scale(${cam.scale})`,
-          transformOrigin: "center center",
-          zIndex: 5,
+          background: `radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(180,120,40,${vignetteAlpha}) 100%)`,
+          pointerEvents: "none",
+          zIndex: 50,
+        }}
+      />
+
+      {/* B1: Turing statue centrepiece */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          transform: `translateY(${statueY}px)`,
+          opacity: statueOpacity,
+          zIndex: 12,
         }}
       >
-        {/* Beat 1 — Supercomputer card */}
         <CollagePiece
-          id={11}
-          src="img_modern_supercomputer.jpg"
-          top={120}
-          left={80}
-          width={920}
-          height={520}
-          rotation={1}
-          dropFrame={B1}
-          hasPin={false}
-          tapeColor="rgba(100,140,240,0.5)"
-          zIndex={10}
-        />
-
-        {/* Beat 2 — Turing portrait returns */}
-        <CollagePiece
-          id={12}
-          src="img_alan_turing.jpg"
-          top={690}
-          left={80}
-          width={360}
-          height={420}
-          rotation={-4}
-          dropFrame={B2}
-          hasPin={true}
-          pinColor="#2244CC"
-          tapeColor="rgba(240,220,170,0.72)"
+          id={701}
+          src={staticFile("img_turing_statue.jpg")}
+          top={160}
+          left={100}
+          width={880}
+          height={760}
+          rotation={-0.8}
+          dropFrame={0}
+          hasPin
+          pinColor="#2B4A8F"
+          tapeColor="#FFDE59"
           zIndex={12}
         />
+      </div>
 
-        {/* Beat 2 — Timeline annotation */}
-        {frame >= B2 && (
-          <div style={{
-            position: "absolute",
-            top: 710,
-            left: 470,
-            width: 490,
-            opacity: interpolate(frame, [B2 + 5, B2 + 30], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
-            fontFamily: "'Special Elite', monospace",
-            fontSize: 24,
-            color: "#C8B89A",
-            lineHeight: 1.8,
-            letterSpacing: "0.06em",
-            zIndex: 13,
-          }}>
-            <div>1936 — Turing Machine paper</div>
-            <div>1945 — ACE computer design</div>
-            <div>1950 — Turing Test proposed</div>
-            <div style={{ color: "#F5A623", fontWeight: 900 }}>2024 — AI era foundations</div>
-          </div>
-        )}
-
-        {/* Beat 3 — ROYAL PARDON stamp */}
-        <div style={{
+      {/* B2: Modern laptop */}
+      <div
+        style={{
           position: "absolute",
-          top: 460,
-          right: 80,
-          transform: `scale(${pardonScale}) rotate(6deg)`,
-          transformOrigin: "center center",
+          top: 860,
+          left: 460,
+          transform: `translateX(${laptopX}px) rotate(2.5deg)`,
+          opacity: laptopOpacity,
+          zIndex: 16,
+        }}
+      >
+        <CollagePiece
+          id={702}
+          src={staticFile("img_laptop_local.jpg")}
+          top={0}
+          left={0}
+          width={500}
+          height={340}
+          rotation={2.5}
+          dropFrame={0}
+          hasPin={false}
+          tapeColor="#2B4A8F"
+          zIndex={16}
+        />
+      </div>
+
+      {/* B2: Circuit annotation */}
+      <div
+        style={{
+          position: "absolute",
+          top: 920,
+          left: 80,
+          opacity: circuitOpacity,
+          zIndex: 18,
+        }}
+      >
+        <svg width="380" height="100">
+          <line x1="10" y1="50" x2="340" y2="50" stroke="#2B4A8F" strokeWidth="2" strokeDasharray="8 4" />
+          <circle cx="10" cy="50" r="6" fill="#D94030" />
+          <circle cx="180" cy="50" r="6" fill="#FFDE59" />
+          <circle cx="340" cy="50" r="6" fill="#2B4A8F" />
+          <text x="0" y="82" fill="#1A1A1A" fontSize="18" fontFamily="Courier New" fontWeight="bold">
+            AI · COMPUTING · LEGACY
+          </text>
+        </svg>
+      </div>
+
+      {/* B3: Royal Pardon badge */}
+      <div
+        style={{
+          position: "absolute",
+          top: 148,
+          left: 100,
+          transform: `scale(${pardonScale}) rotate(5deg)`,
           opacity: pardonOpacity,
-          zIndex: 25,
-          border: "5px solid #2244CC",
-          borderRadius: 10,
-          padding: "14px 28px",
-          background: "rgba(2,4,20,0.92)",
-          fontFamily: "'Special Elite', monospace",
-          fontSize: 30,
-          color: "#6688FF",
-          letterSpacing: "0.1em",
-          textAlign: "center",
-          whiteSpace: "nowrap",
-        }}>
-          ★ ROYAL PARDON ★{"\n"}
-          <span style={{ fontSize: 22, color: "#8899CC" }}>QUEEN ELIZABETH II — 2013</span>
-        </div>
+          background: "#2B4A8F",
+          border: "5px solid #FFDE59",
+          padding: "10px 22px",
+          zIndex: 26,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "Impact, sans-serif",
+            fontSize: 38,
+            fontWeight: 900,
+            color: "#FFDE59",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+          }}
+        >
+          ✦ ROYAL PARDON · 2013 ✦
+        </span>
+      </div>
 
-        {/* Beat 4 — Final question card */}
-        <div style={{
+      {/* B3: Typewriter text */}
+      <div
+        style={{
           position: "absolute",
-          bottom: 220,
+          bottom: 320,
           left: 60,
           right: 60,
-          transform: `translateY(${questionY}px)`,
-          opacity: questionOpacity,
-          background: "rgba(8,6,20,0.92)",
-          border: "2px solid rgba(100,120,220,0.5)",
-          borderRadius: 14,
-          padding: "24px 28px",
-          zIndex: 30,
-        }}>
-          <div style={{
-            fontFamily: "'Special Elite', monospace",
-            fontSize: 30,
-            color: "#FFDE59",
+          zIndex: 24,
+          opacity: circuitOpacity,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "'Courier New', monospace",
+            fontSize: 22,
+            fontWeight: 700,
+            color: "#1A1A1A",
+            letterSpacing: "0.08em",
             lineHeight: 1.5,
-            letterSpacing: "0.04em",
+            background: "rgba(244,239,228,0.9)",
+            padding: "10px 16px",
+            border: "2px solid #1A1A1A",
+          }}
+        >
+          {typewriterText.slice(0, charsVisible)}
+          {charsVisible < typewriterText.length && <span style={{ opacity: frame % 8 < 4 ? 1 : 0 }}>|</span>}
+        </div>
+      </div>
+
+      {/* B4: END CARD */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 60,
+          opacity: endCardOpacity,
+          transform: `translate(${endCardJitter.x}px, ${endCardJitter.y}px)`,
+        }}
+      >
+        <div
+          style={{
+            background: "rgba(10,8,6,0.88)",
+            padding: "40px 60px",
             textAlign: "center",
-          }}>
-            "Berapa banyak orang jenius yang{"\n"}harus kehilangan hidupnya{"\n"}sebelum dunia belajar{"\n"}menghargai perbedaan?"
+            border: "4px solid #FFDE59",
+            maxWidth: 900,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "Impact, 'Arial Black', sans-serif",
+              fontSize: 76,
+              fontWeight: 900,
+              color: "#F4EFE4",
+              textTransform: "uppercase",
+              letterSpacing: "-1px",
+              lineHeight: 1.05,
+              textShadow: "3px 3px 0 #000",
+            }}
+          >
+            DIA MENYELAMATKAN
+            <span style={{ color: "#D94030" }}> DUNIA</span>
+          </div>
+          <div
+            style={{
+              marginTop: 18,
+              fontFamily: "'Courier New', monospace",
+              fontSize: 28,
+              color: "#FFDE59",
+              letterSpacing: "0.1em",
+              fontWeight: 700,
+            }}
+          >
+            ALAN TURING · 1912–1954
+          </div>
+          <div
+            style={{
+              marginTop: 10,
+              fontFamily: "'Courier New', monospace",
+              fontSize: 20,
+              color: "#F4EFE4",
+              letterSpacing: "0.08em",
+              opacity: 0.8,
+            }}
+          >
+            TAPI DUNIA TIDAK MENYELAMATKANNYA
           </div>
         </div>
-      </AbsoluteFill>
+      </div>
 
-      <HormoziSubtitle words={TURING_WORDS.s7} top={1360} highlightColor="#FFDE59" />
+      <HormoziSubtitle
+        words={TURING_WORDS["s7"]}
+        top={1430}
+        highlightColor="#FFDE59"
+        maxWordsPerChunk={4}
+      />
+
+      <SceneTransition frame={frame} totalFrames={meta.durationInFrames} type="none" />
     </AbsoluteFill>
   );
 };

@@ -348,6 +348,25 @@ pub fn format_tool_step_label(tool_name: &str, args_or_target: &Value, is_finish
         return if is_finished { "Searched workspace".to_string() } else { "Searching workspace".to_string() };
     }
 
+    // 10. Subagent delegation
+    if t.contains("subagent") || t.contains("delegate") {
+        let role_val = args_or_target
+            .get("role")
+            .and_then(|v| v.as_str())
+            .unwrap_or("specialist");
+        let display_role = match role_val {
+            "audio" => "Audio Producer",
+            "assets" => "Asset Curator",
+            "motion" => "Motion Engineer",
+            _ => "Specialist",
+        };
+        return if is_finished {
+            format!("Subtask [{}] completed", display_role)
+        } else {
+            format!("Delegated to [{}]...", display_role)
+        };
+    }
+
     // Fallback
     let disp = if tool_name.is_empty() { "action" } else { tool_name };
     if !file_name.is_empty() {
@@ -543,9 +562,15 @@ pub fn map_messages_for_ui(raw_messages: &[Value]) -> Vec<Value> {
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("{}-{}-{}", role, idx, crate::paths::now_ms()));
 
+        let agent_name = msg
+            .get("agent")
+            .and_then(|v| v.as_str())
+            .unwrap_or("default");
+
         individual_messages.push(json!({
             "id": mid,
             "role": role,
+            "agent": agent_name,
             "content": content,
             "reasoning": if reasoning.is_empty() { Value::Null } else { Value::String(reasoning.trim().to_string()) },
             "executionSteps": if execution_steps.is_empty() { Value::Null } else { json!(execution_steps) },
@@ -567,7 +592,15 @@ pub fn map_messages_for_ui(raw_messages: &[Value]) -> Vec<Value> {
             .and_then(|last| last.get("role").and_then(|v| v.as_str()))
             == Some("assistant");
 
-        if is_asst && last_is_asst {
+        let m_agent = m.get("agent").and_then(|v| v.as_str()).unwrap_or("default");
+        let last_agent = merged
+            .last()
+            .and_then(|last| last.get("agent").and_then(|v| v.as_str()))
+            .unwrap_or("default");
+
+        // ONLY merge if both are assistant AND both belong to default agent (same turn).
+        // Specialized subagents (Audio Producer, Motion Engineer, etc.) remain as distinct chat bubbles!
+        if is_asst && last_is_asst && m_agent == last_agent && m_agent == "default" {
             let last = merged.last_mut().unwrap();
             let new_content = m.get("content").and_then(|v| v.as_str()).unwrap_or("");
             if !new_content.is_empty() {
