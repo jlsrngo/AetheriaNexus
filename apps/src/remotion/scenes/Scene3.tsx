@@ -27,7 +27,6 @@ import {
   cameraSnapZoom,
   fadeIn,
   boilJitter,
-  rotateIn,
 } from "../motion/collageMotion";
 
 const SCRIPT = "Bombe bekerja. Jerman tak sadar — perang sudah tamat.";

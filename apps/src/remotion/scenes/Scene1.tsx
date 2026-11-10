@@ -10,8 +10,7 @@
  *   Beat 4 (100–150f): Camera snap zoom; subtitle words complete; white flash cut-out transition
  */
 import React from "react";
-import { AbsoluteFill, Audio, Sequence, staticFile, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
-import { CollagePiece } from "../components/CollagePiece";
+import { AbsoluteFill, Audio, staticFile, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import { HormoziSubtitle, buildWordsFromScript } from "../components/HormoziSubtitle";
 import {
   slapDrop,
@@ -19,7 +18,6 @@ import {
   stampSlam,
   cameraSnapZoom,
   fadeIn,
-  fadeOut,
   boilJitter,
   rotateIn,
 } from "../motion/collageMotion";
