@@ -16,7 +16,7 @@ command: /mg-synthwave-retro
 
 **Reference Benchmark**: Neon Drive: Midnight Outrun 1986 · 1920×1080 · 30 fps · 10 s · AI Jury Score 8.21 / 10
 
-**Reference Source**: [index.html](../../../references/mg-styles-15/demos/10-synthwave/index.html) · [cues.json](../../../references/mg-styles-15/demos/10-synthwave/cues.json)
+**Reference Source**: [DemoComposition.tsx](../../../references/mg-styles-15/demos/10-synthwave/DemoComposition.tsx) · [cues.json](../../../references/mg-styles-15/demos/10-synthwave/cues.json) · [index.html](../../../references/mg-styles-15/demos/10-synthwave/index.html)
 
 ## How to Use
 

@@ -26,7 +26,8 @@ ehthumbs.db
 
 # Archived reference files (not active code)
 ref/
-references/
+references/*
+!references/mg-styles-15/
 reference/
 
 # Scratch & test artifacts

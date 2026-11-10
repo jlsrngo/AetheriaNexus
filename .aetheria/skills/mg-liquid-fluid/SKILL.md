@@ -16,7 +16,7 @@ command: /mg-liquid-fluid
 
 **Reference Benchmark**: drop.Everything Begins with a Single Drop · 1920×1080 · 30 fps · 10 s · AI Jury Score 7.57 / 10
 
-**Reference Source**: [index.html](../../../references/mg-styles-15/demos/07-liquid/index.html) · [cues.json](../../../references/mg-styles-15/demos/07-liquid/cues.json)
+**Reference Source**: [DemoComposition.tsx](../../../references/mg-styles-15/demos/07-liquid/DemoComposition.tsx) · [cues.json](../../../references/mg-styles-15/demos/07-liquid/cues.json) · [index.html](../../../references/mg-styles-15/demos/07-liquid/index.html)
 
 ## How to Use
 

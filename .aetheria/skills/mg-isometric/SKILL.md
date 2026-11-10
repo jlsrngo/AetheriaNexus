@@ -16,7 +16,7 @@ command: /mg-isometric
 
 **Reference Benchmark**: ISOPOLISLet the City Grow Itself · 1920×1080 · 30 fps · 10 s · AI Jury Score 8.00 / 10
 
-**Reference Source**: [index.html](../../../references/mg-styles-15/demos/03-isometric/index.html) · [cues.json](../../../references/mg-styles-15/demos/03-isometric/cues.json)
+**Reference Source**: [DemoComposition.tsx](../../../references/mg-styles-15/demos/03-isometric/DemoComposition.tsx) · [cues.json](../../../references/mg-styles-15/demos/03-isometric/cues.json) · [index.html](../../../references/mg-styles-15/demos/03-isometric/index.html)
 
 ## How to Use
 

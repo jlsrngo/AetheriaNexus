@@ -16,7 +16,7 @@ command: /mg-cutout-collage
 
 **Reference Benchmark**: NOGGIN: The Mind Is a Collage · 1920×1080 · 30 fps · 10 s · AI Jury Score 8.14 / 10
 
-**Reference Source**: [index.html](../../../references/mg-styles-15/demos/06-collage/index.html) · [cues.json](../../../references/mg-styles-15/demos/06-collage/cues.json)
+**Reference Source**: [DemoComposition.tsx](../../../references/mg-styles-15/demos/06-collage/DemoComposition.tsx) · [cues.json](../../../references/mg-styles-15/demos/06-collage/cues.json) · [index.html](../../../references/mg-styles-15/demos/06-collage/index.html)
 
 ## How to Use
 
