@@ -148,26 +148,4 @@ Kode React harus dirancang **modular, bersih, dan mudah dirawat (*maintainable*)
 4. **Desain Komponen Reusable:**
    * Komponen UI murni menerima props dan callback, meminimalkan efek samping internal.
 
----
-
-## 7. Mandatory Rules for Animation & Remotion Components (Zero-Blackscreen Policy)
-
-All AI agents and subagents generating video animations and Remotion code MUST strictly obey these rules:
-
-1. **Defensive Animation Props:**
-   * Strictly forbidden to allow duration props to be `undefined`.
-   * All motion components MUST implement safe fallbacks:
-     ```tsx
-     const duration = propDuration ?? useVideoConfig()?.durationInFrames ?? 300;
-     ```
-   * Ensure the `inputRange` array passed to Remotion's `interpolate()` always contains valid finite numbers (`[number, number]`), NEVER dynamic variables that could evaluate to `undefined` or `NaN`.
-2. **Asset Verification Guard:**
-   * Strictly forbidden to write image/video tags targeting files that do not exist in `apps/public/` or `workspace/public/`.
-   * Prefer standard `<img>` tags with fallback CSS/SVG styling if asset presence on disk is unverified.
-   * Never nest `staticFile()` calls (e.g. `staticFile(staticFile(...))`).
-3. **No Blinding Flash at Frame 0:**
-   * Camera cut or white flash transitions MUST NOT occlude frame 0 (`if (frame <= 0) return null;`) so that the initial paused/poster state never renders as a blank white or black canvas.
-4. **Component Reuse Over Monolithic Duplication:**
-   * Reuse standard primitives from `workspace/src/components/` (`ArchivalBackground`, `CollagePiece`, `HormoziSubtitle`, `SceneTransition`) rather than reinventing fragile custom animation code in every scene.
-
 
