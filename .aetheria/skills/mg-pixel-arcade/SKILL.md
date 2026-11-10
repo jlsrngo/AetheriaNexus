@@ -16,7 +16,7 @@ command: /mg-pixel-arcade
 
 **Reference Benchmark**: Pixel Quest: 16-Bit Arcade Adventure · 1920×1080 · 30 fps · 10 s · AI Jury Score 8.07 / 10
 
-**Reference Source**: [`references/mg-styles-15/demos/20-pixel/`](../../references/mg-styles-15/demos/20-pixel/)
+**Reference Source**: [index.html](../../../references/mg-styles-15/demos/20-pixel/index.html) · [cues.json](../../../references/mg-styles-15/demos/20-pixel/cues.json)
 
 ## How to Use
 

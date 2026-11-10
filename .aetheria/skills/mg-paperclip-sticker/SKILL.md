@@ -16,7 +16,7 @@ command: /mg-paperclip-sticker
 
 **Reference Benchmark**: How Many Elements are Inside a Smartphone? 70/118 · 1920×1080 · 30 fps · 10 s · AI Jury Score 7.71 / 10
 
-**Reference Source**: [`references/mg-styles-15/demos/19-paperclip/`](../../references/mg-styles-15/demos/19-paperclip/)
+**Reference Source**: [index.html](../../../references/mg-styles-15/demos/19-paperclip/index.html) · [cues.json](../../../references/mg-styles-15/demos/19-paperclip/cues.json)
 
 ## How to Use
 
