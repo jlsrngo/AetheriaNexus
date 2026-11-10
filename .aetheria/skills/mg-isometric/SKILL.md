@@ -9,32 +9,32 @@ tags:
 command: /mg-isometric
 ---
 
-# Isometric 3D Architecture (Motion Graphics Standard)
+# Isometric 2.5D / Technical Axonometric (Motion Graphics Standard)
 *Ported from award-winning mg-styles-15 motion system.*
 
-# 等轴 2.5D Isometric / 2.5D
+# Isometric 2.5D & Axonometric Technical Motion Design
 
-**原片**：ISOPOLIS「让城市自己生长」 · 1920×1080 · 30 fps · 10 秒 · AI 评审终评 8.00 / 10
+**Reference Benchmark**: ISOPOLISLet the City Grow Itself · 1920×1080 · 30 fps · 10 s · AI Jury Score 8.00 / 10
 
-**源码**：[demos/03-isometric/](../demos/03-isometric/)
+**Reference Source**: [demos/03-isometric/](../demos/03-isometric/)
 
-## 怎么用
+## How to Use
 
-1. 新建一个空文件夹，在里面打开一个能写代码、能执行命令的 AI 助手（例如 Claude Code）。本机需要能跑网页渲染（Node + Chrome）和 ffmpeg。
-2. 把下面「提示词」整段复制进去发送。
-3. 想换成自己的内容：改 `Creative seed` 里的故事、品牌名、文案和配色，或者改 `Output` 里的尺寸（比如竖屏 1080×1920）。不要删 `Signature features` 那一段，它是这种风格被一眼认出来的依据。
-4. 想再提高：成片出来后，另开一个 AI 用 [rubric.md](../rubric.md) 评审，把评审意见贴回给制作的 AI 再改一轮。原片就是这样改了两轮。
+1. Open Aetheria Video Studio and invoke this skill using the command or natural language.
+2. The skill injects the creative seed, timing choreography, palette tokens, and motion curves into the LLM context.
+3. **Customization**: Adapt the narrative, brand names, copy, and palette in `Creative seed` while preserving `Signature features` to retain the iconic visual identity of this archetype.
+4. **Verification**: Review the resulting Remotion composition in the interactive Studio player against the motion design craft checklist below to guarantee award-winning quality.
 
-## 提示词
+## System Prompt Template
 
 ```text
 You are the director, motion designer, engineer and sound designer of ONE 10-second motion-design film.
 The goal is the most classic, yet most stunning form of this style — award-shortlist / high-end commercial quality. A clean,
 template-looking result is a fail. Benchmarks: Buck, ManvsMachine, Ordinary Folk, Giant Ant, Territory Studio, Apple keynote
-motion, Pentagram motion identities, top Behance/Motionographer features, top 抖音/B站 designer accounts.
+motion, Pentagram motion identities, top Behance/Motionographer features, top designer accounts (Motionographer, Behance, Vimeo Staff Picks).
 
 # Style
-等轴 2.5D Isometric / 2.5D
+Isometric 2.5D / Technical Axonometric
 
 # Output (fixed)
 - 1920×1080, 30 fps, exactly 10.000 s (300 frames), H.264 MP4 with stereo AAC audio (48 kHz), mastered to −14 LUFS
@@ -45,7 +45,7 @@ HTML: Three.js OrthographicCamera at true isometric angle + soft shadows + AO (t
 (You may choose a better route if it clearly raises quality; say why.)
 
 # Creative seed
-「微缩智慧城」An isometric miniature city / data campus that builds itself — the School-of-Motion isometric mograph showpiece.
+Miniature Smart City: An isometric miniature city / data campus that builds itself — the School-of-Motion isometric mograph showpiece.
 - True isometric camera (orthographic, 35.264° elevation, 45° azimuth), no perspective, pastel studio palette (lavender ground, mint, peach, sky blue, white) with soft shadows + ambient occlusion so it reads like a premium Dribbble/Behance hero.
 - 0–2s: ground tiles flip/drop in as a wave from the centre (tiny bounce each);
 - 2–5s: buildings GROW — base lands, walls scaleY from 0 with overshoot, roof caps 2–3 frames later; trees pop; windows light up in sequence;
@@ -56,13 +56,15 @@ Sound: bright plucky tech melody (FM marimba/pluck), soft clicks/pops for every 
 You are the director: you may change the concept, copy, story beats and brand names if you find a stronger idea, but the result must remain the CANONICAL, instantly-recognisable form of this style and must hit its signature features below.
 
 # Signature features and key techniques (the result is judged against these)
-以 30° 等轴测投影展示微缩世界：小城市、办公室切片、数据机房，无灭点、处处等比。信息密度高又不失可爱，是科技公司架构图动画和 App 功能演示的标配。School of Motion 有专门的 isometric mograph 教程系列。
-视觉特征 30°等角投影, 无透视灭点, 微缩场景, 楼房生长动画, 平行滑轨式运镜
-关键技法 SSR 公式造等轴面：Scale 纵向 86.6% → Shear/skew ±30° → Rotate ∓30°，三个面分别做后拼合
-假 3D 靠图层排序：Z 序=画面 y 坐标，物体沿等轴网格移动时保持 2:1 像素斜率
-楼房'生长'：底面先落位，立面用 scaleY 从 0 拉起 + 顶面延迟 2~3 帧盖上
-运镜是整组平移（无旋转），配合前中后景 1:0.8:0.6 的视差速度
-AE 里可用真 3D 图层+正交相机（无透视）偷懒，Motion Design School 的 Isometric Camera 技巧即此路
+Clean, technical 2.5D axonometric projection where parallel lines never converge. Perfect for explaining complex systems, cloud architecture, logistics networks, and hardware structures.
+
+**Visual Features**: Strict 30° axonometric angles, modular cubic blocks, three-tone directional lighting (top/left/right), crisp vector edges, grid coordinates, technical callouts.
+
+**Key Techniques**:
+- True isometric projection: `rotateX(60deg) rotateZ(45deg)` or 2:1 pixel slope calculation.
+- Three-shade shading: Top face = light (+15%), Left face = medium (base), Right face = shadow (-20%).
+- Assembly choreography: Blocks fall in sequence from above, snapping precisely into place on the grid.
+- Transitions: Elevators lifting layers, isometric rotation sweeps, and grid slice reveals.
 
 # How to work
 1. Treatment. Write down one clear idea: a hook in the first 0.5 s (never open on more than 0.3 s of empty or black), an
@@ -88,7 +90,7 @@ AE 里可用真 3D 图层+正交相机（无透视）偷懒，Motion Design Scho
   that renders a PNG sequence).
 - Assets: only CC0 / public domain / OFL / Apache / free-for-commercial-use. Record each source and licence in CREDITS.md.
   No real brand trademarks; invent brand names.
-- On-screen text must be correct and natural: idiomatic Chinese, proper CJK punctuation, no typos.
+- On-screen text must be correct, punchy, and natural: proper typography, zero overflow, no typos.
 
 # Craft checklist (what a jury looks for)
 - Style authenticity: an expert names the style in one second; every signature technique is present and executed correctly.

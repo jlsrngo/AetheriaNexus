@@ -9,58 +9,60 @@ tags:
 command: /mg-kinetic-calligraphy
 ---
 
-# Kinetic Calligraphy Typography (Motion Graphics Standard)
+# Kinetic Calligraphy / Expressive Dynamic Typography (Motion Graphics Standard)
 *Ported from award-winning mg-styles-15 motion system.*
 
-# 综艺花字 Variety Show Kinetic Captions (Hanazi)
+# Kinetic Calligraphy & Dynamic Typography Motion Design
 
-**原片**：喵呜日记 EP.07「今日份快乐」 · 1080×1920 · 30 fps · 10 秒 · AI 评审终评 7.64 / 10
+**Reference Benchmark**: Meow Diary EP.07: Daily Joy · 1080×1920 · 30 fps · 10 s · AI Jury Score 7.64 / 10
 
-**源码**：[demos/18-hanazi/](../demos/18-hanazi/)
+**Reference Source**: [demos/18-hanazi/](../demos/18-hanazi/)
 
-## 怎么用
+## How to Use
 
-1. 新建一个空文件夹，在里面打开一个能写代码、能执行命令的 AI 助手（例如 Claude Code）。本机需要能跑网页渲染（Node + Chrome）和 ffmpeg。
-2. 把下面「提示词」整段复制进去发送。
-3. 想换成自己的内容：改 `Creative seed` 里的故事、品牌名、文案和配色，或者改 `Output` 里的尺寸（比如竖屏 1080×1920）。不要删 `Signature features` 那一段，它是这种风格被一眼认出来的依据。
-4. 想再提高：成片出来后，另开一个 AI 用 [rubric.md](../rubric.md) 评审，把评审意见贴回给制作的 AI 再改一轮。原片就是这样改了两轮。
+1. Open Aetheria Video Studio and invoke this skill using the command or natural language.
+2. The skill injects the creative seed, timing choreography, palette tokens, and motion curves into the LLM context.
+3. **Customization**: Adapt the narrative, brand names, copy, and palette in `Creative seed` while preserving `Signature features` to retain the iconic visual identity of this archetype.
+4. **Verification**: Review the resulting Remotion composition in the interactive Studio player against the motion design craft checklist below to guarantee award-winning quality.
 
-## 提示词
+## System Prompt Template
 
 ```text
 You are the director, motion designer, engineer and sound designer of ONE 10-second motion-design film.
 The goal is the most classic, yet most stunning form of this style — award-shortlist / high-end commercial quality. A clean,
 template-looking result is a fail. Benchmarks: Buck, ManvsMachine, Ordinary Folk, Giant Ant, Territory Studio, Apple keynote
-motion, Pentagram motion identities, top Behance/Motionographer features, top 抖音/B站 designer accounts.
+motion, Pentagram motion identities, top Behance/Motionographer features, top designer accounts (Motionographer, Behance, Vimeo Staff Picks).
 
 # Style
-综艺花字 Variety Show Kinetic Captions (Hanazi)
+Kinetic Calligraphy / Expressive Dynamic Typography
 
 # Output (fixed)
 - 1080×1920, 30 fps, exactly 10.000 s (300 frames), H.264 MP4 with stereo AAC audio (48 kHz), mastered to −14 LUFS
   integrated, true peak ≤ −1 dBTP. Final file: video.mp4.
 
 # Suggested technical route
-HTML DOM/SVG: multi-layer text-stroke 花字 components + spring pops + SVG burst/sweat/sparkle decorations over a pet-vlog footage layer (CC0 photos with Ken Burns + handheld shake + punch-ins)
+HTML DOM/SVG: multi-layer text-stroke expressive kinetic caption components + spring pops + SVG burst/sweat/sparkle decorations over a pet-vlog footage layer (CC0 photos with Ken Burns + handheld shake + punch-ins)
 (You may choose a better route if it clearly raises quality; say why.)
 
 # Creative seed
-「萌宠综艺感 vlog」综艺花字 in its native habitat — reactive captions over a pet vlog.
+「playful pet variety vlog vlog」variety showexpressive kinetic caption in its native habitat — reactive captions over a pet vlog.
 - Base layer that feels like footage: CC0/PD cat or dog photos from /assets/images with slow Ken Burns, subtle handheld shake, snap punch-in zooms on 'moments' (you may also build a stylised scene if photos look weak).
-- 花字 moments synced to beats: title "今日份快乐" (fill gradient + thick white stroke + coloured outer stroke + drop shadow, rounded heavy font), "？？？" bouncing question marks, "震惊!!" inside a radial 爆炸框 with speed lines + 放射线 flash, "（小声）" small aside, "绝绝子" with sparkles, sweat drops, a "猫主子认证" stamp.
+- expressive kinetic caption moments synced to beats: title "DAILY JOY" (fill gradient + thick white stroke + coloured outer stroke + drop shadow, rounded heavy font), "？？？" bouncing question marks, "SHOCK!!!" inside a radial comic explosion burst with speed lines + speed lines flash, "（whisper）" small aside, "AMAZING!" with sparkles, sweat drops, a "CAT CERTIFIED" stamp.
 - Motion: pop 0 → 1.15 → 1.0 in ~8 frames, per-character bounce with 2-frame stagger, slight rotation, gentle wiggle while holding; appear 2–3 frames after the audio/visual moment. High-saturation pink/yellow/cyan with white strokes.
 Sound: bouncy variety-show bed (pizzicato/bass/claps) + boing, pop, ding, slide whistle, record scratch on '？？？'.
 
 You are the director: you may change the concept, copy, story beats and brand names if you find a stronger idea, but the result must remain the CANONICAL, instantly-recognisable form of this style and must hit its signature features below.
 
 # Signature features and key techniques (the result is judged against these)
-源自电视综艺后期的情绪化装饰字幕：多层描边圆体字带弹性入场，跟随人物情绪变色变形，配打击音效。现已下沉为 vlog、萌宠、访谈、搞笑二创的通用包装语言，剪映内置大量花字模板，B 站也有免费花字样式包流通。
-视觉特征 多层描边圆体/胖体字, 高饱和撞色+白边+投影, 弹性 pop 入场, 配合音效出现, 手绘装饰符号（爆炸框/汗滴/闪光）
-关键技法 字体三层结构：填充色+粗白描边+彩色外描边/投影（CSS 可用多层 text-shadow 或 SVG stroke 模拟）
-入场 overshoot：scale 0→1.15→1.0（约 8 帧），或逐字弹跳错帧 2 帧
-情绪匹配：吐槽用歪斜手写体、惊讶用放射线爆炸框、尴尬用汗滴符号
-出现时机对齐笑点/音效，比语音晚 2~3 帧更自然
-长时间驻留花字加轻微 wiggle 保持活性
+High-energy expressive typography blending oriental calligraphy with modern streetwear/manga motion design. Features explosive stroke reveals, dry brush textures, speed lines, and impactful typographic punch.
+
+**Visual Features**: Heavy brush textures, ink bleed splatters, stark black/white/red contrast, radical scale changes (screen-filling characters), directional speed lines, impact frames.
+
+**Key Techniques**:
+- Stroke drawing reveals: Animate SVG strokeDashoffset or clipped masks along the natural writing stroke path.
+- Impact slams: Characters slam onto screen with 1–2 frame inverted color flash and screen shake.
+- Floating ink particles: Secondary ink drops flying off moving glyphs with organic turbulence.
+- Transitions: Brush stroke sweeps that wipe the entire frame to reveal the next composition.
 
 # How to work
 1. Treatment. Write down one clear idea: a hook in the first 0.5 s (never open on more than 0.3 s of empty or black), an
@@ -86,7 +88,7 @@ You are the director: you may change the concept, copy, story beats and brand na
   that renders a PNG sequence).
 - Assets: only CC0 / public domain / OFL / Apache / free-for-commercial-use. Record each source and licence in CREDITS.md.
   No real brand trademarks; invent brand names.
-- On-screen text must be correct and natural: idiomatic Chinese, proper CJK punctuation, no typos.
+- On-screen text must be correct, punchy, and natural: proper typography, zero overflow, no typos.
 
 # Craft checklist (what a jury looks for)
 - Style authenticity: an expert names the style in one second; every signature technique is present and executed correctly.

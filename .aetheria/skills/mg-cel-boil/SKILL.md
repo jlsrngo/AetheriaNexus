@@ -9,32 +9,32 @@ tags:
 command: /mg-cel-boil
 ---
 
-# Hand-Drawn Cel Animation Boil (Motion Graphics Standard)
+# Cel Animation / Frame-by-Frame & Line Boil (Motion Graphics Standard)
 *Ported from award-winning mg-styles-15 motion system.*
 
-# 逐帧手绘 / 线条沸腾 Cel Animation / Frame-by-Frame & Line Boil
+# Cel Animation / Frame-by-Frame & Line Boil Motion Design
 
-**原片**：手作 HAND MADE · 1920×1080 · 24 fps · 10 秒 · AI 评审终评 8.07 / 10
+**Reference Benchmark**: Artisan: Hand Made Line Boil · 1920×1080 · 24 fps · 10 s · AI Jury Score 8.07 / 10
 
-**源码**：[demos/05-cel-boil/](../demos/05-cel-boil/)
+**Reference Source**: [demos/05-cel-boil/](../demos/05-cel-boil/)
 
-## 怎么用
+## How to Use
 
-1. 新建一个空文件夹，在里面打开一个能写代码、能执行命令的 AI 助手（例如 Claude Code）。本机需要能跑网页渲染（Node + Chrome）和 ffmpeg。
-2. 把下面「提示词」整段复制进去发送。
-3. 想换成自己的内容：改 `Creative seed` 里的故事、品牌名、文案和配色，或者改 `Output` 里的尺寸（比如竖屏 1080×1920）。不要删 `Signature features` 那一段，它是这种风格被一眼认出来的依据。
-4. 想再提高：成片出来后，另开一个 AI 用 [rubric.md](../rubric.md) 评审，把评审意见贴回给制作的 AI 再改一轮。原片就是这样改了两轮。
+1. Open Aetheria Video Studio and invoke this skill using the command or natural language.
+2. The skill injects the creative seed, timing choreography, palette tokens, and motion curves into the LLM context.
+3. **Customization**: Adapt the narrative, brand names, copy, and palette in `Creative seed` while preserving `Signature features` to retain the iconic visual identity of this archetype.
+4. **Verification**: Review the resulting Remotion composition in the interactive Studio player against the motion design craft checklist below to guarantee award-winning quality.
 
-## 提示词
+## System Prompt Template
 
 ```text
 You are the director, motion designer, engineer and sound designer of ONE 10-second motion-design film.
 The goal is the most classic, yet most stunning form of this style — award-shortlist / high-end commercial quality. A clean,
 template-looking result is a fail. Benchmarks: Buck, ManvsMachine, Ordinary Folk, Giant Ant, Territory Studio, Apple keynote
-motion, Pentagram motion identities, top Behance/Motionographer features, top 抖音/B站 designer accounts.
+motion, Pentagram motion identities, top Behance/Motionographer features, top designer accounts (Motionographer, Behance, Vimeo Staff Picks).
 
 # Style
-逐帧手绘 / 线条沸腾 Cel Animation / Frame-by-Frame & Line Boil
+Cel Animation / Frame-by-Frame & Line Boil
 
 # Output (fixed)
 - 1920×1080, 24 fps, exactly 10.000 s (240 frames), H.264 MP4 with stereo AAC audio (48 kHz), mastered to −14 LUFS
@@ -45,22 +45,24 @@ HTML Canvas2D: custom variable-width brush renderer (centreline + pressure → o
 (You may choose a better route if it clearly raises quality; say why.)
 
 # Creative seed
-「手作魔法」Hand-made frame-by-frame magic, Buck/Giant-Ant hybrid (clean shapes + hand-drawn cel FX), animated on 2s at 24 fps.
+Hand-Made Frame-by-Frame Magic — Hand-made frame-by-frame magic, Buck/Giant-Ant hybrid (clean shapes + hand-drawn cel FX), animated on 2s at 24 fps.
 - Warm paper ground; ink linework that BOILS (lines redrawn with slight variation every 2 frames); fills slightly off-register like hand colouring.
-- Story: a matchstick strikes (SMEAR frame, on 1s for the fast action) → a flame spirit character jumps out, anticipation + squash, dances (on 2s) → it bursts into cel FX: smoke puffs curling, sparks, star bursts, speed lines → the FX re-form into hand-lettered title (e.g. "HAND MADE" or 手作) that keeps boiling on a 1s hold (on 3s for the hold).
+- Story: a matchstick strikes (SMEAR frame, on 1s for the fast action) → a flame spirit character jumps out, anticipation + squash, dances (on 2s) → it bursts into cel FX: smoke puffs curling, sparks, star bursts, speed lines → the FX re-form into hand-lettered title (e.g. "HAND MADE" or Artisan Hand-Made) that keeps boiling on a 1s hold (on 3s for the hold).
 - Palette 3–4 colours: ink black, tomato red, sunny yellow, cream paper; paper grain multiply 10–15%.
 Sound: playful jazzy pizzicato/xylophone bed + cartoon SFX: strike, fwoosh, pop, poof, sparkle — synced to the frame.
 
 You are the director: you may change the concept, copy, story beats and brand names if you find a stronger idea, but the result must remain the CANONICAL, instantly-recognisable form of this style and must hit its signature features below.
 
 # Signature features and key techniques (the result is judged against these)
-手绘逐帧或在矢量动画上叠加逐帧质感，标志性特征是 line boil——线条每隔几帧轻微抖动，仿佛画面在'呼吸'。Giant Ant、Buck 等工作室大量使用 cel 元素（烟、水花、速度线）点缀主动画，反数字精致感的核心手段。
-视觉特征 线条持续微抖(boil), 一拍二/一拍三节奏, smear拖影帧, 手绘烟火水花点缀, 纸纹底
-关键技法 打帧节奏：24fps 下'一拍二'（实际12fps）为主，快动作切'一拍一'，静止镜头'一拍三'
-line boil 伪造法：AE 用 Turbulent Displace（数量2~5、大小50）+ 每 2 帧随机化 evolution + Posterize Time 12fps；真 boil 则画 3~4 张微差线稿循环
-smear frame：快速位移的中间帧把物体拉长 150%~300% 只保留 1 帧
-cel FX 点缀层：烟/水花/闪电用纯手绘逐帧叠在矢量主体上（Buck 式 hybrid）
-整体叠纸纹（multiply 10~15%）统一手作气质
+The warmth and vibrancy of traditional hand-drawn animation. Uses looping stepped line boil (2–3 alternating hand-drawn path frames) so static objects feel alive and energetic.
+
+**Visual Features**: Hand-drawn jitter, paper/canvas tooth texture, rough brush strokes, 12fps or 8fps stepped motion, organic character morphs, ink bleed outlines.
+
+**Key Techniques**:
+- Line boil quantization: Modulate coordinates or SVG paths every 2 to 3 frames (`Math.floor(frame / 2) % 3`).
+- Stepped frame rate: Render the project at 30fps but quantize element movement to 12fps for authentic stop-motion feel.
+- Fluid hand-drawn arcs: Morphing shapes follow exaggerated curved paths with dramatic anticipation.
+- Transitions: Ink splash wipes, sketchy speedline cuts, and paper flips.
 
 # How to work
 1. Treatment. Write down one clear idea: a hook in the first 0.5 s (never open on more than 0.3 s of empty or black), an
@@ -86,7 +88,7 @@ cel FX 点缀层：烟/水花/闪电用纯手绘逐帧叠在矢量主体上（Bu
   that renders a PNG sequence).
 - Assets: only CC0 / public domain / OFL / Apache / free-for-commercial-use. Record each source and licence in CREDITS.md.
   No real brand trademarks; invent brand names.
-- On-screen text must be correct and natural: idiomatic Chinese, proper CJK punctuation, no typos.
+- On-screen text must be correct, punchy, and natural: proper typography, zero overflow, no typos.
 
 # Craft checklist (what a jury looks for)
 - Style authenticity: an expert names the style in one second; every signature technique is present and executed correctly.

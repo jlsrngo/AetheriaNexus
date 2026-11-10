@@ -9,32 +9,32 @@ tags:
 command: /mg-line-art
 ---
 
-# Minimalist Line Art (Motion Graphics Standard)
+# Monoline / Technical Line Art & Blueprint (Motion Graphics Standard)
 *Ported from award-winning mg-styles-15 motion system.*
 
-# 线条动画 Line Art / Line Animation
+# Technical Monoline & Blueprint Motion Design
 
-**原片**：ATELIER LINEA「一笔画 One Line」 · 1920×1080 · 30 fps · 10 秒 · AI 评审终评 7.64 / 10
+**Reference Benchmark**: ATELIER LINEAOne Line Continuous Flow · 1920×1080 · 30 fps · 10 s · AI Jury Score 7.64 / 10
 
-**源码**：[demos/02-line-art/](../demos/02-line-art/)
+**Reference Source**: [demos/02-line-art/](../demos/02-line-art/)
 
-## 怎么用
+## How to Use
 
-1. 新建一个空文件夹，在里面打开一个能写代码、能执行命令的 AI 助手（例如 Claude Code）。本机需要能跑网页渲染（Node + Chrome）和 ffmpeg。
-2. 把下面「提示词」整段复制进去发送。
-3. 想换成自己的内容：改 `Creative seed` 里的故事、品牌名、文案和配色，或者改 `Output` 里的尺寸（比如竖屏 1080×1920）。不要删 `Signature features` 那一段，它是这种风格被一眼认出来的依据。
-4. 想再提高：成片出来后，另开一个 AI 用 [rubric.md](../rubric.md) 评审，把评审意见贴回给制作的 AI 再改一轮。原片就是这样改了两轮。
+1. Open Aetheria Video Studio and invoke this skill using the command or natural language.
+2. The skill injects the creative seed, timing choreography, palette tokens, and motion curves into the LLM context.
+3. **Customization**: Adapt the narrative, brand names, copy, and palette in `Creative seed` while preserving `Signature features` to retain the iconic visual identity of this archetype.
+4. **Verification**: Review the resulting Remotion composition in the interactive Studio player against the motion design craft checklist below to guarantee award-winning quality.
 
-## 提示词
+## System Prompt Template
 
 ```text
 You are the director, motion designer, engineer and sound designer of ONE 10-second motion-design film.
 The goal is the most classic, yet most stunning form of this style — award-shortlist / high-end commercial quality. A clean,
 template-looking result is a fail. Benchmarks: Buck, ManvsMachine, Ordinary Folk, Giant Ant, Territory Studio, Apple keynote
-motion, Pentagram motion identities, top Behance/Motionographer features, top 抖音/B站 designer accounts.
+motion, Pentagram motion identities, top Behance/Motionographer features, top designer accounts (Motionographer, Behance, Vimeo Staff Picks).
 
 # Style
-线条动画 Line Art / Line Animation
+Monoline / Technical Line Art & Blueprint
 
 # Output (fixed)
 - 1920×1080, 30 fps, exactly 10.000 s (300 frames), H.264 MP4 with stereo AAC audio (48 kHz), mastered to −14 LUFS
@@ -45,7 +45,7 @@ HTML: SVG paths + stroke-dashoffset (getTotalLength) + GSAP; a virtual camera th
 (You may choose a better route if it clearly raises quality; say why.)
 
 # Creative seed
-「一笔画」One-line narrative for a luxury / architecture brand — the whole film is ONE continuous line.
+One-line narrative: One-line narrative for a luxury / architecture brand — the whole film is ONE continuous line.
 - Deep midnight ground (#0B1320 or near-black) + a single champagne-gold line (#E9D7A5), constant ~3px, round caps, a softly glowing pen tip that leads the draw.
 - Story (continuous path, the tail of each figure is the start of the next): a seed → sprouts into a sapling → branches become the structural lines of a building → the building outline extends into a skyline/horizon → the horizon line lifts and loops into a monogram logo → LINE-TO-FILL moment (logo fills with gold from its anchor) → thin letter-spaced serif wordmark (e.g. "ATELIER LINEA") fades up.
 - Draw speed eases into corners (cubic-bezier(0.65,0,0.35,1)); the virtual camera drifts/pushes to keep the tip in frame, then dollies out at the end to reveal the whole drawing composed as a poster; older line segments dim to ~35% as the camera moves on.
@@ -54,13 +54,15 @@ Sound: minimal felt piano + soft string swell; a pen-on-paper whisper whose loud
 You are the director: you may change the concept, copy, story beats and brand names if you find a stronger idea, but the result must remain the CANONICAL, instantly-recognisable form of this style and must hit its signature features below.
 
 # Signature features and key techniques (the result is judged against these)
-以单色细线为唯一造型语言，线条自我描绘（draw-on）、延伸、转折并变形为下一个图形，一笔连成整支片子。极简高级感强，常见于奢侈品、金融、建筑类品牌片和 logo 动画。
-视觉特征 等宽细线, 单色或双色, 大量负空间, 线条连续生长, 线面转换瞬间
-关键技法 核心是 stroke 描绘：AE 用 Trim Paths 0→100%，Web 端用 SVG stroke-dasharray/dashoffset
-线宽全片恒定（2~4px），转角处让描绘速度略减速，用 easeInOut cubic-bezier(0.65,0,0.35,1)
-'一笔画'叙事：上一图形的尾线即下一图形的起线，路径提前在 Illustrator 里连好
-线转面：描完轮廓后用同路径的 fill 从锚点扩展填充
-配合微小的端点圆头（round cap）与路径抖动可增加手绘感
+Elegant, minimalist technical illustration using uniform stroke weights. Clean engineering blueprints, product cross-sections, and circuit traces that self-draw with mathematical elegance.
+
+**Visual Features**: Single uniform stroke weight (1.5–3px), dark blueprint navy or crisp paper ground, coordinate grids, measurement callouts, dashed reference lines, zero heavy fills.
+
+**Key Techniques**:
+- Path tracing: `strokeDasharray` and `strokeDashoffset` animating smoothly from 0% to 100%.
+- Self-assembling schematics: Primary outline draws first, followed by internal cross-sections and measurement arrows.
+- Precision easing: Smooth cubic bezier deceleration (`easeOutCubic`) mimicking precision drafting pens.
+- Transitions: Retracting line loops, blueprint fold-outs, and technical cursor sweeps.
 
 # How to work
 1. Treatment. Write down one clear idea: a hook in the first 0.5 s (never open on more than 0.3 s of empty or black), an
@@ -86,7 +88,7 @@ You are the director: you may change the concept, copy, story beats and brand na
   that renders a PNG sequence).
 - Assets: only CC0 / public domain / OFL / Apache / free-for-commercial-use. Record each source and licence in CREDITS.md.
   No real brand trademarks; invent brand names.
-- On-screen text must be correct and natural: idiomatic Chinese, proper CJK punctuation, no typos.
+- On-screen text must be correct, punchy, and natural: proper typography, zero overflow, no typos.
 
 # Craft checklist (what a jury looks for)
 - Style authenticity: an expert names the style in one second; every signature technique is present and executed correctly.

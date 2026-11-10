@@ -9,32 +9,32 @@ tags:
 command: /mg-flat-vector
 ---
 
-# Flat Vector Clean Tech (Motion Graphics Standard)
+# Flat / Vector 2D Motion Graphics (Motion Graphics Standard)
 *Ported from award-winning mg-styles-15 motion system.*
 
-# 扁平矢量动画 Flat / Vector 2D Motion Graphics
+# Flat Vector & Clean Tech Explainer Motion Design
 
-**原片**：popwise「One Dot」一个点的一镜到底 · 1920×1080 · 30 fps · 10 秒 · AI 评审终评 7.64 / 10
+**Reference Benchmark**: Popwise: One Dot Continuous Flow · 1920×1080 · 30 fps · 10 s · AI Jury Score 7.64 / 10
 
-**源码**：[demos/01-flat-vector/](../demos/01-flat-vector/)
+**Reference Source**: [demos/01-flat-vector/](../demos/01-flat-vector/)
 
-## 怎么用
+## How to Use
 
-1. 新建一个空文件夹，在里面打开一个能写代码、能执行命令的 AI 助手（例如 Claude Code）。本机需要能跑网页渲染（Node + Chrome）和 ffmpeg。
-2. 把下面「提示词」整段复制进去发送。
-3. 想换成自己的内容：改 `Creative seed` 里的故事、品牌名、文案和配色，或者改 `Output` 里的尺寸（比如竖屏 1080×1920）。不要删 `Signature features` 那一段，它是这种风格被一眼认出来的依据。
-4. 想再提高：成片出来后，另开一个 AI 用 [rubric.md](../rubric.md) 评审，把评审意见贴回给制作的 AI 再改一轮。原片就是这样改了两轮。
+1. Open Aetheria Video Studio and invoke this skill using the command or natural language.
+2. The skill injects the creative seed, timing choreography, palette tokens, and motion curves into the LLM context.
+3. **Customization**: Adapt the narrative, brand names, copy, and palette in `Creative seed` while preserving `Signature features` to retain the iconic visual identity of this archetype.
+4. **Verification**: Review the resulting Remotion composition in the interactive Studio player against the motion design craft checklist below to guarantee award-winning quality.
 
-## 提示词
+## System Prompt Template
 
 ```text
 You are the director, motion designer, engineer and sound designer of ONE 10-second motion-design film.
 The goal is the most classic, yet most stunning form of this style — award-shortlist / high-end commercial quality. A clean,
 template-looking result is a fail. Benchmarks: Buck, ManvsMachine, Ordinary Folk, Giant Ant, Territory Studio, Apple keynote
-motion, Pentagram motion identities, top Behance/Motionographer features, top 抖音/B站 designer accounts.
+motion, Pentagram motion identities, top Behance/Motionographer features, top designer accounts (Motionographer, Behance, Vimeo Staff Picks).
 
 # Style
-扁平矢量动画 Flat / Vector 2D Motion Graphics
+Flat / Vector 2D Motion Graphics
 
 # Output (fixed)
 - 1920×1080, 30 fps, exactly 10.000 s (300 frames), H.264 MP4 with stereo AAC audio (48 kHz), mastered to −14 LUFS
@@ -45,7 +45,7 @@ HTML: SVG + GSAP (CustomEase/CustomBounce/MorphSVG); motion blur mb=4 for fast m
 (You may choose a better route if it clearly raises quality; say why.)
 
 # Creative seed
-「一镜到底的扁平世界」One-continuous-shot brand explainer, the canonical Motion-Ocean/Google-explainer form, pushed to showreel polish.
+One-continuous-shot brand explainer, the canonical Motion-Ocean/Google-explainer form, pushed to showreel polish.
 - 0.0–1.2s HOOK: empty bold color field; a single saturated circle drops in with the three-phase anticipation → stretch → squash → overshoot → settle. Immediately readable craft.
 - 1.2–3.0s: the circle becomes the sun; a flat city pops up building-by-building with 2–4 frame stagger (each with its own mini overshoot), clouds slide, birds flap.
 - 3.0–5.5s: camera pushes into one window → a geometric character at a desk (limb rig with anchor rotations, head bob, blink) reacts; phone pings.
@@ -57,13 +57,15 @@ Sound: upbeat future-bass/pop ~120 BPM; pop/boing/whoosh on each entry, synced t
 You are the director: you may change the concept, copy, story beats and brand names if you find a stronger idea, but the result must remain the CANONICAL, instantly-recognisable form of this style and must hit its signature features below.
 
 # Signature features and key techniques (the result is judged against these)
-MG 动画最主流的基本盘风格，源自 Google Material/企业解释视频（explainer）传统。纯色几何化的人物与场景、无描边或极简描边、大色块撞色，一切元素都是矢量形状。常见于 SaaS 产品宣传、科普解说、企业年报视频。
-视觉特征 纯色大色块, 几何化角色, 无渐变或极少渐变, 干净留白, 高饱和品牌色板, 元素弹性入退场
-关键技法 AE Shape Layer + 父子级 null 控制层级，人物四肢用锚点旋转做 rig
-弹性缓动是灵魂：overshoot 用 cubic-bezier(0.34,1.56,0.64,1) 或 AE 里 70~85% influence 的贝塞尔手柄；入场'预备-冲出-回弹'三段式
-元素错峰入场（stagger 2~4 帧），同一时刻只让一个主体动
-30fps 居多；位移动画带 10% 左右 squash&stretch 增加弹性
-转场常用色块擦除（shape wipe）或元素飞出带动整场切换
+The gold-standard corporate and SaaS explainer motion archetype. Pure vector geometry, bold solid color palettes, zero gradients, and seamless element-driven transitions where one moving object initiates the next scene.
+
+**Visual Features**: Flat solid colors, geometric character silhouettes, clean negative space, high-saturation brand palettes, elastic overshoots, zero gradient clutter.
+
+**Key Techniques**:
+- Three-phase anticipation: Anticipation (pull-back) → rapid burst → overshoot spring → settle.
+- Staggered choreography: Stagger multiple elements by 2–4 frames; only one hero element leads the motion at any given instant.
+- Squash & stretch: 8–12% squash/stretch along movement vectors to convey velocity.
+- Transitions: Shape wipes (expanding circles/rectangles) and camera zooms through windows.
 
 # How to work
 1. Treatment. Write down one clear idea: a hook in the first 0.5 s (never open on more than 0.3 s of empty or black), an
@@ -89,7 +91,7 @@ MG 动画最主流的基本盘风格，源自 Google Material/企业解释视频
   that renders a PNG sequence).
 - Assets: only CC0 / public domain / OFL / Apache / free-for-commercial-use. Record each source and licence in CREDITS.md.
   No real brand trademarks; invent brand names.
-- On-screen text must be correct and natural: idiomatic Chinese, proper CJK punctuation, no typos.
+- On-screen text must be correct, punchy, and natural: proper typography, zero overflow, no typos.
 
 # Craft checklist (what a jury looks for)
 - Style authenticity: an expert names the style in one second; every signature technique is present and executed correctly.

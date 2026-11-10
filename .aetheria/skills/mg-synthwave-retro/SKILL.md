@@ -9,32 +9,32 @@ tags:
 command: /mg-synthwave-retro
 ---
 
-# Retro 80s Synthwave Grid (Motion Graphics Standard)
+# Synthwave / Outrun 80s Retro Neon Grid (Motion Graphics Standard)
 *Ported from award-winning mg-styles-15 motion system.*
 
-# 复古系（80s Synthwave / Y2K 千禧） Retro: 80s Synthwave / VHS / Y2K
+# Synthwave 80s & Retro VHS Outrun Motion Design
 
-**原片**：NEON DRIVE · Midnight「霓虹夜驰 1986」 · 1920×1080 · 30 fps · 10 秒 · AI 评审终评 8.21 / 10
+**Reference Benchmark**: Neon Drive: Midnight Outrun 1986 · 1920×1080 · 30 fps · 10 s · AI Jury Score 8.21 / 10
 
-**源码**：[demos/10-synthwave/](../demos/10-synthwave/)
+**Reference Source**: [demos/10-synthwave/](../demos/10-synthwave/)
 
-## 怎么用
+## How to Use
 
-1. 新建一个空文件夹，在里面打开一个能写代码、能执行命令的 AI 助手（例如 Claude Code）。本机需要能跑网页渲染（Node + Chrome）和 ffmpeg。
-2. 把下面「提示词」整段复制进去发送。
-3. 想换成自己的内容：改 `Creative seed` 里的故事、品牌名、文案和配色，或者改 `Output` 里的尺寸（比如竖屏 1080×1920）。不要删 `Signature features` 那一段，它是这种风格被一眼认出来的依据。
-4. 想再提高：成片出来后，另开一个 AI 用 [rubric.md](../rubric.md) 评审，把评审意见贴回给制作的 AI 再改一轮。原片就是这样改了两轮。
+1. Open Aetheria Video Studio and invoke this skill using the command or natural language.
+2. The skill injects the creative seed, timing choreography, palette tokens, and motion curves into the LLM context.
+3. **Customization**: Adapt the narrative, brand names, copy, and palette in `Creative seed` while preserving `Signature features` to retain the iconic visual identity of this archetype.
+4. **Verification**: Review the resulting Remotion composition in the interactive Studio player against the motion design craft checklist below to guarantee award-winning quality.
 
-## 提示词
+## System Prompt Template
 
 ```text
 You are the director, motion designer, engineer and sound designer of ONE 10-second motion-design film.
 The goal is the most classic, yet most stunning form of this style — award-shortlist / high-end commercial quality. A clean,
 template-looking result is a fail. Benchmarks: Buck, ManvsMachine, Ordinary Folk, Giant Ant, Territory Studio, Apple keynote
-motion, Pentagram motion identities, top Behance/Motionographer features, top 抖音/B站 designer accounts.
+motion, Pentagram motion identities, top Behance/Motionographer features, top designer accounts (Motionographer, Behance, Vimeo Staff Picks).
 
 # Style
-复古系（80s Synthwave / Y2K 千禧） Retro: 80s Synthwave / VHS / Y2K
+Synthwave / Outrun 80s Retro Neon Grid
 
 # Output (fixed)
 - 1920×1080, 30 fps, exactly 10.000 s (300 frames), H.264 MP4 with stereo AAC audio (48 kHz), mastered to −14 LUFS
@@ -54,13 +54,15 @@ Sound: synthwave — gated-reverb snare, arpeggiated saw bass, lush pads, big ch
 You are the director: you may change the concept, copy, story beats and brand names if you find a stronger idea, but the result must remain the CANONICAL, instantly-recognisable form of this style and must hit its signature features below.
 
 # Signature features and key techniques (the result is judged against these)
-对特定年代媒介美学的整体引用：80s synthwave 是霓虹网格+日落渐变+镀铬字；VHS 是扫描线+色偏+磁带噪声；Y2K 千禧风是液态镀铬金属、酸性绿紫、拟物系统窗口和低保真 3D。近两年 Y2K 在音乐视频与潮流品牌片中强势回潮，B站模板市场大量供应'酸性镀铬'素材。
-视觉特征 霓虹辉光, 透视网格地平线, 扫描线与RGB色偏, 镀铬金属字, 酸性配色, 拟物窗口UI
-关键技法 synthwave 三件套：透视网格滚动（一点透视 grid + 纵向位移循环）、日落多层渐变球、双层辉光（内层紧 4px 高亮+外层散 30px 低透明）
-VHS 做旧链：RGB split（红蓝通道各偏 1~2px）→ 扫描线（2px 间隔 10% 黑条）→ 波浪扭曲抖动（每秒 1~2 次随机 glitch 抽帧）→ 4:3 圆角遮罩
-Y2K 镀铬字：极高对比的多段金属渐变 + bevel 高光 + 环境映射感反光，配 lens flare
-Y2K 运动语言：弹窗式 pop 出现、光标点击、窗口拖拽，界面拟物即动画叙事
-帧率故意不稳：关键段落抽帧到 15fps 或倒放 2 帧制造磁带卡顿
+The iconic 1980s retro-futuristic Outrun aesthetic. Endless perspective neon grid moving towards a segmented gradient sun, accompanied by VHS tracking noise, chrome typography, and synthwave music.
+
+**Visual Features**: Perspective neon grid (cyan/magenta), segmented striped sun, wireframe mountains, chrome serif typography with cyan/pink reflections, VHS tape tracking glitches, scanline overlay.
+
+**Key Techniques**:
+- Infinite grid motion: Perspective 3D plane with texture offset cycling every 15–30 frames.
+- Sun stripes: Horizontal black slit masks cutting through an intense orange-to-magenta radial gradient.
+- Chrome typography: Linear gradient fill mimicking metallic horizon reflection with white stroke.
+- Transitions: VHS tape rewinds, tracking signal distortion, and neon light flash.
 
 # How to work
 1. Treatment. Write down one clear idea: a hook in the first 0.5 s (never open on more than 0.3 s of empty or black), an
@@ -86,7 +88,7 @@ Y2K 运动语言：弹窗式 pop 出现、光标点击、窗口拖拽，界面�
   that renders a PNG sequence).
 - Assets: only CC0 / public domain / OFL / Apache / free-for-commercial-use. Record each source and licence in CREDITS.md.
   No real brand trademarks; invent brand names.
-- On-screen text must be correct and natural: idiomatic Chinese, proper CJK punctuation, no typos.
+- On-screen text must be correct, punchy, and natural: proper typography, zero overflow, no typos.
 
 # Craft checklist (what a jury looks for)
 - Style authenticity: an expert names the style in one second; every signature technique is present and executed correctly.

@@ -9,32 +9,32 @@ tags:
 command: /mg-bauhaus-swiss
 ---
 
-# Bauhaus Swiss Constructivist (Motion Graphics Standard)
+# Geometric / Bauhaus & Swiss Typographic Motion (Motion Graphics Standard)
 *Ported from award-winning mg-styles-15 motion system.*
 
-# 几何构成 / 包豪斯 Geometric / Bauhaus Motion
+# Bauhaus & Swiss International Typographic Motion Design
 
-**原片**：KONSTRUKTION · 20 SCHLÄGE「二十拍构成」 · 1920×1080 · 30 fps · 10 秒 · AI 评审终评 7.71 / 10
+**Reference Benchmark**: KONSTRUKTION: 20 Beats Bauhaus · 1920×1080 · 30 fps · 10 s · AI Jury Score 7.71 / 10
 
-**源码**：[demos/09-bauhaus/](../demos/09-bauhaus/)
+**Reference Source**: [demos/09-bauhaus/](../demos/09-bauhaus/)
 
-## 怎么用
+## How to Use
 
-1. 新建一个空文件夹，在里面打开一个能写代码、能执行命令的 AI 助手（例如 Claude Code）。本机需要能跑网页渲染（Node + Chrome）和 ffmpeg。
-2. 把下面「提示词」整段复制进去发送。
-3. 想换成自己的内容：改 `Creative seed` 里的故事、品牌名、文案和配色，或者改 `Output` 里的尺寸（比如竖屏 1080×1920）。不要删 `Signature features` 那一段，它是这种风格被一眼认出来的依据。
-4. 想再提高：成片出来后，另开一个 AI 用 [rubric.md](../rubric.md) 评审，把评审意见贴回给制作的 AI 再改一轮。原片就是这样改了两轮。
+1. Open Aetheria Video Studio and invoke this skill using the command or natural language.
+2. The skill injects the creative seed, timing choreography, palette tokens, and motion curves into the LLM context.
+3. **Customization**: Adapt the narrative, brand names, copy, and palette in `Creative seed` while preserving `Signature features` to retain the iconic visual identity of this archetype.
+4. **Verification**: Review the resulting Remotion composition in the interactive Studio player against the motion design craft checklist below to guarantee award-winning quality.
 
-## 提示词
+## System Prompt Template
 
 ```text
 You are the director, motion designer, engineer and sound designer of ONE 10-second motion-design film.
 The goal is the most classic, yet most stunning form of this style — award-shortlist / high-end commercial quality. A clean,
 template-looking result is a fail. Benchmarks: Buck, ManvsMachine, Ordinary Folk, Giant Ant, Territory Studio, Apple keynote
-motion, Pentagram motion identities, top Behance/Motionographer features, top 抖音/B站 designer accounts.
+motion, Pentagram motion identities, top Behance/Motionographer features, top designer accounts (Motionographer, Behance, Vimeo Staff Picks).
 
 # Style
-几何构成 / 包豪斯 Geometric / Bauhaus Motion
+Geometric / Bauhaus & Swiss Typographic Motion
 
 # Output (fixed)
 - 1920×1080, 30 fps, exactly 10.000 s (300 frames), H.264 MP4 with stereo AAC audio (48 kHz), mastered to −14 LUFS
@@ -45,7 +45,7 @@ HTML: SVG/Canvas + GSAP on a strict modular grid, beat grid at 120 BPM
 (You may choose a better route if it clearly raises quality; say why.)
 
 # Creative seed
-「包豪斯动态海报」Bauhaus 1919 kinetic poster — mechanical, rational, musical.
+Bauhaus 1919 Kinetic Poster — Bauhaus 1919 kinetic poster — mechanical, rational, musical.
 - Cream paper (#F1E9DA), primaries red #E03C31, yellow #F2B705, blue #1E4FA3, black #111; strict modular grid (e.g. 240px modules); every move is an integer number of modules; every landing on a grid line.
 - 120 BPM (0.5 s/beat): each beat a module acts — quarter circles rotate 90° about a corner pivot, semicircles slide one module, triangles flip, squares split; rotation pivots alternate (own centre / corner / frame centre).
 - 0–2s grid lines draw & the first red circle lands; 2–6s the composition assembles into a Kandinsky/Bauhaus poster; 6–8s phase-shifted cascade wave across the grid on the drop; 8–10s freeze into a perfect poster with Swiss typography: "BAUHAUS" set vertically in heavy geometric sans + small caps "FORM · FARBE · FUNKTION".
@@ -55,13 +55,15 @@ Sound: minimal techno/click — each flip = a pitched click/blip, kick on quarte
 You are the director: you may change the concept, copy, story beats and brand names if you find a stronger idea, but the result must remain the CANONICAL, instantly-recognisable form of this style and must hit its signature features below.
 
 # Signature features and key techniques (the result is judged against these)
-圆、三角、矩形在严格网格上做精确的平移、旋转、缩放，三原色+黑白的限定色板，机械理性的秩序美。源自包豪斯与瑞士国际主义平面传统（Adobe 曾与 Bauhaus 档案馆合作 Hidden Treasures 项目），也是动态海报（kinetic poster）的主流语言，与音乐节拍天然合拍。
-视觉特征 基础几何形, 红黄蓝黑限定色, 严格网格对齐, 旋转以几何中心为轴, 节拍驱动的模块化运动
-关键技法 一切运动锚定网格：位移距离=网格模数整数倍，落点必在网格线上
-缓动克制：easeInOutQuad 或干脆匀速，禁用 overshoot——机械感是特征不是缺陷
-节拍驱动：每个几何元素在节拍点瞬时出现/翻转，一拍一个动作，类似我们已做的卡点逻辑
-旋转轴心玩法：绕自身中心、绕边缘顶点、绕画面中心三种交替制造韵律
-生成式变体：Processing/p5.js 用三角函数相位差批量驱动几何阵列（国内动态海报圈主流做法）
+Rooted in the 1920s Bauhaus movement and the Swiss International Typographic Style. Strict mathematical grids, heavy sans-serif typography (Akzidenz-Grotesk / Helvetica), primary color blocks, and beat-locked kinetic rhythm.
+
+**Visual Features**: Strict asymmetric grid, primary colors (red, blue, yellow, black, off-white), high-contrast sans-serif type, pure circles, squares, and diagonal lines, zero decorative fluff.
+
+**Key Techniques**:
+- Rhythmic snapping: Elements enter strictly on musical beats with instantaneous or ultra-fast step springs.
+- Grid division: Screen partitioned into golden ratios; elements slide along explicit diagonal or orthogonal axes.
+- Kinetic typography: Huge scale contrasts (e.g. 180pt headline vs 14pt metadata captions).
+- Transitions: Constructivist block wipes, diagonal slicing, and color inversion cuts.
 
 # How to work
 1. Treatment. Write down one clear idea: a hook in the first 0.5 s (never open on more than 0.3 s of empty or black), an
@@ -87,7 +89,7 @@ You are the director: you may change the concept, copy, story beats and brand na
   that renders a PNG sequence).
 - Assets: only CC0 / public domain / OFL / Apache / free-for-commercial-use. Record each source and licence in CREDITS.md.
   No real brand trademarks; invent brand names.
-- On-screen text must be correct and natural: idiomatic Chinese, proper CJK punctuation, no typos.
+- On-screen text must be correct, punchy, and natural: proper typography, zero overflow, no typos.
 
 # Craft checklist (what a jury looks for)
 - Style authenticity: an expert names the style in one second; every signature technique is present and executed correctly.

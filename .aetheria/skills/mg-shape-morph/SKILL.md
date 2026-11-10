@@ -9,32 +9,32 @@ tags:
 command: /mg-shape-morph
 ---
 
-# Seamless Shape Morph (Motion Graphics Standard)
+# Geometric Shape Morphing / Organic Transformation (Motion Graphics Standard)
 *Ported from award-winning mg-styles-15 motion system.*
 
-# 形变动画 Morphing / Shape Morph
+# Geometric Shape Morphing Motion Design
 
-**原片**：一形万象 One Shape, Every Story · 1920×1080 · 30 fps · 10 秒 · AI 评审终评 7.64 / 10
+**Reference Benchmark**: One Shape, Every Story Morph · 1920×1080 · 30 fps · 10 s · AI Jury Score 7.64 / 10
 
-**源码**：[demos/08-morph/](../demos/08-morph/)
+**Reference Source**: [demos/08-morph/](../demos/08-morph/)
 
-## 怎么用
+## How to Use
 
-1. 新建一个空文件夹，在里面打开一个能写代码、能执行命令的 AI 助手（例如 Claude Code）。本机需要能跑网页渲染（Node + Chrome）和 ffmpeg。
-2. 把下面「提示词」整段复制进去发送。
-3. 想换成自己的内容：改 `Creative seed` 里的故事、品牌名、文案和配色，或者改 `Output` 里的尺寸（比如竖屏 1080×1920）。不要删 `Signature features` 那一段，它是这种风格被一眼认出来的依据。
-4. 想再提高：成片出来后，另开一个 AI 用 [rubric.md](../rubric.md) 评审，把评审意见贴回给制作的 AI 再改一轮。原片就是这样改了两轮。
+1. Open Aetheria Video Studio and invoke this skill using the command or natural language.
+2. The skill injects the creative seed, timing choreography, palette tokens, and motion curves into the LLM context.
+3. **Customization**: Adapt the narrative, brand names, copy, and palette in `Creative seed` while preserving `Signature features` to retain the iconic visual identity of this archetype.
+4. **Verification**: Review the resulting Remotion composition in the interactive Studio player against the motion design craft checklist below to guarantee award-winning quality.
 
-## 提示词
+## System Prompt Template
 
 ```text
 You are the director, motion designer, engineer and sound designer of ONE 10-second motion-design film.
 The goal is the most classic, yet most stunning form of this style — award-shortlist / high-end commercial quality. A clean,
 template-looking result is a fail. Benchmarks: Buck, ManvsMachine, Ordinary Folk, Giant Ant, Territory Studio, Apple keynote
-motion, Pentagram motion identities, top Behance/Motionographer features, top 抖音/B站 designer accounts.
+motion, Pentagram motion identities, top Behance/Motionographer features, top designer accounts (Motionographer, Behance, Vimeo Staff Picks).
 
 # Style
-形变动画 Morphing / Shape Morph
+Geometric Shape Morphing / Organic Transformation
 
 # Output (fixed)
 - 1920×1080, 30 fps, exactly 10.000 s (300 frames), H.264 MP4 with stereo AAC audio (48 kHz), mastered to −14 LUFS
@@ -45,7 +45,7 @@ HTML: SVG + flubber or GSAP MorphSVGPlugin (tune shapeIndex), color-field wipes
 (You may choose a better route if it clearly raises quality; say why.)
 
 # Creative seed
-「万物相连」Apple-keynote-grade morph chain: one hero shape continuously becomes 6–8 meaningful icons, on the beat.
+Everything is Connected — Apple-keynote-grade morph chain: Apple-keynote-grade morph chain: one hero shape continuously becomes 6–8 meaningful icons, on the beat.
 - Chain example: coffee cup → (circle) → sun → sunset over sea → gull → paper plane → location pin → heart → invented brand logo "morphe" with wordmark.
 - Every A→B goes through a simple intermediate (circle/capsule) with rotation and 10–15% squash&stretch; sub-parts morph in sync (steam → sun rays → waves).
 - Background color fields change with each morph (clean color-block wipes); ease cubic-bezier(0.7,0,0.3,1), 3-frame cushions at start/end; no knotting/tangling ever (check every morph mid-point stills).
@@ -54,13 +54,15 @@ Sound: rhythmic plucky arpeggio; a pitched whoosh per morph landing on the beat.
 You are the director: you may change the concept, copy, story beats and brand names if you find a stronger idea, but the result must remain the CANONICAL, instantly-recognisable form of this style and must hit its signature features below.
 
 # Signature features and key techniques (the result is judged against these)
-一个图形丝滑连续地变成另一个图形：手机变成地图钉、咖啡杯变成落日。是图形叙事（visual storytelling）的核心语法，苹果发布会动效和高端 explainer 里最见功力的部分。
-视觉特征 轮廓连续过渡无跳变, 中介形状桥接, 形变伴随位移旋转, 变形瞬间的挤压拉伸
-关键技法 路径对齐是前提：两形状顶点数一致、首顶点方位对应（AE 里重设 first vertex），否则会打结
-复杂 A→B 不直接变：先收敛为中介简形（圆/胶囊）再展开，'A→圆→B'两段各 8~12 帧
-形变全程叠加 10~15% squash & stretch 与轻微旋转，掩盖插值的机械感
-速度曲线中段最快 cubic-bezier(0.7,0,0.3,1)：起止各留 3 帧缓冲
-Web 端用 flubber/polymorph 库做最优顶点匹配插值，效果远好于朴素 SMIL
+A hypnotic motion design discipline centered on seamless vector transformations. Shapes continuously morph into everyday objects and abstract geometries without ever cutting the camera.
+
+**Visual Features**: Bold geometric primitives, constant visual volume, continuous unbroken motion curves, vibrant solid backgrounds, seamless vertex interpolation.
+
+**Key Techniques**:
+- Equal vertex counts: SVG paths configured with matching vertex counts so path interpolation flows without ugly pinching.
+- Optimal path interpolation: Flannelfoot / Flubber algorithm or smart SVG path morphing.
+- Hold & Release rhythm: Settle on recognized shape for 12–18 frames, then morph in 10–14 frames.
+- Transitions: Entire scene transitions ARE the morphing elements — zero cuts, 100% flow.
 
 # How to work
 1. Treatment. Write down one clear idea: a hook in the first 0.5 s (never open on more than 0.3 s of empty or black), an
@@ -86,7 +88,7 @@ Web 端用 flubber/polymorph 库做最优顶点匹配插值，效果远好于朴
   that renders a PNG sequence).
 - Assets: only CC0 / public domain / OFL / Apache / free-for-commercial-use. Record each source and licence in CREDITS.md.
   No real brand trademarks; invent brand names.
-- On-screen text must be correct and natural: idiomatic Chinese, proper CJK punctuation, no typos.
+- On-screen text must be correct, punchy, and natural: proper typography, zero overflow, no typos.
 
 # Craft checklist (what a jury looks for)
 - Style authenticity: an expert names the style in one second; every signature technique is present and executed correctly.
