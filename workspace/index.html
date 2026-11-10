@@ -157,7 +157,10 @@
           return fetch(s.wordsUrl)
             .then(function (r) { return r.ok ? r.json() : []; })
             .catch(function () { return []; })
-            .then(function (words) { wordsByScene[s.id] = Array.isArray(words) ? words : []; });
+            .then(function (data) {
+              var arr = Array.isArray(data) ? data : (data && Array.isArray(data.words) ? data.words : []);
+              wordsByScene[s.id] = arr;
+            });
         })
       ).then(function () {
         window.__ready = true;
@@ -184,9 +187,8 @@
           }
         }
 
-        // Shared HUD overlays (Top Header, Headline Plaque, Active Word Subtitles)
-        AM.drawTopHeader(ctx, scene, resolved.index, SCENES.length, currentTime, TOTAL_DURATION);
-        AM.drawHeadlinePlaque(ctx, scene, localTime);
+        // Shared HUD overlays (Top Header & Active Word Subtitles)
+        AM.drawTopHeader(ctx, scene, localTime, currentTime);
         AM.drawSubtitles(ctx, wordsByScene[scene.id] || [], localTime, scene.accent);
 
         // Smooth cross-scene transition flash

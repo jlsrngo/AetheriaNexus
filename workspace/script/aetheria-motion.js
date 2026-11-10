@@ -757,7 +757,8 @@
 
   /**
    * Articulated Flat-Vector Character Rig (from 01-flat-vector CH -> neck -> head -> eyes/brows/mouth + shoulders/elbows/hands).
-   * Gives any scene an expressive living character with automatic breathing, blinking, head nod, and reaching arms.
+   * Supports custom arm angles, hand-held props (`onRightHand`, `onLeftHand`), hairstyles (`"bun"`, `"short"`, `"beard"`, `"colonial"`, `"curly"`),
+   * and facial expressions (`"smile"`, `"surprised"`, `"shocked"`, `"focused"`).
    */
   function drawCharacterRig(ctx, t, opts = {}) {
     const x = opts.x !== undefined ? opts.x : 540;
@@ -767,23 +768,27 @@
     const coatShade = opts.coatShade || "#1FC28C";
     const skinColor = opts.skinColor || "#FFB48C";
     const hairColor = opts.hairColor || "#151433";
+    const hairStyle = opts.hairStyle || "bun";
+    const hasGlasses = opts.glasses !== undefined ? opts.glasses : true;
     const reactTime = opts.reactTime !== undefined ? opts.reactTime : 1.8;
     const reachTime = opts.reachTime !== undefined ? opts.reachTime : 2.4;
 
     const [enterS, enterK] = pop(t + 0.25, 0, 2.4, 0.42, 0.18);
     const hs = pop(t, reactTime, 2.6, 0.35, 0, 1.4)[0];
-    const lean = 3.5 * pop(t, reactTime, 2.0, 0.4)[0];
+    const lean = (opts.lean !== undefined ? opts.lean : 3.5 * pop(t, reactTime, 2.0, 0.4)[0]);
     const nod = 6 * Math.pow(1 - Math.abs(Math.sin(TAU * t)), 4);
     const blink = Math.max(
       hump(invLerp(1.1, 1.24, t % 3.2)),
       hump(invLerp(reactTime - 0.1, reactTime + 0.05, t))
     );
     const rch = E.outB(invLerp(reachTime, reachTime + 0.35, t), 1.8);
-    const surprised = t > reactTime && t < reachTime + 0.35;
+    const expr =
+      opts.expression ||
+      (t > reactTime && t < reachTime + 0.55 ? "surprised" : "smile");
 
     ctx.save();
     ctx.translate(x, y);
-    ctx.scale(( scale * enterS) / (1 + enterK), scale * enterS * (1 + enterK));
+    ctx.scale((scale * Math.max(0.01, enterS)) / (1 + enterK), scale * Math.max(0.01, enterS) * (1 + enterK));
     ctx.rotate((lean * Math.PI) / 180);
 
     // Torso
@@ -794,19 +799,27 @@
     roundRect(ctx, 90, -195, 80, 275, 40);
     ctx.fill();
 
-    // Collar V-neck
-    ctx.fillStyle = skinColor;
+    // Collar V-neck / Cravat
+    ctx.fillStyle = opts.collarColor || skinColor;
     ctx.beginPath();
-    ctx.moveTo(-36, -200);
-    ctx.lineTo(0, -152);
-    ctx.lineTo(36, -200);
+    ctx.moveTo(-38, -200);
+    ctx.lineTo(0, -148);
+    ctx.lineTo(38, -200);
     ctx.closePath();
     ctx.fill();
 
     // Left Arm (Shoulder -> Upper -> Forearm -> Hand)
+    const lSh =
+      opts.leftSh !== undefined
+        ? opts.leftSh
+        : 14 + 3 * Math.sin(t * 5.5);
+    const lFo =
+      opts.leftFo !== undefined
+        ? opts.leftFo
+        : -92 + 7 * Math.sin(t * 5.5);
     ctx.save();
     ctx.translate(-142, -148);
-    ctx.rotate(((14 + 3 * Math.sin(t * 5.5)) * Math.PI) / 180);
+    ctx.rotate((lSh * Math.PI) / 180);
     ctx.strokeStyle = coatShade;
     ctx.lineWidth = 56;
     ctx.lineCap = "round";
@@ -815,7 +828,7 @@
     ctx.lineTo(0, 112);
     ctx.stroke();
     ctx.translate(0, 112);
-    ctx.rotate(((-92 + 7 * Math.sin(t * 5.5)) * Math.PI) / 180);
+    ctx.rotate((lFo * Math.PI) / 180);
     ctx.strokeStyle = skinColor;
     ctx.lineWidth = 38;
     ctx.beginPath();
@@ -826,38 +839,20 @@
     ctx.beginPath();
     ctx.arc(0, 102, 24, 0, TAU);
     ctx.fill();
+    if (typeof opts.onLeftHand === "function") {
+      ctx.save();
+      ctx.translate(0, 102);
+      opts.onLeftHand(ctx);
+      ctx.restore();
+    }
     ctx.restore();
 
-    // Right Arm (Reaches out on reachTime)
+    // Neck & Head Group (drawn before Right Arm if Right Arm reaches across face/hair)
     ctx.save();
-    ctx.translate(142, -148);
-    const shAngle = lerp(-14 + 3 * Math.sin(t * 5.5 + 2), -78, rch);
-    ctx.rotate((shAngle * Math.PI) / 180);
-    ctx.strokeStyle = coatShade;
-    ctx.lineWidth = 56;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(0, 112);
-    ctx.stroke();
-    ctx.translate(0, 112);
-    const foAngle = lerp(92 + 7 * Math.sin(t * 5.5 + 2), 14, rch);
-    ctx.rotate((foAngle * Math.PI) / 180);
-    ctx.strokeStyle = skinColor;
-    ctx.lineWidth = 38;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(0, 96);
-    ctx.stroke();
-    ctx.fillStyle = skinColor;
-    ctx.beginPath();
-    ctx.arc(0, 102, 24, 0, TAU);
-    ctx.fill();
-    ctx.restore();
-
-    // Neck & Head Group
-    ctx.save();
-    const hr = 10 * Math.max(hs, 0) * (t > reactTime ? 1 : 0);
+    const hr =
+      opts.headTilt !== undefined
+        ? opts.headTilt
+        : 10 * Math.max(hs, 0) * (t > reactTime ? 1 : 0);
     ctx.translate(8 * hs * (t > reactTime ? 1 : 0), -200 + nod * 0.4);
     ctx.rotate(((hr * 0.35) * Math.PI) / 180);
     ctx.fillStyle = skinColor;
@@ -866,62 +861,104 @@
     ctx.translate(0, -86 + nod);
     ctx.rotate(((hr * 0.65) * Math.PI) / 180);
 
+    // Back hair for colonial / curly / beard styles
+    if (hairStyle === "colonial" || hairStyle === "curly") {
+      ctx.fillStyle = hairColor;
+      ctx.beginPath();
+      ctx.arc(-82, 4, 34, 0, TAU);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(82, 4, 34, 0, TAU);
+      ctx.fill();
+    }
+
     // Ears & Head base
     ctx.fillStyle = skinColor;
     ctx.beginPath();
     ctx.arc(-90, 12, 18, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
     ctx.arc(90, 12, 18, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
     ctx.arc(0, 0, 94, 0, TAU);
     ctx.fill();
 
-    // Hair bun with secondary follow-through kick
-    ctx.save();
-    const bunRot = -8 * kick(t, reactTime, 2.4, 0.3);
-    ctx.rotate((bunRot * Math.PI) / 180);
-    ctx.fillStyle = hairColor;
-    ctx.beginPath();
-    ctx.arc(34, -116, 36, 0, TAU);
-    ctx.fill();
-    ctx.restore();
-
-    // Hair cap
+    // Hair style variations
+    if (hairStyle === "bun") {
+      ctx.save();
+      const bunRot = -8 * kick(t, reactTime, 2.4, 0.3);
+      ctx.rotate((bunRot * Math.PI) / 180);
+      ctx.fillStyle = hairColor;
+      ctx.beginPath();
+      ctx.arc(34, -116, 36, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
     ctx.fillStyle = hairColor;
     ctx.beginPath();
     ctx.arc(0, -14, 96, Math.PI * 1.05, Math.PI * 1.95);
     ctx.fill();
 
+    if (hairStyle === "beard") {
+      // Ancient Greek philosopher beard & laurel/headband
+      ctx.strokeStyle = "#FFC62B";
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(-88, -32);
+      ctx.quadraticCurveTo(0, -48, 88, -32);
+      ctx.stroke();
+
+      ctx.fillStyle = hairColor;
+      ctx.beginPath();
+      ctx.moveTo(-72, 28);
+      ctx.quadraticCurveTo(-78, 118, 0, 132);
+      ctx.quadraticCurveTo(78, 118, 72, 28);
+      ctx.quadraticCurveTo(0, 56, -72, 28);
+      ctx.closePath();
+      ctx.fill();
+    }
+
     // Cheek blush
     ctx.fillStyle = "#FF8C82";
     ctx.beginPath();
     ctx.arc(-52, 38, 13, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
     ctx.arc(52, 38, 13, 0, TAU);
     ctx.fill();
 
     // Eyes with blink & look shift
-    const look = t > reactTime ? 8 * hs : 0;
-    const eyeRy = Math.max(1.5, 12 * (1 - 0.9 * blink));
-    ctx.fillStyle = hairColor;
+    const look = opts.lookX !== undefined ? opts.lookX : t > reactTime ? 8 * hs : 0;
+    const lookY = opts.lookY !== undefined ? opts.lookY : 0;
+    const eyeScale = expr === "surprised" || expr === "shocked" ? 1.25 : 1.0;
+    const eyeRy = Math.max(1.5, 12 * eyeScale * (1 - 0.9 * blink));
+    ctx.fillStyle = "#151433";
     [-34, 34].forEach((ex) => {
       ctx.beginPath();
-      ctx.ellipse(ex + look, 10, 9, eyeRy, 0, 0, TAU);
+      ctx.ellipse(ex + look, 10 + lookY, 9 * eyeScale, eyeRy, 0, 0, TAU);
       ctx.fill();
     });
 
     // Glasses
-    ctx.strokeStyle = hairColor;
-    ctx.lineWidth = 6;
-    [-34, 34].forEach((gx) => {
+    if (hasGlasses) {
+      ctx.strokeStyle = "#151433";
+      ctx.lineWidth = 6;
+      [-34, 34].forEach((gx) => {
+        ctx.beginPath();
+        ctx.arc(gx, 10, 27, 0, TAU);
+        ctx.stroke();
+      });
       ctx.beginPath();
-      ctx.arc(gx, 10, 27, 0, TAU);
+      ctx.moveTo(-7, 6);
+      ctx.quadraticCurveTo(0, 0, 7, 6);
       ctx.stroke();
-    });
-    ctx.beginPath();
-    ctx.moveTo(-7, 6);
-    ctx.quadraticCurveTo(0, 0, 7, 6);
-    ctx.stroke();
+    }
 
     // Eyebrows
-    const browLift = t > reactTime ? -10 * hs : 0;
+    const browLift =
+      expr === "surprised" || expr === "shocked" ? -12 : t > reactTime ? -8 * hs : 0;
+    ctx.strokeStyle = "#151433";
     ctx.lineWidth = 7;
     ctx.lineCap = "round";
     [-1, 1].forEach((s) => {
@@ -931,14 +968,22 @@
       ctx.stroke();
     });
 
-    // Mouth (Smile vs Surprised O-mouth)
-    if (surprised) {
-      ctx.fillStyle = hairColor;
+    // Mouth (Smile vs Surprised O-mouth vs Shocked)
+    if (expr === "surprised" || expr === "shocked") {
+      ctx.fillStyle = "#151433";
       ctx.beginPath();
-      ctx.ellipse(look * 0.5, 52, 10, 13, 0, 0, TAU);
+      ctx.ellipse(
+        look * 0.5,
+        52,
+        expr === "shocked" ? 14 : 10,
+        expr === "shocked" ? 17 : 13,
+        0,
+        0,
+        TAU
+      );
       ctx.fill();
     } else {
-      ctx.strokeStyle = hairColor;
+      ctx.strokeStyle = "#151433";
       ctx.lineWidth = 6;
       ctx.beginPath();
       ctx.moveTo(-18 + look * 0.5, 45);
@@ -947,6 +992,46 @@
     }
 
     ctx.restore();
+
+    // Right Arm (Foreground — Reaches out or holds props)
+    const rSh =
+      opts.rightSh !== undefined
+        ? opts.rightSh
+        : lerp(-14 + 3 * Math.sin(t * 5.5 + 2), -78, rch);
+    const rFo =
+      opts.rightFo !== undefined
+        ? opts.rightFo
+        : lerp(92 + 7 * Math.sin(t * 5.5 + 2), 14, rch);
+    ctx.save();
+    ctx.translate(142, -148);
+    ctx.rotate((rSh * Math.PI) / 180);
+    ctx.strokeStyle = coatShade;
+    ctx.lineWidth = 56;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 112);
+    ctx.stroke();
+    ctx.translate(0, 112);
+    ctx.rotate((rFo * Math.PI) / 180);
+    ctx.strokeStyle = skinColor;
+    ctx.lineWidth = 38;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 96);
+    ctx.stroke();
+    ctx.fillStyle = skinColor;
+    ctx.beginPath();
+    ctx.arc(0, 102, 24, 0, TAU);
+    ctx.fill();
+    if (typeof opts.onRightHand === "function") {
+      ctx.save();
+      ctx.translate(0, 102);
+      opts.onRightHand(ctx);
+      ctx.restore();
+    }
+    ctx.restore();
+
     ctx.restore();
   }
 
