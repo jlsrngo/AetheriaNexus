@@ -171,16 +171,7 @@ export const Scene1: React.FC = () => {
         maxWordsPerChunk={4}
       />
 
-      {/* Cut flash */}
-      <AbsoluteFill
-        style={{
-          background: `rgba(255,255,255,${flashOpacity})`,
-          zIndex: 99,
-          pointerEvents: "none",
-        }}
-      />
-
-      <SceneTransition frame={frame} totalFrames={meta.durationInFrames} type="flash" />
+      <SceneTransition totalFrames={meta.durationInFrames} type="flash" />
     </AbsoluteFill>
   );
 };

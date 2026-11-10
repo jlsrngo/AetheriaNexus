@@ -126,8 +126,9 @@ export const CollagePiece: React.FC<CollagePieceProps> = ({
       }}
     >
       {/* Photo */}
-      <Img
-        src={staticFile(src)}
+      <img
+        src={src.startsWith("http") || src.startsWith("/") || src.startsWith("data:") ? src : staticFile(src)}
+        alt=""
         style={{
           width: "100%",
           height: "100%",

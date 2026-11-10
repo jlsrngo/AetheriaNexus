@@ -23,7 +23,7 @@ function makeDrops(count: number): RainDrop[] {
 const DROPS = makeDrops(60);
 
 interface RainWindowOverlayProps {
-  durationInFrames: number;
+  durationInFrames?: number;
 }
 
 /**
@@ -31,7 +31,7 @@ interface RainWindowOverlayProps {
  * Atmospheric candlelight warmth increases as rain intensifies.
  */
 export const RainWindowOverlay: React.FC<RainWindowOverlayProps> = ({
-  durationInFrames,
+  durationInFrames = 300,
 }) => {
   const frame = useCurrentFrame();
 

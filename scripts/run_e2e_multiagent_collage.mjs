@@ -56,3 +56,4 @@ Mulai eksekusi sekarang! Gunakan tool write / edit untuk memperbarui scene files
 }
 
 main().catch(console.error);
+

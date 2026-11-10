@@ -108,6 +108,7 @@ export const HormoziSubtitle: React.FC<HormoziSubtitleProps> = ({
                 fontSize: 44,
                 letterSpacing: "0.04em",
                 textTransform: "uppercase",
+                margin: "0 6px",
                 color: isActive ? highlightColor : "#FFFFFF",
                 transform: isActive ? `scale(${wordScale})` : "scale(1.0)",
                 transformOrigin: "center center",
