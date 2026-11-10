@@ -5,7 +5,9 @@ use crate::paths::{gen_id, now_ms};
 use crate::provider::read_aetheria_config;
 use crate::session::message::emit_event;
 use crate::session::session::{save_store, with_store};
-use crate::session::tools::{build_tool_definitions, execute_tool_call, should_attach_document_tools};
+use crate::session::tools::{
+    build_tool_definitions, execute_tool_call, is_greeting_prompt, should_attach_document_tools,
+};
 use serde_json::{json, Value};
 
 use super::context::{
@@ -82,12 +84,7 @@ pub async fn run_agent_turn(
 
     let trimmed_prompt = prompt_text.trim();
     let lower_prompt = trimmed_prompt.to_lowercase();
-    let is_greeting = matches!(
-        lower_prompt.as_str(),
-        "halo" | "hello" | "hi" | "hey" | "hai" | "pagi" | "siang" | "sore" | "malam"
-            | "tes" | "test" | "ping" | "halo nexus" | "assalamualaikum" | "selamat pagi"
-            | "selamat siang" | "selamat sore" | "selamat malam"
-    ) || (lower_prompt.len() <= 6 && (lower_prompt.starts_with("hi") || lower_prompt.starts_with("halo") || lower_prompt.starts_with("hey")));
+    let is_greeting = is_greeting_prompt(prompt_text);
 
     // Only inject mentioned files, style commands, audio presets, and reference reports
     // if the user's turn is an actual task/prompt, NOT a simple greeting or ping!
@@ -207,7 +204,9 @@ pub async fn run_agent_turn(
                 "sessionID": session_id,
                 "messageID": assistant_msg_id,
                 "step": _step + 1,
-                "label": if _step == 0 {
+                "label": if is_greeting {
+                    "Menjawab...".to_string()
+                } else if _step == 0 {
                     "Analyzing prompt & planning video architecture...".to_string()
                 } else {
                     format!("Planning next studio action (step {})...", _step + 1)

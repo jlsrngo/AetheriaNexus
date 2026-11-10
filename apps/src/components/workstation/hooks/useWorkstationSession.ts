@@ -56,15 +56,20 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
 
   // Auto-connect to the active / most recent session if none is currently selected
   useEffect(() => {
-    if (activeChatId) return;
     let isCancelled = false;
     listSessions({ directory: activeFolder || undefined, limit: 1 })
       .then((sessions) => {
         if (isCancelled || !sessions || sessions.length === 0) return;
         const latest = sessions[0];
         if (latest && latest.id && latest.id.startsWith("ses_")) {
-          setActiveChatId(latest.id);
-          localStorage.setItem("aetheria_active_chat_id", latest.id);
+          if (!activeChatId) {
+            setActiveChatId(latest.id);
+            localStorage.setItem("aetheria_active_chat_id", latest.id);
+          }
+          if (latest.directory && !activeFolder) {
+            setActiveFolder(latest.directory);
+            localStorage.setItem("aetheria_active_folder", latest.directory);
+          }
           if (activeFolder) {
             localStorage.setItem(`aetheria_active_chat_id_${activeFolder}`, latest.id);
           }

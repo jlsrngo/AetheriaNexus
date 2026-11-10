@@ -88,99 +88,97 @@ export const ScriptPanel = memo(function ScriptPanel({
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
 
   const fetchSessionScripts = useCallback(async () => {
-    if (!activeChatId || !activeChatId.startsWith("ses_")) {
-      setSessionFiles([]);
-      return;
-    }
     setIsLoading(true);
     try {
-      const res = await engineFetch(`/api/session/${activeChatId}/message`);
-      if (!res.ok) {
-        setSessionFiles([]);
-        return;
-      }
-      const json = await res.json();
-      const messages: any[] = Array.isArray(json?.data) ? json.data : [];
-
-      // Map by normalized file path so multiple edits to the same file accumulate accurately
       const fileMap = new Map<string, GeneratedScriptFile>();
 
-      // Process chronologically (oldest first)
-      const chronological = [...messages].reverse();
-      for (const msg of chronological) {
-        const parts: any[] = Array.isArray(msg?.content)
-          ? msg.content
-          : Array.isArray(msg?.parts)
-          ? msg.parts
-          : [];
+      // 1. Process session tool calls if activeChatId is present
+      if (activeChatId && activeChatId.startsWith("ses_")) {
+        try {
+          const res = await engineFetch(`/api/session/${activeChatId}/message`);
+          if (res.ok) {
+            const json = await res.json();
+            const messages: any[] = Array.isArray(json?.data) ? json.data : [];
+            const chronological = [...messages].reverse();
+            for (const msg of chronological) {
+              const parts: any[] = Array.isArray(msg?.content)
+                ? msg.content
+                : Array.isArray(msg?.parts)
+                ? msg.parts
+                : [];
 
-        for (const part of parts) {
-          if (part?.type !== "tool") continue;
-          const toolName = String(part?.name || "").toLowerCase();
-          if (toolName !== "write" && toolName !== "edit") continue;
+              for (const part of parts) {
+                if (part?.type !== "tool") continue;
+                const toolName = String(part?.name || "").toLowerCase();
+                if (toolName !== "write" && toolName !== "edit") continue;
 
-          const state = part?.state || {};
-          if (state?.status && state.status !== "completed") continue;
+                const state = part?.state || {};
+                if (state?.status && state.status !== "completed") continue;
 
-          const input = state?.input || part?.input || {};
-          const rawPath: string =
-            input.filePath ||
-            input.path ||
-            input.targetFile ||
-            input.TargetFile ||
-            "";
-          if (!rawPath || !CODE_EXT_REGEX.test(rawPath)) continue;
-          if (isInternalAppFile(rawPath)) continue;
+                const input = state?.input || part?.input || {};
+                const rawPath: string =
+                  input.filePath ||
+                  input.path ||
+                  input.targetFile ||
+                  input.TargetFile ||
+                  "";
+                if (!rawPath || !CODE_EXT_REGEX.test(rawPath)) continue;
+                if (isInternalAppFile(rawPath)) continue;
 
-          const normKey = rawPath.replace(/\\/g, "/").toLowerCase();
-          const fileName = rawPath.split(/[\\/]/).pop() || rawPath;
-          const relPath = toDisplayRelativePath(rawPath, activeFolder);
+                const normKey = rawPath.replace(/\\/g, "/").toLowerCase();
+                const fileName = rawPath.split(/[\\/]/).pop() || rawPath;
+                const relPath = toDisplayRelativePath(rawPath, activeFolder);
 
-          if (toolName === "write") {
-            const content = String(input.content || "");
-            const lines = countLines(content);
-            fileMap.set(normKey, {
-              id: normKey,
-              name: fileName,
-              relativePath: relPath,
-              fullPath: rawPath,
-              status: "added",
-              addedLines: lines,
-              removedLines: 0,
-              content: content || undefined,
-              updatedAt: msg?.time?.created || Date.now(),
-            });
-          } else if (toolName === "edit") {
-            const oldStr = String(
-              input.oldString ?? input.target ?? input.old_str ?? ""
-            );
-            const newStr = String(
-              input.newString ?? input.replacement ?? input.new_str ?? ""
-            );
-            const added = countLines(newStr);
-            const removed = countLines(oldStr);
-            const existing = fileMap.get(normKey);
-            if (existing) {
-              existing.addedLines += added;
-              existing.removedLines += removed;
-              existing.updatedAt = msg?.time?.created || Date.now();
-            } else {
-              fileMap.set(normKey, {
-                id: normKey,
-                name: fileName,
-                relativePath: relPath,
-                fullPath: rawPath,
-                status: "modified",
-                addedLines: added,
-                removedLines: removed,
-                updatedAt: msg?.time?.created || Date.now(),
-              });
+                if (toolName === "write") {
+                  const content = String(input.content || "");
+                  const lines = countLines(content);
+                  fileMap.set(normKey, {
+                    id: normKey,
+                    name: fileName,
+                    relativePath: relPath,
+                    fullPath: rawPath,
+                    status: "added",
+                    addedLines: lines,
+                    removedLines: 0,
+                    content: content || undefined,
+                    updatedAt: msg?.time?.created || Date.now(),
+                  });
+                } else if (toolName === "edit") {
+                  const oldStr = String(
+                    input.oldString ?? input.target ?? input.old_str ?? ""
+                  );
+                  const newStr = String(
+                    input.newString ?? input.replacement ?? input.new_str ?? ""
+                  );
+                  const added = countLines(newStr);
+                  const removed = countLines(oldStr);
+                  const existing = fileMap.get(normKey);
+                  if (existing) {
+                    existing.addedLines += added;
+                    existing.removedLines += removed;
+                    existing.updatedAt = msg?.time?.created || Date.now();
+                  } else {
+                    fileMap.set(normKey, {
+                      id: normKey,
+                      name: fileName,
+                      relativePath: relPath,
+                      fullPath: rawPath,
+                      status: "modified",
+                      addedLines: added,
+                      removedLines: removed,
+                      updatedAt: msg?.time?.created || Date.now(),
+                    });
+                  }
+                }
+              }
             }
           }
+        } catch {
+          // Session message fetch error non-blocking
         }
       }
 
-      // Fallback: Also scan workspace/src and workspace/src/scenes on disk so files are never lost
+      // 2. Always scan workspace/src, scenes, and components on disk so files are never lost
       try {
         const srcRes = await engineFetch(`/file?path=workspace/src`);
         if (srcRes.ok) {
@@ -200,7 +198,10 @@ export const ScriptPanel = memo(function ScriptPanel({
                   updatedAt: Date.now(),
                 });
               }
-            } else if (item.type === "directory" && (item.name === "scenes" || item.name === "_storyboard")) {
+            } else if (
+              item.type === "directory" &&
+              (item.name === "scenes" || item.name === "_storyboard" || item.name === "components")
+            ) {
               const subRes = await engineFetch(`/file?path=${encodeURIComponent(item.path)}`);
               if (subRes.ok) {
                 const subFiles = await subRes.json();

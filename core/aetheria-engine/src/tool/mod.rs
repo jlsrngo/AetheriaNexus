@@ -26,9 +26,51 @@ use std::path::{Path, PathBuf};
 
 use crate::paths::contains_path;
 
-pub fn should_attach_document_tools(_prompt_text: &str, _history: &[Value]) -> bool {
-    // In Nexus video & creative automation agent, tools are ALWAYS attached
-    // so user requests can autonomously research trends, edit scripts, and render video.
+pub fn is_greeting_prompt(prompt_text: &str) -> bool {
+    let clean: String = prompt_text
+        .chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .collect();
+    let lower = clean.trim().to_lowercase();
+    if lower.is_empty() {
+        return true;
+    }
+    matches!(
+        lower.as_str(),
+        "halo"
+            | "hello"
+            | "hi"
+            | "hey"
+            | "hai"
+            | "pagi"
+            | "siang"
+            | "sore"
+            | "malam"
+            | "tes"
+            | "test"
+            | "ping"
+            | "halo nexus"
+            | "hai nexus"
+            | "hey nexus"
+            | "assalamualaikum"
+            | "assalamu alaikum"
+            | "selamat pagi"
+            | "selamat siang"
+            | "selamat sore"
+            | "selamat malam"
+    ) || (lower.len() <= 6
+        && (lower.starts_with("hi")
+            || lower.starts_with("halo")
+            || lower.starts_with("hey")
+            || lower.starts_with("hai")))
+}
+
+pub fn should_attach_document_tools(prompt_text: &str, _history: &[Value]) -> bool {
+    // Never attach tools for casual greetings, pings, or empty inputs.
+    // This strictly prevents the LLM from hallucinating studio tasks, voiceover synthesis, or web image downloads.
+    if is_greeting_prompt(prompt_text) {
+        return false;
+    }
     true
 }
 

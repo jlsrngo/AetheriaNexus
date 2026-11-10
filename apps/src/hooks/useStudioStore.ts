@@ -394,18 +394,26 @@ export const studioActions = {
           for (const item of json.data) {
             if (isStaleComposition(item)) continue;
             const existingIdx = merged.findIndex((m) => m.id === item.id);
+            const isAiWorkspace =
+              item.folder === "AI WORKSPACE" ||
+              item.id === "TuringVideo" ||
+              item.id === "NexusEditorialVideo";
+            const safeDefaultProps = isAiWorkspace
+              ? { ...defaultNexusVideoProps, bodyText: "", hookText: item.name || "AI Composition" }
+              : defaultNexusVideoProps;
+
             if (existingIdx >= 0) {
               merged[existingIdx] = {
                 ...merged[existingIdx],
                 ...item,
                 ratio: (item.ratio as "9:16" | "1:1" | "16:9") || merged[existingIdx].ratio || "9:16",
-                props: { ...defaultNexusVideoProps, ...(merged[existingIdx].props || {}), ...(item.props || {}) },
+                props: { ...safeDefaultProps, ...(merged[existingIdx].props || {}), ...(item.props || {}) },
               };
             } else {
               merged.push({
                 ...item,
                 ratio: (item.ratio as "9:16" | "1:1" | "16:9") || "9:16",
-                props: { ...defaultNexusVideoProps, ...(item.props || {}) },
+                props: { ...safeDefaultProps, ...(item.props || {}) },
               });
             }
           }

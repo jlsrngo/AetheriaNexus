@@ -28,34 +28,65 @@ const workspaceModules = import.meta.glob<Record<string, unknown>>(
   "../../../../workspace/**/*.tsx",
   { eager: true }
 );
+console.log("[StudioPreview] Loaded workspaceModules:", Object.keys(workspaceModules));
 
 function resolveWorkspaceComponent(compositionId: string): React.ComponentType<any> | null {
+  const normTarget = compositionId.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  // Priority 1: Check Root.tsx exports directly
   for (const [modPath, mod] of Object.entries(workspaceModules)) {
     if (!mod || typeof mod !== "object") continue;
-    // 1. Match by explicit export name === compositionId
-    if (typeof mod[compositionId] === "function") {
-      return mod[compositionId] as React.ComponentType<any>;
-    }
-    // 2. Fuzzy match export name (e.g. LinusMainTimeline vs LinusTorvalds)
-    for (const [key, val] of Object.entries(mod)) {
-      if (typeof val === "function") {
-        const kLow = key.toLowerCase();
-        const idLow = compositionId.toLowerCase();
-        if (kLow === idLow || (idLow.includes("linus") && kLow.includes("linus"))) {
-          return val as React.ComponentType<any>;
+    if (modPath.toLowerCase().endsWith("root.tsx")) {
+      // 1a. Direct key match (e.g. TuringVideo, NexusEditorialVideo)
+      if (typeof mod[compositionId] === "function") {
+        return mod[compositionId] as React.ComponentType<any>;
+      }
+      // 1b. Normalized match on Root exports
+      for (const [key, val] of Object.entries(mod)) {
+        if (typeof val === "function" && key !== "RemotionRoot") {
+          const normKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (
+            normKey === normTarget ||
+            normKey.includes(normTarget) ||
+            normTarget.includes(normKey) ||
+            normTarget === "default" ||
+            normTarget === "nexuseditorialvideo"
+          ) {
+            return val as React.ComponentType<any>;
+          }
         }
       }
+      // 1c. Default export if not RemotionRoot
+      if (typeof mod.default === "function" && mod.default.name !== "RemotionRoot") {
+        return mod.default as React.ComponentType<any>;
+      }
     }
-    // 3. Or match if file path contains the compositionId/keyword and exports Main / Composition / default
-    const cleanId = compositionId.toLowerCase().replace(/video|composition/g, "");
-    if (modPath.toLowerCase().includes(cleanId) || (cleanId.includes("linus") && modPath.toLowerCase().includes("linus"))) {
-      for (const [key, val] of Object.entries(mod)) {
-        if (typeof val === "function" && (key === "default" || key.endsWith("Composition") || key.endsWith("Timeline") || key === "Main")) {
+  }
+
+  // Priority 2: Check all workspace modules for export matching compositionId
+  for (const [, mod] of Object.entries(workspaceModules)) {
+    if (!mod || typeof mod !== "object") continue;
+    for (const [key, val] of Object.entries(mod)) {
+      if (typeof val === "function" && key !== "RemotionRoot") {
+        const normKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (normKey === normTarget || normKey.includes(normTarget) || normTarget.includes(normKey)) {
           return val as React.ComponentType<any>;
         }
       }
     }
   }
+
+  // Priority 3: If Root.tsx exists with any video component, use it as root fallback
+  for (const [modPath, mod] of Object.entries(workspaceModules)) {
+    if (modPath.toLowerCase().endsWith("root.tsx") && mod && typeof mod === "object") {
+      if (typeof mod.TuringVideo === "function") return mod.TuringVideo as React.ComponentType<any>;
+      if (typeof mod.NexusEditorialVideo === "function") return mod.NexusEditorialVideo as React.ComponentType<any>;
+      if (typeof mod.default === "function" && mod.default.name !== "RemotionRoot") {
+        return mod.default as React.ComponentType<any>;
+      }
+    }
+  }
+
   return null;
 }
 import { ErrorBoundary } from "../common/ErrorBoundary";

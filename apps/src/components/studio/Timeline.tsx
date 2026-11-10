@@ -18,6 +18,67 @@ import type { StudioRenderJob } from "../../types/studio";
 import { ClipEditModal } from "./ClipEditModal";
 import { TimelineHeaderToolbar } from "./timeline/TimelineHeaderToolbar";
 
+const workspaceTypes = import.meta.glob<Record<string, unknown>>(
+  "../../../../workspace/src/types.ts",
+  { eager: true }
+);
+
+function getWorkspaceSceneLayers(totalFrames: number): VideoLayerSpec[] | null {
+  for (const mod of Object.values(workspaceTypes)) {
+    if (!mod || typeof mod !== "object") continue;
+    const turingScenes = (mod as any).TURING_SCENES;
+    if (turingScenes && typeof turingScenes === "object") {
+      const keys = Object.keys(turingScenes);
+      const SCENE_TITLES: Record<string, string> = {
+        s1: "Scene 1 · The Hook (Mesin Enigma)",
+        s2: "Scene 2 · Who Is He? (Matematikawan)",
+        s3: "Scene 3 · The Invisible Enemy (Kode Nazi)",
+        s4: "Scene 4 · The Secret Weapon (Mesin Bombe)",
+        s5: "Scene 5 · The Dark Irony (Tragedi Pasca Perang)",
+        s6: "Scene 6 · The Tragic End (Kematian Turing)",
+        s7: "Scene 7 · The Final Message (Warisan AI)",
+      };
+      const SCENE_COLORS = ["amber", "sky", "violet", "emerald", "rose", "slate", "orange"];
+      const layers: VideoLayerSpec[] = [];
+
+      // Add audio voiceover master track at A1
+      layers.push({
+        id: "audio-voxcpm2-voiceover",
+        trackCode: "A1",
+        label: "VO: VoxCPM2 Mystery Master Track",
+        kind: "audio",
+        content: "VoxCPM2 Mystery Voiceover (7 Scenes)",
+        color: "emerald",
+        from: 0,
+        durationInFrames: totalFrames,
+        visible: true,
+      });
+
+      keys.forEach((k, idx) => {
+        const item = turingScenes[k];
+        if (!item) return;
+        const from = typeof item.startFrame === "number" ? item.startFrame : 0;
+        const dur = typeof item.durationInFrames === "number" ? item.durationInFrames : 150;
+        layers.push({
+          id: `scene-block-${k}`,
+          trackCode: `V${keys.length - idx}`,
+          label: SCENE_TITLES[k] || `Scene ${idx + 1}`,
+          kind: "video",
+          content: SCENE_TITLES[k] || `Scene ${idx + 1}`,
+          color: SCENE_COLORS[idx % SCENE_COLORS.length],
+          from,
+          durationInFrames: dur,
+          visible: true,
+          isCustom: true,
+        });
+      });
+
+      return layers;
+    }
+  }
+  return null;
+}
+
 interface TimelineProps {
   compositionId: string;
   durationInFrames: number;
@@ -90,10 +151,17 @@ export const Timeline: React.FC<TimelineProps> = ({
   const lastFrame = Math.max(0, durationInFrames - 1);
   const progress = lastFrame === 0 ? 0 : currentFrame / lastFrame;
 
-  const baseLayers = useMemo(
-    () => buildCompositionLayers(activeComposition.props, durationInFrames),
-    [activeComposition.props, durationInFrames]
-  );
+  const baseLayers = useMemo(() => {
+    const isAiWorkspace =
+      activeComposition.folder === "AI WORKSPACE" ||
+      activeComposition.id.toLowerCase().includes("turing") ||
+      activeComposition.id === "NexusEditorialVideo";
+    if (isAiWorkspace) {
+      const wsLayers = getWorkspaceSceneLayers(durationInFrames);
+      if (wsLayers && wsLayers.length > 0) return wsLayers;
+    }
+    return buildCompositionLayers(activeComposition.props, durationInFrames);
+  }, [activeComposition.folder, activeComposition.id, activeComposition.props, durationInFrames]);
 
   // Merge local 60fps drag override so dragging never re-renders Remotion <Player> on every pixel
   const layers = useMemo(() => {

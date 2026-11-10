@@ -4,7 +4,9 @@ export type VideoLayerKind =
   | "icon"
   | "text"
   | "badge"
-  | "media";
+  | "media"
+  | "audio"
+  | "video";
 
 export interface VideoLayerSpec {
   id: string;

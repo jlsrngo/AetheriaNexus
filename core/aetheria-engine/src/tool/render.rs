@@ -166,7 +166,7 @@ pub fn render_video_tool_definition() -> Value {
         "type": "function",
         "function": {
             "name": "render_video",
-            "description": "Triggers the local Remotion engine to render the active video composition into a native MP4 file on disk ($0 local hardware acceleration). MUST be called whenever the user asks to generate, create, build, render, or test a video end-to-end so that the actual MP4 file is produced.",
+            "description": "Triggers the local Remotion engine to render the active video composition into a native MP4 file on disk ($0 local hardware acceleration). ONLY call this tool if the user explicitly demands rendering into a file (e.g. 'render sekarang ke mp4', 'ekspor mp4'). Otherwise, assemble the scenes and Root.tsx so the user can interactively preview the video in the studio player and click the Render button themselves.",
             "parameters": {
                 "type": "object",
                 "properties": {
