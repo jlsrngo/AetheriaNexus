@@ -128,3 +128,9 @@ import { SceneTransition } from "../components/SceneTransition";
 * **Typography:**
   - Headlines & Stamps: `'Special Elite'`, `'Impact'`, monospace.
   - Subtitles: `'Inter'`, `'Anton'`, bold sans-serif with 1.5px stroke.
+
+
+## Mandatory Remotion Animation Rules
+- **Defensive Animation Props**: Always provide safe fallbacks: const duration = propDuration ?? useVideoConfig()?.durationInFrames ?? 300;.
+- **Asset Verification**: Do not reference image files that do not exist on disk.
+- **No Blinding Flash at Frame 0**: Keep frame 0 visible (if (frame <= 0) return null;).

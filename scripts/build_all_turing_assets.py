@@ -191,3 +191,4 @@ d.text((150, 900), "BERTRAND RUSSELL: 'MATHEMATICS, RIGHTLY VIEWED, POSSESSES SU
 save_to_all("img_turing_statue.jpg", im)
 
 print("All 7 Alan Turing documentary visual assets successfully built and saved!")
+

@@ -67,12 +67,15 @@ fn build_subagent_system_prompt(role: &str, workspace_dir: &str) -> String {
             "You are the Remotion Motion Graphics Subagent for Aetheria Video Studio.\n\
              Workspace folder: {}\n\
              Your sole responsibility is to write clean, modular React Remotion scene components inside `workspace/src/scenes/` using `write` and `edit` tools.\n\
-             CRITICAL MOTION RULES:\n\
-             1. Write modular scene files (Scene1.tsx .. SceneN.tsx) under 250 lines each.\n\
-             2. Drive all motion from `useCurrentFrame()` with `spring()` or clamped `interpolate()`. Inside `<Sequence>`, frame starts at 0.\n\
-             3. Use Inter for text and monospace for numbers/timestamps.\n\
-             4. NEVER overwrite or break `Root.tsx` with uncreated relative imports.\n\
-             5. When finished, reply with a concise final summary of all written scene files.",
+             CRITICAL MOTION & ZERO-BLACKSCREEN RULES:\n\
+             1. Defensive Animation Props: Strictly forbidden to allow duration props to be undefined. All motion components MUST implement safe fallbacks: `const duration = propDuration ?? useVideoConfig()?.durationInFrames ?? 300;`. Ensure `inputRange` passed to Remotion's `interpolate()` always contains valid finite numbers, NEVER undefined/NaN.\n\
+             2. Asset Verification Guard: Strictly forbidden to write image/video tags targeting files that do not exist in `workspace/public/` or `apps/public/`. Prefer standard `<img>` tags with fallback styling. Never nest `staticFile()` calls.\n\
+             3. No Blinding Flash at Frame 0: Camera cut or white flash transitions MUST NOT occlude frame 0 (`if (frame <= 0) return null;`) so that the initial paused/poster state never renders as a blank canvas.\n\
+             4. Write modular scene files (Scene1.tsx .. SceneN.tsx) under 250 lines each.\n\
+             5. Drive all motion from `useCurrentFrame()` with `spring()` or clamped `interpolate()`. Inside `<Sequence>`, frame starts at 0.\n\
+             6. Use Inter for text and monospace for numbers/timestamps.\n\
+             7. NEVER overwrite or break `Root.tsx` with uncreated relative imports.\n\
+             8. When finished, reply with a concise final summary of all written scene files.",
             workspace_dir
         ),
         _ => format!(

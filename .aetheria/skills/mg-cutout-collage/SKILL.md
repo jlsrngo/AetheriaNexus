@@ -80,6 +80,10 @@ You are the director: you may change the concept, copy, story beats and brand na
 6. Write an honest self-critique: what is strongest, what is weakest, what you would do with more time.
 
 # Rules
+- **Remotion Zero-Blackscreen & Defensive Coding Policy**:
+  - Defensive Animation Props: Every motion component MUST fallback safely: const duration = propDuration ?? useVideoConfig()?.durationInFrames ?? 300;. All inputRange values in interpolate() must be finite numbers, NEVER undefined or NaN.
+  - Asset Verification Guard: Never reference image files that do not exist in pps/public/ or workspace/public/. Use standard <img> tags with fallback styling. Never nest staticFile().
+  - No Blinding Flash at Frame 0: Camera cut / flash transitions must NOT occlude frame 0 (if (frame <= 0) return null;) so paused/poster frames are immediately crisp.
 - Rendering must be deterministic: every frame is a pure function of time t. Seeded randomness only; physics and particles
   precomputed or closed-form; no real-time clocks; no state-triggered CSS transitions. A reliable route: a web page that can
   draw any time t on request, captured frame by frame with a headless browser and encoded with ffmpeg (or a Blender script
