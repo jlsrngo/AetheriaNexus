@@ -249,7 +249,7 @@ pub async fn execute_tool_call(
         "bash" | "shell" | "terminal" => {
             bash::execute_bash(session_id, workspace_dir, arguments).await
         }
-        "spawn_subagent" | "delegate_task" | "delegate_subagent" | "run_subagent" => {
+        "task" | "Task" | "spawn_subagent" | "delegate_task" | "delegate_subagent" | "run_subagent" => {
             Box::pin(crate::session::agent_turn::subagent::execute_subagent(session_id, workspace_dir, arguments)).await
         }
         "register_motion_style" | "register_style" | "add_style" | "add_skill" => {

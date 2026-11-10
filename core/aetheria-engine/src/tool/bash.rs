@@ -73,10 +73,27 @@ pub async fn execute_bash(
         #[cfg(windows)]
         const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+        let is_powershell_hint = cmd_str.contains("Get-Content")
+            || cmd_str.contains("Select-Object")
+            || cmd_str.contains("Select-String")
+            || cmd_str.contains("Set-Content")
+            || cmd_str.contains("Out-File")
+            || cmd_str.contains("Test-Path")
+            || cmd_str.starts_with("cat ")
+            || cmd_str.starts_with("ls ")
+            || cmd_str == "ls"
+            || cmd_str == "pwd";
+
         let mut cmd = if cfg!(windows) {
-            let mut c = Command::new("cmd.exe");
-            c.args(["/C", &cmd_str]);
-            c
+            if is_powershell_hint {
+                let mut c = Command::new("powershell.exe");
+                c.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &cmd_str]);
+                c
+            } else {
+                let mut c = Command::new("cmd.exe");
+                c.args(["/C", &cmd_str]);
+                c
+            }
         } else {
             let mut c = Command::new("/bin/sh");
             c.args(["-c", &cmd_str]);
@@ -90,7 +107,30 @@ pub async fn execute_bash(
         cmd.env("PYTHONIOENCODING", "utf-8");
         cmd.env("PYTHONUTF8", "1");
 
-        cmd.output()
+        let initial_output = cmd.output();
+
+        #[cfg(windows)]
+        {
+            if !is_powershell_hint {
+                if let Ok(ref out) = initial_output {
+                    let err_str = String::from_utf8_lossy(&out.stderr);
+                    let out_str = String::from_utf8_lossy(&out.stdout);
+                    if (!out.status.success()) && (err_str.contains("not recognized") || out_str.contains("not recognized")) {
+                        let mut ps_cmd = Command::new("powershell.exe");
+                        ps_cmd.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &cmd_str]);
+                        ps_cmd.creation_flags(CREATE_NO_WINDOW);
+                        ps_cmd.current_dir(&cwd);
+                        ps_cmd.env("PYTHONIOENCODING", "utf-8");
+                        ps_cmd.env("PYTHONUTF8", "1");
+                        if let Ok(ps_out) = ps_cmd.output() {
+                            return Ok(ps_out);
+                        }
+                    }
+                }
+            }
+        }
+
+        initial_output
     })
     .await
     .unwrap_or_else(|e| Err(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())));

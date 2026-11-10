@@ -259,7 +259,7 @@ pub fn execute_native_render(
         .take()
         .ok_or_else(|| "Failed to open FFmpeg stdin pipe".to_string())?;
 
-    let mut stderr = child.stderr.take();
+    let stderr = child.stderr.take();
 
     // Allocate single reusable RGBA buffer in RAM
     let mut frame_buffer = vec![0u8; (width * height * 4) as usize];
