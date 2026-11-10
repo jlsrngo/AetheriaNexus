@@ -35,7 +35,7 @@ interface ScriptPanelProps {
   onOpenFileTab?: (path: string, name: string, content?: string) => void;
 }
 
-const CODE_EXT_REGEX = /\.(tsx|ts|css|jsx|js|mjs|json)$/i;
+const CODE_EXT_REGEX = /\.(tsx|ts|css|jsx|js|mjs|json|html)$/i;
 
 function isInternalAppFile(filePath: string): boolean {
   const norm = filePath.replace(/\\/g, "/").toLowerCase();
@@ -64,7 +64,11 @@ function toDisplayRelativePath(fullPath: string, activeFolder?: string): string 
       norm = norm.slice(base.length + 1);
     }
   }
-  // Strip leading workspace/ if present so paths look clean like "src/..."
+  if (norm.toLowerCase().includes("/workspace/")) {
+    const idx = norm.toLowerCase().lastIndexOf("/workspace/");
+    norm = norm.slice(idx + 1);
+  }
+  // Strip leading workspace/ if present so paths look clean like "script/..."
   norm = norm.replace(/^workspace\//i, "");
   return norm;
 }
@@ -178,56 +182,63 @@ export const ScriptPanel = memo(function ScriptPanel({
         }
       }
 
-      // 2. Always scan workspace/src, scenes, and components on disk so files are never lost
-      try {
-        const srcRes = await engineFetch(`/file?path=workspace/src`);
-        if (srcRes.ok) {
-          const srcFiles = await srcRes.json();
-          for (const item of Array.isArray(srcFiles) ? srcFiles : []) {
-            if (item.type === "file" && CODE_EXT_REGEX.test(item.name)) {
-              const normKey = item.path.replace(/\\/g, "/").toLowerCase();
-              if (!fileMap.has(normKey)) {
-                fileMap.set(normKey, {
-                  id: normKey,
-                  name: item.name,
-                  relativePath: toDisplayRelativePath(item.path, activeFolder),
-                  fullPath: item.path,
-                  status: "added",
-                  addedLines: 60,
-                  removedLines: 0,
-                  updatedAt: Date.now(),
-                });
-              }
-            } else if (
-              item.type === "directory" &&
-              (item.name === "scenes" || item.name === "_storyboard" || item.name === "components")
-            ) {
-              const subRes = await engineFetch(`/file?path=${encodeURIComponent(item.path)}`);
-              if (subRes.ok) {
-                const subFiles = await subRes.json();
-                for (const sub of Array.isArray(subFiles) ? subFiles : []) {
-                  if (sub.type === "file" && CODE_EXT_REGEX.test(sub.name)) {
-                    const subKey = sub.path.replace(/\\/g, "/").toLowerCase();
-                    if (!fileMap.has(subKey)) {
-                      fileMap.set(subKey, {
-                        id: subKey,
-                        name: sub.name,
-                        relativePath: toDisplayRelativePath(sub.path, activeFolder),
-                        fullPath: sub.path,
-                        status: "added",
-                        addedLines: 80,
-                        removedLines: 0,
-                        updatedAt: Date.now(),
-                      });
+      // 2. Always scan workspace/script, workspace root, and workspace/src on disk so files are never lost
+      const scanDirs = ["workspace/script", "workspace", "workspace/src", "script", "src"];
+      for (const scanDir of scanDirs) {
+        try {
+          const dirRes = await engineFetch(`/file?path=${encodeURIComponent(scanDir)}`);
+          if (dirRes.ok) {
+            const dirFiles = await dirRes.json();
+            for (const item of Array.isArray(dirFiles) ? dirFiles : []) {
+              if (item.type === "file" && CODE_EXT_REGEX.test(item.name)) {
+                if (isInternalAppFile(item.path)) continue;
+                const fullPath = item.absolute || item.path;
+                const normKey = fullPath.replace(/\\/g, "/").toLowerCase();
+                if (!fileMap.has(normKey)) {
+                  fileMap.set(normKey, {
+                    id: normKey,
+                    name: item.name,
+                    relativePath: toDisplayRelativePath(fullPath, activeFolder),
+                    fullPath: fullPath,
+                    status: "added",
+                    addedLines: 60,
+                    removedLines: 0,
+                    updatedAt: Date.now(),
+                  });
+                }
+              } else if (
+                item.type === "directory" &&
+                (item.name === "scenes" || item.name === "_storyboard" || item.name === "components" || item.name === "script")
+              ) {
+                const subRes = await engineFetch(`/file?path=${encodeURIComponent(item.path)}`);
+                if (subRes.ok) {
+                  const subFiles = await subRes.json();
+                  for (const sub of Array.isArray(subFiles) ? subFiles : []) {
+                    if (sub.type === "file" && CODE_EXT_REGEX.test(sub.name)) {
+                      if (isInternalAppFile(sub.path)) continue;
+                      const subFullPath = sub.absolute || sub.path;
+                      const subKey = subFullPath.replace(/\\/g, "/").toLowerCase();
+                      if (!fileMap.has(subKey)) {
+                        fileMap.set(subKey, {
+                          id: subKey,
+                          name: sub.name,
+                          relativePath: toDisplayRelativePath(subFullPath, activeFolder),
+                          fullPath: subFullPath,
+                          status: "added",
+                          addedLines: 80,
+                          removedLines: 0,
+                          updatedAt: Date.now(),
+                        });
+                      }
                     }
                   }
                 }
               }
             }
           }
+        } catch {
+          // Ignore individual directory scan errors cleanly
         }
-      } catch {
-        // Ignore file listing errors cleanly
       }
 
       setSessionFiles(Array.from(fileMap.values()));
@@ -264,6 +275,7 @@ export const ScriptPanel = memo(function ScriptPanel({
         !map.has(normKey) &&
         (normKey.includes("/workspace/") ||
           relPath.startsWith("src/") ||
+          relPath.startsWith("script/") ||
           (activeFolder && !activeFolder.toLowerCase().endsWith("aetherianexus")))
       ) {
         const estimatedLines = Math.max(12, Math.round((wf.size || 1200) / 38));

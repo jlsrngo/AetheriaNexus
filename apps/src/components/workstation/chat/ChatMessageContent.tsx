@@ -22,6 +22,10 @@ export function parseContentBlocks(rawContent: string): ContentBlock[] {
   const content = rawContent
     .replace(/\[\/?CANVAS\]/gi, "")
     .replace(/<\/?think\??>/gi, "")
+    // Remove Claude / Kiro / Anthropic XML tool invocations
+    .replace(/<invoke\s+name=["'][^"']+["']>[\s\S]*?<\/invoke>/gi, "")
+    .replace(/<function_calls>[\s\S]*?<\/function_calls>/gi, "")
+    .replace(/Calling tools\.\s*/gi, "")
     // Remove Hunyuan / open-source XML tool calls & arguments
     .replace(/(?:\[Assistant tool call\]:\s*)?(?:<tool_calls(?::[a-zA-Z0-9_-]+)?>)?(?:<tool_call(?::[a-zA-Z0-9_-]+)?>)?[a-zA-Z0-9_-]+<tool_sep(?::[a-zA-Z0-9_-]+)?>[\s\S]*?<\/tool_call(?::[a-zA-Z0-9_-]+)?>(?:\s*<\/tool_calls(?::[a-zA-Z0-9_-]+)?>)?/gi, "")
     .replace(/<arg_key:[a-zA-Z0-9_-]+>[\s\S]*?<\/arg_key:[a-zA-Z0-9_-]+>/gi, "")

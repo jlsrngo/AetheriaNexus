@@ -45,6 +45,7 @@ export interface StepItem {
   status: 'completed' | 'running' | 'failed' | 'error' | 'blocked';
   iconType: 'thinking' | 'tool' | 'text';
   toolName?: string;
+  error?: string;
 }
 
 /**
@@ -679,9 +680,14 @@ export function MessageThoughtBadge({
               {toolSteps.map((step, idx) => {
                 const isRunning = step.status === "running";
                 const isFailed = step.status === "failed" || step.status === "error" || step.status === "blocked";
+                const displayLabel = isFailed
+                  ? step.label.replace(/^Running\s+/i, "Ran ")
+                  : step.label;
+                const errTooltip = isFailed && step.error ? `Error: ${step.error}` : undefined;
                 return (
                   <div
                     key={step.id || `step-${idx}`}
+                    title={errTooltip}
                     className="flex items-center gap-2 text-[11px] py-0.5 px-1 rounded hover:bg-[var(--bg-hover)] transition-colors"
                   >
                     {isRunning ? (
@@ -692,10 +698,10 @@ export function MessageThoughtBadge({
                       <Check size={11} className="text-[var(--text-primary)] shrink-0" />
                     )}
                     {renderStepIcon(step)}
-                    <span className={cn("truncate max-w-[80%]", isFailed ? "text-rose-500/80 line-through" : isRunning ? "text-[var(--text-primary)] font-medium" : "text-[var(--text-muted)]")}>
-                      {step.label}
+                    <span className={cn("truncate max-w-[80%]", isFailed ? "text-rose-400" : isRunning ? "text-[var(--text-primary)] font-medium" : "text-[var(--text-muted)]")}>
+                      {displayLabel}
                     </span>
-                    <span className={cn("text-[10px] ml-auto font-mono shrink-0", isRunning ? "text-[#cf6613] animate-pulse" : isFailed ? "text-rose-500 font-medium" : "text-[var(--text-dim)]")}>
+                    <span className={cn("text-[10px] ml-auto font-mono shrink-0", isRunning ? "text-[#cf6613] animate-pulse" : isFailed ? "text-rose-400 font-medium" : "text-[var(--text-dim)]")}>
                       {isRunning ? "running..." : isFailed ? "failed" : "done"}
                     </span>
                   </div>

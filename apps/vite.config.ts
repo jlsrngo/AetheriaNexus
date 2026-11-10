@@ -65,7 +65,7 @@ export default defineConfig({
       ],
     },
     watch: {
-      ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**'],
+      ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/public/audio/**', '**/workspace/audio/**', '**/output/**'],
     },
     proxy: {
       '/session': {
@@ -78,6 +78,14 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/messaging/, '/messaging'),
       },
       '/api': {
+        target: 'http://127.0.0.1:4196',
+        changeOrigin: true,
+      },
+      '/file': {
+        target: 'http://127.0.0.1:4196',
+        changeOrigin: true,
+      },
+      '/find': {
         target: 'http://127.0.0.1:4196',
         changeOrigin: true,
       },
