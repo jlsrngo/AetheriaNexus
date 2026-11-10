@@ -19,6 +19,18 @@ use axum::{
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock};
+
+static SESSION_LOCKS: OnceLock<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>> = OnceLock::new();
+
+pub fn get_session_lock(session_id: &str) -> Arc<tokio::sync::Mutex<()>> {
+    let map = SESSION_LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut guard = map.lock().unwrap();
+    guard
+        .entry(session_id.to_string())
+        .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+        .clone()
+}
 
 /// Axum HTTP handler for `/api/session/:id/prompt`.
 /// Records the user prompt into store, derives session title on first turn,
@@ -110,7 +122,7 @@ pub async fn handle_prompt(
     }
 
     let mut updated_title: Option<String> = None;
-    let history = with_store(|store| {
+    let _history = with_store(|store| {
         if let Some(sess) = store.sessions.get_mut(&session_id) {
             let current_title = sess.get("title").and_then(|v| v.as_str()).unwrap_or("");
             if current_title.is_empty()
@@ -176,13 +188,19 @@ pub async fn handle_prompt(
     );
 
     let files_c = files_val.clone();
+    let lock = get_session_lock(&sid_c);
     tokio::spawn(async move {
+        let _turn_guard = lock.lock().await;
+        // Fetch up-to-date history from store in case another turn just settled before us
+        let current_history = with_store(|store| {
+            store.messages.get(&sid_c).cloned().unwrap_or_default()
+        });
         run_agent_turn(
             &sid_c,
             &ws_c,
             &pid_c,
             &mid_c,
-            &history,
+            &current_history,
             &ptxt_c,
             files_c.as_ref(),
         )

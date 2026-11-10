@@ -131,15 +131,20 @@ pub async fn execute_subagent(
 ) -> Value {
     let role = arguments
         .get("role")
+        .or_else(|| arguments.get("subagent_type"))
+        .or_else(|| arguments.get("agent"))
         .and_then(|v| v.as_str())
         .unwrap_or("general")
         .to_lowercase();
     let task = arguments
         .get("task")
+        .or_else(|| arguments.get("prompt"))
+        .or_else(|| arguments.get("description"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
     let context = arguments
         .get("context")
+        .or_else(|| arguments.get("details"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
@@ -268,11 +273,23 @@ pub async fn execute_subagent(
             }
         }
 
-        let tool_calls = choice
+        let mut tool_calls = choice
             .get("tool_calls")
             .and_then(|v| v.as_array())
             .cloned()
             .unwrap_or_default();
+
+        if tool_calls.is_empty() {
+            if let Some(txt) = choice.get("content").and_then(|v| v.as_str()) {
+                if txt.contains("<invoke ") {
+                    let mut txt_mut = txt.to_string();
+                    let xml_calls = super::runner::extract_xml_tool_calls(&mut txt_mut);
+                    if !xml_calls.is_empty() {
+                        tool_calls = xml_calls;
+                    }
+                }
+            }
+        }
 
         if tool_calls.is_empty() {
             // Subagent finished all tool work and replied with final summary
@@ -295,9 +312,9 @@ pub async fn execute_subagent(
                 session_id,
                 &gen_id("sub_msg"),
                 tc_id,
-                workspace_dir,
-                &fn_args,
                 fn_name,
+                &fn_args,
+                workspace_dir,
             )
             .await;
 
@@ -306,10 +323,12 @@ pub async fn execute_subagent(
                 other => other.to_string(),
             };
 
+            let (bounded_tool_res, _) = crate::tool::truncator::bound_tool_output(fn_name, &tool_res_str);
+
             messages.push(json!({
                 "role": "tool",
                 "tool_call_id": tc_id,
-                "content": tool_res_str
+                "content": bounded_tool_res
             }));
         }
     }
@@ -361,11 +380,17 @@ pub async fn execute_subagent(
         }),
     );
 
+    let envelope = format!(
+        "<subagent sessionID=\"{}\" role=\"{}\" state=\"completed\">\n{}\n</subagent>",
+        session_id, role_display, summary_text
+    );
+
     json!({
         "ok": true,
         "role": role,
         "role_display": role_display,
         "steps_executed": steps_executed,
-        "summary": summary_text
+        "summary": summary_text,
+        "content": envelope
     })
 }

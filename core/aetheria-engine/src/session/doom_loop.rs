@@ -54,7 +54,7 @@ impl DoomLoopDetector {
                 || lower_args.contains("readfilesync")
             {
                 self.shell_read_count += 1;
-                if self.shell_read_count >= 2 {
+                if self.shell_read_count >= 6 {
                     return Some(
                         "Tool execution blocked: Shell file inspection loop detected. Do NOT use shell commands (cat, type, more, node, Get-Content) to inspect files. Use the 'read' tool directly, or if files are already written, proceed immediately to calling 'render_video' to export the MP4.".to_string(),
                     );
