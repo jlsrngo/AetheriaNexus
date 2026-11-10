@@ -23,68 +23,47 @@ import {
   type VideoLayerSpec,
 } from "../../remotion/types";
 
-// Dynamically discover LLM-generated React compositions from the external workspace folder
-const workspaceModules = import.meta.glob<Record<string, unknown>>(
-  "../../../../workspace/**/*.tsx",
-  { eager: true }
+// Dynamically discover LLM-generated React compositions lazily (isolated sandbox)
+// Never use eager: true so user script compilation errors do not crash the desktop IDE host.
+const workspaceLoaders = import.meta.glob<Record<string, unknown>>(
+  "../../../../workspace/src/Root.tsx"
 );
-console.log("[StudioPreview] Loaded workspaceModules:", Object.keys(workspaceModules));
 
-function resolveWorkspaceComponent(compositionId: string): React.ComponentType<any> | null {
+function resolveWorkspaceComponentFromModule(
+  mod: Record<string, unknown> | null,
+  compositionId: string
+): React.ComponentType<any> | null {
+  if (!mod || typeof mod !== "object") return null;
   const normTarget = compositionId.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-  // Priority 1: Check Root.tsx exports directly
-  for (const [modPath, mod] of Object.entries(workspaceModules)) {
-    if (!mod || typeof mod !== "object") continue;
-    if (modPath.toLowerCase().endsWith("root.tsx")) {
-      // 1a. Direct key match (e.g. TuringVideo, NexusEditorialVideo)
-      if (typeof mod[compositionId] === "function") {
-        return mod[compositionId] as React.ComponentType<any>;
-      }
-      // 1b. Normalized match on Root exports
-      for (const [key, val] of Object.entries(mod)) {
-        if (typeof val === "function" && key !== "RemotionRoot") {
-          const normKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
-          if (
-            normKey === normTarget ||
-            normKey.includes(normTarget) ||
-            normTarget.includes(normKey) ||
-            normTarget === "default" ||
-            normTarget === "nexuseditorialvideo"
-          ) {
-            return val as React.ComponentType<any>;
-          }
-        }
-      }
-      // 1c. Default export if not RemotionRoot
-      if (typeof mod.default === "function" && mod.default.name !== "RemotionRoot") {
-        return mod.default as React.ComponentType<any>;
+  // Priority 1: Direct key match (e.g. ElectricityHistoryVideo, NexusEditorialVideo)
+  if (typeof mod[compositionId] === "function") {
+    return mod[compositionId] as React.ComponentType<any>;
+  }
+
+  // Priority 2: Normalized match on Root exports
+  for (const [key, val] of Object.entries(mod)) {
+    if (typeof val === "function" && key !== "RemotionRoot" && key !== "SceneWrapper") {
+      const normKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (
+        normKey === normTarget ||
+        normKey.includes(normTarget) ||
+        normTarget.includes(normKey) ||
+        normTarget === "default" ||
+        normTarget === "nexuseditorialvideo" ||
+        normTarget === "electricityhistoryvideo"
+      ) {
+        return val as React.ComponentType<any>;
       }
     }
   }
 
-  // Priority 2: Check all workspace modules for export matching compositionId
-  for (const [, mod] of Object.entries(workspaceModules)) {
-    if (!mod || typeof mod !== "object") continue;
-    for (const [key, val] of Object.entries(mod)) {
-      if (typeof val === "function" && key !== "RemotionRoot") {
-        const normKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
-        if (normKey === normTarget || normKey.includes(normTarget) || normTarget.includes(normKey)) {
-          return val as React.ComponentType<any>;
-        }
-      }
-    }
-  }
-
-  // Priority 3: If Root.tsx exists with any video component, use it as root fallback
-  for (const [modPath, mod] of Object.entries(workspaceModules)) {
-    if (modPath.toLowerCase().endsWith("root.tsx") && mod && typeof mod === "object") {
-      if (typeof mod.TuringVideo === "function") return mod.TuringVideo as React.ComponentType<any>;
-      if (typeof mod.NexusEditorialVideo === "function") return mod.NexusEditorialVideo as React.ComponentType<any>;
-      if (typeof mod.default === "function" && mod.default.name !== "RemotionRoot") {
-        return mod.default as React.ComponentType<any>;
-      }
-    }
+  // Priority 3: Fallbacks for workspace videos
+  if (typeof mod.ElectricityHistoryVideo === "function") return mod.ElectricityHistoryVideo as React.ComponentType<any>;
+  if (typeof mod.NexusEditorialVideo === "function") return mod.NexusEditorialVideo as React.ComponentType<any>;
+  if (typeof mod.TuringVideo === "function") return mod.TuringVideo as React.ComponentType<any>;
+  if (typeof mod.default === "function" && mod.default.name !== "RemotionRoot" && mod.default.name !== "SceneWrapper") {
+    return mod.default as React.ComponentType<any>;
   }
 
   return null;
@@ -135,6 +114,23 @@ export const StudioPreview: React.FC = () => {
   // Double-Click Popup Layer Edit Modal
   const [modalLayer, setModalLayer] = useState<VideoLayerSpec | null>(null);
 
+  // User Workspace Dynamic Component Loader (Isolated Sandbox)
+  const [workspaceComponent, setWorkspaceComponent] = useState<React.ComponentType<any> | null>(null);
+  const [workspaceLoadError, setWorkspaceLoadError] = useState<string | null>(null);
+  const [workspaceDuration, setWorkspaceDuration] = useState<number | null>(null);
+  const [workspaceRetry, setWorkspaceRetry] = useState(0);
+
+  // Auto-reload preview on Vite HMR updates
+  useEffect(() => {
+    if (import.meta.hot) {
+      const handleHot = () => setWorkspaceRetry((c) => c + 1);
+      import.meta.hot.on("vite:afterUpdate", handleHot);
+      return () => {
+        import.meta.hot?.off("vite:afterUpdate", handleHot);
+      };
+    }
+  }, []);
+
   const {
     activeComposition,
     durationInFrames,
@@ -147,6 +143,45 @@ export const StudioPreview: React.FC = () => {
   useEffect(() => {
     void actions.syncFromBackend();
   }, [actions]);
+
+  // Dynamically load LLM-generated Root.tsx in isolated sandbox without blocking app boot
+  useEffect(() => {
+    let isMounted = true;
+    async function loadWorkspaceRoot() {
+      setWorkspaceLoadError(null);
+      try {
+        const paths = Object.keys(workspaceLoaders);
+        if (paths.length === 0) {
+          if (isMounted) setWorkspaceComponent(null);
+          return;
+        }
+        const loader = workspaceLoaders[paths[0]];
+        if (!loader) return;
+        const mod = await loader();
+        if (!isMounted) return;
+        const comp = resolveWorkspaceComponentFromModule(mod, activeComposition.id);
+        setWorkspaceComponent(() => comp);
+        // Sync duration dynamically from workspace metadata if present
+        const dur =
+          (mod as any).VIDEO_CONFIG?.durationInFrames ??
+          (mod as any).TOTAL_FRAMES ??
+          (mod as any).durationInFrames;
+        if (typeof dur === "number" && dur > 0) {
+          setWorkspaceDuration(dur);
+        }
+      } catch (err: any) {
+        console.warn("[StudioPreview] User workspace script error caught safely:", err);
+        if (isMounted) {
+          setWorkspaceLoadError(err?.message || String(err));
+          setWorkspaceComponent(null);
+        }
+      }
+    }
+    loadWorkspaceRoot();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeComposition.id, workspaceRetry]);
 
   // Keep track of viewport container dimensions for 1:1 ruler tracking
   useEffect(() => {
@@ -1277,15 +1312,18 @@ export const StudioPreview: React.FC = () => {
                 key={`${activeComposition.id}-${activeComposition.width}x${activeComposition.height}-${activeComposition.fps}`}
                 ref={(ref) => {
                   playerRef.current = ref;
+                  if (typeof window !== "undefined") {
+                    (window as any).__remotionPlayer = ref;
+                  }
                   if (ref !== playerInstance) {
                     setPlayerInstance(ref);
                   }
                 }}
                 component={
-                  resolveWorkspaceComponent(activeComposition.id) ?? NexusVideoComposition
+                  workspaceComponent ?? NexusVideoComposition
                 }
                 inputProps={activeComposition.props}
-                durationInFrames={durationInFrames}
+                durationInFrames={workspaceDuration ?? durationInFrames}
                 fps={activeComposition.fps}
                 compositionWidth={activeComposition.width}
                 compositionHeight={activeComposition.height}
@@ -1298,6 +1336,29 @@ export const StudioPreview: React.FC = () => {
                 acknowledgeRemotionLicense
                 style={scaleStyle}
               />
+
+              {/* User Workspace Compilation Warning Badge (Sandbox-Isolated) */}
+              {workspaceLoadError && (
+                <div className="absolute inset-x-8 top-10 p-4 rounded-xl bg-black/85 border border-amber-500/30 backdrop-blur-md shadow-2xl flex flex-col items-center justify-center text-center z-30 pointer-events-auto">
+                  <div className="flex items-center gap-2 text-amber-400 font-medium text-xs mb-1">
+                    <ShieldAlert className="w-4 h-4 shrink-0" />
+                    <span>Peringatan Skrip Video (Sandbox Workspace)</span>
+                  </div>
+                  <p className="text-[11px] font-mono text-rose-300/90 max-w-lg overflow-x-auto whitespace-pre-wrap bg-black/60 p-2 rounded border border-white/5 my-1.5">
+                    {workspaceLoadError}
+                  </p>
+                  <p className="text-[10px] text-zinc-400 max-w-md">
+                    Aplikasi utama tetap normal. Anda dapat meminta AI di panel chat untuk memperbaiki skrip ini.
+                  </p>
+                  <button
+                    onClick={() => setWorkspaceRetry((c) => c + 1)}
+                    className="mt-2 px-3 py-1 text-[11px] font-medium bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-md border border-amber-500/30 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Muat Ulang Preview
+                  </button>
+                </div>
+              )}
 
               {/* TikTok / Reels Safe Zone Guide Overlay */}
               {canvas.showGuides && (
@@ -1454,7 +1515,7 @@ export const StudioPreview: React.FC = () => {
       {canvas.showTimeline && (
         <Timeline
           compositionId={activeComposition.id}
-          durationInFrames={durationInFrames}
+          durationInFrames={workspaceDuration ?? durationInFrames}
           fps={activeComposition.fps}
           currentFrame={currentFrame}
           isPlaying={isPlaying}

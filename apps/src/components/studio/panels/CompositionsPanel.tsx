@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useStudioStore } from "../../../hooks/useStudioStore";
+import { isStaleComposition, useStudioStore } from "../../../hooks/useStudioStore";
 import { cn } from "../../../lib/utils";
 import type { StudioComposition } from "../../../types/studio";
 
@@ -55,7 +55,9 @@ export const CompositionsPanel = memo(function CompositionsPanel({
               c.folder.toLowerCase().includes(q)
           )
         : compositions
-    ).filter((c) => !staleFolders.has((c.folder || "").toUpperCase()));
+    ).filter(
+      (c) => !staleFolders.has((c.folder || "").toUpperCase()) && !isStaleComposition(c)
+    );
 
     const map = new Map<string, StudioComposition[]>();
     for (const comp of filtered) {

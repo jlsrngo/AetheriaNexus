@@ -1,5 +1,4 @@
-// Remotion entrypoint
-import { registerRoot } from 'remotion';
-import { RemotionRoot } from './Root';
+import { registerRoot } from "remotion";
+import { Root } from "./Root";
 
-registerRoot(RemotionRoot);
+registerRoot(Root);

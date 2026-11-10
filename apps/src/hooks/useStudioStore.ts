@@ -10,7 +10,7 @@ import type {
   StudioSubtitleCue,
 } from "../types/studio";
 
-const STORAGE_KEY = "aetheria_nexus_studio_compositions_v4";
+const STORAGE_KEY = "aetheria_nexus_studio_compositions_v5";
 
 const STALE_FOLDERS = new Set([
   "TIKTOK AUTOMATION",
@@ -21,7 +21,6 @@ const STALE_FOLDERS = new Set([
 const STALE_DUMMY_IDS = new Set([
   "LinusTorvalds",
   "RustHistory",
-  "NexusEditorialVideo",
   "TikTokVideo",
   "nexus-vertical",
   "nexus-square",
@@ -29,9 +28,29 @@ const STALE_DUMMY_IDS = new Set([
   "hook-morning-habits",
   "hook-finance-failure",
   "hook-dopamine-reset",
+  "default",
+  "TuringVideo",
+  "alan-turing-documentary",
+  "turing-video",
 ]);
 
-const DEFAULT_COMPOSITIONS: StudioComposition[] = [];
+export const DEFAULT_WORKSPACE_COMPOSITION: StudioComposition = {
+  id: "NexusEditorialVideo",
+  name: "Sejarah Lahirnya Listrik",
+  folder: "AI WORKSPACE",
+  ratio: "9:16",
+  duration: 120.53,
+  fps: 30,
+  width: 1080,
+  height: 1920,
+  props: {
+    ...defaultNexusVideoProps,
+    hookText: "Sejarah Lahirnya Listrik",
+    bodyText: "",
+  },
+};
+
+const DEFAULT_COMPOSITIONS: StudioComposition[] = [DEFAULT_WORKSPACE_COMPOSITION];
 
 const DEFAULT_ASSETS: StudioStaticAsset[] = [
   {
@@ -78,24 +97,32 @@ interface StudioStoreState {
   redoStack: NexusVideoProps[];
 }
 
-function isStaleComposition(c: { id: string; folder?: string }) {
+export function isStaleComposition(c: { id: string; folder?: string; name?: string }) {
   if (STALE_DUMMY_IDS.has(c.id)) return true;
   if (c.folder && STALE_FOLDERS.has(c.folder.toUpperCase())) return true;
+  const lowerId = (c.id || "").toLowerCase();
+  const lowerName = (c.name || "").toLowerCase();
+  if (lowerId === "default") return true;
+  if (lowerId.includes("turing") || lowerName.includes("turing")) return true;
   return false;
 }
 
 function loadInitialCompositions(): StudioComposition[] {
   if (typeof localStorage === "undefined") return DEFAULT_COMPOSITIONS;
   try {
+    // Purge old storage keys
+    localStorage.removeItem("aetheria_nexus_studio_compositions_v4");
+    localStorage.removeItem("aetheria_nexus_studio_compositions_v3");
+    localStorage.removeItem("aetheria_nexus_studio_compositions_v2");
+    localStorage.removeItem("aetheria_nexus_studio_compositions");
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as StudioComposition[];
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Strip any obsolete mockup templates or folders
+        // Strip any obsolete mockup templates, turing, or defaults
         const cleaned = parsed.filter((c) => !isStaleComposition(c));
-        const existingIds = new Set(cleaned.map((comp) => comp.id));
-        const missingDefaults = DEFAULT_COMPOSITIONS.filter((comp) => !existingIds.has(comp.id));
-        const combined = [...missingDefaults, ...cleaned];
+        const nonAi = cleaned.filter((c) => c.folder !== "AI WORKSPACE");
+        const combined = [DEFAULT_WORKSPACE_COMPOSITION, ...nonAi];
         localStorage.setItem(STORAGE_KEY, JSON.stringify(combined));
         return combined;
       }
@@ -390,39 +417,26 @@ export const studioActions = {
       if (res.ok) {
         const json = (await res.json()) as { success?: boolean; data?: StudioComposition[] };
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          const merged = state.compositions.filter((m) => !isStaleComposition(m));
-          for (const item of json.data) {
-            if (isStaleComposition(item)) continue;
-            const existingIdx = merged.findIndex((m) => m.id === item.id);
-            const isAiWorkspace =
-              item.folder === "AI WORKSPACE" ||
-              item.id === "TuringVideo" ||
-              item.id === "NexusEditorialVideo";
-            const safeDefaultProps = isAiWorkspace
-              ? { ...defaultNexusVideoProps, bodyText: "", hookText: item.name || "AI Composition" }
-              : defaultNexusVideoProps;
+          // Keep only non-stale, non-AI compositions from current state
+          const nonAi = state.compositions.filter(
+            (m) => !isStaleComposition(m) && m.folder !== "AI WORKSPACE"
+          );
 
-            if (existingIdx >= 0) {
-              merged[existingIdx] = {
-                ...merged[existingIdx],
-                ...item,
-                ratio: (item.ratio as "9:16" | "1:1" | "16:9") || merged[existingIdx].ratio || "9:16",
-                props: { ...safeDefaultProps, ...(merged[existingIdx].props || {}), ...(item.props || {}) },
-              };
-            } else {
-              merged.push({
-                ...item,
-                ratio: (item.ratio as "9:16" | "1:1" | "16:9") || "9:16",
-                props: { ...safeDefaultProps, ...(item.props || {}) },
-              });
-            }
-          }
-          const activeStillExists = merged.some((c) => c.id === state.activeCompositionId);
-          const nextActiveId = activeStillExists ? state.activeCompositionId : (merged[0]?.id || "");
+          // Guarantee exactly 1 AI WORKSPACE composition representing the active workspace video
+          const activeWorkspace: StudioComposition = {
+            ...DEFAULT_WORKSPACE_COMPOSITION,
+            props: {
+              ...DEFAULT_WORKSPACE_COMPOSITION.props,
+              ...(json.data[0]?.props || {}),
+              hookText: "Sejarah Lahirnya Listrik",
+            },
+          };
+
+          const merged = [activeWorkspace, ...nonAi];
           state = {
             ...state,
             compositions: merged,
-            activeCompositionId: nextActiveId,
+            activeCompositionId: activeWorkspace.id,
           };
           emit();
         }

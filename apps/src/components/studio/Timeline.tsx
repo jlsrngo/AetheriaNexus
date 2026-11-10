@@ -26,6 +26,56 @@ const workspaceTypes = import.meta.glob<Record<string, unknown>>(
 function getWorkspaceSceneLayers(totalFrames: number): VideoLayerSpec[] | null {
   for (const mod of Object.values(workspaceTypes)) {
     if (!mod || typeof mod !== "object") continue;
+
+    // Check for SCENE_DURATIONS / SCENE_OFFSETS (Active workspace documentary video)
+    const sceneDurations = (mod as any).SCENE_DURATIONS;
+    const sceneOffsets = (mod as any).SCENE_OFFSETS;
+    if (sceneDurations && typeof sceneDurations === "object") {
+      const keys = Object.keys(sceneDurations);
+      const SCENE_TITLES: Record<string, string> = {
+        scene1: "Scene 1 · Hook (Kota Gelap & Sakelar)",
+        scene2: "Scene 2 · Rahasia Alam (Batu Ambar & Kertas)",
+        scene3: "Scene 3 · Badai Petir Benjamin Franklin 1752",
+        scene4: "Scene 4 · Baterai Alessandro Volta 1800",
+        scene5: "Scene 5 · Induksi Generator Michael Faraday 1831",
+        scene6: "Scene 6 · Twist / Kota Modern Penuh Cahaya",
+      };
+      const SCENE_COLORS = ["amber", "sky", "violet", "emerald", "rose", "cyan"];
+      const layers: VideoLayerSpec[] = [];
+
+      // Add audio voiceover master track at A1
+      layers.push({
+        id: "audio-master-voiceover",
+        trackCode: "A1",
+        label: "VO: Voiceover Master Audio (6 Scenes)",
+        kind: "audio",
+        content: "Voiceover Narasi Sejarah Listrik (Full Synchronized)",
+        color: "emerald",
+        from: 0,
+        durationInFrames: totalFrames,
+        visible: true,
+      });
+
+      keys.forEach((k, idx) => {
+        const from = sceneOffsets && typeof sceneOffsets[k] === "number" ? sceneOffsets[k] : 0;
+        const dur = typeof sceneDurations[k] === "number" ? sceneDurations[k] : 150;
+        layers.push({
+          id: `scene-block-${k}`,
+          trackCode: `V${keys.length - idx}`,
+          label: SCENE_TITLES[k] || `Scene ${idx + 1}`,
+          kind: "video",
+          content: SCENE_TITLES[k] || `Scene ${idx + 1}`,
+          color: SCENE_COLORS[idx % SCENE_COLORS.length],
+          from,
+          durationInFrames: dur,
+          visible: true,
+          isCustom: true,
+        });
+      });
+
+      return layers;
+    }
+
     const turingScenes = (mod as any).TURING_SCENES;
     if (turingScenes && typeof turingScenes === "object") {
       const keys = Object.keys(turingScenes);
