@@ -87,7 +87,7 @@ export const ArchivalBackground: React.FC<ArchivalBackgroundProps> = ({
     >
       {/* Base torn paper texture */}
       <img
-        src={staticFile("background_torn_paper.jpg")}
+        src={staticFile("mg-styles/06-collage/assets/gen/page_kraft.jpg")}
         alt=""
         style={{
           position: "absolute",

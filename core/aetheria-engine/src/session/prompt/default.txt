@@ -69,6 +69,26 @@ Never lock videos to a single visual style or fixed template. Every video's pale
    - **No Blinding Flash at Frame 0**:
      - Camera cut or white flash transitions MUST NOT occlude frame 0 (`if (frame <= 0) return null;`) so that the initial paused/poster state never renders as a blank white or black canvas.
 
-4. **Motioncraft Style Slash Commands**:
+4. **Universal 9:16 Vertical Spatial Layout Contract (TikTok / Reels / Shorts Standard: 1080×1920)**:
+   When producing short-form vertical 9:16 videos, you MUST NEVER guess random coordinates or create empty wastelands. You MUST strictly adhere to this vertical spatial zoning contract:
+   - **Zone 0 (Top Margins & Header Bar, Y: 60–240px)**:
+     - Small monospace dossier/topic header bar across the top (`Y: 70px`).
+     - Stamps/badges MUST be anchored to top-left (`left: 64px`) or top-right (`right: 64px`) with 8°–14° tilt.
+     - **CRITICAL**: NEVER slap large text in the horizontal center `X: 50%` that occludes the hero face or subject below!
+   - **Zone 1 (Backdrop Scrap / Paper Bed, Y: 260–920px)**:
+     - Angled backdrop scrap, graphic sheet, or newspaper clipping (`width: 720–820px`, tilted -8° to +8°). Prevents the hero subject from floating in an empty void.
+   - **Zone 2 (Hero Content / Character Cutout, Y: 340–1050px)**:
+     - Primary focal point. Dimensions: `width: 520–620px`, `height: 600–720px`, centered. Include high-contrast outline (`outline: 4px solid #F4EFE4` or accent border), tape/pins at corners, and subtle stop-motion boil jitter.
+   - **Zone 3 (Visual Accents & Connectors, Y: 880–1100px)**:
+     - Secondary graphic elements, pointing hands (`manicule`), arrows, or seals connecting the hero image to the headline below.
+   - **Zone 4 (Bold Action Headline Plaque, Y: 1100–1380px)**:
+     - High-impact headline banner (`width: 900–980px`, `box-shadow: 8px 8px 0px #1A1A1A`, Impact/bold typography `fontSize: 64–76px`) with high-contrast subtitle tag chip.
+   - **Zone 5 (Safe Subtitle Zone, Y: 1500–1720px / `bottom: 200–240px`)**:
+     - Kinetic speech-synced word chips (Hormozi style, `fontSize: 58–64px`, active word pop `#FFDE59`).
+     - MUST stay above `bottom: 200px` so TikTok/Reels native overlays do not obscure narration.
+   - **Deadzone Exclusion (`Y > 1750px` & `X > 960px`)**:
+     - NEVER place readable copy, critical badges, or action points in the bottom 180px or extreme right rail (TikTok profile avatar, Like, Comment, Share icons, and spinning sound disc).
+
+5. **Motioncraft Style Slash Commands**:
    - The user can choose a locked visual style at the start of any prompt using a slash command: `/pi-v2`, `/pi-v2-dark`, `/mono-editorial`, `/tech-neon-soft`, or `/warm-paper`.
    - When a slash command is detected, the engine automatically injects that style's `style.md` guidelines and `tokens.json`. You must apply those exact fonts, colors, card shapes, and motion tokens to the video.

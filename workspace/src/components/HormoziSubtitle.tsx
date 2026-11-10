@@ -1,131 +1,143 @@
-import React, { useMemo } from "react";
-import { spring, useCurrentFrame } from "remotion";
-import { WordTiming } from "./KineticSubtitle";
+/**
+ * HormoziSubtitle.tsx
+ * Speech-synced word-by-word subtitle renderer for /mg-cutout-collage.
+ *
+ * Shows 3–4 words at a time (sliding window). Active word pops to 1.18× scale
+ * in lemon yellow #FFDE59 then springs back to 1.0×.
+ *
+ * Usage:
+ *   <HormoziSubtitle words={words} fps={30} />
+ *   where words = Array<{ word: string; start: number; end: number }> (seconds)
+ */
+import React from "react";
+import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+
+export interface WordTiming {
+  word: string;
+  start: number; // seconds (from scene start)
+  end: number;   // seconds
+}
 
 interface HormoziSubtitleProps {
   words: WordTiming[];
-  top?: number;
-  highlightColor?: string;
-  maxWordsPerChunk?: number;
+  /** Max words visible per line window (default 4) */
+  windowSize?: number;
+  /** Font size in px (default 68) */
+  fontSize?: number;
+  /** Text color (default white) */
+  color?: string;
+  /** Active word highlight color (default lemon yellow) */
+  activeColor?: string;
+  /** Bottom offset from scene bottom (default 240) */
+  bottomOffset?: number;
 }
 
 export const HormoziSubtitle: React.FC<HormoziSubtitleProps> = ({
   words,
-  top = 1380,
-  highlightColor = "#FFDE59", // Hormozi Signature High-Contrast Lemon Yellow
-  maxWordsPerChunk = 4,
+  windowSize = 4,
+  fontSize = 68,
+  color = "#FFFFFF",
+  activeColor = "#FFDE59",
+  bottomOffset = 240,
 }) => {
   const frame = useCurrentFrame();
-  const currentTimeSec = frame / 30;
+  const { fps } = useVideoConfig();
+  const timeSec = frame / fps;
 
-  // Find the currently active word
-  const activeIndex = useMemo(() => {
-    return words.findIndex(
-      (w) => currentTimeSec >= w.start && currentTimeSec < w.end
-    );
-  }, [words, currentTimeSec]);
+  if (!words || words.length === 0) return null;
 
-  // Determine current window / chunk of 3-4 words
-  const { currentChunk, currentActiveInChunk, activeWordStartFrame } = useMemo(() => {
-    if (activeIndex === -1) {
-      // Find nearest upcoming word
-      const nextIdx = words.findIndex((w) => w.start > currentTimeSec);
-      if (nextIdx !== -1 && words[nextIdx].start - currentTimeSec < 0.25) {
-        const chunkStart = Math.floor(nextIdx / maxWordsPerChunk) * maxWordsPerChunk;
-        return {
-          currentChunk: words.slice(chunkStart, chunkStart + maxWordsPerChunk),
-          currentActiveInChunk: nextIdx - chunkStart,
-          activeWordStartFrame: Math.round(words[nextIdx].start * 30),
-        };
-      }
-      return { currentChunk: [], currentActiveInChunk: -1, activeWordStartFrame: 0 };
-    }
+  // Find currently spoken word index
+  const activeIdx = words.findIndex(
+    (w) => timeSec >= w.start && timeSec < w.end
+  );
 
-    const chunkStart = Math.floor(activeIndex / maxWordsPerChunk) * maxWordsPerChunk;
-    const chunk = words.slice(chunkStart, chunkStart + maxWordsPerChunk);
-    const inChunkIdx = activeIndex - chunkStart;
-    const activeStartFrame = Math.round(words[activeIndex].start * 30);
-
-    return {
-      currentChunk: chunk,
-      currentActiveInChunk: inChunkIdx,
-      activeWordStartFrame: activeStartFrame,
-    };
-  }, [words, activeIndex, currentTimeSec, maxWordsPerChunk]);
-
-  if (currentChunk.length === 0) {
-    return null;
+  // Determine window: center window around active word
+  let windowStart = 0;
+  if (activeIdx >= 0) {
+    windowStart = Math.max(0, activeIdx - Math.floor(windowSize / 2));
+    windowStart = Math.min(windowStart, Math.max(0, words.length - windowSize));
+  } else if (timeSec >= (words[words.length - 1]?.end ?? 0)) {
+    // After last word — show tail
+    windowStart = Math.max(0, words.length - windowSize);
   }
 
-  // Word pop scale animation when active word changes
-  const framesSinceWordStart = Math.max(0, frame - activeWordStartFrame);
-  const popSpring = spring({
-    frame: framesSinceWordStart,
-    fps: 30,
-    config: { damping: 12, stiffness: 240, mass: 0.6 },
-  });
-  const wordScale = 1.0 + (1 - popSpring) * 0.18; // 1.18 -> 1.0 pop
+  const visibleWords = words.slice(windowStart, windowStart + windowSize);
 
   return (
     <div
       style={{
         position: "absolute",
-        top,
+        bottom: bottomOffset,
         left: 0,
         right: 0,
         display: "flex",
+        flexWrap: "wrap",
         justifyContent: "center",
         alignItems: "center",
-        zIndex: 50,
-        pointerEvents: "none",
-        padding: "0 40px",
+        gap: "0.18em",
+        padding: "0 60px",
+        zIndex: 100,
       }}
     >
-      <div
-        style={{
-          display: "inline-flex",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          alignItems: "center",
-          gap: "14px 18px",
-          background: "rgba(10, 8, 8, 0.88)",
-          padding: "16px 32px",
-          borderRadius: 14,
-          border: "2px solid rgba(255, 222, 89, 0.35)",
-          boxShadow:
-            "0 16px 40px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.12)",
-        }}
-      >
-        {currentChunk.map((w, idx) => {
-          const isActive = idx === currentActiveInChunk;
+      {visibleWords.map((w, i) => {
+        const globalIdx = windowStart + i;
+        const isActive = globalIdx === activeIdx;
 
-          return (
-            <span
-              key={`${w.word}-${w.start}`}
-              style={{
-                fontFamily: "'Inter', 'Impact', sans-serif",
-                fontWeight: 900,
-                fontSize: 44,
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-                margin: "0 6px",
-                color: isActive ? highlightColor : "#FFFFFF",
-                transform: isActive ? `scale(${wordScale})` : "scale(1.0)",
-                transformOrigin: "center center",
-                display: "inline-block",
-                transition: "color 0.08s ease",
-                textShadow: isActive
-                  ? `0 0 24px rgba(255, 222, 89, 0.75), 0 2px 4px #000`
-                  : "0 2px 6px rgba(0,0,0,0.9)",
-                WebkitTextStroke: isActive ? "1px #000" : "1.5px #000",
-              }}
-            >
-              {w.word}
-            </span>
-          );
-        })}
-      </div>
+        // Spring pop: scale 1.18 → 1.0 when word becomes active
+        const popFrame = isActive
+          ? frame - Math.round(w.start * fps)
+          : 0;
+        const popScale = isActive
+          ? interpolate(
+              spring({ frame: Math.max(0, popFrame), fps, config: { damping: 11, mass: 0.5, stiffness: 240 } }),
+              [0, 1],
+              [1.18, 1.0],
+              { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+            )
+          : 1.0;
+
+        return (
+          <span
+            key={`${globalIdx}-${w.word}`}
+            style={{
+              display: "inline-block",
+              fontSize,
+              fontFamily: "'Impact', 'Arial Black', 'Franklin Gothic Heavy', sans-serif",
+              fontWeight: 900,
+              letterSpacing: "-0.02em",
+              lineHeight: 1.1,
+              color: isActive ? activeColor : color,
+              textShadow: "0 3px 10px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.8)",
+              transform: `scale(${popScale})`,
+              transformOrigin: "center bottom",
+              textTransform: "uppercase",
+              // Faint paper-cutout outline on each word
+              WebkitTextStroke: isActive ? "1.5px rgba(0,0,0,0.3)" : "1px rgba(0,0,0,0.2)",
+            }}
+          >
+            {w.word}
+          </span>
+        );
+      })}
     </div>
   );
 };
 
+// ─── Static word builder ─────────────────────────────────────────────────────
+/**
+ * Builds uniform WordTiming[] from a plain string when no .words.json is available.
+ * Distributes evenly across the given scene duration in seconds.
+ */
+export function buildWordsFromScript(
+  script: string,
+  durationSec: number,
+  startOffsetSec = 0
+): WordTiming[] {
+  const rawWords = script.trim().split(/\s+/);
+  const wordDuration = durationSec / rawWords.length;
+  return rawWords.map((word, i) => ({
+    word,
+    start: startOffsetSec + i * wordDuration,
+    end: startOffsetSec + (i + 1) * wordDuration,
+  }));
+}

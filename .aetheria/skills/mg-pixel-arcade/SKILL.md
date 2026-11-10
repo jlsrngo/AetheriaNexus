@@ -36,9 +36,22 @@ motion, Pentagram motion identities, top Behance/Motionographer features, top de
 # Style
 Pixel Art / 8-Bit & 16-Bit Retro Arcade
 
-# Output (fixed)
-- 1920×1080, 30 fps, exactly 10.000 s (300 frames), H.264 MP4 with stereo AAC audio (48 kHz), mastered to −14 LUFS
-  integrated, true peak ≤ −1 dBTP. Final file: video.mp4.
+# Output Formats
+- **Standard Landscape**: 1920×1080, 30 fps.
+- **Short-Form Mobile (TikTok / Reels / Shorts)**: 1080×1920, 30 fps.
+
+# Vertical 9:16 Spatial Layout Contract (1080×1920 Mobile Standard)
+When generating vertical 9:16 content, LLM MUST strictly adhere to this vertical spatial zoning to avoid empty voids, clashing elements, or UI clipping:
+
+| Zone ID | Vertical Span (Y) | Component Type | Constraints & Styling |
+| :--- | :--- | :--- | :--- |
+| **Zone 0** | `Y: 60 – 240px` | Top Header Bar & Stamp/Badge | Monospace topic bar across top (`Y: 70`). Stamps/tags MUST be anchored to top-left (`left: 64`) or top-right (`right: 64`) with 8–14° tilt. **NEVER slap large text in center X:50% that occludes the hero below!** |
+| **Zone 1** | `Y: 260 – 920px` | Backdrop Graphic Bed / Sheet | Angled style-specific backdrop, grid card, or paper scrap (`width: 720–820px`, tilted -8° to +8°). Serves as visual backing so the hero never floats in an empty void. |
+| **Zone 2** | `Y: 340 – 1050px` | Hero Subject / Core Visual Anchor | Primary focal point. `width: 520–620px`, `height: 600–720px`, centered. Wajib style-specific rim/border/glow and subtle micro-motion/jitter. |
+| **Zone 3** | `Y: 880 – 1100px` | Style Accents & Connectors | Style-specific accent props (pointing hands, stickers, sparks, geometric chips) bridging transition between hero and headline. |
+| **Zone 4** | `Y: 1100 – 1380px` | Bold Style Action Headline | High-contrast headline card/plaque with `box-shadow: 8px 8px 0 #1A1A1A`, uppercase bold typography (`fontSize: 64–76px`), and sub-badge (`fontSize: 20–24px`). |
+| **Zone 5** | `Y: 1500 – 1720px` | Kinetic Subtitles (Hormozi) | Clean word chips anchored at `bottom: 200–240px`. Maximum font size 58–64px with lemon-yellow `#FFDE59` active pop. |
+| **Deadzone**| `Y > 1750px` & `X > 960px` | TikTok UI Exclusion Zone | NEVER place critical text or heroes in the bottom 180px or extreme right rail (avatar, like, comment, share, sound disc). |
 
 # Suggested technical route
 HTML Canvas at 320×180 internal resolution, integer-scaled ×6 with nearest-neighbour; sprites authored as pixel arrays in code; limited palette

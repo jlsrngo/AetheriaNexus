@@ -149,3 +149,5 @@ Kode React harus dirancang **modular, bersih, dan mudah dirawat (*maintainable*)
    * Komponen UI murni menerima props dan callback, meminimalkan efek samping internal.
 
 
+
+
