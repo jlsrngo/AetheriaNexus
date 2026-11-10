@@ -1,29 +1,29 @@
 ---
 name: mg-kinetic-calligraphy
-description: "Kinetic Calligraphy Typography motion design archetype from mg-styles-15. Award-shortlist commercial motion graphics standard for Remotion."
+description: "Kinetic Calligraphy Typography motion design archetype from aetheria-motion. Award-shortlist commercial motion graphics standard for Aetheria Motion Engine."
 tags:
   - motion-graphics
-  - mg-styles-15
-  - remotion
+  - aetheria-motion
+  - aetheria-html
   - visual-archetype
 command: /mg-kinetic-calligraphy
 ---
 
 # Kinetic Calligraphy / Expressive Dynamic Typography (Motion Graphics Standard)
-*Ported from award-winning mg-styles-15 motion system.*
+*Ported from award-winning aetheria-motion motion system.*
 
 # Kinetic Calligraphy & Dynamic Typography Motion Design
 
 **Reference Benchmark**: Meow Diary EP.07: Daily Joy · 1080×1920 · 30 fps · 10 s · AI Jury Score 7.64 / 10
 
-**Reference Source**: [DemoComposition.tsx](../../../references/mg-styles-15/demos/18-hanazi/DemoComposition.tsx) · [cues.json](../../../references/mg-styles-15/demos/18-hanazi/cues.json) · [index.html](../../../references/mg-styles-15/demos/18-hanazi/index.html)
+**Reference Source**: [cues.json](../../../references/aetheria-motion/demos/18-hanazi/cues.json) · [index.html](../../../references/aetheria-motion/demos/18-hanazi/index.html)
 
 ## How to Use
 
 1. Open Aetheria Video Studio and invoke this skill using the command or natural language.
 2. The skill injects the creative seed, timing choreography, palette tokens, and motion curves into the LLM context.
 3. **Customization**: Adapt the narrative, brand names, copy, and palette in `Creative seed` while preserving `Signature features` to retain the iconic visual identity of this archetype.
-4. **Verification**: Review the resulting Remotion composition in the interactive Studio player against the motion design craft checklist below to guarantee award-winning quality.
+4. **Verification**: Review the resulting Aetheria HTML film (workspace/index.html) in the interactive Studio player against the motion design craft checklist below to guarantee award-winning quality.
 
 ## System Prompt Template
 
@@ -53,16 +53,24 @@ When generating vertical 9:16 content, LLM MUST strictly adhere to this vertical
 | **Zone 5** | `Y: 1500 – 1720px` | Kinetic Subtitles (Hormozi) | Clean word chips anchored at `bottom: 200–240px`. Maximum font size 58–64px with lemon-yellow `#FFDE59` active pop. |
 | **Deadzone**| `Y > 1750px` & `X > 960px` | TikTok UI Exclusion Zone | NEVER place critical text or heroes in the bottom 180px or extreme right rail (avatar, like, comment, share, sound disc). |
 
+# Aetheria Modular HTML Motion Engine Contract (Mandatory)
+Never cram a multi-scene video into a single 1,000-line HTML file. Split scenes into modular scripts (no React, no TypeScript):
+1. Write each scene in `workspace/script/scene1.js` .. `workspace/script/sceneN.js` (~120–180 lines each) using `AM.registerScene("scene1_id", function(ctx, localTime, dur, scene, AM) { ... })`.
+2. Include `<script src="/script/aetheria-motion.js"></script>` and `<script src="/script/scene1.js"></script>` .. `<script src="/script/sceneN.js"></script>` in `workspace/index.html` `<head>`.
+3. Define `SCENES` and `window.__filmMeta = { title, width: 1080, height: 1920, fps: 30, duration, durationInFrames, scenes: SCENES }`.
+4. Define `window.renderAt = function(t) { ... }` where `t` is time in seconds, dispatching `AM.getSceneRenderer(scene.id, resolved.index)` plus `AM.drawTopHeader`, `AM.drawHeadlinePlaque`, and `AM.drawSubtitles`.
+5. Call `window.renderAt(0); window.__ready = true;` once initialized.
+
 # Suggested technical route
 HTML DOM/SVG: multi-layer text-stroke expressive kinetic caption components + spring pops + SVG burst/sweat/sparkle decorations over a pet-vlog footage layer (CC0 photos with Ken Burns + handheld shake + punch-ins)
 (You may choose a better route if it clearly raises quality; say why.)
 
 # Creative seed
-「playful pet variety vlog vlog」variety showexpressive kinetic caption in its native habitat — reactive captions over a pet vlog.
+"playful pet variety vlog vlog"variety showexpressive kinetic caption in its native habitat — reactive captions over a pet vlog.
 - Base layer that feels like footage: CC0/PD cat or dog photos from /assets/images with slow Ken Burns, subtle handheld shake, snap punch-in zooms on 'moments' (you may also build a stylised scene if photos look weak).
-- expressive kinetic caption moments synced to beats: title "DAILY JOY" (fill gradient + thick white stroke + coloured outer stroke + drop shadow, rounded heavy font), "？？？" bouncing question marks, "SHOCK!!!" inside a radial comic explosion burst with speed lines + speed lines flash, "（whisper）" small aside, "AMAZING!" with sparkles, sweat drops, a "CAT CERTIFIED" stamp.
+- expressive kinetic caption moments synced to beats: title "DAILY JOY" (fill gradient + thick white stroke + coloured outer stroke + drop shadow, rounded heavy font), "???" bouncing question marks, "SHOCK!!!" inside a radial comic explosion burst with speed lines + speed lines flash, "(whisper)" small aside, "AMAZING!" with sparkles, sweat drops, a "CAT CERTIFIED" stamp.
 - Motion: pop 0 → 1.15 → 1.0 in ~8 frames, per-character bounce with 2-frame stagger, slight rotation, gentle wiggle while holding; appear 2–3 frames after the audio/visual moment. High-saturation pink/yellow/cyan with white strokes.
-Sound: bouncy variety-show bed (pizzicato/bass/claps) + boing, pop, ding, slide whistle, record scratch on '？？？'.
+Sound: bouncy variety-show bed (pizzicato/bass/claps) + boing, pop, ding, slide whistle, record scratch on '???'.
 
 You are the director: you may change the concept, copy, story beats and brand names if you find a stronger idea, but the result must remain the CANONICAL, instantly-recognisable form of this style and must hit its signature features below.
 
@@ -83,8 +91,7 @@ High-energy expressive typography blending oriental calligraphy with modern stre
    micro-motion. Map every signature feature above to a moment. Keep one cue sheet (beats and hit times) that both the
    picture and the sound read from.
 2. Key frames before motion. Build the look, render stills at 6–10 key times and actually look at them. Each still should be
-   poster-worthy: composition, hierarchy, negative space, type set properly (kerning, line-height, weight contrast, CJK
-   punctuation, ~5 % safe margins). Iterate until nothing looks default, generic, cramped or "AI-template".
+   poster-worthy: composition, hierarchy, negative space, type set properly (kerning, line-height, weight contrast, ~5 % safe margins). Iterate until nothing looks default, generic, cramped or "AI-template".
 3. Motion. Build the choreography and preview at low resolution. Step through the fastest moves frame by frame: spacing,
    easing, arcs, overlap, anticipation and follow-through, motion blur. No unintended dead spans; the energy follows the music.
 4. Sound. Write genre-correct music and sound design locked to the cue sheet. Check that visual hits land on audio onsets.

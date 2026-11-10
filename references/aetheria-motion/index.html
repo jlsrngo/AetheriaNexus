@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>15 Motion Design Styles · Films, Prompts and Source</title>
+<meta name="description" content="15  10 ,  AI . , , .  / 15 ten-second motion-design films, each rendered from code by AI from one prompt, with the video, style notes, full prompt and source.">
+<!-- GitHub :  <user>.github.io , ,  https://github.com/<user>/<repo> -->
+<meta name="repo" content="">
+<meta name="repo-branch" content="main">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="site/style.css?v=08f26186d7">
+<script>
+  // language before first paint: ?lang= → the visitor's own choice (saved when they press the toggle) → English
+  (() => {
+    const q = new URLSearchParams(location.search).get('lang');
+    let l = q === 'en' || q === 'zh' ? q : null;
+    try { l = l || localStorage.getItem('mg15-lang'); } catch (e) { /* private mode */ }
+    l = l === 'zh' ? 'zh' : 'en';
+    document.documentElement.dataset.lang = l;
+    document.documentElement.lang = l === 'zh' ? 'zh-CN' : 'en';
+  })();
+</script>
+</head>
+<body>
+<button class="lang" id="lang" type="button" aria-label=" / Switch language"><span class="zh">EN</span><span class="en"></span></button>
+<header class="hero" id="top">
+  <div class="hero-in">
+    <div class="kicker">CLAUDE OPUS 5.5 · MOTION DESIGN</div>
+    <h1><span class="zh">15  MG </span><span class="en">15 Motion Design Styles</span></h1>
+    <p class="sub"><span class="zh"> 15 </span><span class="en">Fifteen styles, made to commercial standard</span></p>
+    <p class="lede"><span class="zh"> 10  AI : , , . 
+      , , . , . </span><span class="en">Each
+      10-second film was made by an AI writing code from a single prompt: the picture, the animation, the music and the sound
+      effects all come from code. Every style below comes with the film, a description, the full prompt and all of the source.
+      Copy a prompt and use it to make your own film.</span></p>
+    <nav class="index" id="index"></nav>
+  </div>
+</header>
+<div class="bar" id="bar" aria-hidden="true">
+  <a class="bar-title" href="#top"><span class="zh">15  MG </span><span class="en">15 MG Styles</span></a>
+  <nav class="bar-nav" id="bar-nav"></nav>
+</div>
+<main id="films">
+  <noscript><p class="noscript"> JavaScript.  <code>prompts/</code>  <code>demos/</code>. <br>
+    This page needs JavaScript. You can also browse <code>prompts/</code> and <code>demos/</code> in the repository.</p></noscript>
+</main>
+<footer class="foot">
+  <div class="foot-in">
+    <section>
+      <h3><span class="zh"></span><span class="en">How to use the prompts</span></h3>
+      <ol>
+        <li><span class="zh">,  AI ( Claude Code).  Node, Chrome  ffmpeg, 3D  Blender. </span><span class="en">Open an AI assistant that can write code and run commands (for example Claude Code) in an empty folder. The machine needs Node, Chrome and ffmpeg; the 3D film also needs Blender.</span></li>
+        <li><span class="zh">, . </span><span class="en">Copy the prompt of a style and send all of it.</span></li>
+        <li><span class="zh">:  <code>Creative seed</code> , , ,  <code>Output</code> . <code>Signature features</code> , . </span><span class="en">To make it your own, change the story, brand name, copy and colours in <code>Creative seed</code>, or the size and length in <code>Output</code>. Keep <code>Signature features</code>: it is what makes the style recognisable at a glance.</span></li>
+        <li><span class="zh">: ,  AI  <a data-repo="rubric.md" href="rubric.md">rubric.md</a> , . ,  <a data-repo="template.md" href="template.md">template.md</a> . </span><span class="en">To push it further, have a second AI review the film with <a data-repo="rubric.md" href="rubric.md">rubric.md</a> and paste the review back for another round. To write a new style, fill in the four sections of <a data-repo="template.md" href="template.md">template.md</a>.</span></li>
+      </ol>
+    </section>
+    <section>
+      <h3><span class="zh"></span><span class="en">Run the source yourself</span></h3>
+      <pre class="cmd"><span class="c"><span class="zh"># </span><span class="en"># from the repository root</span></span>
+npm install
+pip install -r requirements.txt
+python3 demos/01-flat-vector/audio.py        <span class="c"><span class="zh">#  → out/audio.wav</span><span class="en"># music and SFX → out/audio.wav</span></span>
+node harness/render.mjs demos/01-flat-vector <span class="c"><span class="zh">#  → out/video.mp4</span><span class="en"># render every frame → out/video.mp4</span></span>
+python3 -m http.server 8000                  <span class="c"><span class="zh"># : </span><span class="en"># scrub preview: </span>localhost:8000/harness/preview.html?demo=01-flat-vector</span></pre>
+      <p><span class="zh">, (<code>window.renderAt(t)</code>);  Chrome ,  ffmpeg . 
+        3D  Blender ,  <code>demos/04-3d-render/README.md</code>. 
+        ,  <a data-repo="assets/fonts/README.md" href="assets/fonts/README.md">assets/fonts/README.md</a>; . </span><span class="en">Each film is a web page that draws any
+        frame for a given time (<code>window.renderAt(t)</code>); the renderer captures every frame in headless Chrome and muxes video and
+        audio with ffmpeg. The 3D film's picture is rendered in Blender; the steps are in <code>demos/04-3d-render/README.md</code>.
+        Font files are not in the repository; <a data-repo="assets/fonts/README.md" href="assets/fonts/README.md">assets/fonts/README.md</a>
+        lists the ones needed. Without them the lettering will differ from the films.</span></p>
+    </section>
+  </div>
+</footer>
+<script src="site/vendor/highlight.min.js?v=662960b539"></script>
+<script src="site/data.js?v=2140283f3a"></script>
+<script src="site/app.js?v=f4b4facffb"></script>
+</body>
+</html>

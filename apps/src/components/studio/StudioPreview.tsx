@@ -71,6 +71,7 @@ function resolveWorkspaceComponentFromModule(
 import { ErrorBoundary } from "../common/ErrorBoundary";
 import { CanvasMinimap } from "./CanvasMinimap";
 import { ClipEditModal } from "./ClipEditModal";
+import { createHtmlFilmComponent, loadWorkspaceHtmlFilm } from "./HtmlFilmStage";
 import { Timeline } from "./Timeline";
 
 const GRID_PRESETS = [
@@ -144,12 +145,23 @@ export const StudioPreview: React.FC = () => {
     void actions.syncFromBackend();
   }, [actions]);
 
-  // Dynamically load LLM-generated Root.tsx in isolated sandbox without blocking app boot
+  // Dynamically load Aetheria Single-File HTML Film (priority) or Remotion Root.tsx fallback
   useEffect(() => {
     let isMounted = true;
     async function loadWorkspaceRoot() {
       setWorkspaceLoadError(null);
       try {
+        // Priority 1: Aetheria Motion Engine single-file workspace/index.html
+        const htmlFilm = await loadWorkspaceHtmlFilm();
+        if (htmlFilm) {
+          if (!isMounted) return;
+          const htmlComp = createHtmlFilmComponent(htmlFilm);
+          setWorkspaceComponent(() => htmlComp);
+          setWorkspaceDuration(htmlFilm.durationInFrames);
+          return;
+        }
+
+        // Priority 2: Legacy Remotion workspace/src/Root.tsx fallback
         const paths = Object.keys(workspaceLoaders);
         if (paths.length === 0) {
           if (isMounted) setWorkspaceComponent(null);
@@ -161,7 +173,6 @@ export const StudioPreview: React.FC = () => {
         if (!isMounted) return;
         const comp = resolveWorkspaceComponentFromModule(mod, activeComposition.id);
         setWorkspaceComponent(() => comp);
-        // Sync duration dynamically from workspace metadata if present
         const dur =
           (mod as any).VIDEO_CONFIG?.durationInFrames ??
           (mod as any).TOTAL_FRAMES ??

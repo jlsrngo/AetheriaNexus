@@ -1,0 +1,345 @@
+{
+  "text": "Sekarang, coba gosokkan benda ini ke rambutmu... lalu dekatkan ke potongan kertas kecil. Kertas itu bergerak. Ini bukan sihir. Ribuan tahun lalu, manusia sudah menemukan fenomena aneh seperti ini. Orang Yunani kuno mengamati bahwa batu ambar yang digosok bisa menarik benda-benda ringan. Tapi mereka belum tahu... bahwa mereka sedang melihat salah satu rahasia terbesar alam semesta.",
+  "spoken_text": "Sekarang, coba gosokkan benda ini ke rambutmu, lalu dekatkan ke potongan kertas kecil. Kertas itu bergerak. Ini bukan sihir. Ribuan tahun lalu, manusia sudah menemukan fenomena aneh seperti ini. Orang Yunani kuno mengamati bahwa batu ambar yang digosok bisa menarik benda-benda ringan. Tapi mereka belum tahu, bahwa mereka sedang melihat salah satu rahasia terbesar alam semesta.",
+  "duration": 21.795,
+  "sample_rate": 48000,
+  "style": "mystery",
+  "words": [
+    {
+      "word": "Sekarang,",
+      "start": 0.0,
+      "duration": 0.9,
+      "end": 0.9
+    },
+    {
+      "word": "coba",
+      "start": 0.88,
+      "duration": 0.18,
+      "end": 1.06
+    },
+    {
+      "word": "gosokkan",
+      "start": 1.04,
+      "duration": 0.42,
+      "end": 1.46
+    },
+    {
+      "word": "benda",
+      "start": 1.44,
+      "duration": 0.22,
+      "end": 1.66
+    },
+    {
+      "word": "ini",
+      "start": 1.64,
+      "duration": 0.14,
+      "end": 1.78
+    },
+    {
+      "word": "ke",
+      "start": 1.76,
+      "duration": 0.14,
+      "end": 1.9
+    },
+    {
+      "word": "rambutmu...",
+      "start": 1.88,
+      "duration": 0.7,
+      "end": 2.58
+    },
+    {
+      "word": "lalu",
+      "start": 2.56,
+      "duration": 0.48,
+      "end": 3.04
+    },
+    {
+      "word": "dekatkan",
+      "start": 3.02,
+      "duration": 0.6,
+      "end": 3.62
+    },
+    {
+      "word": "ke",
+      "start": 3.6,
+      "duration": 0.1,
+      "end": 3.7
+    },
+    {
+      "word": "potongan",
+      "start": 3.68,
+      "duration": 0.6,
+      "end": 4.28
+    },
+    {
+      "word": "kertas",
+      "start": 4.26,
+      "duration": 0.7,
+      "end": 4.96
+    },
+    {
+      "word": "kecil.",
+      "start": 4.94,
+      "duration": 0.82,
+      "end": 5.76
+    },
+    {
+      "word": "Kertas",
+      "start": 5.74,
+      "duration": 0.28,
+      "end": 6.02
+    },
+    {
+      "word": "itu",
+      "start": 6.0,
+      "duration": 0.42,
+      "end": 6.42
+    },
+    {
+      "word": "bergerak.",
+      "start": 6.4,
+      "duration": 0.64,
+      "end": 7.04
+    },
+    {
+      "word": "Ini",
+      "start": 7.02,
+      "duration": 0.28,
+      "end": 7.3
+    },
+    {
+      "word": "bukan",
+      "start": 7.28,
+      "duration": 0.48,
+      "end": 7.76
+    },
+    {
+      "word": "sihir.",
+      "start": 7.74,
+      "duration": 0.4,
+      "end": 8.14
+    },
+    {
+      "word": "Ribuan",
+      "start": 8.12,
+      "duration": 0.26,
+      "end": 8.38
+    },
+    {
+      "word": "tahun",
+      "start": 8.36,
+      "duration": 0.16,
+      "end": 8.52
+    },
+    {
+      "word": "lalu,",
+      "start": 8.5,
+      "duration": 0.46,
+      "end": 8.96
+    },
+    {
+      "word": "manusia",
+      "start": 8.94,
+      "duration": 0.36,
+      "end": 9.3
+    },
+    {
+      "word": "sudah",
+      "start": 9.28,
+      "duration": 0.2,
+      "end": 9.48
+    },
+    {
+      "word": "menemukan",
+      "start": 9.46,
+      "duration": 0.42,
+      "end": 9.88
+    },
+    {
+      "word": "fenomena",
+      "start": 9.86,
+      "duration": 0.42,
+      "end": 10.28
+    },
+    {
+      "word": "aneh",
+      "start": 10.26,
+      "duration": 0.22,
+      "end": 10.48
+    },
+    {
+      "word": "seperti",
+      "start": 10.46,
+      "duration": 0.5,
+      "end": 10.96
+    },
+    {
+      "word": "ini.",
+      "start": 10.94,
+      "duration": 0.74,
+      "end": 11.68
+    },
+    {
+      "word": "Orang",
+      "start": 11.66,
+      "duration": 0.22,
+      "end": 11.88
+    },
+    {
+      "word": "Yunani",
+      "start": 11.86,
+      "duration": 0.26,
+      "end": 12.12
+    },
+    {
+      "word": "kuno",
+      "start": 12.1,
+      "duration": 0.28,
+      "end": 12.38
+    },
+    {
+      "word": "mengamati",
+      "start": 12.36,
+      "duration": 0.36,
+      "end": 12.72
+    },
+    {
+      "word": "bahwa",
+      "start": 12.7,
+      "duration": 0.32,
+      "end": 13.02
+    },
+    {
+      "word": "batu",
+      "start": 13.0,
+      "duration": 0.26,
+      "end": 13.26
+    },
+    {
+      "word": "ambar",
+      "start": 13.24,
+      "duration": 0.36,
+      "end": 13.6
+    },
+    {
+      "word": "yang",
+      "start": 13.58,
+      "duration": 0.26,
+      "end": 13.84
+    },
+    {
+      "word": "digosok",
+      "start": 13.82,
+      "duration": 0.44,
+      "end": 14.26
+    },
+    {
+      "word": "bisa",
+      "start": 14.24,
+      "duration": 0.22,
+      "end": 14.46
+    },
+    {
+      "word": "menarik",
+      "start": 14.44,
+      "duration": 0.62,
+      "end": 15.06
+    },
+    {
+      "word": "benda-benda",
+      "start": 15.04,
+      "duration": 0.72,
+      "end": 15.76
+    },
+    {
+      "word": "ringan.",
+      "start": 15.74,
+      "duration": 0.58,
+      "end": 16.32
+    },
+    {
+      "word": "Tapi",
+      "start": 16.3,
+      "duration": 0.18,
+      "end": 16.48
+    },
+    {
+      "word": "mereka",
+      "start": 16.46,
+      "duration": 0.58,
+      "end": 17.04
+    },
+    {
+      "word": "belum",
+      "start": 17.02,
+      "duration": 0.2,
+      "end": 17.22
+    },
+    {
+      "word": "tahu...",
+      "start": 17.2,
+      "duration": 0.5,
+      "end": 17.7
+    },
+    {
+      "word": "bahwa",
+      "start": 17.68,
+      "duration": 0.26,
+      "end": 17.94
+    },
+    {
+      "word": "mereka",
+      "start": 17.92,
+      "duration": 0.42,
+      "end": 18.34
+    },
+    {
+      "word": "sedang",
+      "start": 18.32,
+      "duration": 0.24,
+      "end": 18.56
+    },
+    {
+      "word": "melihat",
+      "start": 18.54,
+      "duration": 0.48,
+      "end": 19.02
+    },
+    {
+      "word": "salah",
+      "start": 19.0,
+      "duration": 0.24,
+      "end": 19.24
+    },
+    {
+      "word": "satu",
+      "start": 19.22,
+      "duration": 0.38,
+      "end": 19.6
+    },
+    {
+      "word": "rahasia",
+      "start": 19.58,
+      "duration": 0.46,
+      "end": 20.04
+    },
+    {
+      "word": "terbesar",
+      "start": 20.02,
+      "duration": 0.48,
+      "end": 20.5
+    },
+    {
+      "word": "alam",
+      "start": 20.48,
+      "duration": 0.3,
+      "end": 20.78
+    },
+    {
+      "word": "semesta.",
+      "start": 20.76,
+      "duration": 1.02,
+      "end": 21.78
+    }
+  ]
+}

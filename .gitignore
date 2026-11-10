@@ -27,7 +27,7 @@ ehthumbs.db
 # Archived reference files (not active code)
 ref/
 references/*
-!references/mg-styles-15/
+!references/aetheria-motion/
 reference/
 
 # Scratch & test artifacts
@@ -116,6 +116,8 @@ core/voicebox/models/
 
 # Workspace runtime outputs
 workspace/public/
+workspace/output/*.mp4
+workspace/audio/*.wav
 workspace/storyboard.json
 workspace/styles/
 workspace/.aetheria/
@@ -123,6 +125,8 @@ workspace/.aetheria/
 # Runtime video assets in apps/public
 apps/public/*.wav
 apps/public/*.words.json
+apps/public/audio/*.wav
+apps/public/audio/*.words.json
 apps/public/.voice_lock.json
 public/
 

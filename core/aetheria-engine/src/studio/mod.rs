@@ -13,6 +13,7 @@
 pub mod assets;
 pub mod compositions;
 pub mod gpu;
+pub mod motion;
 pub mod native_renderer;
 pub mod presets;
 pub mod renderer;
@@ -119,4 +120,11 @@ pub fn router() -> Router {
             "/api/skills/styles",
             get(styles::handle_list_styles).post(styles::handle_list_styles),
         )
+        // 9. Aetheria Motion Engine (Single-File HTML Canvas/SVG Film Inspector & Linter)
+        .route(
+            "/api/studio/film-meta",
+            get(motion::handle_film_meta).post(motion::handle_film_meta),
+        )
+        .route("/api/studio/film-lint", post(motion::handle_film_lint))
+        .route("/api/studio/film-html", get(motion::handle_film_html))
 }

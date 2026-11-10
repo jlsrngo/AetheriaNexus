@@ -1,0 +1,312 @@
+/* Font faces the 15 films load (pages served from the repo root). The font files are not in the repo:
+   put each file at the path in its url(); assets/fonts/README.md lists them. */
+@font-face {
+  font-family: 'Alibaba PuHuiTi';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Alibaba PuHuiTi';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1000;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Alibaba PuHuiTi';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Alibaba PuHuiTi';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Alibaba PuHuiTi';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Alimama ShuHeiTi';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Douyin Sans';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Fusion Pixel 12';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 300;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Long Cang';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'LXGW Marker Gothic';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Noto Sans SC';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Resource Han Rounded';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Resource Han Rounded';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'ZCOOL KuaiLe';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Anton';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Archivo';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 100 900;
+  font-style: italic;
+  font-stretch: 62% 125%;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Bebas Neue';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Caveat';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Chakra Petch';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Cormorant Garamond';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'DM Sans';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 100 1000;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Fredoka';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 300 700;
+  font-style: normal;
+  font-stretch: 75% 125%;
+  font-display: block;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1 1000;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Inter';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Luckiest Guy';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Michroma';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Poppins';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Poppins';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Press Start 2P';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Rajdhani';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Rajdhani';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Sora';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Unbounded';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'VT323';
+  src: local('Segoe UI'), local('Inter'), local('Arial');
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: block;
+}

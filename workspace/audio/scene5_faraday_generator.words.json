@@ -1,0 +1,225 @@
+{
+  "text": "Kemudian Michael Faraday menemukan cara mengubah energi gerak menjadi listrik melalui induksi elektromagnetik. Penemuan ini menjadi dasar penting bagi generator listrik modern. Sedikit demi sedikit, sesuatu yang dahulu hanya terlihat dalam petir mulai bisa dikendalikan manusia.",
+  "spoken_text": "Kemudian Michael Faraday menemukan cara mengubah energi gerak menjadi listrik melalui induksi elektromagnetik. Penemuan ini menjadi dasar penting bagi generator listrik modern. Sedikit demi sedikit, sesuatu yang dahulu hanya terlihat dalam petir mulai bisa dikendalikan manusia.",
+  "duration": 15.655,
+  "sample_rate": 48000,
+  "style": "mystery",
+  "words": [
+    {
+      "word": "Kemudian",
+      "start": 0.0,
+      "duration": 0.58,
+      "end": 0.58
+    },
+    {
+      "word": "Michael",
+      "start": 0.56,
+      "duration": 0.52,
+      "end": 1.08
+    },
+    {
+      "word": "Faraday",
+      "start": 1.06,
+      "duration": 0.34,
+      "end": 1.4
+    },
+    {
+      "word": "menemukan",
+      "start": 1.38,
+      "duration": 0.36,
+      "end": 1.74
+    },
+    {
+      "word": "cara",
+      "start": 1.72,
+      "duration": 0.3,
+      "end": 2.02
+    },
+    {
+      "word": "mengubah",
+      "start": 2.0,
+      "duration": 0.36,
+      "end": 2.36
+    },
+    {
+      "word": "energi",
+      "start": 2.34,
+      "duration": 0.28,
+      "end": 2.62
+    },
+    {
+      "word": "gerak",
+      "start": 2.6,
+      "duration": 0.32,
+      "end": 2.92
+    },
+    {
+      "word": "menjadi",
+      "start": 2.9,
+      "duration": 0.5,
+      "end": 3.4
+    },
+    {
+      "word": "listrik",
+      "start": 3.38,
+      "duration": 0.42,
+      "end": 3.8
+    },
+    {
+      "word": "melalui",
+      "start": 3.78,
+      "duration": 0.5,
+      "end": 4.28
+    },
+    {
+      "word": "induksi",
+      "start": 4.26,
+      "duration": 0.5,
+      "end": 4.76
+    },
+    {
+      "word": "elektromagnetik.",
+      "start": 4.74,
+      "duration": 1.62,
+      "end": 6.36
+    },
+    {
+      "word": "Penemuan",
+      "start": 6.34,
+      "duration": 0.44,
+      "end": 6.78
+    },
+    {
+      "word": "ini",
+      "start": 6.76,
+      "duration": 0.2,
+      "end": 6.96
+    },
+    {
+      "word": "menjadi",
+      "start": 6.94,
+      "duration": 0.38,
+      "end": 7.32
+    },
+    {
+      "word": "dasar",
+      "start": 7.3,
+      "duration": 0.36,
+      "end": 7.66
+    },
+    {
+      "word": "penting",
+      "start": 7.64,
+      "duration": 0.42,
+      "end": 8.06
+    },
+    {
+      "word": "bagi",
+      "start": 8.04,
+      "duration": 0.22,
+      "end": 8.26
+    },
+    {
+      "word": "generator",
+      "start": 8.24,
+      "duration": 0.54,
+      "end": 8.78
+    },
+    {
+      "word": "listrik",
+      "start": 8.76,
+      "duration": 0.6,
+      "end": 9.36
+    },
+    {
+      "word": "modern.",
+      "start": 9.34,
+      "duration": 0.98,
+      "end": 10.32
+    },
+    {
+      "word": "Sedikit",
+      "start": 10.3,
+      "duration": 0.38,
+      "end": 10.68
+    },
+    {
+      "word": "demi",
+      "start": 10.66,
+      "duration": 0.5,
+      "end": 11.16
+    },
+    {
+      "word": "sedikit,",
+      "start": 11.14,
+      "duration": 0.58,
+      "end": 11.72
+    },
+    {
+      "word": "sesuatu",
+      "start": 11.7,
+      "duration": 0.32,
+      "end": 12.02
+    },
+    {
+      "word": "yang",
+      "start": 12.0,
+      "duration": 0.18,
+      "end": 12.18
+    },
+    {
+      "word": "dahulu",
+      "start": 12.16,
+      "duration": 0.46,
+      "end": 12.62
+    },
+    {
+      "word": "hanya",
+      "start": 12.6,
+      "duration": 0.32,
+      "end": 12.92
+    },
+    {
+      "word": "terlihat",
+      "start": 12.9,
+      "duration": 0.42,
+      "end": 13.32
+    },
+    {
+      "word": "dalam",
+      "start": 13.3,
+      "duration": 0.4,
+      "end": 13.7
+    },
+    {
+      "word": "petir",
+      "start": 13.68,
+      "duration": 0.24,
+      "end": 13.92
+    },
+    {
+      "word": "mulai",
+      "start": 13.9,
+      "duration": 0.18,
+      "end": 14.08
+    },
+    {
+      "word": "bisa",
+      "start": 14.06,
+      "duration": 0.2,
+      "end": 14.26
+    },
+    {
+      "word": "dikendalikan",
+      "start": 14.24,
+      "duration": 0.72,
+      "end": 14.96
+    },
+    {
+      "word": "manusia.",
+      "start": 14.94,
+      "duration": 0.7,
+      "end": 15.64
+    }
+  ]
+}

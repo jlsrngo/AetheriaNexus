@@ -15,14 +15,14 @@ pub fn spawn_subagent_tool_definition() -> Value {
         "type": "function",
         "function": {
             "name": "spawn_subagent",
-            "description": "Spawn a specialized subagent to perform heavy or batch tasks in an isolated context (e.g. batch voiceover synthesis, image asset downloading, or Remotion scene coding). Prevents context token bloat in the main agent and keeps production modular.",
+            "description": "Spawn a specialized subagent to perform heavy or batch tasks in an isolated context (e.g. batch voiceover synthesis, image asset downloading, or modular Aetheria HTML motion film coding in workspace/script/scene*.js + workspace/index.html). Prevents context token bloat in the main agent and keeps production modular.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "role": {
                         "type": "string",
                         "enum": ["audio", "assets", "motion", "research"],
-                        "description": "Specialized role of the subagent: 'audio' (voiceover synthesis & SFX), 'assets' (images & web asset downloads), 'motion' (writing Remotion scene components), or 'research' (code/reference inspection)."
+                        "description": "Specialized role of the subagent: 'audio' (voiceover synthesis & SFX in workspace/audio/), 'assets' (images & web asset downloads in workspace/img/), 'motion' (writing modular per-scene scripts workspace/script/scene1..N.js + stage shell workspace/index.html), or 'research' (code/reference inspection)."
                     },
                     "task": {
                         "type": "string",
@@ -55,27 +55,31 @@ fn build_subagent_system_prompt(role: &str, workspace_dir: &str) -> String {
         "assets" => format!(
             "You are the Visual Asset Subagent for Aetheria Video Studio.\n\
              Workspace folder: {}\n\
-             Your sole responsibility is to search, fetch, and download images and graphic assets into `workspace/public/` using `fetch_web_image` and `websearch` tools.\n\
+             Your sole responsibility is to search, fetch, and download images and graphic assets into `workspace/img/` using `fetch_web_image` and `websearch` tools.\n\
              CRITICAL ASSET RULES:\n\
              1. Fetch high-quality relevant images matching the scene descriptions.\n\
-             2. Ensure assets are saved with clean filenames in `workspace/public/`.\n\
-             3. DO NOT write React TSX components or synthesize audio.\n\
+             2. Ensure assets are saved with clean filenames in `workspace/img/`.\n\
+             3. DO NOT write workspace/index.html or synthesize audio.\n\
              4. When all assets are downloaded, reply with a concise final summary listing each downloaded file path.",
             workspace_dir
         ),
         "motion" => format!(
-            "You are the Remotion Motion Graphics Subagent for Aetheria Video Studio.\n\
+            "You are the Aetheria Motion Graphics Subagent for Aetheria Video Studio.\n\
              Workspace folder: {}\n\
-             Your sole responsibility is to write clean, modular React Remotion scene components inside `workspace/src/scenes/` using `write` and `edit` tools.\n\
-             CRITICAL MOTION & ZERO-BLACKSCREEN RULES:\n\
-             1. Defensive Animation Props: Strictly forbidden to allow duration props to be undefined. All motion components MUST implement safe fallbacks: `const duration = propDuration ?? useVideoConfig()?.durationInFrames ?? 300;`. Ensure `inputRange` passed to Remotion's `interpolate()` always contains valid finite numbers, NEVER undefined/NaN.\n\
-             2. Asset Verification Guard: Strictly forbidden to write image/video tags targeting files that do not exist in `workspace/public/` or `apps/public/`. Prefer standard `<img>` tags with fallback styling. Never nest `staticFile()` calls.\n\
-             3. No Blinding Flash at Frame 0: Camera cut or white flash transitions MUST NOT occlude frame 0 (`if (frame <= 0) return null;`) so that the initial paused/poster state never renders as a blank canvas.\n\
-             4. Write modular scene files (Scene1.tsx .. SceneN.tsx) under 250 lines each.\n\
-             5. Drive all motion from `useCurrentFrame()` with `spring()` or clamped `interpolate()`. Inside `<Sequence>`, frame starts at 0.\n\
-             6. Use Inter for text and monospace for numbers/timestamps.\n\
-             7. NEVER overwrite or break `Root.tsx` with uncreated relative imports.\n\
-             8. When finished, reply with a concise final summary of all written scene files.",
+             Your sole responsibility is to write a complete, deterministic, showreel-grade modular HTML motion film using `write` and `edit` tools.\n\
+             CRITICAL MODULAR AETHERIA MOTION ENGINE RULES (01-FLAT-VECTOR LIVELY MOTION STANDARD):\n\
+             1. Modular Per-Scene Scripts (`workspace/script/scene1.js` .. `sceneN.js`): NEVER cram all scenes into a single 1,000-line HTML file. Write each scene in its own modular file `workspace/script/scene1.js`, `workspace/script/scene2.js`, ..., `workspace/script/sceneN.js` (~130–200 lines each) using `AM.registerScene(\"scene1_id\", function(ctx, localTime, dur, scene, AM) {{ ... }})`. Do NOT write React `.tsx` files.\n\
+             2. 5 MANDATORY LAWS OF LIVELY STUDIO MOTION (BAN STATIC BOXES):\n\
+                - Velocity-Driven Squash & Stretch (`AM.pop`): Every entering object MUST use `const [s, k] = AM.pop(localTime, t0, 2.4, 0.4, 0.22);` and scale with `(Math.max(0, s) / (1 + k), Math.max(0, s) * (1 + k))`.\n\
+                - Impulse & Impact Accents (`AM.kick` + `AM.drawBurstLines` + `AM.drawShockRing`): Every beat hit MUST trigger `AM.kick(localTime, hitTime, 3.5, 0.38)` camera/object impulse plus `AM.drawBurstLines(...)` and `AM.drawShockRing(...)`.\n\
+                - Articulated Rigging (`AM.drawCharacterRig` / Multi-Part Joints): Use `AM.drawCharacterRig(ctx, localTime, {{ x, y, reactTime, reachTime }})` or hierarchical joints (torso -> neck -> head -> blinking eyes, shoulder -> elbow -> hand) that breathe, nod, blink, and reach.\n\
+                - Living Camera (`AM.applyCamera`): Drive a continuous camera `{{ s, cx, cy, rot }}` with exponential zoom and impact kick.\n\
+                - Shape Wipe Transitions (`AM.drawShapeWipe`): End each scene with `AM.drawShapeWipe(ctx, localTime, dur - 0.65, 0.65, [scene.accent, scene.secondary, \"#FFF6E9\"], 540, 660)`.\n\
+             3. Lightweight Stage Shell (`workspace/index.html`): Load `<script src=\"/script/aetheria-motion.js\"></script>` and `<script src=\"/script/scene1.js\"></script>` .. `<script src=\"/script/sceneN.js\"></script>` in `<head>`.\n\
+             4. Define `SCENES` and `window.__filmMeta = {{ title, width: 1080, height: 1920, fps: 30, duration, durationInFrames, scenes: SCENES }}` matching the exact audio durations from `workspace/audio/*.words.json`.\n\
+             5. Define `window.renderAt = function(t) {{ ... }}` where every visual frame is a pure function of `t` (seconds). Dispatch `var renderFn = AM.getSceneRenderer(scene.id, resolved.index); if (renderFn) renderFn(ctx, localTime, dur, scene, AM);` plus `AM.drawTopHeader`, `AM.drawHeadlinePlaque`, and `AM.drawSubtitles`. Never use `Math.random()` or `setInterval()`.\n\
+             6. Call `window.renderAt(0); window.__ready = true;` after initialization so frame 0 is immediately visible.\n\
+             7. When finished, reply with a concise final summary of the modular `workspace/script/scene*.js` files and `workspace/index.html`.",
             workspace_dir
         ),
         _ => format!(

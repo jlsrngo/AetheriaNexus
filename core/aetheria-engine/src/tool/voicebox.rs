@@ -6,8 +6,8 @@ use serde_json::{json, Value};
 use std::path::Path;
 use tokio::process::Command;
 
-/// Synchronize a generated audio file into both `workspace/public/` and the cached Remotion bundle
-/// `public/` directory so `staticFile(...)` always finds it without manual shell copies or re-bundling.
+/// Synchronize a generated audio file (and its companion `.words.json`) into `workspace/audio/`
+/// and `apps/public/audio/` so the live Studio preview and renderer always find them.
 fn sync_audio_to_public_dirs(root: &Path, target_out: &Path) {
     if !target_out.is_file() {
         return;
@@ -16,25 +16,32 @@ fn sync_audio_to_public_dirs(root: &Path, target_out: &Path) {
         return;
     };
 
-    let ws_pub = root.join("workspace").join("public");
-    let _ = std::fs::create_dir_all(&ws_pub);
-    let ws_dest = ws_pub.join(file_name);
+    let ws_audio = root.join("workspace").join("audio");
+    let _ = std::fs::create_dir_all(&ws_audio);
+    let ws_dest = ws_audio.join(file_name);
     if ws_dest != target_out {
         let _ = std::fs::copy(target_out, &ws_dest);
     }
 
-    let apps_pub = root.join("apps").join("public");
-    let _ = std::fs::create_dir_all(&apps_pub);
-    let apps_dest = apps_pub.join(file_name);
+    let apps_audio = root.join("apps").join("public").join("audio");
+    let _ = std::fs::create_dir_all(&apps_audio);
+    let apps_dest = apps_audio.join(file_name);
     if apps_dest != target_out {
         let _ = std::fs::copy(target_out, &apps_dest);
     }
 
-    let bundle_pub = crate::paths::render_cache_dir().join("public");
-    let _ = std::fs::create_dir_all(&bundle_pub);
-    let bundle_dest = bundle_pub.join(file_name);
-    if bundle_dest != target_out {
-        let _ = std::fs::copy(target_out, &bundle_dest);
+    let words_src = target_out.with_extension("words.json");
+    if words_src.is_file() {
+        if let Some(words_name) = words_src.file_name() {
+            let ws_words = ws_audio.join(words_name);
+            if ws_words != words_src {
+                let _ = std::fs::copy(&words_src, &ws_words);
+            }
+            let apps_words = apps_audio.join(words_name);
+            if apps_words != words_src {
+                let _ = std::fs::copy(&words_src, &apps_words);
+            }
+        }
     }
 }
 
@@ -61,7 +68,7 @@ pub fn voicebox_tool_definition() -> Value {
                     },
                     "outputPath": {
                         "type": "string",
-                        "description": "Relative output path for the mastered WAV file. Defaults to 'workspace/public/voiceover.wav'."
+                        "description": "Relative output path for the mastered WAV file. Defaults to 'workspace/audio/voiceover.wav'."
                     },
                     "lang": {
                         "type": "string",
@@ -123,7 +130,7 @@ pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
         .get("outputPath")
         .or_else(|| arguments.get("output_path"))
         .and_then(|v| v.as_str())
-        .unwrap_or("workspace/public/voiceover.wav");
+        .unwrap_or("workspace/audio/voiceover.wav");
 
     let lang = arguments
         .get("lang")

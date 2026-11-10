@@ -16,7 +16,13 @@ import { useStudioStore } from "../../hooks/useStudioStore";
 import { buildCompositionLayers, type VideoLayerSpec } from "../../remotion/types";
 import type { StudioRenderJob } from "../../types/studio";
 import { ClipEditModal } from "./ClipEditModal";
+import { DEFAULT_HTML_SCENES } from "./HtmlFilmStage";
 import { TimelineHeaderToolbar } from "./timeline/TimelineHeaderToolbar";
+
+const workspaceHtmlFiles = import.meta.glob<string>(
+  "../../../../workspace/index.html",
+  { query: "?raw", import: "default", eager: true }
+);
 
 const workspaceTypes = import.meta.glob<Record<string, unknown>>(
   "../../../../workspace/src/types.ts",
@@ -24,6 +30,37 @@ const workspaceTypes = import.meta.glob<Record<string, unknown>>(
 );
 
 function getWorkspaceSceneLayers(totalFrames: number): VideoLayerSpec[] | null {
+  if (Object.keys(workspaceHtmlFiles).length > 0) {
+    const SCENE_COLORS = ["amber", "sky", "violet", "emerald", "rose", "cyan"];
+    const layers: VideoLayerSpec[] = [
+      {
+        id: "audio-master-voiceover",
+        trackCode: "A1",
+        label: "VO: Voiceover Master Audio (6 Scenes)",
+        kind: "audio",
+        content: "Voiceover Narasi Sejarah Listrik (Full Synchronized)",
+        color: "emerald",
+        from: 0,
+        durationInFrames: totalFrames,
+        visible: true,
+      },
+    ];
+    DEFAULT_HTML_SCENES.forEach((s, idx) => {
+      layers.push({
+        id: `scene-block-${s.id}`,
+        trackCode: `V${DEFAULT_HTML_SCENES.length - idx}`,
+        label: s.title,
+        kind: "video",
+        content: s.title,
+        color: SCENE_COLORS[idx % SCENE_COLORS.length],
+        from: s.startFrame,
+        durationInFrames: s.durationFrames,
+        visible: true,
+        isCustom: true,
+      });
+    });
+    return layers;
+  }
   for (const mod of Object.values(workspaceTypes)) {
     if (!mod || typeof mod !== "object") continue;
 

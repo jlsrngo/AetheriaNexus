@@ -1,29 +1,29 @@
 ---
 name: mg-flat-vector
-description: "Flat Vector Clean Tech motion design archetype from mg-styles-15. Award-shortlist commercial motion graphics standard for Remotion."
+description: "Flat Vector Clean Tech motion design archetype from aetheria-motion. Award-shortlist commercial motion graphics standard for Aetheria Motion Engine."
 tags:
   - motion-graphics
-  - mg-styles-15
-  - remotion
+  - aetheria-motion
+  - aetheria-html
   - visual-archetype
 command: /mg-flat-vector
 ---
 
 # Flat / Vector 2D Motion Graphics (Motion Graphics Standard)
-*Ported from award-winning mg-styles-15 motion system.*
+*Ported from award-winning aetheria-motion motion system.*
 
 # Flat Vector & Clean Tech Explainer Motion Design
 
 **Reference Benchmark**: Popwise: One Dot Continuous Flow · 1920×1080 · 30 fps · 10 s · AI Jury Score 7.64 / 10
 
-**Reference Source**: [DemoComposition.tsx](../../../references/mg-styles-15/demos/01-flat-vector/DemoComposition.tsx) · [cues.json](../../../references/mg-styles-15/demos/01-flat-vector/cues.json) · [index.html](../../../references/mg-styles-15/demos/01-flat-vector/index.html)
+**Reference Source**: [cues.json](../../../references/aetheria-motion/demos/01-flat-vector/cues.json) · [index.html](../../../references/aetheria-motion/demos/01-flat-vector/index.html)
 
 ## How to Use
 
 1. Open Aetheria Video Studio and invoke this skill using the command or natural language.
 2. The skill injects the creative seed, timing choreography, palette tokens, and motion curves into the LLM context.
 3. **Customization**: Adapt the narrative, brand names, copy, and palette in `Creative seed` while preserving `Signature features` to retain the iconic visual identity of this archetype.
-4. **Verification**: Review the resulting Remotion composition in the interactive Studio player against the motion design craft checklist below to guarantee award-winning quality.
+4. **Verification**: Review the resulting Aetheria HTML film (workspace/index.html) in the interactive Studio player against the motion design craft checklist below to guarantee award-winning quality.
 
 ## System Prompt Template
 
@@ -52,6 +52,14 @@ When generating vertical 9:16 content, LLM MUST strictly adhere to this vertical
 | **Zone 4** | `Y: 1100 – 1380px` | Bold Style Action Headline | High-contrast headline card/plaque with `box-shadow: 8px 8px 0 #1A1A1A`, uppercase bold typography (`fontSize: 64–76px`), and sub-badge (`fontSize: 20–24px`). |
 | **Zone 5** | `Y: 1500 – 1720px` | Kinetic Subtitles (Hormozi) | Clean word chips anchored at `bottom: 200–240px`. Maximum font size 58–64px with lemon-yellow `#FFDE59` active pop. |
 | **Deadzone**| `Y > 1750px` & `X > 960px` | TikTok UI Exclusion Zone | NEVER place critical text or heroes in the bottom 180px or extreme right rail (avatar, like, comment, share, sound disc). |
+
+# Aetheria Modular HTML Motion Engine Contract (Mandatory)
+Never cram a multi-scene video into a single 1,000-line HTML file. Split scenes into modular scripts (no React, no TypeScript):
+1. Write each scene in `workspace/script/scene1.js` .. `workspace/script/sceneN.js` (~120–180 lines each) using `AM.registerScene("scene1_id", function(ctx, localTime, dur, scene, AM) { ... })`.
+2. Include `<script src="/script/aetheria-motion.js"></script>` and `<script src="/script/scene1.js"></script>` .. `<script src="/script/sceneN.js"></script>` in `workspace/index.html` `<head>`.
+3. Define `SCENES` and `window.__filmMeta = { title, width: 1080, height: 1920, fps: 30, duration, durationInFrames, scenes: SCENES }`.
+4. Define `window.renderAt = function(t) { ... }` where `t` is time in seconds, dispatching `AM.getSceneRenderer(scene.id, resolved.index)` plus `AM.drawTopHeader`, `AM.drawHeadlinePlaque`, and `AM.drawSubtitles`.
+5. Call `window.renderAt(0); window.__ready = true;` once initialized.
 
 # Suggested technical route
 HTML: SVG + GSAP (CustomEase/CustomBounce/MorphSVG); motion blur mb=4 for fast moves
@@ -86,8 +94,7 @@ The gold-standard corporate and SaaS explainer motion archetype. Pure vector geo
    micro-motion. Map every signature feature above to a moment. Keep one cue sheet (beats and hit times) that both the
    picture and the sound read from.
 2. Key frames before motion. Build the look, render stills at 6–10 key times and actually look at them. Each still should be
-   poster-worthy: composition, hierarchy, negative space, type set properly (kerning, line-height, weight contrast, CJK
-   punctuation, ~5 % safe margins). Iterate until nothing looks default, generic, cramped or "AI-template".
+   poster-worthy: composition, hierarchy, negative space, type set properly (kerning, line-height, weight contrast, ~5 % safe margins). Iterate until nothing looks default, generic, cramped or "AI-template".
 3. Motion. Build the choreography and preview at low resolution. Step through the fastest moves frame by frame: spacing,
    easing, arcs, overlap, anticipation and follow-through, motion blur. No unintended dead spans; the energy follows the music.
 4. Sound. Write genre-correct music and sound design locked to the cue sheet. Check that visual hits land on audio onsets.

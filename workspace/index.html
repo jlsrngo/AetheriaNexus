@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920, initial-scale=1.0" />
+  <title>Sejarah Lahirnya Listrik — Dari Batu Amber hingga Cahaya Dunia</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 1080px;
+      height: 1920px;
+      overflow: hidden;
+      background: #0A0A0C;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      user-select: none;
+    }
+    #stage {
+      position: relative;
+      width: 1080px;
+      height: 1920px;
+      overflow: hidden;
+      background: #0A0A0C;
+    }
+    canvas {
+      display: block;
+      width: 1080px;
+      height: 1920px;
+    }
+  </style>
+  <script src="/script/aetheria-motion.js"></script>
+  <script src="/script/scene1.js"></script>
+  <script src="/script/scene2.js"></script>
+  <script src="/script/scene3.js"></script>
+  <script src="/script/scene4.js"></script>
+  <script src="/script/scene5.js"></script>
+  <script src="/script/scene6.js"></script>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="canvas" width="1080" height="1920"></canvas>
+  </div>
+
+  <script>
+    (function () {
+      var AM = window.AM;
+      var W = 1080;
+      var H = 1920;
+      var FPS = 30;
+      var TOTAL_DURATION = 120.533;
+
+      var SCENES = [
+        {
+          id: "scene1_hook",
+          index: 1,
+          tag: "SCENE 01 · HOOK",
+          era: "ERA MODERN",
+          headline: "SATU SENTUHAN SAKELAR",
+          subheadline: "Bagaimana manusia menjinakkan kilat menjadi cahaya?",
+          accent: "#F59E0B",
+          secondary: "#38BDF8",
+          start: 0.0,
+          duration: 14.233,
+          audio: "/audio/scene1_hook.wav",
+          wordsUrl: "/audio/scene1_hook.words.json"
+        },
+        {
+          id: "scene2_rahasia_alam",
+          index: 2,
+          tag: "SCENE 02 · ASAL-USUL",
+          era: "600 SM · YUNANI KUNO",
+          headline: "BATU AMBER & ELEKTRON",
+          subheadline: "Thales dari Miletus menemukan listrik statis pertama",
+          accent: "#F59E0B",
+          secondary: "#EC4899",
+          start: 14.233,
+          duration: 21.8,
+          audio: "/audio/scene2_rahasia_alam.wav",
+          wordsUrl: "/audio/scene2_rahasia_alam.words.json"
+        },
+        {
+          id: "scene3_langit_laboratorium",
+          index: 3,
+          tag: "SCENE 03 · EKSPERIMEN",
+          era: "1752 · PHILADELPHIA",
+          headline: "LAYANG-LAYANG PETIR",
+          subheadline: "Benjamin Franklin membuktikan petir adalah arus listrik",
+          accent: "#38BDF8",
+          secondary: "#FACC15",
+          start: 36.033,
+          duration: 26.767,
+          audio: "/audio/scene3_langit_laboratorium.wav",
+          wordsUrl: "/audio/scene3_langit_laboratorium.words.json"
+        },
+        {
+          id: "scene4_volta_baterai",
+          index: 4,
+          tag: "SCENE 04 · TEROBOSAN",
+          era: "1800 · ITALIA",
+          headline: "TUMPUKAN VOLTA",
+          subheadline: "Alessandro Volta menciptakan baterai arus stabil pertama",
+          accent: "#10B981",
+          secondary: "#38BDF8",
+          start: 62.8,
+          duration: 18.467,
+          audio: "/audio/scene4_volta_baterai.wav",
+          wordsUrl: "/audio/scene4_volta_baterai.words.json"
+        },
+        {
+          id: "scene5_faraday_generator",
+          index: 5,
+          tag: "SCENE 05 · REVOLUSI",
+          era: "1831 · LONDON",
+          headline: "INDUKSI FARADAY",
+          subheadline: "Magnet bergerak di kumparan tembaga melahirkan dinamo",
+          accent: "#A855F7",
+          secondary: "#F59E0B",
+          start: 81.267,
+          duration: 15.667,
+          audio: "/audio/scene5_faraday_generator.wav",
+          wordsUrl: "/audio/scene5_faraday_generator.words.json"
+        },
+        {
+          id: "scene6_twist_penutup",
+          index: 6,
+          tag: "SCENE 06 · PENUTUP",
+          era: "MASA KINI & MASA DEPAN",
+          headline: "CAHAYA PERADABAN",
+          subheadline: "2.600 tahun perjalanan sains di balik satu sentuhan jari",
+          accent: "#38BDF8",
+          secondary: "#10B981",
+          start: 96.933,
+          duration: 23.6,
+          audio: "/audio/scene6_twist_penutup.wav",
+          wordsUrl: "/audio/scene6_twist_penutup.words.json"
+        }
+      ];
+
+      window.__filmMeta = {
+        title: "Sejarah Lahirnya Listrik",
+        width: W,
+        height: H,
+        fps: FPS,
+        duration: TOTAL_DURATION,
+        durationInFrames: 3616,
+        scenes: SCENES
+      };
+
+      var canvas = document.getElementById("canvas");
+      var ctx = canvas.getContext("2d");
+      var wordsByScene = {};
+      var currentTime = 0;
+
+      window.__ready = false;
+
+      Promise.all(
+        SCENES.map(function (s) {
+          return fetch(s.wordsUrl)
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .catch(function () { return []; })
+            .then(function (words) { wordsByScene[s.id] = Array.isArray(words) ? words : []; });
+        })
+      ).then(function () {
+        window.__ready = true;
+        window.renderAt(currentTime);
+      });
+
+      window.renderAt = function (t) {
+        currentTime = AM.clamp(Number(t) || 0, 0, TOTAL_DURATION);
+        var resolved = AM.resolveScene(currentTime, SCENES);
+        var scene = resolved.scene;
+        var localTime = resolved.localTime;
+        var dur = scene.duration;
+
+        ctx.save();
+        ctx.clearRect(0, 0, W, H);
+
+        // Dispatch to modular per-scene script registered via AM.registerScene(...)
+        var renderFn = AM.getSceneRenderer(scene.id, resolved.index);
+        if (typeof renderFn === "function") {
+          try {
+            renderFn(ctx, localTime, dur, scene, AM);
+          } catch (err) {
+            console.error("Scene render error in " + scene.id + ":", err);
+          }
+        }
+
+        // Shared HUD overlays (Top Header, Headline Plaque, Active Word Subtitles)
+        AM.drawTopHeader(ctx, scene, resolved.index, SCENES.length, currentTime, TOTAL_DURATION);
+        AM.drawHeadlinePlaque(ctx, scene, localTime);
+        AM.drawSubtitles(ctx, wordsByScene[scene.id] || [], localTime, scene.accent);
+
+        // Smooth cross-scene transition flash
+        if (localTime < 0.25 && resolved.index > 0) {
+          var fadeIn = 1 - localTime / 0.25;
+          ctx.fillStyle = "rgba(10, 10, 12, " + (fadeIn * 0.65).toFixed(3) + ")";
+          ctx.fillRect(0, 0, W, H);
+        } else if (dur - localTime < 0.22 && resolved.index < SCENES.length - 1) {
+          var fadeOut = 1 - (dur - localTime) / 0.22;
+          ctx.fillStyle = "rgba(10, 10, 12, " + (fadeOut * 0.65).toFixed(3) + ")";
+          ctx.fillRect(0, 0, W, H);
+        }
+
+        ctx.restore();
+      };
+
+      window.renderAt(0);
+    })();
+  </script>
+</body>
+</html>

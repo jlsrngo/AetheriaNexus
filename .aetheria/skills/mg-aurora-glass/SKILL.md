@@ -1,29 +1,29 @@
 ---
 name: mg-aurora-glass
-description: "Aurora Glassmorphism Glow motion design archetype from mg-styles-15. Award-shortlist commercial motion graphics standard for Remotion."
+description: "Aurora Glassmorphism Glow motion design archetype from aetheria-motion. Award-shortlist commercial motion graphics standard for Aetheria Motion Engine."
 tags:
   - motion-graphics
-  - mg-styles-15
-  - remotion
+  - aetheria-motion
+  - aetheria-html
   - visual-archetype
 command: /mg-aurora-glass
 ---
 
 # Gradient Blur (Aurora) & Frosted Glassmorphism (Motion Graphics Standard)
-*Ported from award-winning mg-styles-15 motion system.*
+*Ported from award-winning aetheria-motion motion system.*
 
 # Gradient Blur (Aurora) & Glassmorphism Motion Design
 
 **Reference Benchmark**: Aurora: Think In Light · 1920×1080 · 30 fps · 10 s · AI Jury Score 8.07 / 10
 
-**Reference Source**: [DemoComposition.tsx](../../../references/mg-styles-15/demos/12-aurora-glass/DemoComposition.tsx) · [cues.json](../../../references/mg-styles-15/demos/12-aurora-glass/cues.json) · [index.html](../../../references/mg-styles-15/demos/12-aurora-glass/index.html)
+**Reference Source**: [cues.json](../../../references/aetheria-motion/demos/12-aurora-glass/cues.json) · [index.html](../../../references/aetheria-motion/demos/12-aurora-glass/index.html)
 
 ## How to Use
 
 1. Open Aetheria Video Studio and invoke this skill using the command or natural language.
 2. The skill injects the creative seed, timing choreography, palette tokens, and motion curves into the LLM context.
 3. **Customization**: Adapt the narrative, brand names, copy, and palette in `Creative seed` while preserving `Signature features` to retain the iconic visual identity of this archetype.
-4. **Verification**: Review the resulting Remotion composition in the interactive Studio player against the motion design craft checklist below to guarantee award-winning quality.
+4. **Verification**: Review the resulting Aetheria HTML film (workspace/index.html) in the interactive Studio player against the motion design craft checklist below to guarantee award-winning quality.
 
 ## System Prompt Template
 
@@ -53,12 +53,20 @@ When generating vertical 9:16 content, LLM MUST strictly adhere to this vertical
 | **Zone 5** | `Y: 1500 – 1720px` | Kinetic Subtitles (Hormozi) | Clean word chips anchored at `bottom: 200–240px`. Maximum font size 58–64px with lemon-yellow `#FFDE59` active pop. |
 | **Deadzone**| `Y > 1750px` & `X > 960px` | TikTok UI Exclusion Zone | NEVER place critical text or heroes in the bottom 180px or extreme right rail (avatar, like, comment, share, sound disc). |
 
+# Aetheria Modular HTML Motion Engine Contract (Mandatory)
+Never cram a multi-scene video into a single 1,000-line HTML file. Split scenes into modular scripts (no React, no TypeScript):
+1. Write each scene in `workspace/script/scene1.js` .. `workspace/script/sceneN.js` (~120–180 lines each) using `AM.registerScene("scene1_id", function(ctx, localTime, dur, scene, AM) { ... })`.
+2. Include `<script src="/script/aetheria-motion.js"></script>` and `<script src="/script/scene1.js"></script>` .. `<script src="/script/sceneN.js"></script>` in `workspace/index.html` `<head>`.
+3. Define `SCENES` and `window.__filmMeta = { title, width: 1080, height: 1920, fps: 30, duration, durationInFrames, scenes: SCENES }`.
+4. Define `window.renderAt = function(t) { ... }` where `t` is time in seconds, dispatching `AM.getSceneRenderer(scene.id, resolved.index)` plus `AM.drawTopHeader`, `AM.drawHeadlinePlaque`, and `AM.drawSubtitles`.
+5. Call `window.renderAt(0); window.__ready = true;` once initialized.
+
 # Suggested technical route
 HTML WebGL: aurora mesh-gradient shader + glass refraction (SDF lens, chromatic dispersion) + DOM/CSS backdrop-filter glass cards
 (You may choose a better route if it clearly raises quality; say why.)
 
 # Creative seed
-「Liquid Glass」2025–26 AI-product-launch aesthetic: slow, translucent, expensive.
+"Liquid Glass"2025–26 AI-product-launch aesthetic: slow, translucent, expensive.
 - Deep indigo-black base; 4–5 aurora blobs (violet/blue/cyan/magenta, adjacent hues only) drifting on bezier paths, blending into a mesh gradient, 3–5% noise dithering (no banding).
 - Frosted glass cards (backdrop blur ~30px, 5–10% white fill, 1px 30% white inner highlight, large radius) float in with parallax depth and slight 3D tilt; micro-UI inside (chat bubble, voice waveform, toggles) animates with opacity + 8px rise.
 - WOW: a Liquid-Glass lens (true refraction, chromatic dispersion on the rim, specular edge) glides across and magnifies the aurora and the cards.
@@ -84,8 +92,7 @@ A sleek, modern aesthetic widely adopted by luxury tech and AI interfaces. Featu
    micro-motion. Map every signature feature above to a moment. Keep one cue sheet (beats and hit times) that both the
    picture and the sound read from.
 2. Key frames before motion. Build the look, render stills at 6–10 key times and actually look at them. Each still should be
-   poster-worthy: composition, hierarchy, negative space, type set properly (kerning, line-height, weight contrast, CJK
-   punctuation, ~5 % safe margins). Iterate until nothing looks default, generic, cramped or "AI-template".
+   poster-worthy: composition, hierarchy, negative space, type set properly (kerning, line-height, weight contrast, ~5 % safe margins). Iterate until nothing looks default, generic, cramped or "AI-template".
 3. Motion. Build the choreography and preview at low resolution. Step through the fastest moves frame by frame: spacing,
    easing, arcs, overlap, anticipation and follow-through, motion blur. No unintended dead spans; the energy follows the music.
 4. Sound. Write genre-correct music and sound design locked to the cue sheet. Check that visual hits land on audio onsets.

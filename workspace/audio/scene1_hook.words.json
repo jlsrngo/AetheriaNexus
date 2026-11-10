@@ -1,0 +1,237 @@
+{
+  "text": "Bayangkan, malam ini kamu pulang ke rumah... tapi tidak ada lampu. Tidak ada televisi. Tidak ada ponsel. Bahkan untuk melihat wajahmu sendiri, kamu harus menyalakan api. Dan yang lebih mengerikan... manusia pernah hidup seperti ini selama ribuan tahun.",
+  "spoken_text": "Bayangkan, malam ini kamu pulang ke rumah, tapi tidak ada lampu. Tidak ada televisi. Tidak ada ponsel. Bahkan, untuk melihat wajahmu sendiri, kamu harus menyalakan E-P-I. Dan yang lebih mengerikan, manusia pernah hidup seperti ini selama ribuan tahun.",
+  "duration": 14.235,
+  "sample_rate": 48000,
+  "style": "mystery",
+  "words": [
+    {
+      "word": "Bayangkan,",
+      "start": 0.0,
+      "duration": 0.74,
+      "end": 0.74
+    },
+    {
+      "word": "malam",
+      "start": 0.72,
+      "duration": 0.36,
+      "end": 1.08
+    },
+    {
+      "word": "ini",
+      "start": 1.06,
+      "duration": 0.14,
+      "end": 1.2
+    },
+    {
+      "word": "kamu",
+      "start": 1.18,
+      "duration": 0.22,
+      "end": 1.4
+    },
+    {
+      "word": "pulang",
+      "start": 1.38,
+      "duration": 0.3,
+      "end": 1.68
+    },
+    {
+      "word": "ke",
+      "start": 1.66,
+      "duration": 0.16,
+      "end": 1.82
+    },
+    {
+      "word": "rumah...",
+      "start": 1.8,
+      "duration": 0.7,
+      "end": 2.5
+    },
+    {
+      "word": "tapi",
+      "start": 2.48,
+      "duration": 0.26,
+      "end": 2.74
+    },
+    {
+      "word": "tidak",
+      "start": 2.72,
+      "duration": 0.24,
+      "end": 2.96
+    },
+    {
+      "word": "ada",
+      "start": 2.94,
+      "duration": 0.14,
+      "end": 3.08
+    },
+    {
+      "word": "lampu.",
+      "start": 3.06,
+      "duration": 0.64,
+      "end": 3.7
+    },
+    {
+      "word": "Tidak",
+      "start": 3.68,
+      "duration": 0.28,
+      "end": 3.96
+    },
+    {
+      "word": "ada",
+      "start": 3.94,
+      "duration": 0.18,
+      "end": 4.12
+    },
+    {
+      "word": "televisi.",
+      "start": 4.1,
+      "duration": 0.78,
+      "end": 4.88
+    },
+    {
+      "word": "Tidak",
+      "start": 4.86,
+      "duration": 0.22,
+      "end": 5.08
+    },
+    {
+      "word": "ada",
+      "start": 5.06,
+      "duration": 0.14,
+      "end": 5.2
+    },
+    {
+      "word": "ponsel.",
+      "start": 5.18,
+      "duration": 0.56,
+      "end": 5.74
+    },
+    {
+      "word": "Bahkan",
+      "start": 5.72,
+      "duration": 0.56,
+      "end": 6.28
+    },
+    {
+      "word": "untuk",
+      "start": 6.26,
+      "duration": 0.4,
+      "end": 6.66
+    },
+    {
+      "word": "melihat",
+      "start": 6.64,
+      "duration": 0.34,
+      "end": 6.98
+    },
+    {
+      "word": "wajahmu",
+      "start": 6.96,
+      "duration": 0.32,
+      "end": 7.28
+    },
+    {
+      "word": "sendiri,",
+      "start": 7.26,
+      "duration": 0.52,
+      "end": 7.78
+    },
+    {
+      "word": "kamu",
+      "start": 7.76,
+      "duration": 0.42,
+      "end": 8.18
+    },
+    {
+      "word": "harus",
+      "start": 8.16,
+      "duration": 0.2,
+      "end": 8.36
+    },
+    {
+      "word": "menyalakan",
+      "start": 8.34,
+      "duration": 0.46,
+      "end": 8.8
+    },
+    {
+      "word": "api.",
+      "start": 8.78,
+      "duration": 0.42,
+      "end": 9.2
+    },
+    {
+      "word": "Dan",
+      "start": 9.18,
+      "duration": 0.24,
+      "end": 9.42
+    },
+    {
+      "word": "yang",
+      "start": 9.4,
+      "duration": 0.24,
+      "end": 9.64
+    },
+    {
+      "word": "lebih",
+      "start": 9.62,
+      "duration": 0.54,
+      "end": 10.16
+    },
+    {
+      "word": "mengerikan...",
+      "start": 10.14,
+      "duration": 0.78,
+      "end": 10.92
+    },
+    {
+      "word": "manusia",
+      "start": 10.9,
+      "duration": 0.62,
+      "end": 11.52
+    },
+    {
+      "word": "pernah",
+      "start": 11.5,
+      "duration": 0.3,
+      "end": 11.8
+    },
+    {
+      "word": "hidup",
+      "start": 11.78,
+      "duration": 0.28,
+      "end": 12.06
+    },
+    {
+      "word": "seperti",
+      "start": 12.04,
+      "duration": 0.34,
+      "end": 12.38
+    },
+    {
+      "word": "ini",
+      "start": 12.36,
+      "duration": 0.3,
+      "end": 12.66
+    },
+    {
+      "word": "selama",
+      "start": 12.64,
+      "duration": 0.42,
+      "end": 13.06
+    },
+    {
+      "word": "ribuan",
+      "start": 13.04,
+      "duration": 0.42,
+      "end": 13.46
+    },
+    {
+      "word": "tahun.",
+      "start": 13.44,
+      "duration": 0.78,
+      "end": 14.22
+    }
+  ]
+}

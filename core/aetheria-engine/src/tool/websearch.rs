@@ -117,7 +117,7 @@ pub fn fetch_web_image_tool_definition() -> Value {
         "type": "function",
         "function": {
             "name": "fetch_web_image",
-            "description": "Searches the internet (Wikipedia, Wikimedia Commons, or direct URL) and downloads a real photo, historical image, portrait, or illustration directly into `workspace/public/<filename>` (and automatically syncs it into the Remotion bundle `public/` folder) so you can render it inside Remotion using `<Img src={staticFile(\"<filename>\")} />`. Always call this tool in parallel when a video style uses real cutout/B&W photos, historical portraits, or real-world imagery.",
+            "description": "Searches the internet (Wikipedia, Wikimedia Commons, or direct URL) and downloads a real photo, historical image, portrait, or illustration directly into `workspace/img/<filename>` so you can render it inside `workspace/index.html` using `/img/<filename>`.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -127,7 +127,7 @@ pub fn fetch_web_image_tool_definition() -> Value {
                     },
                     "outputPath": {
                         "type": "string",
-                        "description": "Destination path inside workspace/public (e.g. 'workspace/public/img_hacker.jpg' or 'img_terminal.jpg')."
+                        "description": "Destination path inside workspace/img (e.g. 'workspace/img/img_hacker.jpg' or 'img/img_terminal.jpg')."
                     },
                     "url": {
                         "type": "string",
@@ -147,18 +147,18 @@ fn sync_image_to_bundle(root: &std::path::Path, target_out: &std::path::Path) {
     let Some(file_name) = target_out.file_name() else {
         return;
     };
-    let ws_pub = root.join("workspace").join("public");
-    let _ = std::fs::create_dir_all(&ws_pub);
-    let ws_dest = ws_pub.join(file_name);
+    let ws_img = root.join("workspace").join("img");
+    let _ = std::fs::create_dir_all(&ws_img);
+    let ws_dest = ws_img.join(file_name);
     if ws_dest != target_out {
         let _ = std::fs::copy(target_out, &ws_dest);
     }
 
-    let bundle_pub = crate::paths::render_cache_dir().join("public");
-    let _ = std::fs::create_dir_all(&bundle_pub);
-    let bundle_dest = bundle_pub.join(file_name);
-    if bundle_dest != target_out {
-        let _ = std::fs::copy(target_out, &bundle_dest);
+    let apps_img = root.join("apps").join("public").join("img");
+    let _ = std::fs::create_dir_all(&apps_img);
+    let apps_dest = apps_img.join(file_name);
+    if apps_dest != target_out {
+        let _ = std::fs::copy(target_out, &apps_dest);
     }
 }
 

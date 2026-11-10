@@ -1,0 +1,375 @@
+{
+  "text": "Bayangkan kamu berdiri di tengah badai. Langit tiba-tiba terbelah oleh cahaya. Petir menyambar begitu dekat hingga seluruh tubuhmu bergetar. Selama berabad-abad, manusia hanya bisa takut melihatnya. Sampai pada tahun 1752, Benjamin Franklin melakukan eksperimen terkenal menggunakan layang-layang untuk menyelidiki hubungan petir dengan listrik. Untuk pertama kalinya, manusia mulai memahami bahwa kekuatan di langit dan percikan kecil yang mereka lihat ternyata berhubungan.",
+  "spoken_text": "Bayangkan, kamu berdiri di tengah badai. Langit tiba-tiba terbelah oleh cahaya. Petir menyambar begitu dekat hingga seluruh tubuhmu bergetar. Selama berabad-abad, manusia hanya bisa takut melihatnya. Sampai pada tahun tujuh belas lima puluh dua, Benjamin Franklin melakukan eksperimen terkenal menggunakan layang-layang untuk menyelidiki hubungan petir dengan listrik. Untuk pertama kalinya, manusia mulai memahami bahwa kekuatan di langit dan percikan kecil yang mereka lihat ternyata berhubungan.",
+  "duration": 26.755,
+  "sample_rate": 48000,
+  "style": "mystery",
+  "words": [
+    {
+      "word": "Bayangkan",
+      "start": 0.0,
+      "duration": 0.5,
+      "end": 0.5
+    },
+    {
+      "word": "kamu",
+      "start": 0.48,
+      "duration": 0.5,
+      "end": 0.98
+    },
+    {
+      "word": "berdiri",
+      "start": 0.96,
+      "duration": 0.5,
+      "end": 1.46
+    },
+    {
+      "word": "di",
+      "start": 1.44,
+      "duration": 0.1,
+      "end": 1.54
+    },
+    {
+      "word": "tengah",
+      "start": 1.52,
+      "duration": 0.2,
+      "end": 1.72
+    },
+    {
+      "word": "badai.",
+      "start": 1.7,
+      "duration": 0.46,
+      "end": 2.16
+    },
+    {
+      "word": "Langit",
+      "start": 2.14,
+      "duration": 0.36,
+      "end": 2.5
+    },
+    {
+      "word": "tiba-tiba",
+      "start": 2.48,
+      "duration": 0.8,
+      "end": 3.28
+    },
+    {
+      "word": "terbelah",
+      "start": 3.26,
+      "duration": 0.52,
+      "end": 3.78
+    },
+    {
+      "word": "oleh",
+      "start": 3.76,
+      "duration": 0.16,
+      "end": 3.92
+    },
+    {
+      "word": "cahaya.",
+      "start": 3.9,
+      "duration": 0.58,
+      "end": 4.48
+    },
+    {
+      "word": "Petir",
+      "start": 4.46,
+      "duration": 0.64,
+      "end": 5.1
+    },
+    {
+      "word": "menyambar",
+      "start": 5.08,
+      "duration": 0.3,
+      "end": 5.38
+    },
+    {
+      "word": "begitu",
+      "start": 5.36,
+      "duration": 0.22,
+      "end": 5.58
+    },
+    {
+      "word": "dekat",
+      "start": 5.56,
+      "duration": 0.28,
+      "end": 5.84
+    },
+    {
+      "word": "hingga",
+      "start": 5.82,
+      "duration": 0.54,
+      "end": 6.36
+    },
+    {
+      "word": "seluruh",
+      "start": 6.34,
+      "duration": 0.32,
+      "end": 6.66
+    },
+    {
+      "word": "tubuhmu",
+      "start": 6.64,
+      "duration": 0.32,
+      "end": 6.96
+    },
+    {
+      "word": "bergetar.",
+      "start": 6.94,
+      "duration": 0.7,
+      "end": 7.64
+    },
+    {
+      "word": "Selama",
+      "start": 7.62,
+      "duration": 0.84,
+      "end": 8.46
+    },
+    {
+      "word": "berabad-abad,",
+      "start": 8.44,
+      "duration": 1.12,
+      "end": 9.56
+    },
+    {
+      "word": "manusia",
+      "start": 9.54,
+      "duration": 0.38,
+      "end": 9.92
+    },
+    {
+      "word": "hanya",
+      "start": 9.9,
+      "duration": 0.24,
+      "end": 10.14
+    },
+    {
+      "word": "bisa",
+      "start": 10.12,
+      "duration": 0.24,
+      "end": 10.36
+    },
+    {
+      "word": "takut",
+      "start": 10.34,
+      "duration": 0.48,
+      "end": 10.82
+    },
+    {
+      "word": "melihatnya.",
+      "start": 10.8,
+      "duration": 1.26,
+      "end": 12.06
+    },
+    {
+      "word": "Sampai",
+      "start": 12.04,
+      "duration": 0.4,
+      "end": 12.44
+    },
+    {
+      "word": "pada",
+      "start": 12.42,
+      "duration": 0.16,
+      "end": 12.58
+    },
+    {
+      "word": "tahun",
+      "start": 12.56,
+      "duration": 0.26,
+      "end": 12.82
+    },
+    {
+      "word": "1752,",
+      "start": 12.8,
+      "duration": 0.44,
+      "end": 13.24
+    },
+    {
+      "word": "Benjamin",
+      "start": 13.22,
+      "duration": 0.3,
+      "end": 13.52
+    },
+    {
+      "word": "Franklin",
+      "start": 13.5,
+      "duration": 0.56,
+      "end": 14.06
+    },
+    {
+      "word": "melakukan",
+      "start": 14.04,
+      "duration": 0.46,
+      "end": 14.5
+    },
+    {
+      "word": "eksperimen",
+      "start": 14.48,
+      "duration": 0.56,
+      "end": 15.04
+    },
+    {
+      "word": "terkenal",
+      "start": 15.02,
+      "duration": 0.62,
+      "end": 15.64
+    },
+    {
+      "word": "menggunakan",
+      "start": 15.62,
+      "duration": 0.66,
+      "end": 16.28
+    },
+    {
+      "word": "layang-layang",
+      "start": 16.26,
+      "duration": 0.82,
+      "end": 17.08
+    },
+    {
+      "word": "untuk",
+      "start": 17.06,
+      "duration": 0.24,
+      "end": 17.3
+    },
+    {
+      "word": "menyelidiki",
+      "start": 17.28,
+      "duration": 0.62,
+      "end": 17.9
+    },
+    {
+      "word": "hubungan",
+      "start": 17.88,
+      "duration": 0.52,
+      "end": 18.4
+    },
+    {
+      "word": "petir",
+      "start": 18.38,
+      "duration": 0.4,
+      "end": 18.78
+    },
+    {
+      "word": "dengan",
+      "start": 18.76,
+      "duration": 0.36,
+      "end": 19.12
+    },
+    {
+      "word": "listrik.",
+      "start": 19.1,
+      "duration": 0.98,
+      "end": 20.08
+    },
+    {
+      "word": "Untuk",
+      "start": 20.06,
+      "duration": 0.38,
+      "end": 20.44
+    },
+    {
+      "word": "pertama",
+      "start": 20.42,
+      "duration": 0.38,
+      "end": 20.8
+    },
+    {
+      "word": "kalinya,",
+      "start": 20.78,
+      "duration": 0.62,
+      "end": 21.4
+    },
+    {
+      "word": "manusia",
+      "start": 21.38,
+      "duration": 0.32,
+      "end": 21.7
+    },
+    {
+      "word": "mulai",
+      "start": 21.68,
+      "duration": 0.18,
+      "end": 21.86
+    },
+    {
+      "word": "memahami",
+      "start": 21.84,
+      "duration": 0.32,
+      "end": 22.16
+    },
+    {
+      "word": "bahwa",
+      "start": 22.14,
+      "duration": 0.4,
+      "end": 22.54
+    },
+    {
+      "word": "kekuatan",
+      "start": 22.52,
+      "duration": 0.52,
+      "end": 23.04
+    },
+    {
+      "word": "di",
+      "start": 23.02,
+      "duration": 0.08,
+      "end": 23.1
+    },
+    {
+      "word": "langit",
+      "start": 23.08,
+      "duration": 0.32,
+      "end": 23.4
+    },
+    {
+      "word": "dan",
+      "start": 23.38,
+      "duration": 0.12,
+      "end": 23.5
+    },
+    {
+      "word": "percikan",
+      "start": 23.48,
+      "duration": 0.46,
+      "end": 23.94
+    },
+    {
+      "word": "kecil",
+      "start": 23.92,
+      "duration": 0.42,
+      "end": 24.34
+    },
+    {
+      "word": "yang",
+      "start": 24.32,
+      "duration": 0.36,
+      "end": 24.68
+    },
+    {
+      "word": "mereka",
+      "start": 24.66,
+      "duration": 0.34,
+      "end": 25.0
+    },
+    {
+      "word": "lihat",
+      "start": 24.98,
+      "duration": 0.34,
+      "end": 25.32
+    },
+    {
+      "word": "ternyata",
+      "start": 25.3,
+      "duration": 0.52,
+      "end": 25.82
+    },
+    {
+      "word": "berhubungan.",
+      "start": 25.8,
+      "duration": 0.94,
+      "end": 26.74
+    }
+  ]
+}
