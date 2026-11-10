@@ -16,7 +16,7 @@ command: /mg-bauhaus-swiss
 
 **Reference Benchmark**: KONSTRUKTION: 20 Beats Bauhaus · 1920×1080 · 30 fps · 10 s · AI Jury Score 7.71 / 10
 
-**Reference Source**: [demos/09-bauhaus/](../demos/09-bauhaus/)
+**Reference Source**: [`references/mg-styles-15/demos/09-bauhaus/`](../../references/mg-styles-15/demos/09-bauhaus/)
 
 ## How to Use
 

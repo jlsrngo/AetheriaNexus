@@ -16,7 +16,7 @@ command: /mg-shape-morph
 
 **Reference Benchmark**: One Shape, Every Story Morph · 1920×1080 · 30 fps · 10 s · AI Jury Score 7.64 / 10
 
-**Reference Source**: [demos/08-morph/](../demos/08-morph/)
+**Reference Source**: [`references/mg-styles-15/demos/08-morph/`](../../references/mg-styles-15/demos/08-morph/)
 
 ## How to Use
 

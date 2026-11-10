@@ -16,7 +16,7 @@ command: /mg-cel-boil
 
 **Reference Benchmark**: Artisan: Hand Made Line Boil · 1920×1080 · 24 fps · 10 s · AI Jury Score 8.07 / 10
 
-**Reference Source**: [demos/05-cel-boil/](../demos/05-cel-boil/)
+**Reference Source**: [`references/mg-styles-15/demos/05-cel-boil/`](../../references/mg-styles-15/demos/05-cel-boil/)
 
 ## How to Use
 

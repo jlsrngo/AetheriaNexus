@@ -16,7 +16,7 @@ command: /mg-line-art
 
 **Reference Benchmark**: ATELIER LINEAOne Line Continuous Flow · 1920×1080 · 30 fps · 10 s · AI Jury Score 7.64 / 10
 
-**Reference Source**: [demos/02-line-art/](../demos/02-line-art/)
+**Reference Source**: [`references/mg-styles-15/demos/02-line-art/`](../../references/mg-styles-15/demos/02-line-art/)
 
 ## How to Use
 

@@ -16,7 +16,7 @@ command: /mg-aurora-glass
 
 **Reference Benchmark**: Aurora: Think In Light · 1920×1080 · 30 fps · 10 s · AI Jury Score 8.07 / 10
 
-**Reference Source**: [demos/12-aurora-glass/](../demos/12-aurora-glass/)
+**Reference Source**: [`references/mg-styles-15/demos/12-aurora-glass/`](../../references/mg-styles-15/demos/12-aurora-glass/)
 
 ## How to Use
 

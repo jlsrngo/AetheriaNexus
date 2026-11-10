@@ -16,7 +16,7 @@ command: /mg-sci-fi-hud
 
 **Reference Benchmark**: Kestrel-9: Target Acquired Cyberpunk HUD · 1920×1080 · 30 fps · 10 s · AI Jury Score 7.93 / 10
 
-**Reference Source**: [demos/22-hud/](../demos/22-hud/)
+**Reference Source**: [`references/mg-styles-15/demos/22-hud/`](../../references/mg-styles-15/demos/22-hud/)
 
 ## How to Use
 

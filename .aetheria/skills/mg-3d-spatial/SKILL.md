@@ -16,7 +16,7 @@ command: /mg-3d-spatial
 
 **Reference Benchmark**: Soft: Soft Landing 3D · 1920×1080 · 24 fps · 10 s · AI Jury Score 7.71 / 10
 
-**Reference Source**: [demos/04-3d-render/](../demos/04-3d-render/)
+**Reference Source**: [`references/mg-styles-15/demos/04-3d-render/`](../../references/mg-styles-15/demos/04-3d-render/)
 
 ## How to Use
 

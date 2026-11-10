@@ -16,7 +16,7 @@ command: /mg-kinetic-calligraphy
 
 **Reference Benchmark**: Meow Diary EP.07: Daily Joy · 1080×1920 · 30 fps · 10 s · AI Jury Score 7.64 / 10
 
-**Reference Source**: [demos/18-hanazi/](../demos/18-hanazi/)
+**Reference Source**: [`references/mg-styles-15/demos/18-hanazi/`](../../references/mg-styles-15/demos/18-hanazi/)
 
 ## How to Use
 

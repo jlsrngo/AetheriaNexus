@@ -16,7 +16,7 @@ command: /mg-flat-vector
 
 **Reference Benchmark**: Popwise: One Dot Continuous Flow · 1920×1080 · 30 fps · 10 s · AI Jury Score 7.64 / 10
 
-**Reference Source**: [demos/01-flat-vector/](../demos/01-flat-vector/)
+**Reference Source**: [`references/mg-styles-15/demos/01-flat-vector/`](../../references/mg-styles-15/demos/01-flat-vector/)
 
 ## How to Use
 
