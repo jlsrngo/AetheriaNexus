@@ -51,6 +51,7 @@ pub fn build_tool_definitions() -> Vec<Value> {
         tasks::tasks_tool_definition(),
         bash::bash_tool_definition(),
         register_style_tool_definition(),
+        crate::session::agent_turn::subagent::spawn_subagent_tool_definition(),
     ];
     tools.extend(skill_manager::skill_tool_definitions());
     tools
@@ -205,6 +206,9 @@ pub async fn execute_tool_call(
         }
         "bash" | "shell" | "terminal" => {
             bash::execute_bash(session_id, workspace_dir, arguments).await
+        }
+        "spawn_subagent" | "delegate_task" | "delegate_subagent" | "run_subagent" => {
+            Box::pin(crate::session::agent_turn::subagent::execute_subagent(session_id, workspace_dir, arguments)).await
         }
         "register_motion_style" | "register_style" | "add_style" | "add_skill" => {
             let name = arguments.get("name").and_then(|v| v.as_str()).unwrap_or("");

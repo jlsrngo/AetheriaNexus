@@ -207,12 +207,12 @@ pub fn resolve_reference_report(workspace_dir: &str) -> Option<String> {
     let target_report = candidates.into_iter().find(|p| p.exists())?;
     let bp_text = std::fs::read_to_string(&target_report).ok()?;
     Some(format!(
-        "[Active Video Reference Analysis Report (from motioncraft ref report)]:\n\"\"\"\n{}\n\"\"\"\n\
-        DIRECTIVES:\n\
-        1. VISUAL FIDELITY: Follow the color palette, typography hierarchy, and visual scene composition (mockups, cards, badges) from this reference report. Do not leave the composition as bare plain text on an empty background.\n\
-        2. SEQUENTIAL AUDIO: Voiceover narration must be strictly sequential (Scene N starts when Scene N-1 ends). Never overlap speech audio tracks.\n\
-        3. SYNTHESIZE AUDIO: Call `voicebox_speak` for each scene (pass `spokenText` with Indonesian-friendly phonetic spelling for foreign names, ships, acronyms, or historical years while keeping pristine visual `text` for subtitles).\n\
-        4. RELATIVE SEQUENCE FRAMES: Inside `<Sequence>`, `useCurrentFrame()` already starts at 0. Pass `const frame = useCurrentFrame();` directly without subtracting `startFrame`.",
+        "[Active Video Reference Blueprint (Requested by user)]:\n\"\"\"\n{}\n\"\"\"\n\
+        GUIDELINES WHEN PRODUCING FROM REFERENCE:\n\
+        1. VISUAL FIDELITY: Maintain stylistic harmony (color palette, typography hierarchy, visual layouts).\n\
+        2. SEQUENTIAL AUDIO: Voiceover narration must be sequential (never overlap speech tracks).\n\
+        3. PRONUNCIATION: When calling `voicebox_speak`, supply `spokenText` for foreign names or acronyms.\n\
+        4. RELATIVE SEQUENCE FRAMES: Inside `<Sequence>`, `useCurrentFrame()` starts at 0.",
         bp_text.trim()
     ))
 }

@@ -80,25 +80,47 @@ pub async fn run_agent_turn(
     let mut context_additions = file_transcriptions;
     context_additions.extend(social_transcriptions);
 
-    // Mentioned files (@file.ext)
-    let mentioned_files = resolve_mentioned_files(workspace_dir, prompt_text);
-    if !mentioned_files.is_empty() {
-        context_additions.extend(mentioned_files);
-    }
+    let trimmed_prompt = prompt_text.trim();
+    let lower_prompt = trimmed_prompt.to_lowercase();
+    let is_greeting = matches!(
+        lower_prompt.as_str(),
+        "halo" | "hello" | "hi" | "hey" | "hai" | "pagi" | "siang" | "sore" | "malam"
+            | "tes" | "test" | "ping" | "halo nexus" | "assalamualaikum" | "selamat pagi"
+            | "selamat siang" | "selamat sore" | "selamat malam"
+    ) || (lower_prompt.len() <= 6 && (lower_prompt.starts_with("hi") || lower_prompt.starts_with("halo") || lower_prompt.starts_with("hey")));
 
-    // Active Motioncraft style slash command (e.g. /mono-editorial, /pi-v2, etc.)
-    if let Some(style_ctx) = resolve_motioncraft_style_command(workspace_dir, prompt_text) {
-        context_additions.push(style_ctx);
-    }
+    // Only inject mentioned files, style commands, audio presets, and reference reports
+    // if the user's turn is an actual task/prompt, NOT a simple greeting or ping!
+    if !is_greeting {
+        // Mentioned files (@file.ext)
+        let mentioned_files = resolve_mentioned_files(workspace_dir, prompt_text);
+        if !mentioned_files.is_empty() {
+            context_additions.extend(mentioned_files);
+        }
 
-    // Active Voicebox Audio Preset slash command (e.g. /audio:horror, /audio:pocketmyth, etc.)
-    if let Some(audio_ctx) = resolve_voice_preset_command(prompt_text) {
-        context_additions.push(audio_ctx);
-    }
+        // Active Motioncraft style slash command (e.g. /mono-editorial, /pi-v2, etc.)
+        if let Some(style_ctx) = resolve_motioncraft_style_command(workspace_dir, prompt_text) {
+            context_additions.push(style_ctx);
+        }
 
-    // Active video reference report
-    if let Some(ref_report) = resolve_reference_report(workspace_dir) {
-        context_additions.push(ref_report);
+        // Active Voicebox Audio Preset slash command (e.g. /audio:horror, /audio:pocketmyth, etc.)
+        if let Some(audio_ctx) = resolve_voice_preset_command(prompt_text) {
+            context_additions.push(audio_ctx);
+        }
+
+        // Active video reference report - ONLY inject if user explicitly asks for reference in their prompt
+        let wants_reference = lower_prompt.contains("/ref")
+            || lower_prompt.contains("reference")
+            || lower_prompt.contains("referensi")
+            || lower_prompt.contains("tirukan referensi")
+            || lower_prompt.contains("sesuai referensi")
+            || lower_prompt.contains("pakai referensi");
+
+        if wants_reference {
+            if let Some(ref_report) = resolve_reference_report(workspace_dir) {
+                context_additions.push(ref_report);
+            }
+        }
     }
 
     let enriched_user_text = if !context_additions.is_empty() {

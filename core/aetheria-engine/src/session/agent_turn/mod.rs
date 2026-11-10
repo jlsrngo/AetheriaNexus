@@ -9,6 +9,7 @@
 pub mod context;
 pub mod history;
 pub mod runner;
+pub mod subagent;
 pub mod vision;
 
 pub use context::{discover_workspace_plugin_rules, discover_workspace_skills};

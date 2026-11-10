@@ -367,6 +367,9 @@ pub fn execute_edit(session_id: &str, workspace_dir: &str, arguments: &Value) ->
                 match replace_content(&norm_content, &norm_old, &norm_new, replace_all) {
                     Ok((norm_updated, count)) => {
                         let updated = convert_to_line_ending(&norm_updated, ending);
+                        if let Err(val_err) = super::write::validate_root_tsx_imports(&p, &updated) {
+                            return json!({ "error": val_err });
+                        }
                         crate::files::record_document_change(workspace_dir, fp, &content_old, &updated);
                         match std::fs::write(&p, &updated) {
                             Ok(_) => {

@@ -1,101 +1,78 @@
 import React from 'react';
-import { AbsoluteFill, Composition, Sequence, useVideoConfig } from 'remotion';
-import { SCENE_TIMINGS, TOTAL_DURATION, FPS } from './types';
-import { Scene1 } from './scenes/Scene1';
-import { Scene2 } from './scenes/Scene2';
-import { Scene3 } from './scenes/Scene3';
-import { Scene4 } from './scenes/Scene4';
-import { Scene5 } from './scenes/Scene5';
-import { Scene6 } from './scenes/Scene6';
+import { Composition, Sequence } from 'remotion';
+import { Scene1Hook } from './scenes/Scene1';
+import { Scene2Stat } from './scenes/Scene2';
+import { Scene3Proof } from './scenes/Scene3';
+import { Scene4Cta } from './scenes/Scene4';
+import { Scene5Act } from './scenes/Scene5';
+import { Scene6Act } from './scenes/Scene6';
+import { Scene7Act } from './scenes/Scene7';
+import { Scene8Cta } from './scenes/Scene8';
 
-const f = (seconds: number) => Math.round(seconds * FPS);
+// ─── Scene durations @ 30fps (audio duration + 0.6s buffer) ────────────────
+// S1: 4.135 + 0.6 = 4.735s → 143 frames
+// S2: 3.815 + 0.6 = 4.415s → 133 frames
+// S3: 4.295 + 0.6 = 4.895s → 147 frames
+// S4: 3.775 + 0.6 = 4.375s → 132 frames
+// S5: 3.635 + 0.6 = 4.235s → 127 frames
+// S6: 3.895 + 0.6 = 4.495s → 135 frames
+// S7: 4.075 + 0.6 = 4.675s → 140 frames
+// S8: 3.155 + 0.6 = 3.755s → 113 frames
+// Total: 1070 frames
 
-export const TuringVideo: React.FC = () => {
+const SCENE_DURATIONS = [143, 133, 147, 132, 127, 135, 140, 113] as const;
+const TOTAL_FRAMES = SCENE_DURATIONS.reduce((a, b) => a + b, 0);
+
+// Compute cumulative start frames
+const startFrames: number[] = [];
+let acc = 0;
+for (const dur of SCENE_DURATIONS) {
+  startFrames.push(acc);
+  acc += dur;
+}
+
+const AlFatihVideo: React.FC = () => {
   return (
-    <AbsoluteFill style={{ background: '#0A0A0A' }}>
-
-      {/* ── SCENE 1 · The Weird Hook (0 – 7.515s) ── */}
-      <Sequence
-        from={f(SCENE_TIMINGS.s1.start)}
-        durationInFrames={f(SCENE_TIMINGS.s1.duration)}
-        name="S1-WeirdHook"
-      >
-        <AbsoluteFill>
-          <Scene1 />
-        </AbsoluteFill>
+    <>
+      <Sequence from={startFrames[0]} durationInFrames={SCENE_DURATIONS[0]}>
+        <Scene1Hook />
       </Sequence>
-
-      {/* ── SCENE 2 · Gas Mask Cyclist (7.515 – 23.39s) ── */}
-      <Sequence
-        from={f(SCENE_TIMINGS.s2.start)}
-        durationInFrames={f(SCENE_TIMINGS.s2.duration)}
-        name="S2-GasMaskCyclist"
-      >
-        <AbsoluteFill>
-          <Scene2 />
-        </AbsoluteFill>
+      <Sequence from={startFrames[1]} durationInFrames={SCENE_DURATIONS[1]}>
+        <Scene2Stat />
       </Sequence>
-
-      {/* ── SCENE 3 · Sunflower Obsession (23.39 – 30.505s) ── */}
-      <Sequence
-        from={f(SCENE_TIMINGS.s3.start)}
-        durationInFrames={f(SCENE_TIMINGS.s3.duration)}
-        name="S3-SunflowerObsession"
-      >
-        <AbsoluteFill>
-          <Scene3 />
-        </AbsoluteFill>
+      <Sequence from={startFrames[2]} durationInFrames={SCENE_DURATIONS[2]}>
+        <Scene3Proof />
       </Sequence>
-
-      {/* ── SCENE 4 · The Reveal – Bombe Machine (30.505 – 46.96s) ── */}
-      <Sequence
-        from={f(SCENE_TIMINGS.s4.start)}
-        durationInFrames={f(SCENE_TIMINGS.s4.duration)}
-        name="S4-BombeReveal"
-      >
-        <AbsoluteFill>
-          <Scene4 />
-        </AbsoluteFill>
+      <Sequence from={startFrames[3]} durationInFrames={SCENE_DURATIONS[3]}>
+        <Scene4Cta />
       </Sequence>
-
-      {/* ── SCENE 5 · Tragic Contrast (46.96 – 62.475s) ── */}
-      <Sequence
-        from={f(SCENE_TIMINGS.s5.start)}
-        durationInFrames={f(SCENE_TIMINGS.s5.duration)}
-        name="S5-TragicContrast"
-      >
-        <AbsoluteFill>
-          <Scene5 />
-        </AbsoluteFill>
+      <Sequence from={startFrames[4]} durationInFrames={SCENE_DURATIONS[4]}>
+        <Scene5Act />
       </Sequence>
-
-      {/* ── SCENE 6 · Climax & Modern Twist (62.475 – 76.85s) ── */}
-      <Sequence
-        from={f(SCENE_TIMINGS.s6.start)}
-        durationInFrames={f(SCENE_TIMINGS.s6.duration)}
-        name="S6-ClimaxTwist"
-      >
-        <AbsoluteFill>
-          <Scene6 />
-        </AbsoluteFill>
+      <Sequence from={startFrames[5]} durationInFrames={SCENE_DURATIONS[5]}>
+        <Scene6Act />
       </Sequence>
-
-    </AbsoluteFill>
+      <Sequence from={startFrames[6]} durationInFrames={SCENE_DURATIONS[6]}>
+        <Scene7Act />
+      </Sequence>
+      <Sequence from={startFrames[7]} durationInFrames={SCENE_DURATIONS[7]}>
+        <Scene8Cta />
+      </Sequence>
+    </>
   );
 };
 
 export const RemotionRoot: React.FC = () => {
   return (
-    <>
-      <Composition
-        id="TuringVideo"
-        component={TuringVideo}
-        durationInFrames={Math.ceil(76.850 * 30)}
-        fps={30}
-        width={1080}
-        height={1920}
-      />
-    </>
+    <Composition
+      id="NexusEditorialVideo"
+      component={AlFatihVideo}
+      durationInFrames={TOTAL_FRAMES}
+      fps={30}
+      width={1080}
+      height={1920}
+      defaultProps={{}}
+    />
   );
 };
 

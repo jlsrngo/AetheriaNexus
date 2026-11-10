@@ -3,8 +3,54 @@
 
 use serde_json::{json, Value};
 
+use std::path::Path;
 use super::resolve_isolated_path;
 use crate::session::message::emit_event;
+
+pub fn validate_root_tsx_imports(file_path: &Path, content: &str) -> Result<(), String> {
+    if !file_path
+        .file_name()
+        .map(|n| n == "Root.tsx" || n == "Root.jsx")
+        .unwrap_or(false)
+    {
+        return Ok(());
+    }
+    let parent = file_path.parent().unwrap_or(file_path);
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with("import ") && !trimmed.starts_with("export ") {
+            continue;
+        }
+        for quote in ['"', '\''] {
+            let marker = format!("from {quote}./");
+            if let Some(pos) = trimmed.find(&marker) {
+                let start = pos + marker.len() - 2;
+                let rest = &trimmed[start..];
+                if let Some(end) = rest[2..].find(quote) {
+                    let rel_spec = &rest[..end + 2];
+                    let clean_rel = rel_spec.trim_start_matches("./");
+                    let candidates = [
+                        parent.join(format!("{}.tsx", clean_rel)),
+                        parent.join(format!("{}.ts", clean_rel)),
+                        parent.join(format!("{}.jsx", clean_rel)),
+                        parent.join(format!("{}.js", clean_rel)),
+                        parent.join(clean_rel).join("index.tsx"),
+                        parent.join(clean_rel).join("index.ts"),
+                        parent.join(clean_rel),
+                    ];
+                    let exists = candidates.iter().any(|c| c.exists());
+                    if !exists {
+                        return Err(format!(
+                            "Cannot update Root.tsx: imported file '{}' does not exist on disk yet. Please create and write '{}' first before referencing it in Root.tsx to prevent Vite build failures.",
+                            rel_spec, rel_spec
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
 
 pub fn write_tool_definition() -> Value {
     json!({
@@ -39,6 +85,9 @@ pub fn execute_write(session_id: &str, workspace_dir: &str, arguments: &Value) -
 
     match resolve_isolated_path(workspace_dir, fp) {
         Ok(p) => {
+            if let Err(val_err) = validate_root_tsx_imports(&p, content) {
+                return json!({ "error": val_err });
+            }
             let before_content = std::fs::read_to_string(&p).unwrap_or_default();
             if let Some(parent) = p.parent() {
                 let _ = std::fs::create_dir_all(parent);
