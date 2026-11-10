@@ -1,321 +1,321 @@
 {
   "text": "Jadi, siapa sebenarnya penemu listrik? Jawabannya mungkin mengejutkan: tidak ada satu orang yang benar-benar menciptakan listrik. Listrik sudah ada jauh sebelum manusia lahir. Yang dilakukan manusia adalah menemukan rahasianya, memahaminya, lalu belajar mengendalikannya. Dan sekarang, setiap kali kamu menyalakan lampu... ingatlah, cahaya sederhana itu adalah hasil perjalanan penemuan manusia selama ribuan tahun.",
   "spoken_text": "Jadi, siapa sebenarnya penemu listrik? Jawabannya mungkin mengejutkan: tidak ada satu orang yang benar-benar menciptakan listrik. Listrik sudah ada jauh sebelum manusia lahir. Yang dilakukan manusia adalah menemukan rahasianya, memahaminya, lalu belajar mengendalikannya. Dan sekarang, setiap kali kamu menyalakan lampu, ingatlah, cahaya sederhana itu adalah hasil perjalanan penemuan manusia selama ribuan tahun.",
-  "duration": 23.595,
+  "duration": 23.795,
   "sample_rate": 48000,
   "style": "mystery",
   "words": [
     {
       "word": "Jadi,",
       "start": 0.0,
-      "duration": 0.72,
-      "end": 0.72
+      "duration": 0.52,
+      "end": 0.52
     },
     {
       "word": "siapa",
-      "start": 0.7,
-      "duration": 0.32,
-      "end": 1.02
+      "start": 0.5,
+      "duration": 0.42,
+      "end": 0.92
     },
     {
       "word": "sebenarnya",
-      "start": 1.0,
-      "duration": 0.6,
-      "end": 1.6
+      "start": 0.9,
+      "duration": 0.58,
+      "end": 1.48
     },
     {
       "word": "penemu",
-      "start": 1.58,
-      "duration": 0.22,
-      "end": 1.8
+      "start": 1.46,
+      "duration": 0.38,
+      "end": 1.84
     },
     {
       "word": "listrik?",
-      "start": 1.78,
-      "duration": 1.08,
-      "end": 2.86
+      "start": 1.82,
+      "duration": 0.98,
+      "end": 2.8
     },
     {
       "word": "Jawabannya",
-      "start": 2.84,
-      "duration": 0.46,
-      "end": 3.3
+      "start": 2.78,
+      "duration": 0.38,
+      "end": 3.16
     },
     {
       "word": "mungkin",
-      "start": 3.28,
-      "duration": 0.34,
-      "end": 3.62
+      "start": 3.14,
+      "duration": 0.38,
+      "end": 3.52
     },
     {
       "word": "mengejutkan:",
-      "start": 3.6,
-      "duration": 1.2,
-      "end": 4.8
+      "start": 3.5,
+      "duration": 1.1,
+      "end": 4.6
     },
     {
       "word": "tidak",
-      "start": 4.78,
-      "duration": 0.26,
-      "end": 5.04
+      "start": 4.58,
+      "duration": 0.3,
+      "end": 4.88
     },
     {
       "word": "ada",
-      "start": 5.02,
-      "duration": 0.18,
-      "end": 5.2
+      "start": 4.86,
+      "duration": 0.3,
+      "end": 5.16
     },
     {
       "word": "satu",
-      "start": 5.18,
-      "duration": 0.2,
-      "end": 5.38
+      "start": 5.14,
+      "duration": 0.16,
+      "end": 5.3
     },
     {
       "word": "orang",
-      "start": 5.36,
-      "duration": 0.22,
-      "end": 5.58
+      "start": 5.28,
+      "duration": 0.24,
+      "end": 5.52
     },
     {
       "word": "yang",
-      "start": 5.56,
-      "duration": 0.2,
-      "end": 5.76
+      "start": 5.5,
+      "duration": 0.22,
+      "end": 5.72
     },
     {
       "word": "benar-benar",
-      "start": 5.74,
-      "duration": 0.88,
-      "end": 6.62
+      "start": 5.7,
+      "duration": 0.5,
+      "end": 6.2
     },
     {
       "word": "menciptakan",
-      "start": 6.6,
-      "duration": 1.24,
-      "end": 7.84
+      "start": 6.18,
+      "duration": 0.76,
+      "end": 6.94
     },
     {
       "word": "listrik.",
-      "start": 7.82,
-      "duration": 0.56,
-      "end": 8.38
+      "start": 6.92,
+      "duration": 0.98,
+      "end": 7.9
     },
     {
       "word": "Listrik",
-      "start": 8.36,
-      "duration": 0.36,
-      "end": 8.72
+      "start": 7.88,
+      "duration": 0.38,
+      "end": 8.26
     },
     {
       "word": "sudah",
-      "start": 8.7,
-      "duration": 0.22,
-      "end": 8.92
+      "start": 8.24,
+      "duration": 0.3,
+      "end": 8.54
     },
     {
       "word": "ada",
-      "start": 8.9,
+      "start": 8.52,
       "duration": 0.14,
-      "end": 9.04
+      "end": 8.66
     },
     {
       "word": "jauh",
-      "start": 9.02,
-      "duration": 0.22,
-      "end": 9.24
+      "start": 8.64,
+      "duration": 0.14,
+      "end": 8.78
     },
     {
       "word": "sebelum",
-      "start": 9.22,
+      "start": 8.76,
       "duration": 0.34,
-      "end": 9.56
+      "end": 9.1
     },
     {
       "word": "manusia",
-      "start": 9.54,
-      "duration": 0.56,
-      "end": 10.1
+      "start": 9.08,
+      "duration": 0.36,
+      "end": 9.44
     },
     {
       "word": "lahir.",
-      "start": 10.08,
-      "duration": 0.48,
-      "end": 10.56
+      "start": 9.42,
+      "duration": 0.42,
+      "end": 9.84
     },
     {
       "word": "Yang",
-      "start": 10.54,
-      "duration": 0.18,
-      "end": 10.72
+      "start": 9.82,
+      "duration": 0.56,
+      "end": 10.38
     },
     {
       "word": "dilakukan",
-      "start": 10.7,
-      "duration": 0.5,
-      "end": 11.2
+      "start": 10.36,
+      "duration": 0.46,
+      "end": 10.82
     },
     {
       "word": "manusia",
-      "start": 11.18,
+      "start": 10.8,
       "duration": 0.32,
-      "end": 11.5
+      "end": 11.12
     },
     {
       "word": "adalah",
-      "start": 11.48,
-      "duration": 0.34,
-      "end": 11.82
+      "start": 11.1,
+      "duration": 0.38,
+      "end": 11.48
     },
     {
       "word": "menemukan",
-      "start": 11.8,
-      "duration": 0.5,
-      "end": 12.3
+      "start": 11.46,
+      "duration": 0.54,
+      "end": 12.0
     },
     {
       "word": "rahasianya,",
-      "start": 12.28,
-      "duration": 0.72,
-      "end": 13.0
+      "start": 11.98,
+      "duration": 0.94,
+      "end": 12.92
     },
     {
       "word": "memahaminya,",
-      "start": 12.98,
-      "duration": 0.8,
-      "end": 13.78
+      "start": 12.9,
+      "duration": 0.96,
+      "end": 13.86
     },
     {
       "word": "lalu",
-      "start": 13.76,
-      "duration": 0.18,
-      "end": 13.94
+      "start": 13.84,
+      "duration": 0.16,
+      "end": 14.0
     },
     {
       "word": "belajar",
-      "start": 13.92,
-      "duration": 0.32,
-      "end": 14.24
+      "start": 13.98,
+      "duration": 0.52,
+      "end": 14.5
     },
     {
       "word": "mengendalikannya.",
-      "start": 14.22,
-      "duration": 1.26,
-      "end": 15.48
+      "start": 14.48,
+      "duration": 1.02,
+      "end": 15.5
     },
     {
       "word": "Dan",
-      "start": 15.46,
-      "duration": 0.2,
+      "start": 15.48,
+      "duration": 0.18,
       "end": 15.66
     },
     {
       "word": "sekarang,",
       "start": 15.64,
-      "duration": 0.82,
-      "end": 16.46
+      "duration": 0.9,
+      "end": 16.54
     },
     {
       "word": "setiap",
-      "start": 16.44,
-      "duration": 0.42,
-      "end": 16.86
-    },
-    {
-      "word": "kali",
-      "start": 16.84,
-      "duration": 0.16,
+      "start": 16.52,
+      "duration": 0.48,
       "end": 17.0
     },
     {
-      "word": "kamu",
+      "word": "kali",
       "start": 16.98,
-      "duration": 0.16,
-      "end": 17.14
+      "duration": 0.28,
+      "end": 17.26
+    },
+    {
+      "word": "kamu",
+      "start": 17.24,
+      "duration": 0.24,
+      "end": 17.48
     },
     {
       "word": "menyalakan",
-      "start": 17.12,
-      "duration": 0.54,
-      "end": 17.66
+      "start": 17.46,
+      "duration": 0.44,
+      "end": 17.9
     },
     {
       "word": "lampu...",
-      "start": 17.64,
-      "duration": 0.76,
-      "end": 18.4
+      "start": 17.88,
+      "duration": 0.8,
+      "end": 18.68
     },
     {
       "word": "ingatlah,",
-      "start": 18.38,
-      "duration": 0.64,
-      "end": 19.02
+      "start": 18.66,
+      "duration": 0.8,
+      "end": 19.46
     },
     {
       "word": "cahaya",
-      "start": 19.0,
-      "duration": 0.36,
-      "end": 19.36
+      "start": 19.44,
+      "duration": 0.38,
+      "end": 19.82
     },
     {
       "word": "sederhana",
-      "start": 19.34,
-      "duration": 0.66,
-      "end": 20.0
+      "start": 19.8,
+      "duration": 0.58,
+      "end": 20.38
     },
     {
       "word": "itu",
-      "start": 19.98,
+      "start": 20.36,
       "duration": 0.16,
-      "end": 20.14
+      "end": 20.52
     },
     {
       "word": "adalah",
-      "start": 20.12,
-      "duration": 0.48,
-      "end": 20.6
+      "start": 20.5,
+      "duration": 0.4,
+      "end": 20.9
     },
     {
       "word": "hasil",
-      "start": 20.58,
-      "duration": 0.3,
-      "end": 20.88
+      "start": 20.88,
+      "duration": 0.32,
+      "end": 21.2
     },
     {
       "word": "perjalanan",
-      "start": 20.86,
-      "duration": 0.56,
-      "end": 21.42
+      "start": 21.18,
+      "duration": 0.5,
+      "end": 21.68
     },
     {
       "word": "penemuan",
-      "start": 21.4,
-      "duration": 0.36,
-      "end": 21.76
+      "start": 21.66,
+      "duration": 0.38,
+      "end": 22.04
     },
     {
       "word": "manusia",
-      "start": 21.74,
-      "duration": 0.44,
-      "end": 22.18
-    },
-    {
-      "word": "selama",
-      "start": 22.16,
-      "duration": 0.32,
+      "start": 22.02,
+      "duration": 0.46,
       "end": 22.48
     },
     {
-      "word": "ribuan",
+      "word": "selama",
       "start": 22.46,
-      "duration": 0.44,
-      "end": 22.9
+      "duration": 0.34,
+      "end": 22.8
+    },
+    {
+      "word": "ribuan",
+      "start": 22.78,
+      "duration": 0.46,
+      "end": 23.24
     },
     {
       "word": "tahun.",
-      "start": 22.88,
-      "duration": 0.7,
-      "end": 23.58
+      "start": 23.22,
+      "duration": 0.56,
+      "end": 23.78
     }
   ]
 }

@@ -1,279 +1,279 @@
 {
   "text": "Tapi memahami listrik saja tidak cukup. Kamu tidak bisa menunggu petir setiap kali membutuhkan energi. Lalu pada tahun 1800, Alessandro Volta menciptakan baterai listrik pertama yang mampu menghasilkan arus listrik secara terus-menerus. Bayangkan... untuk pertama kalinya, manusia bisa menghasilkan listrik tanpa harus menunggu langit mengamuk.",
   "spoken_text": "Tapi memahami listrik saja tidak cukup. Kamu tidak bisa menunggu petir setiap kali membutuhkan energi. Lalu pada tahun delapan belas ratus, Alessandro Volta menciptakan baterai listrik pertama yang mampu menghasilkan arus listrik secara terus-menerus. Bayangkan, untuk pertama kalinya, manusia bisa menghasilkan listrik tanpa harus menunggu langit mengamuk.",
-  "duration": 18.455,
+  "duration": 18.595,
   "sample_rate": 48000,
   "style": "mystery",
   "words": [
     {
       "word": "Tapi",
       "start": 0.0,
-      "duration": 0.38,
-      "end": 0.38
+      "duration": 0.3,
+      "end": 0.3
     },
     {
       "word": "memahami",
-      "start": 0.36,
-      "duration": 0.28,
-      "end": 0.64
+      "start": 0.28,
+      "duration": 0.32,
+      "end": 0.6
     },
     {
       "word": "listrik",
-      "start": 0.62,
-      "duration": 0.26,
-      "end": 0.88
+      "start": 0.58,
+      "duration": 0.28,
+      "end": 0.86
     },
     {
       "word": "saja",
-      "start": 0.86,
-      "duration": 0.28,
-      "end": 1.14
+      "start": 0.84,
+      "duration": 0.22,
+      "end": 1.06
     },
     {
       "word": "tidak",
-      "start": 1.12,
-      "duration": 0.26,
-      "end": 1.38
+      "start": 1.04,
+      "duration": 0.38,
+      "end": 1.42
     },
     {
       "word": "cukup.",
-      "start": 1.36,
-      "duration": 0.62,
-      "end": 1.98
+      "start": 1.4,
+      "duration": 0.52,
+      "end": 1.92
     },
     {
       "word": "Kamu",
-      "start": 1.96,
-      "duration": 0.48,
-      "end": 2.44
+      "start": 1.9,
+      "duration": 0.44,
+      "end": 2.34
     },
     {
       "word": "tidak",
-      "start": 2.42,
+      "start": 2.32,
       "duration": 0.22,
-      "end": 2.64
+      "end": 2.54
     },
     {
       "word": "bisa",
-      "start": 2.62,
-      "duration": 0.14,
-      "end": 2.76
+      "start": 2.52,
+      "duration": 0.18,
+      "end": 2.7
     },
     {
       "word": "menunggu",
-      "start": 2.74,
+      "start": 2.68,
       "duration": 0.34,
-      "end": 3.08
+      "end": 3.02
     },
     {
       "word": "petir",
-      "start": 3.06,
-      "duration": 0.16,
-      "end": 3.22
+      "start": 3.0,
+      "duration": 0.2,
+      "end": 3.2
     },
     {
       "word": "setiap",
-      "start": 3.2,
-      "duration": 0.44,
-      "end": 3.64
+      "start": 3.18,
+      "duration": 0.28,
+      "end": 3.46
     },
     {
       "word": "kali",
-      "start": 3.62,
-      "duration": 0.38,
-      "end": 4.0
+      "start": 3.44,
+      "duration": 0.22,
+      "end": 3.66
     },
     {
       "word": "membutuhkan",
-      "start": 3.98,
-      "duration": 0.6,
-      "end": 4.58
+      "start": 3.64,
+      "duration": 0.68,
+      "end": 4.32
     },
     {
       "word": "energi.",
-      "start": 4.56,
-      "duration": 0.62,
-      "end": 5.18
+      "start": 4.3,
+      "duration": 0.74,
+      "end": 5.04
     },
     {
       "word": "Lalu",
-      "start": 5.16,
-      "duration": 0.22,
-      "end": 5.38
+      "start": 5.02,
+      "duration": 0.28,
+      "end": 5.3
     },
     {
       "word": "pada",
-      "start": 5.36,
-      "duration": 0.2,
-      "end": 5.56
+      "start": 5.28,
+      "duration": 0.38,
+      "end": 5.66
     },
     {
       "word": "tahun",
-      "start": 5.54,
-      "duration": 0.32,
+      "start": 5.64,
+      "duration": 0.22,
       "end": 5.86
     },
     {
       "word": "1800,",
       "start": 5.84,
-      "duration": 0.44,
-      "end": 6.28
+      "duration": 0.36,
+      "end": 6.2
     },
     {
       "word": "Alessandro",
-      "start": 6.26,
-      "duration": 0.68,
-      "end": 6.94
+      "start": 6.18,
+      "duration": 0.44,
+      "end": 6.62
     },
     {
       "word": "Volta",
-      "start": 6.92,
-      "duration": 0.22,
-      "end": 7.14
+      "start": 6.6,
+      "duration": 0.28,
+      "end": 6.88
     },
     {
       "word": "menciptakan",
-      "start": 7.12,
-      "duration": 0.48,
-      "end": 7.6
+      "start": 6.86,
+      "duration": 0.78,
+      "end": 7.64
     },
     {
       "word": "baterai",
-      "start": 7.58,
-      "duration": 0.48,
-      "end": 8.06
+      "start": 7.62,
+      "duration": 0.4,
+      "end": 8.02
     },
     {
       "word": "listrik",
-      "start": 8.04,
-      "duration": 0.34,
-      "end": 8.38
+      "start": 8.0,
+      "duration": 0.4,
+      "end": 8.4
     },
     {
       "word": "pertama",
-      "start": 8.36,
-      "duration": 0.62,
-      "end": 8.98
+      "start": 8.38,
+      "duration": 0.52,
+      "end": 8.9
     },
     {
       "word": "yang",
-      "start": 8.96,
-      "duration": 0.22,
-      "end": 9.18
+      "start": 8.88,
+      "duration": 0.26,
+      "end": 9.14
     },
     {
       "word": "mampu",
-      "start": 9.16,
-      "duration": 0.18,
+      "start": 9.12,
+      "duration": 0.22,
       "end": 9.34
     },
     {
       "word": "menghasilkan",
       "start": 9.32,
-      "duration": 0.56,
-      "end": 9.88
+      "duration": 0.96,
+      "end": 10.28
     },
     {
       "word": "arus",
-      "start": 9.86,
-      "duration": 0.26,
-      "end": 10.12
+      "start": 10.26,
+      "duration": 0.18,
+      "end": 10.44
     },
     {
       "word": "listrik",
-      "start": 10.1,
-      "duration": 0.48,
-      "end": 10.58
+      "start": 10.42,
+      "duration": 0.32,
+      "end": 10.74
     },
     {
       "word": "secara",
-      "start": 10.56,
-      "duration": 0.6,
-      "end": 11.16
+      "start": 10.72,
+      "duration": 0.32,
+      "end": 11.04
     },
     {
       "word": "terus-menerus.",
-      "start": 11.14,
-      "duration": 1.3,
-      "end": 12.44
+      "start": 11.02,
+      "duration": 1.36,
+      "end": 12.38
     },
     {
       "word": "Bayangkan...",
-      "start": 12.42,
-      "duration": 0.82,
-      "end": 13.24
+      "start": 12.36,
+      "duration": 1.08,
+      "end": 13.44
     },
     {
       "word": "untuk",
-      "start": 13.22,
-      "duration": 0.36,
-      "end": 13.58
+      "start": 13.42,
+      "duration": 0.32,
+      "end": 13.74
     },
     {
       "word": "pertama",
-      "start": 13.56,
-      "duration": 0.4,
-      "end": 13.96
+      "start": 13.72,
+      "duration": 0.58,
+      "end": 14.3
     },
     {
       "word": "kalinya,",
-      "start": 13.94,
-      "duration": 0.72,
-      "end": 14.66
+      "start": 14.28,
+      "duration": 0.58,
+      "end": 14.86
     },
     {
       "word": "manusia",
-      "start": 14.64,
-      "duration": 0.34,
-      "end": 14.98
+      "start": 14.84,
+      "duration": 0.46,
+      "end": 15.3
     },
     {
       "word": "bisa",
-      "start": 14.96,
-      "duration": 0.24,
-      "end": 15.2
+      "start": 15.28,
+      "duration": 0.2,
+      "end": 15.48
     },
     {
       "word": "menghasilkan",
-      "start": 15.18,
-      "duration": 0.56,
-      "end": 15.74
+      "start": 15.46,
+      "duration": 0.66,
+      "end": 16.12
     },
     {
       "word": "listrik",
-      "start": 15.72,
-      "duration": 0.42,
-      "end": 16.14
+      "start": 16.1,
+      "duration": 0.38,
+      "end": 16.48
     },
     {
       "word": "tanpa",
-      "start": 16.12,
+      "start": 16.46,
       "duration": 0.42,
-      "end": 16.54
-    },
-    {
-      "word": "harus",
-      "start": 16.52,
-      "duration": 0.36,
       "end": 16.88
     },
     {
-      "word": "menunggu",
+      "word": "harus",
       "start": 16.86,
+      "duration": 0.3,
+      "end": 17.16
+    },
+    {
+      "word": "menunggu",
+      "start": 17.14,
       "duration": 0.4,
-      "end": 17.26
+      "end": 17.54
     },
     {
       "word": "langit",
-      "start": 17.24,
-      "duration": 0.32,
-      "end": 17.56
+      "start": 17.52,
+      "duration": 0.22,
+      "end": 17.74
     },
     {
       "word": "mengamuk.",
-      "start": 17.54,
-      "duration": 0.9,
-      "end": 18.44
+      "start": 17.72,
+      "duration": 0.86,
+      "end": 18.58
     }
   ]
 }
