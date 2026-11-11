@@ -1,3 +1,19 @@
+//! Workspace file HTTP API (listing, text/binary reads, writes) and re-exports.
+
+pub use crate::file_changes::{
+    capture_baseline_before_write, ensure_workspace_baseline, record_document_change,
+    remove_baseline_for_path, remove_document_change, DOCUMENT_CHANGES,
+};
+pub use crate::file_search::collect_files_recursive;
+pub use crate::file_text_extract::{
+    extract_diffable_text, extract_diffable_text_from_bytes, is_binary_doc_ext,
+};
+
+use crate::file_changes::{
+    capture_baseline_before_write as capture_baseline, handle_accept, handle_revert, handle_status,
+    normalize_rel_file,
+};
+use crate::file_search::{handle_find_file, handle_find_text};
 use crate::paths::{contains_path, normalize_workspace_path};
 use axum::{
     extract::Query,
@@ -37,7 +53,7 @@ pub fn router() -> Router {
         .route("/api/find/symbol", get(handle_status))
 }
 
-fn resolve_base_dir(q: &HashMap<String, String>, headers: &HeaderMap) -> PathBuf {
+pub(crate) fn resolve_base_dir(q: &HashMap<String, String>, headers: &HeaderMap) -> PathBuf {
     if let Some(dir) = q.get("directory").or_else(|| q.get("workspacePath")) {
         if !dir.trim().is_empty() {
             let norm = normalize_workspace_path(dir);
@@ -85,6 +101,23 @@ pub fn urlencoding_decode(s: &str) -> String {
     String::from_utf8_lossy(&out).to_string()
 }
 
+fn resolve_target(base_dir: &Path, req_path: &str) -> PathBuf {
+    let p = Path::new(req_path);
+    if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        base_dir.join(req_path)
+    }
+}
+
+fn forbidden_path_resp() -> Response {
+    (
+        StatusCode::FORBIDDEN,
+        Json(json!({ "error": "Access denied: path outside project folder" })),
+    )
+        .into_response()
+}
+
 async fn handle_list(
     Query(q): Query<HashMap<String, String>>,
     headers: HeaderMap,
@@ -94,30 +127,18 @@ async fn handle_list(
     let target = if req_path.is_empty() || req_path == "." || req_path == "/" {
         base_dir.clone()
     } else {
-        let p = Path::new(req_path);
-        if p.is_absolute() {
-            p.to_path_buf()
-        } else {
-            base_dir.join(req_path)
-        }
+        resolve_target(&base_dir, req_path)
     };
 
     if !contains_path(&base_dir, &target) {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(json!({ "error": "Access denied: path outside project folder" })),
-        )
-            .into_response();
+        return forbidden_path_resp();
     }
 
     let mut nodes = Vec::new();
     if let Ok(entries) = std::fs::read_dir(&target) {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
-            if name.starts_with('.')
-                || name.starts_with("~$")
-                || name == "node_modules"
-            {
+            if name.starts_with('.') || name.starts_with("~$") || name == "node_modules" {
                 continue;
             }
             let full = entry.path();
@@ -176,19 +197,10 @@ async fn handle_content(
         )
             .into_response();
     };
-    let p = Path::new(req_path);
-    let target = if p.is_absolute() {
-        p.to_path_buf()
-    } else {
-        base_dir.join(req_path)
-    };
+    let target = resolve_target(&base_dir, req_path);
 
     if !contains_path(&base_dir, &target) {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(json!({ "error": "Access denied: path outside project folder" })),
-        )
-            .into_response();
+        return forbidden_path_resp();
     }
 
     let Ok(bytes) = std::fs::read(&target) else {
@@ -268,19 +280,9 @@ async fn handle_write_content(
             .into_response();
     };
 
-    let p = Path::new(req_path);
-    let target = if p.is_absolute() {
-        p.to_path_buf()
-    } else {
-        base_dir.join(req_path)
-    };
-
+    let target = resolve_target(&base_dir, req_path);
     if !contains_path(&base_dir, &target) {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(json!({ "error": "Access denied: path outside project folder" })),
-        )
-            .into_response();
+        return forbidden_path_resp();
     }
 
     let content = body
@@ -292,7 +294,7 @@ async fn handle_write_content(
         let _ = std::fs::create_dir_all(parent);
     }
 
-    capture_baseline_before_write(&base_dir.to_string_lossy(), req_path);
+    capture_baseline(&base_dir.to_string_lossy(), req_path);
 
     if let Err(e) = std::fs::write(&target, content) {
         return (
@@ -315,612 +317,3 @@ async fn handle_write_content(
     }))
     .into_response()
 }
-
-use std::sync::{Mutex, OnceLock};
-
-pub static DOCUMENT_CHANGES: OnceLock<Mutex<HashMap<String, (String, String, u64)>>> =
-    OnceLock::new();
-
-fn is_ignored_change_path(rel_path: &str) -> bool {
-    let norm = rel_path.replace('\\', "/");
-    let trimmed = norm.trim_start_matches("./").trim_start_matches('/');
-    if trimmed.is_empty()
-        || trimmed.starts_with('.')
-        || trimmed.starts_with("~$")
-        || trimmed.contains("/.")
-        || trimmed.contains("/~$")
-        || trimmed.ends_with(".__new__")
-    {
-        return true;
-    }
-    let fname = Path::new(trimmed)
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or(trimmed);
-    if fname.starts_with('.') || fname.starts_with("~$") || fname.ends_with(".__new__") {
-        return true;
-    }
-    let ext = Path::new(fname)
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    matches!(ext.as_str(), "py" | "ps1" | "sh" | "bat" | "cmd" | "bak" | "tmp")
-}
-
-pub fn is_binary_doc_ext(path: &Path) -> bool {
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    matches!(
-        ext.as_str(),
-        "xlsx" | "xls" | "xlsm" | "xlsb" | "docx" | "doc" | "pptx" | "ppt" | "pdf" | "png" | "jpg" | "jpeg" | "gif" | "webp" | "zip"
-    )
-}
-
-pub fn extract_diffable_text(file_path: &Path) -> String {
-    let Ok(bytes) = std::fs::read(file_path) else {
-        return String::new();
-    };
-    extract_diffable_text_from_bytes(file_path, &bytes)
-}
-
-pub fn extract_diffable_text_from_bytes(file_path: &Path, bytes: &[u8]) -> String {
-    if bytes.is_empty() {
-        return String::new();
-    }
-    let ext = file_path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-
-    let is_opaque_binary = matches!(
-        ext.as_str(),
-        "png" | "jpg" | "jpeg" | "gif" | "webp" | "zip" | "exe" | "dll" | "mp4" | "mov"
-    ) || bytes.iter().take(512).any(|&b| b == 0);
-
-    if is_opaque_binary {
-        let mut hash: u64 = 0xcbf29ce484222325;
-        for &b in bytes {
-            hash ^= b as u64;
-            hash = hash.wrapping_mul(0x100000001b3);
-        }
-        let fname = file_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("binary");
-        return format!("[Binary file: {} ({} bytes, fnv1a:{:016x})]", fname, bytes.len(), hash);
-    }
-
-    String::from_utf8_lossy(bytes).replace("\r\n", "\n")
-}
-pub fn ensure_workspace_baseline(_base_dir: &Path) {
-    // Baseline auto-spawning removed
-}
-
-pub fn capture_baseline_before_write(_workspace_dir: &str, _file: &str) {
-    // Baseline auto-spawning removed
-}
-
-pub fn remove_baseline_for_path(workspace_dir: &str, file: &str) {
-    if workspace_dir.trim().is_empty() {
-        return;
-    }
-    let base = Path::new(workspace_dir);
-    let rel = normalize_rel_file(base, file);
-    remove_document_change(&rel);
-}
-
-pub fn record_document_change(workspace_dir: &str, file: &str, before: &str, after: &str) {
-    if is_ignored_change_path(file) {
-        return;
-    }
-    capture_baseline_before_write(workspace_dir, file);
-
-    let base = Path::new(workspace_dir);
-    let rel = if !workspace_dir.trim().is_empty() {
-        normalize_rel_file(base, file)
-    } else {
-        file.replace('\\', "/")
-    };
-
-    if !is_binary_doc_ext(Path::new(&rel)) {
-        let store = DOCUMENT_CHANGES.get_or_init(|| Mutex::new(HashMap::new()));
-        if let Ok(mut lock) = store.lock() {
-            lock.insert(
-                rel.clone(),
-                (
-                    before.to_string(),
-                    after.to_string(),
-                    crate::paths::now_ms(),
-                ),
-            );
-        }
-    }
-}
-
-fn normalize_rel_file(base_dir: &Path, raw: &str) -> String {
-    let base_norm = base_dir
-        .to_string_lossy()
-        .replace('\\', "/")
-        .trim_end_matches('/')
-        .to_string();
-    let raw_norm = raw.replace('\\', "/");
-    let raw_lower = raw_norm.to_ascii_lowercase();
-    let prefix_lower = format!("{}/", base_norm.to_ascii_lowercase());
-    let rel = if raw_lower.starts_with(&prefix_lower) {
-        &raw_norm[prefix_lower.len()..]
-    } else {
-        raw_norm.as_str()
-    };
-    rel.trim_start_matches("./").trim_start_matches('/').to_string()
-}
-
-pub fn remove_document_change(file: &str) {
-    let store = DOCUMENT_CHANGES.get_or_init(|| Mutex::new(HashMap::new()));
-    let norm_target = file.replace('\\', "/");
-    let fname_target = Path::new(&norm_target)
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or(&norm_target)
-        .to_ascii_lowercase();
-    if let Ok(mut lock) = store.lock() {
-        lock.retain(|k, _| {
-            let k_norm = k.replace('\\', "/");
-            let k_fname = Path::new(&k_norm)
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or(&k_norm)
-                .to_ascii_lowercase();
-            !k_norm.eq_ignore_ascii_case(&norm_target) && k_fname != fname_target
-        });
-    }
-}
-
-async fn handle_status(
-    Query(q): Query<HashMap<String, String>>,
-    headers: HeaderMap,
-) -> Response {
-    let base_dir = resolve_base_dir(&q, &headers);
-    ensure_workspace_baseline(&base_dir);
-
-    let store = DOCUMENT_CHANGES.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut items = Vec::new();
-    let baseline_dir = base_dir.join(".aetheria").join("baseline");
-    let _ = std::fs::remove_dir_all(baseline_dir.join(".aetheria"));
-
-    // 1. Scan all current files in active workspace against .aetheria/baseline/
-    let mut current_files = Vec::new();
-    collect_files_recursive(&base_dir, &base_dir, &mut current_files, 1500);
-    for current_file in current_files {
-        let Ok(rel) = current_file.strip_prefix(&base_dir) else {
-            continue;
-        };
-        let rel_str = rel.to_string_lossy().replace('\\', "/");
-        if is_ignored_change_path(&rel_str) {
-            continue;
-        }
-        let bf = baseline_dir.join(&rel_str);
-        let new_marker = baseline_dir.join(format!("{}.__new__", rel_str));
-        let file_name = rel
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| rel_str.clone());
-
-        let is_legacy_empty_new = if bf.exists() {
-            bf.metadata().map(|m| m.len() == 0).unwrap_or(false)
-                && current_file.metadata().map(|m| m.len() > 0).unwrap_or(false)
-        } else {
-            false
-        };
-
-        if new_marker.exists() || !bf.exists() || is_legacy_empty_new {
-            if !new_marker.exists() {
-                if let Some(parent) = new_marker.parent() {
-                    let _ = std::fs::create_dir_all(parent);
-                }
-                let _ = std::fs::write(&new_marker, b"");
-            }
-            if is_legacy_empty_new {
-                let _ = std::fs::remove_file(&bf);
-            }
-            let after = extract_diffable_text(&current_file);
-            if !after.trim().is_empty() {
-                items.push(json!({
-                    "path": rel_str,
-                    "name": file_name,
-                    "status": "new",
-                    "before": "",
-                    "after": after,
-                    "before_content": "",
-                    "after_content": after,
-                    "timestamp": crate::paths::now_ms(),
-                }));
-            }
-        } else if let (Ok(before_bytes), Ok(after_bytes)) =
-            (std::fs::read(&bf), std::fs::read(&current_file))
-        {
-            if before_bytes != after_bytes {
-                let before = extract_diffable_text_from_bytes(&current_file, &before_bytes);
-                let after = extract_diffable_text_from_bytes(&current_file, &after_bytes);
-                if before != after {
-                    let is_new = before.trim().is_empty();
-                    items.push(json!({
-                        "path": rel_str,
-                        "name": file_name,
-                        "status": if is_new { "new" } else { "modified" },
-                        "before": before,
-                        "after": after,
-                        "before_content": before,
-                        "after_content": after,
-                        "timestamp": crate::paths::now_ms(),
-                    }));
-                }
-            }
-        }
-    }
-
-    // 2. Supplement with active in-memory edits
-    if let Ok(lock) = store.lock() {
-        for (file, (before, after, ts)) in lock.iter() {
-            if before == after || is_ignored_change_path(file) {
-                continue;
-            }
-            let rel_norm = normalize_rel_file(&base_dir, file);
-            if items.iter().any(|it| {
-                let p = it.get("path").and_then(|v| v.as_str()).unwrap_or("");
-                p.eq_ignore_ascii_case(file) || p.eq_ignore_ascii_case(&rel_norm)
-            }) {
-                continue;
-            }
-            let file_name = Path::new(&rel_norm)
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_else(|| rel_norm.clone());
-            let is_new = before.trim().is_empty();
-            items.push(json!({
-                "path": rel_norm,
-                "name": file_name,
-                "status": if is_new { "new" } else { "modified" },
-                "before": before,
-                "after": after,
-                "before_content": before,
-                "after_content": after,
-                "timestamp": ts,
-            }));
-        }
-    }
-
-    // 3. Scan for any existing .bak files in the active workspace
-    if let Ok(entries) = std::fs::read_dir(&base_dir) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if let Some(ext) = p.extension() {
-                if ext == "bak" {
-                    let orig_name = p.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-                    let orig_path = base_dir.join(orig_name);
-                    if orig_path.exists() {
-                        let rel_name = orig_name.to_string();
-                        if !items.iter().any(|it| it.get("path").and_then(|v| v.as_str()) == Some(&rel_name)) {
-                            let before = extract_diffable_text(&p);
-                            let after = extract_diffable_text(&orig_path);
-                            if before != after {
-                                items.push(json!({
-                                    "path": rel_name,
-                                    "name": rel_name,
-                                    "status": "modified",
-                                    "before": before,
-                                    "after": after,
-                                    "before_content": before,
-                                    "after_content": after,
-                                    "timestamp": crate::paths::now_ms(),
-                                }));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Json(json!({ "data": items })).into_response()
-}
-
-async fn handle_revert(
-    Query(q): Query<HashMap<String, String>>,
-    headers: HeaderMap,
-    Json(body): Json<Value>,
-) -> Response {
-    let base_dir = resolve_base_dir(&q, &headers);
-    let req_path = body
-        .get("path")
-        .or_else(|| body.get("filePath"))
-        .or_else(|| body.get("file"))
-        .and_then(|v| v.as_str())
-        .or_else(|| q.get("path").map(|s| s.as_str()));
-
-    let Some(raw_rel) = req_path else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "error": "path is required" })),
-        )
-            .into_response();
-    };
-
-    let file_rel = normalize_rel_file(&base_dir, raw_rel);
-    let target_file = base_dir.join(&file_rel);
-    let baseline_root = base_dir.join(".aetheria").join("baseline");
-    let baseline_file = baseline_root.join(&file_rel);
-    let new_marker = baseline_root.join(format!("{}.__new__", file_rel));
-    let is_valid_baseline = contains_path(&baseline_root, &baseline_file);
-    let bak_file = base_dir.join(format!("{}.bak", file_rel));
-
-    // Case 1: Newly created file — reverting deletes the file from the working tree
-    let is_empty_baseline = is_valid_baseline
-        && baseline_file.exists()
-        && baseline_file.metadata().map(|m| m.len() == 0).unwrap_or(false);
-    if is_valid_baseline && (new_marker.exists() || is_empty_baseline) {
-        if contains_path(&base_dir, &target_file) && target_file.exists() {
-            let _ = std::fs::remove_file(&target_file);
-        }
-        let _ = std::fs::remove_file(&new_marker);
-        let _ = std::fs::remove_file(&baseline_file);
-        if bak_file.exists() {
-            let _ = std::fs::remove_file(&bak_file);
-        }
-        remove_document_change(&file_rel);
-        crate::session::message::emit_event(
-            &base_dir.to_string_lossy(),
-            "file.edited",
-            json!({ "file": file_rel, "reverted": true, "deleted": true }),
-        );
-        return Json(json!({ "success": true, "path": file_rel, "deleted": true })).into_response();
-    }
-
-    // Case 2: Restore exact raw bytes from baseline_file or .bak (100% binary-safe for .xlsx/.docx/.pdf)
-    let restored_bytes = if is_valid_baseline && baseline_file.exists() {
-        std::fs::read(&baseline_file).ok()
-    } else if bak_file.exists() {
-        std::fs::read(&bak_file).ok()
-    } else {
-        let store = DOCUMENT_CHANGES.get_or_init(|| Mutex::new(HashMap::new()));
-        let before_from_store = if let Ok(lock) = store.lock() {
-            lock.get(&file_rel)
-                .or_else(|| lock.get(raw_rel))
-                .map(|(b, _, _)| b.as_bytes().to_vec())
-        } else {
-            None
-        };
-        before_from_store.or_else(|| {
-            if !is_binary_doc_ext(&target_file) {
-                body.get("beforeContent")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.as_bytes().to_vec())
-            } else {
-                None
-            }
-        })
-    };
-
-    if let Some(bytes) = restored_bytes {
-        if contains_path(&base_dir, &target_file) {
-            let _ = std::fs::write(&target_file, &bytes);
-            if is_valid_baseline && !baseline_file.exists() {
-                if let Some(parent) = baseline_file.parent() {
-                    let _ = std::fs::create_dir_all(parent);
-                }
-                let _ = std::fs::write(&baseline_file, &bytes);
-            }
-        }
-        if bak_file.exists() {
-            let _ = std::fs::remove_file(&bak_file);
-        }
-        remove_document_change(&file_rel);
-        crate::session::message::emit_event(
-            &base_dir.to_string_lossy(),
-            "file.edited",
-            json!({ "file": file_rel, "reverted": true }),
-        );
-        Json(json!({ "success": true, "path": file_rel })).into_response()
-    } else {
-        remove_document_change(&file_rel);
-        Json(json!({ "success": true, "path": file_rel })).into_response()
-    }
-}
-
-async fn handle_accept(
-    Query(q): Query<HashMap<String, String>>,
-    headers: HeaderMap,
-    Json(body): Json<Value>,
-) -> Response {
-    let base_dir = resolve_base_dir(&q, &headers);
-    let req_path = body
-        .get("path")
-        .or_else(|| body.get("filePath"))
-        .or_else(|| body.get("file"))
-        .and_then(|v| v.as_str())
-        .or_else(|| q.get("path").map(|s| s.as_str()));
-
-    let Some(raw_rel) = req_path else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "error": "path is required" })),
-        )
-            .into_response();
-    };
-
-    let file_rel = normalize_rel_file(&base_dir, raw_rel);
-    let target_file = base_dir.join(&file_rel);
-
-    // Only write plain text content for non-binary documents; binary docs (.xlsx, .docx, .pptx, .pdf)
-    // already have their real binary bytes written to target_file on disk.
-    if !is_binary_doc_ext(&target_file) {
-        if let Some(content) = body.get("content").and_then(|v| v.as_str()) {
-            if !content.is_empty() && contains_path(&base_dir, &target_file) {
-                let _ = std::fs::write(&target_file, content);
-            }
-        }
-    }
-
-    let baseline_root = base_dir.join(".aetheria").join("baseline");
-    let baseline_file = baseline_root.join(&file_rel);
-    let new_marker = baseline_root.join(format!("{}.__new__", file_rel));
-    if contains_path(&baseline_root, &baseline_file) {
-        let _ = std::fs::remove_file(&new_marker);
-        if target_file.exists() {
-            if let Some(parent) = baseline_file.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-            let _ = std::fs::copy(&target_file, &baseline_file);
-        } else if baseline_file.exists() {
-            let _ = std::fs::remove_file(&baseline_file);
-        }
-    }
-    let bak_file = base_dir.join(format!("{}.bak", file_rel));
-    if bak_file.exists() {
-        let _ = std::fs::remove_file(&bak_file);
-    }
-    remove_document_change(&file_rel);
-
-    Json(json!({ "success": true, "path": file_rel })).into_response()
-}
-
-pub fn collect_files_recursive(dir: &Path, base: &Path, out: &mut Vec<PathBuf>, max_files: usize) {
-    if out.len() >= max_files {
-        return;
-    }
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        if out.len() >= max_files {
-            break;
-        }
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') || name == "node_modules" || name == "target" || name == "dist" {
-            continue;
-        }
-        let path = entry.path();
-        if !contains_path(base, &path) {
-            continue;
-        }
-        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-            collect_files_recursive(&path, base, out, max_files);
-        } else {
-            out.push(path);
-        }
-    }
-}
-
-async fn handle_find_file(
-    Query(q): Query<HashMap<String, String>>,
-    headers: HeaderMap,
-) -> Response {
-    let base_dir = resolve_base_dir(&q, &headers);
-    let query_str = q
-        .get("query")
-        .map(|s| s.to_lowercase())
-        .unwrap_or_default();
-    let limit = q
-        .get("limit")
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(50);
-
-    let mut all_files = Vec::new();
-    collect_files_recursive(&base_dir, &base_dir, &mut all_files, 1500);
-
-    let mut matches = Vec::new();
-    for f in all_files {
-        let rel = f
-            .strip_prefix(&base_dir)
-            .unwrap_or(&f)
-            .to_string_lossy()
-            .replace('\\', "/");
-        if query_str.is_empty() || rel.to_lowercase().contains(&query_str) {
-            matches.push(Value::String(rel));
-            if matches.len() >= limit {
-                break;
-            }
-        }
-    }
-
-    Json(Value::Array(matches)).into_response()
-}
-
-async fn handle_find_text(
-    Query(q): Query<HashMap<String, String>>,
-    headers: HeaderMap,
-) -> Response {
-    let base_dir = resolve_base_dir(&q, &headers);
-    let raw_pattern = q.get("pattern").cloned().unwrap_or_default();
-    if raw_pattern.trim().is_empty() {
-        return Json(json!([])).into_response();
-    }
-    let case_sensitive = q
-        .get("caseSensitive")
-        .map(|v| v == "true" || v == "1")
-        .unwrap_or(false);
-    let pattern_cmp = if case_sensitive {
-        raw_pattern.clone()
-    } else {
-        raw_pattern.to_lowercase()
-    };
-
-    let mut all_files = Vec::new();
-    collect_files_recursive(&base_dir, &base_dir, &mut all_files, 500);
-
-    let mut results = Vec::new();
-    for f in all_files {
-        if results.len() >= 150 {
-            break;
-        }
-        let ext = f
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_ascii_lowercase();
-        if matches!(
-            ext.as_str(),
-            "png" | "jpg" | "jpeg" | "gif" | "webp" | "zip" | "exe" | "dll" | "bak" | "tmp"
-        ) {
-            continue;
-        }
-        let txt = extract_diffable_text(&f);
-        if txt.is_empty() || txt.starts_with("[Binary File:") {
-            continue;
-        }
-        let rel = f
-            .strip_prefix(&base_dir)
-            .unwrap_or(&f)
-            .to_string_lossy()
-            .replace('\\', "/");
-        if is_ignored_change_path(&rel) {
-            continue;
-        }
-        for (idx, line) in txt.lines().enumerate() {
-            let matched = if case_sensitive {
-                line.contains(&pattern_cmp)
-            } else {
-                line.to_lowercase().contains(&pattern_cmp)
-            };
-            if matched {
-                results.push(json!({
-                    "path": { "text": rel },
-                    "lines": { "text": line },
-                    "line_number": idx + 1,
-                    "absolute_offset": 0,
-                    "submatches": []
-                }));
-                if results.len() >= 150 {
-                    break;
-                }
-            }
-        }
-    }
-
-    Json(Value::Array(results)).into_response()
-}
-
