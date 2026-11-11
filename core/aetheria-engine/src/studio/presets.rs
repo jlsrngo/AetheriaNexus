@@ -1,10 +1,11 @@
-//! Voicebox Preset & Reference Studio Handlers for Aetheria Engine.
+//! Voicebox Preset Studio Handlers for Aetheria Engine.
 //!
 //! Endpoints:
 //! - GET  `/api/studio/voice-presets`        — List presets from `core/voicebox/presets/presets.json`
 //! - POST `/api/studio/voice-presets/save`   — Add or update a voice preset (and optional base64 WAV sample)
 //! - POST `/api/studio/voice-presets/test`   — Synthesize a live preview sample with custom tuning (no LLM)
-//! - POST `/api/studio/video-reference/extract` — Save uploaded video reference or extract blueprint
+
+pub use super::video_reference::{handle_extract_video_reference, ExtractVideoRefPayload};
 
 use axum::{response::IntoResponse, Json};
 use base64::Engine as _;
@@ -63,7 +64,13 @@ pub async fn handle_save_voice_preset(
         .trim()
         .to_lowercase()
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect::<String>();
 
     if preset_id.is_empty() {
@@ -74,8 +81,10 @@ pub async fn handle_save_voice_preset(
     let _ = std::fs::create_dir_all(&dir);
 
     let json_path = presets_json_path();
-    let raw = std::fs::read_to_string(&json_path).unwrap_or_else(|_| r#"{"presets":{}}"#.to_string());
-    let mut root_val: Value = serde_json::from_str(&raw).unwrap_or_else(|_| json!({ "presets": {} }));
+    let raw =
+        std::fs::read_to_string(&json_path).unwrap_or_else(|_| r#"{"presets":{}}"#.to_string());
+    let mut root_val: Value =
+        serde_json::from_str(&raw).unwrap_or_else(|_| json!({ "presets": {} }));
 
     let existing = root_val
         .get("presets")
@@ -83,7 +92,6 @@ pub async fn handle_save_voice_preset(
         .cloned()
         .unwrap_or_else(|| json!({}));
 
-    // Save optional uploaded audio sample
     let mut sample_filename = payload
         .sample_file_name
         .filter(|s| !s.trim().is_empty())
@@ -129,11 +137,21 @@ pub async fn handle_save_voice_preset(
         .unwrap_or(1.48);
     let lang = payload
         .lang
-        .or_else(|| existing.get("lang").and_then(|v| v.as_str()).map(|s| s.to_string()))
+        .or_else(|| {
+            existing
+                .get("lang")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
         .unwrap_or_else(|| "id".to_string());
     let gender = payload
         .gender
-        .or_else(|| existing.get("gender").and_then(|v| v.as_str()).map(|s| s.to_string()))
+        .or_else(|| {
+            existing
+                .get("gender")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
         .unwrap_or_else(|| "male".to_string());
     let ctrl = payload
         .control_instruction
@@ -159,7 +177,6 @@ pub async fn handle_save_voice_preset(
 
     let prompt_txt = payload.prompt_text.trim().to_string();
 
-    // Build or merge styles
     let styles_val = if let Some(custom_styles) = payload.styles {
         custom_styles
     } else {
@@ -207,9 +224,13 @@ pub async fn handle_save_voice_preset(
         })
     };
 
-    let fb_voice = payload
-        .fallback_voice
-        .unwrap_or_else(|| if lang == "en" { "am_adam".to_string() } else { "id-ID-ArdiNeural".to_string() });
+    let fb_voice = payload.fallback_voice.unwrap_or_else(|| {
+        if lang == "en" {
+            "am_adam".to_string()
+        } else {
+            "id-ID-ArdiNeural".to_string()
+        }
+    });
     let fb_rate = payload.fallback_rate.unwrap_or_else(|| "+10%".to_string());
     let fb_pitch = payload.fallback_pitch.unwrap_or_else(|| "+14Hz".to_string());
 
@@ -233,7 +254,11 @@ pub async fn handle_save_voice_preset(
         }
     });
 
-    if !root_val.get("presets").map(|v| v.is_object()).unwrap_or(false) {
+    if !root_val
+        .get("presets")
+        .map(|v| v.is_object())
+        .unwrap_or(false)
+    {
         root_val["presets"] = json!({});
     }
     root_val["presets"][&preset_id] = preset_obj.clone();
@@ -282,16 +307,12 @@ pub async fn handle_test_voice_preset(
     let _ = std::fs::create_dir_all(&out_dir);
     let out_file = out_dir.join(format!("preset_preview_{}.wav", crate::paths::now_ms()));
 
-    // If custom cfgValue is provided for live tuning, temporarily update the preset's active style cfgValue
     if let Some(cfg) = payload.cfg_value {
         let json_path = presets_json_path();
         if let Ok(raw) = std::fs::read_to_string(&json_path) {
             if let Ok(mut root_val) = serde_json::from_str::<Value>(&raw) {
                 let base_id = payload.voice.split(':').next().unwrap_or(&payload.voice);
-                let style_key = payload
-                    .style
-                    .as_deref()
-                    .unwrap_or("default");
+                let style_key = payload.style.as_deref().unwrap_or("default");
                 if let Some(preset_obj) = root_val
                     .get_mut("presets")
                     .and_then(|p| p.get_mut(base_id))
@@ -373,86 +394,3 @@ pub async fn handle_test_voice_preset(
         })),
     }
 }
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ExtractVideoRefPayload {
-    pub file_name: Option<String>,
-    pub video_base64: Option<String>,
-    pub video_path: Option<String>,
-}
-
-/// POST `/api/studio/video-reference/extract`
-pub async fn handle_extract_video_reference(
-    Json(payload): Json<ExtractVideoRefPayload>,
-) -> impl IntoResponse {
-    let root = crate::paths::project_root();
-    let ref_dir = root.join("workspace").join("ref");
-    let _ = std::fs::create_dir_all(&ref_dir);
-
-    let target_video = if let Some(b64_raw) = payload.video_base64.filter(|s| !s.trim().is_empty())
-    {
-        let clean_b64 = b64_raw
-            .split(',')
-            .next_back()
-            .unwrap_or(b64_raw.as_str())
-            .trim();
-        let safe_name = payload
-            .file_name
-            .filter(|s| !s.trim().is_empty())
-            .unwrap_or_else(|| format!("ref_{}.mp4", crate::paths::now_ms()));
-        let out_path = ref_dir.join(&safe_name);
-        match base64::engine::general_purpose::STANDARD.decode(clean_b64) {
-            Ok(bytes) => {
-                if let Err(e) = std::fs::write(&out_path, &bytes) {
-                    return Json(json!({
-                        "success": false,
-                        "error": format!("Failed to save reference video: {}", e)
-                    }));
-                }
-                out_path
-            }
-            Err(e) => {
-                return Json(json!({
-                    "success": false,
-                    "error": format!("Invalid video base64 payload: {}", e)
-                }));
-            }
-        }
-    } else if let Some(vp) = payload.video_path.filter(|s| !s.trim().is_empty()) {
-        let p = std::path::Path::new(&vp);
-        if p.is_absolute() {
-            p.to_path_buf()
-        } else {
-            root.join(p)
-        }
-    } else {
-        return Json(json!({
-            "success": false,
-            "error": "Provide either an uploaded video file or videoPath."
-        }));
-    };
-
-    let extracted_dir = ref_dir.join("extracted");
-    let _ = std::fs::create_dir_all(&extracted_dir);
-
-    let res = crate::tool::ref_extractor::execute_ref_extractor(
-        &root.to_string_lossy(),
-        &json!({
-            "videoPath": target_video.to_string_lossy().to_string(),
-            "outputDir": extracted_dir.to_string_lossy().to_string()
-        }),
-    )
-    .await;
-
-    let report_md = std::fs::read_to_string(extracted_dir.join("ref_report.md")).unwrap_or_default();
-
-    Json(json!({
-        "success": res.get("error").is_none(),
-        "videoPath": target_video.to_string_lossy().to_string(),
-        "reportPath": extracted_dir.join("ref_report.md").to_string_lossy().to_string(),
-        "reportMarkdown": report_md,
-        "extractorResult": res
-    }))
-}
-

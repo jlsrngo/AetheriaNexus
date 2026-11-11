@@ -1,10 +1,51 @@
-//! Studio asset scanner, media vault indexing, and file management.
+//! Studio asset scanner, media vault indexing, and static file CRUD.
 
-use super::types::{format_file_size, DeleteFilePayload, NexusStaticFile, ScanMediaPayload, WriteFilePayload};
+pub use super::media_stream::{handle_stream_video, StreamVideoQuery};
+
+use super::types::{
+    format_file_size, DeleteFilePayload, NexusStaticFile, ScanMediaPayload, WriteFilePayload,
+};
 use crate::paths::gen_id;
 use axum::{response::IntoResponse, Json};
 use serde_json::json;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+fn build_asset_entry(root: &Path, path: &Path, bytes: u64) -> Option<NexusStaticFile> {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .unwrap_or_default();
+
+    let file_type = match ext.as_str() {
+        "mp4" | "mov" | "webm" | "mkv" => "video",
+        "mp3" | "wav" | "m4a" | "aac" | "ogg" | "flac" => "audio",
+        "png" | "jpg" | "jpeg" | "svg" | "webp" | "gif" => "image",
+        "json" | "csv" | "tsv" => "data",
+        _ => return None,
+    };
+
+    let file_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unnamed")
+        .to_string();
+
+    let rel_path = path
+        .strip_prefix(root)
+        .map(|p| p.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_else(|_| file_name.clone());
+
+    Some(NexusStaticFile {
+        id: gen_id("file"),
+        name: file_name,
+        file_type: file_type.to_string(),
+        size: format_file_size(bytes),
+        bytes,
+        path: path.to_string_lossy().to_string(),
+        relative_path: rel_path,
+    })
+}
 
 /// GET / POST /api/get-static-files (Non-blocking background scanner)
 pub async fn handle_get_static_files() -> impl IntoResponse {
@@ -30,42 +71,10 @@ pub async fn handle_get_static_files() -> impl IntoResponse {
                 for entry in entries.flatten() {
                     let path = entry.path();
                     if path.is_file() {
-                        let ext = path
-                            .extension()
-                            .and_then(|e| e.to_str())
-                            .map(|e| e.to_lowercase())
-                            .unwrap_or_default();
-
-                        let file_type = match ext.as_str() {
-                            "mp4" | "mov" | "webm" | "mkv" => "video",
-                            "mp3" | "wav" | "m4a" | "aac" | "ogg" | "flac" => "audio",
-                            "png" | "jpg" | "jpeg" | "svg" | "webp" | "gif" => "image",
-                            "json" | "csv" | "tsv" => "data",
-                            _ => continue,
-                        };
-
-                        let file_name = path
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or("unnamed")
-                            .to_string();
-
                         let bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
-                        let size_str = format_file_size(bytes);
-                        let rel_path = path
-                            .strip_prefix(&workspace)
-                            .map(|p| p.to_string_lossy().replace('\\', "/"))
-                            .unwrap_or_else(|_| file_name.clone());
-
-                        files.push(NexusStaticFile {
-                            id: gen_id("file"),
-                            name: file_name,
-                            file_type: file_type.to_string(),
-                            size: size_str,
-                            bytes,
-                            path: path.to_string_lossy().to_string(),
-                            relative_path: rel_path,
-                        });
+                        if let Some(asset) = build_asset_entry(&workspace, &path, bytes) {
+                            files.push(asset);
+                        }
                     }
                 }
             }
@@ -114,9 +123,7 @@ pub async fn handle_get_static_files() -> impl IntoResponse {
 }
 
 /// POST /api/write-static-file
-pub async fn handle_write_static_file(
-    Json(payload): Json<WriteFilePayload>,
-) -> impl IntoResponse {
+pub async fn handle_write_static_file(Json(payload): Json<WriteFilePayload>) -> impl IntoResponse {
     let rel = payload
         .file_path
         .or(payload.path)
@@ -192,50 +199,16 @@ pub fn scan_directory_files(
             if path.is_dir() {
                 scan_directory_files(root, &path, acc, depth + 1, max_depth);
             } else if path.is_file() {
-                let ext = path
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .map(|e| e.to_lowercase())
-                    .unwrap_or_default();
-
-                let file_type = match ext.as_str() {
-                    "mp4" | "mov" | "webm" | "mkv" => "video",
-                    "mp3" | "wav" | "m4a" | "aac" | "ogg" | "flac" => "audio",
-                    "png" | "jpg" | "jpeg" | "svg" | "webp" | "gif" => "image",
-                    "json" | "csv" | "tsv" => "data",
-                    _ => continue,
-                };
-
-                let file_name = path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("unnamed")
-                    .to_string();
-
                 let bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
-                let size_str = format_file_size(bytes);
-                let rel_path = path
-                    .strip_prefix(root)
-                    .map(|p| p.to_string_lossy().replace('\\', "/"))
-                    .unwrap_or_else(|_| file_name.clone());
-
-                acc.push(NexusStaticFile {
-                    id: gen_id("file"),
-                    name: file_name,
-                    file_type: file_type.to_string(),
-                    size: size_str,
-                    bytes,
-                    path: path.to_string_lossy().to_string(),
-                    relative_path: rel_path,
-                });
+                if let Some(asset) = build_asset_entry(root, &path, bytes) {
+                    acc.push(asset);
+                }
             }
         }
     }
 }
 
-pub async fn handle_scan_media_vault(
-    Json(payload): Json<ScanMediaPayload>,
-) -> impl IntoResponse {
+pub async fn handle_scan_media_vault(Json(payload): Json<ScanMediaPayload>) -> impl IntoResponse {
     let (scanned_path, results) = tokio::task::spawn_blocking(move || {
         let workspace = crate::desktop::get_active_workspace_root()
             .map(PathBuf::from)
@@ -268,102 +241,3 @@ pub async fn handle_scan_media_vault(
         "assets": results
     }))
 }
-
-#[derive(serde::Deserialize)]
-pub struct StreamVideoQuery {
-    pub path: Option<String>,
-    pub file: Option<String>,
-}
-
-/// GET /api/studio/stream-video?file=linus-torvalds-preview.mp4
-/// High-performance native Rust video streaming with HTTP 206 Partial Content (Byte Ranges)
-/// for zero-CPU GPU hardware acceleration in browser.
-pub async fn handle_stream_video(
-    headers: axum::http::HeaderMap,
-    axum::extract::Query(query): axum::extract::Query<StreamVideoQuery>,
-) -> axum::response::Response {
-    use axum::http::{header, StatusCode};
-    use axum::response::IntoResponse;
-    use tokio::io::{AsyncReadExt, AsyncSeekExt};
-
-    let workspace = crate::desktop::get_active_workspace_root()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."));
-
-    let target_path = if let Some(p) = query.path {
-        let pb = PathBuf::from(&p);
-        if pb.is_absolute() { pb } else { workspace.join(pb) }
-    } else if let Some(f) = query.file {
-        workspace.join("output").join(f)
-    } else {
-        return (StatusCode::BAD_REQUEST, "Missing file or path query parameter").into_response();
-    };
-
-    if !target_path.exists() || !target_path.is_file() {
-        return (StatusCode::NOT_FOUND, "Video file not found").into_response();
-    }
-
-    let mut file = match tokio::fs::File::open(&target_path).await {
-        Ok(f) => f,
-        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to open video file").into_response(),
-    };
-
-    let metadata = match file.metadata().await {
-        Ok(m) => m,
-        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read file metadata").into_response(),
-    };
-
-    let file_size = metadata.len();
-    let content_type = mime_guess::from_path(&target_path)
-        .first_or_octet_stream()
-        .to_string();
-
-    let range_header = headers.get(header::RANGE).and_then(|h| h.to_str().ok());
-
-    if let Some(range) = range_header {
-        if let Some(spec) = range.strip_prefix("bytes=") {
-            let parts: Vec<&str> = spec.split('-').collect();
-            let start: u64 = parts[0].parse().unwrap_or(0);
-            let end: u64 = if parts.len() > 1 && !parts[1].is_empty() {
-                parts[1].parse().unwrap_or(file_size.saturating_sub(1))
-            } else {
-                file_size.saturating_sub(1)
-            };
-
-            let end = end.min(file_size.saturating_sub(1));
-            if start <= end {
-                let length = end - start + 1;
-                if file.seek(std::io::SeekFrom::Start(start)).await.is_ok() {
-                    let mut chunk = vec![0u8; length as usize];
-                    if file.read_exact(&mut chunk).await.is_ok() {
-                        return axum::response::Response::builder()
-                            .status(StatusCode::PARTIAL_CONTENT)
-                            .header(header::CONTENT_TYPE, content_type)
-                            .header(header::ACCEPT_RANGES, "bytes")
-                            .header(
-                                header::CONTENT_RANGE,
-                                format!("bytes {}-{}/{}", start, end, file_size),
-                            )
-                            .header(header::CONTENT_LENGTH, length.to_string())
-                            .body(axum::body::Body::from(chunk))
-                            .unwrap_or_else(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Body error").into_response());
-                    }
-                }
-            }
-        }
-    }
-
-    let mut all_bytes = Vec::with_capacity(file_size.min(16 * 1024 * 1024) as usize);
-    if file.read_to_end(&mut all_bytes).await.is_ok() {
-        axum::response::Response::builder()
-            .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, content_type)
-            .header(header::ACCEPT_RANGES, "bytes")
-            .header(header::CONTENT_LENGTH, file_size.to_string())
-            .body(axum::body::Body::from(all_bytes))
-            .unwrap_or_else(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Body error").into_response())
-    } else {
-        (StatusCode::INTERNAL_SERVER_ERROR, "Read error").into_response()
-    }
-}
-

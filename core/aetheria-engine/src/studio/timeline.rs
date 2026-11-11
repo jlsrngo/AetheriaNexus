@@ -1,71 +1,22 @@
-//! Studio timeline layer calculation and script generation.
+//! Native Rust 12-Layer NLE Timeline Calculator.
+
+pub use super::script_generator::handle_generate_script;
 
 use super::compositions::get_compositions_store;
-use super::types::{
-    CompositionPreset, ComputeLayersPayload, GenerateScriptPayload, RustVideoLayerSpec,
-};
-use crate::paths::{aetheria_dot_dir, now_ms};
+use super::types::{ComputeLayersPayload, RustVideoLayerSpec};
 use axum::{response::IntoResponse, Json};
 use serde_json::{json, Value};
 
-pub async fn handle_generate_script(
-    Json(payload): Json<GenerateScriptPayload>,
-) -> impl IntoResponse {
-    let niche = payload
-        .niche
-        .unwrap_or_else(|| "AUTOMATION".to_string())
-        .to_uppercase();
-    let duration = payload.duration.unwrap_or(15.0);
-    let theme_color = payload.theme_color.unwrap_or_else(|| "emerald".to_string());
-    let title = format!("{} (AI Viral Hook)", payload.topic);
-    let id = format!("preset-ai-{}", now_ms());
-
-    let hook_text = format!("The Untold Truth About {} That Changes Everything", payload.topic);
-    let body_text = format!(
-        "1. Stop relying on outdated manual workflows\n2. Automate asset rendering locally with zero cloud fees\n3. Leverage high-retention cadence to dominate short-form feeds"
-    );
-    let cta_text = "Follow @nexus.creative for the full blueprint".to_string();
-
-    let preset = CompositionPreset {
-        id: id.clone(),
-        name: title.clone(),
-        folder: "AI GENERATED DRAFTS".to_string(),
-        ratio: "9:16".to_string(),
-        duration,
-        fps: 30,
-        width: 1080,
-        height: 1920,
-        props: json!({
-            "hookText": hook_text,
-            "bodyText": body_text,
-            "ctaText": cta_text,
-            "themeColor": theme_color,
-            "category": niche,
-            "subCategory": "VIRAL SHORT-FORM",
-            "authorHandle": "@nexus.creative"
-        }),
-    };
-
-    let should_register = payload.auto_register.unwrap_or(true);
-    if should_register {
-        let mut store = get_compositions_store().write().unwrap();
-        store.push(preset.clone());
-        let file_path = aetheria_dot_dir().join("nexus_compositions.json");
-        if let Ok(json) = serde_json::to_string_pretty(&*store) {
-            let _ = std::fs::write(file_path, json);
-        }
-    }
-
-    Json(json!({
-        "success": true,
-        "composition": preset
-    }))
-}
-
 pub fn build_composition_layers_rust(props: &Value, total_frames: u32) -> Vec<RustVideoLayerSpec> {
     let total = total_frames.max(15);
-    let show_bg = props.get("showBackground").and_then(Value::as_bool).unwrap_or(true);
-    let show_txt = props.get("showText").and_then(Value::as_bool).unwrap_or(true);
+    let show_bg = props
+        .get("showBackground")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    let show_txt = props
+        .get("showText")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
     let vis_map = props.get("layerVisibility").and_then(Value::as_object);
     let start_map = props.get("layerStartFrame").and_then(Value::as_object);
     let dur_map = props.get("layerDuration").and_then(Value::as_object);
@@ -97,12 +48,32 @@ pub fn build_composition_layers_rust(props: &Value, total_frames: u32) -> Vec<Ru
         (from, dur)
     };
 
-    let category = props.get("category").and_then(Value::as_str).unwrap_or("").trim();
-    let sub_category = props.get("subCategory").and_then(Value::as_str).unwrap_or("").trim();
-    let hook_text = props.get("hookText").and_then(Value::as_str).unwrap_or("").trim();
+    let category = props
+        .get("category")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
+    let sub_category = props
+        .get("subCategory")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
+    let hook_text = props
+        .get("hookText")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
     let body_text = props.get("bodyText").and_then(Value::as_str).unwrap_or("");
-    let author_handle = props.get("authorHandle").and_then(Value::as_str).unwrap_or("").trim();
-    let editorial_tag = props.get("editorialTag").and_then(Value::as_str).unwrap_or("").trim();
+    let author_handle = props
+        .get("authorHandle")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
+    let editorial_tag = props
+        .get("editorialTag")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
 
     let mut raw: Vec<(String, String, String, u32, u32, bool)> = Vec::new();
 
@@ -170,7 +141,12 @@ pub fn build_composition_layers_rust(props: &Value, total_frames: u32) -> Vec<Ru
         ));
     }
 
-    for (idx, line) in body_text.lines().map(str::trim).filter(|l| !l.is_empty()).enumerate() {
+    for (idx, line) in body_text
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .enumerate()
+    {
         let id = format!("text-bullet-{}", idx);
         let default_start = (20 + (idx as u32) * 14).min(total.saturating_sub(15));
         let (f, d) = resolve_timing(&id, default_start);
@@ -252,22 +228,24 @@ pub fn build_composition_layers_rust(props: &Value, total_frames: u32) -> Vec<Ru
     let count = raw.len();
     raw.into_iter()
         .enumerate()
-        .map(|(i, (id, label, kind, from, duration_in_frames, visible))| RustVideoLayerSpec {
-            id,
-            track_code: format!("V{}", count - i),
-            label,
-            kind,
-            from,
-            duration_in_frames,
-            visible,
-        })
+        .map(
+            |(i, (id, label, kind, from, duration_in_frames, visible))| RustVideoLayerSpec {
+                id,
+                track_code: format!("V{}", count - i),
+                label,
+                kind,
+                from,
+                duration_in_frames,
+                visible,
+            },
+        )
         .collect()
 }
 
-pub async fn handle_compute_layers(
-    Json(payload): Json<ComputeLayersPayload>,
-) -> impl IntoResponse {
-    let store = get_compositions_store().read().unwrap();
+pub async fn handle_compute_layers(Json(payload): Json<ComputeLayersPayload>) -> impl IntoResponse {
+    let store = get_compositions_store()
+        .read()
+        .unwrap_or_else(|e| e.into_inner());
     let active = payload
         .composition_id
         .as_ref()
@@ -296,7 +274,9 @@ pub async fn handle_compute_layers(
 }
 
 pub async fn handle_get_active_layers() -> impl IntoResponse {
-    let store = get_compositions_store().read().unwrap();
+    let store = get_compositions_store()
+        .read()
+        .unwrap_or_else(|e| e.into_inner());
     let first = store.first().cloned();
     drop(store);
 
@@ -314,4 +294,3 @@ pub async fn handle_get_active_layers() -> impl IntoResponse {
         Json(json!({ "success": false, "layers": [] }))
     }
 }
-

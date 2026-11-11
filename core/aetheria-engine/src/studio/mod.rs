@@ -2,28 +2,40 @@
 //!
 //! Submodules:
 //! - `types`: All studio data structures, presets, telemetry, and request payloads.
-//! - `compositions`: In-memory & disk composition preset storage.
+//! - `compositions` & `composition_scanner`: Composition preset storage and TSX `<Composition>` discovery.
 //! - `renderer`: Video render job background execution and stdout streaming.
-//! - `assets`: Static files scanner, asset indexing, write & delete operations.
+//! - `assets` & `media_stream`: Static files scanner, CRUD, media vault, and HTTP 206 video streamer.
 //! - `gpu`: Hardware accelerator detection (NVENC / AMF / QSV) and telemetry.
 //! - `subtitles`: TikTok viral subtitle and caption chunking.
 //! - `scheduler`: Social media auto-posting queue and background daemon.
-//! - `timeline`: 12-layer NLE timeline calculator and script generator.
+//! - `timeline` & `script_generator`: 12-layer NLE timeline calculator and AI script generator.
+//! - `presets` & `video_reference`: Voicebox preset studio and video reference extractor.
+//! - `motion` & `motion_linter`: Single-file HTML motion film routes and determinism linter.
+//! - `native_renderer` & `native_canvas`: FFmpeg pipe renderer and RGBA software rasterizer.
 
 pub mod assets;
+pub mod composition_scanner;
 pub mod compositions;
 pub mod gpu;
+pub mod media_stream;
 pub mod motion;
+pub mod motion_linter;
+pub mod native_canvas;
 pub mod native_renderer;
 pub mod presets;
 pub mod renderer;
 pub mod scheduler;
+pub mod script_generator;
 pub mod styles;
 pub mod subtitles;
 pub mod timeline;
 pub mod types;
+pub mod video_reference;
 
-use axum::{routing::{get, post}, Router};
+use axum::{
+    routing::{get, post},
+    Router,
+};
 
 pub use compositions::default_presets;
 pub use scheduler::start_scheduler_daemon;
@@ -51,44 +63,79 @@ pub fn router() -> Router {
             "/api/studio/assets",
             post(assets::handle_get_static_files).get(assets::handle_get_static_files),
         )
-        .route("/api/update-default-props", post(compositions::handle_update_default_props))
-        .route("/api/save-default-props", post(compositions::handle_save_default_props))
+        .route(
+            "/api/update-default-props",
+            post(compositions::handle_update_default_props),
+        )
+        .route(
+            "/api/save-default-props",
+            post(compositions::handle_save_default_props),
+        )
         .route("/api/render-media", post(renderer::handle_render_media))
         .route(
             "/api/render-progress",
             post(renderer::handle_render_progress).get(renderer::handle_render_progress),
         )
-        .route("/api/write-static-file", post(assets::handle_write_static_file))
-        .route("/api/delete-static-file", post(assets::handle_delete_static_file))
+        .route(
+            "/api/write-static-file",
+            post(assets::handle_write_static_file),
+        )
+        .route(
+            "/api/delete-static-file",
+            post(assets::handle_delete_static_file),
+        )
         // 1. GPU Telemetry & Hardware Accelerator
         .route(
             "/api/studio/gpu-telemetry",
             post(gpu::handle_gpu_telemetry).get(gpu::handle_gpu_telemetry),
         )
         // 2. High-Retention TikTok Caption / Subtitle Engine
-        .route("/api/studio/generate-subtitles", post(subtitles::handle_generate_subtitles))
-        .route("/api/studio/format-captions", post(subtitles::handle_format_captions))
-        // 3. Media Vault & Fast Multi-Threaded Asset Scanner
-        .route("/api/studio/scan-media-vault", post(assets::handle_scan_media_vault))
-        // High-Performance Native Rust GPU Video Streamer (HTTP 206 Partial Content)
-        .route("/api/studio/stream-video", get(assets::handle_stream_video))
-        // 100% Direct Pure Rust Native Video Renderer (Zero Browser Overhead)
-        .route("/api/studio/native-render", post(native_renderer::handle_native_render))
+        .route(
+            "/api/studio/generate-subtitles",
+            post(subtitles::handle_generate_subtitles),
+        )
+        .route(
+            "/api/studio/format-captions",
+            post(subtitles::handle_format_captions),
+        )
+        // 3. Media Vault & Native Rust GPU Video Streamer (HTTP 206 Partial Content)
+        .route(
+            "/api/studio/scan-media-vault",
+            post(assets::handle_scan_media_vault),
+        )
+        .route(
+            "/api/studio/stream-video",
+            get(media_stream::handle_stream_video),
+        )
+        // Native Pure Rust Video Renderer
+        .route(
+            "/api/studio/native-render",
+            post(native_renderer::handle_native_render),
+        )
         // 4. Background Scheduler & Auto-Posting Queue Daemon
-        .route("/api/studio/schedule-post", post(scheduler::handle_schedule_post))
+        .route(
+            "/api/studio/schedule-post",
+            post(scheduler::handle_schedule_post),
+        )
         .route(
             "/api/studio/schedule-list",
             post(scheduler::handle_schedule_list).get(scheduler::handle_schedule_list),
         )
-        .route("/api/studio/schedule-cancel", post(scheduler::handle_schedule_cancel))
+        .route(
+            "/api/studio/schedule-cancel",
+            post(scheduler::handle_schedule_cancel),
+        )
         // 5. Creative AI Script-to-Composition Orchestrator
-        .route("/api/studio/generate-script", post(timeline::handle_generate_script))
+        .route(
+            "/api/studio/generate-script",
+            post(script_generator::handle_generate_script),
+        )
         // 6. Native Rust 12-Layer NLE Timeline Calculator
         .route(
             "/api/studio/layers",
             post(timeline::handle_compute_layers).get(timeline::handle_get_active_layers),
         )
-        // 7. Voicebox Preset & Video Reference Studio (/add-preset)
+        // 7. Voicebox Preset & Video Reference Studio
         .route(
             "/api/studio/voice-presets",
             post(presets::handle_get_voice_presets).get(presets::handle_get_voice_presets),
@@ -103,7 +150,7 @@ pub fn router() -> Router {
         )
         .route(
             "/api/studio/video-reference/extract",
-            post(presets::handle_extract_video_reference),
+            post(video_reference::handle_extract_video_reference),
         )
         // 8. Isolated Skill Manager (/add skill, /menu, slash skills in .aetheria/skills)
         .route(
