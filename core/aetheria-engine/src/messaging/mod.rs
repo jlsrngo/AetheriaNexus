@@ -1,20 +1,22 @@
+pub mod config;
 pub mod telegram;
 pub mod whatsapp;
 
+pub use config::{
+    config_file, get_active_session_folder, get_active_session_info, mask_token, read_config,
+    write_config,
+};
 pub use telegram::start_telegram_worker;
 
-use crate::paths::aetheria_data_dir;
 use axum::{
     extract::Path as AxumPath,
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
+use config::{get_active_session_state, set_active_session_state};
 use serde_json::{json, Value};
-use std::path::PathBuf;
-use std::sync::{Mutex, OnceLock};
-
-static ACTIVE_SESSION: OnceLock<Mutex<Option<Value>>> = OnceLock::new();
+use std::sync::Mutex;
 
 pub fn router() -> Router {
     Router::new()
@@ -38,8 +40,14 @@ pub fn router() -> Router {
         .route("/messaging/test/:platform", post(handle_test_platform))
         .route("/api/messaging/whatsapp/qr", get(whatsapp::handle_wa_qr))
         .route("/messaging/whatsapp/qr", get(whatsapp::handle_wa_qr))
-        .route("/api/messaging/whatsapp/logout", post(whatsapp::handle_wa_logout))
-        .route("/messaging/whatsapp/logout", post(whatsapp::handle_wa_logout))
+        .route(
+            "/api/messaging/whatsapp/logout",
+            post(whatsapp::handle_wa_logout),
+        )
+        .route(
+            "/messaging/whatsapp/logout",
+            post(whatsapp::handle_wa_logout),
+        )
         .route(
             "/api/messaging/active-session",
             get(handle_get_active).post(handle_set_active),
@@ -48,124 +56,6 @@ pub fn router() -> Router {
             "/messaging/active-session",
             get(handle_get_active).post(handle_set_active),
         )
-}
-
-pub fn config_file() -> PathBuf {
-    aetheria_data_dir().join("messaging.json")
-}
-
-pub fn read_config() -> Value {
-    let p = config_file();
-    if let Ok(raw) = std::fs::read_to_string(&p) {
-        if let Ok(val) = serde_json::from_str::<Value>(&raw) {
-            return val;
-        }
-    }
-    json!({
-        "telegram": {
-            "enabled": false,
-            "botToken": "",
-            "allowedUserId": "",
-            "targetFolder": "",
-            "allowedChatIds": []
-        },
-        "whatsapp": {
-            "enabled": false,
-            "phoneNumber": "",
-            "allowedSenders": []
-        }
-    })
-}
-
-pub fn write_config(cfg: &Value) {
-    let p = config_file();
-    if let Ok(raw) = serde_json::to_string_pretty(cfg) {
-        let _ = std::fs::write(p, raw);
-    }
-}
-
-pub fn mask_token(tok: &str) -> String {
-    if tok.len() <= 8 {
-        if tok.is_empty() {
-            String::new()
-        } else {
-            "••••••••".to_string()
-        }
-    } else {
-        format!("{}••••{}", &tok[..4], &tok[tok.len() - 4..])
-    }
-}
-
-pub fn get_active_session_folder() -> Option<String> {
-    ACTIVE_SESSION
-        .get_or_init(|| Mutex::new(None))
-        .lock()
-        .ok()
-        .and_then(|g| g.clone())
-        .and_then(|v| {
-            v.get("directory")
-                .or_else(|| v.get("workspacePath"))
-                .and_then(|w| w.as_str())
-                .map(|s| s.to_string())
-        })
-}
-
-pub fn get_active_session_info(target_dir: Option<&str>) -> Option<(String, String)> {
-    let norm_target = target_dir.map(|f| f.trim().replace('/', "\\").to_lowercase());
-
-    // 1. Check in-memory active session reported by UI
-    let in_mem = ACTIVE_SESSION
-        .get_or_init(|| Mutex::new(None))
-        .lock()
-        .ok()
-        .and_then(|g| g.clone())
-        .and_then(|v| {
-            let sid = v.get("sessionID").or_else(|| v.get("sessionId")).and_then(|s| s.as_str())?;
-            let dir = v.get("directory").or_else(|| v.get("workspacePath")).and_then(|d| d.as_str())?;
-            Some((sid.to_string(), dir.to_string()))
-        });
-
-    if let Some((sid, dir)) = in_mem {
-        let norm_dir = dir.trim().replace('/', "\\").to_lowercase();
-        if let Some(ref target) = norm_target {
-            if target.is_empty() || &norm_dir == target {
-                return Some((sid, dir));
-            }
-        } else {
-            return Some((sid, dir));
-        }
-    }
-
-    // 2. Fallback: Lookup the most recently active session for target_dir in sessions-store.json!
-    let store = crate::session::session::load_store();
-    let mut candidate: Option<(String, String, u64)> = None;
-
-    for (sid, sval) in store.sessions {
-        if sid.starts_with("ses_tg_") {
-            continue;
-        }
-
-        let dir = sval.get("directory").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let norm_dir = dir.trim().replace('/', "\\").to_lowercase();
-
-        if let Some(ref target) = norm_target {
-            if !target.is_empty() && &norm_dir != target {
-                continue;
-            }
-        }
-
-        let updated = sval
-            .pointer("/time/updated")
-            .and_then(|v| v.as_u64())
-            .or_else(|| sval.pointer("/time/created").and_then(|v| v.as_u64()))
-            .unwrap_or(0);
-
-        if candidate.as_ref().map(|c| updated > c.2).unwrap_or(true) {
-            candidate = Some((sid, dir, updated));
-        }
-    }
-
-    candidate.map(|(sid, dir, _)| (sid, dir))
 }
 
 async fn handle_get_config() -> Response {
@@ -324,15 +214,10 @@ async fn handle_test_platform(
 
 async fn handle_set_active(body_bytes: axum::body::Bytes) -> Response {
     let body: Value = serde_json::from_slice(&body_bytes).unwrap_or_else(|_| json!({}));
-    let m = ACTIVE_SESSION.get_or_init(|| Mutex::new(None));
-    if let Ok(mut guard) = m.lock() {
-        *guard = Some(body);
-    }
+    set_active_session_state(body);
     Json(json!({ "ok": true })).into_response()
 }
 
 async fn handle_get_active() -> Response {
-    let m = ACTIVE_SESSION.get_or_init(|| Mutex::new(None));
-    let val = m.lock().ok().and_then(|g| g.clone());
-    Json(json!({ "activeSession": val })).into_response()
+    Json(json!({ "activeSession": get_active_session_state() })).into_response()
 }
