@@ -33,17 +33,57 @@ pub struct FilmMeta {
     pub lint: FilmLintReport,
 }
 
+fn is_ident_char(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'_' || b == b'$' || b == b'-'
+}
+
+fn find_property_value_start(source: &str, key: &str) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let key_bytes = key.as_bytes();
+    let mut search_from = 0usize;
+
+    while let Some(rel) = source[search_from..].find(key) {
+        let idx = search_from + rel;
+        let after_key = idx + key_bytes.len();
+        search_from = after_key;
+
+        // Check quoted key (`"key":` / `'key':`) or bare JS identifier (`key:`)
+        let (is_boundary_ok, mut cursor) = if idx > 0
+            && (bytes[idx - 1] == b'"' || bytes[idx - 1] == b'\'')
+            && after_key < bytes.len()
+            && bytes[after_key] == bytes[idx - 1]
+        {
+            let before_quote = idx - 1;
+            let ok = before_quote == 0 || !is_ident_char(bytes[before_quote - 1]);
+            (ok, after_key + 1)
+        } else {
+            let ok = idx == 0 || !is_ident_char(bytes[idx - 1]);
+            (ok, after_key)
+        };
+
+        if !is_boundary_ok {
+            continue;
+        }
+
+        while cursor < bytes.len() && (bytes[cursor] == b' ' || bytes[cursor] == b'\t') {
+            cursor += 1;
+        }
+        if cursor < bytes.len() && bytes[cursor] == b':' {
+            return Some(cursor + 1);
+        }
+    }
+
+    None
+}
+
 fn extract_number_field(source: &str, key: &str) -> Option<f64> {
-    let pattern = format!("{}:", key);
-    let idx = source.find(&pattern)?;
-    let rest = &source[idx + pattern.len()..];
+    let start = find_property_value_start(source, key)?;
+    let rest = &source[start..];
     let mut num_str = String::new();
     for ch in rest.trim_start().chars() {
         if ch.is_ascii_digit() || ch == '.' {
             num_str.push(ch);
-        } else if !num_str.is_empty() {
-            break;
-        } else if ch != ' ' && ch != '\t' {
+        } else {
             break;
         }
     }
@@ -51,9 +91,8 @@ fn extract_number_field(source: &str, key: &str) -> Option<f64> {
 }
 
 fn extract_string_field(source: &str, key: &str) -> Option<String> {
-    let pattern = format!("{}:", key);
-    let idx = source.find(&pattern)?;
-    let rest = source[idx + pattern.len()..].trim_start();
+    let start = find_property_value_start(source, key)?;
+    let rest = source[start..].trim_start();
     let quote = rest.chars().next()?;
     if quote != '"' && quote != '\'' {
         return None;
@@ -61,6 +100,153 @@ fn extract_string_field(source: &str, key: &str) -> Option<String> {
     let body = &rest[1..];
     let end = body.find(quote)?;
     Some(body[..end].to_string())
+}
+
+fn strip_style_blocks(html: &str) -> String {
+    let lower = html.to_ascii_lowercase();
+    let mut out = String::with_capacity(html.len());
+    let mut cursor = 0usize;
+
+    while let Some(rel_start) = lower[cursor..].find("<style") {
+        let start = cursor + rel_start;
+        out.push_str(&html[cursor..start]);
+        if let Some(rel_end) = lower[start..].find("</style>") {
+            cursor = start + rel_end + "</style>".len();
+        } else {
+            cursor = html.len();
+            break;
+        }
+    }
+    if cursor < html.len() {
+        out.push_str(&html[cursor..]);
+    }
+    out
+}
+
+fn extract_balanced_delimited(source: &str, open_pos: usize, open_ch: char, close_ch: char) -> Option<usize> {
+    let slice = &source[open_pos + open_ch.len_utf8()..];
+    let mut depth = 1i32;
+    let mut in_quote: Option<char> = None;
+    let mut escaped = false;
+
+    for (byte_idx, ch) in slice.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if let Some(q) = in_quote {
+            if ch == '\\' {
+                escaped = true;
+            } else if ch == q {
+                in_quote = None;
+            }
+            continue;
+        }
+        match ch {
+            '"' | '\'' | '`' => in_quote = Some(ch),
+            c if c == open_ch => depth += 1,
+            c if c == close_ch => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(open_pos + open_ch.len_utf8() + byte_idx);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn skip_ws_and_comments(bytes: &[u8], mut i: usize) -> usize {
+    while i < bytes.len() {
+        let b = bytes[i];
+        if b.is_ascii_whitespace() {
+            i += 1;
+        } else if b == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'/' {
+            i += 2;
+            while i < bytes.len() && bytes[i] != b'\n' {
+                i += 1;
+            }
+        } else if b == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'*' {
+            i += 2;
+            while i + 1 < bytes.len() && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
+                i += 1;
+            }
+            i = (i + 2).min(bytes.len());
+        } else {
+            break;
+        }
+    }
+    i
+}
+
+fn extract_meta_object_slice(source: &str) -> Option<&str> {
+    let bytes = source.as_bytes();
+    for marker in [
+        "window.__filmMeta",
+        "window.AETHERIA_FILM",
+        "window.DEMO",
+        "__filmMeta",
+        "AETHERIA_FILM",
+    ] {
+        let mut search_from = 0usize;
+        while let Some(rel) = source[search_from..].find(marker) {
+            let idx = search_from + rel;
+            let after_marker = idx + marker.len();
+            search_from = after_marker;
+
+            if idx > 0 && is_ident_char(bytes[idx - 1]) {
+                continue;
+            }
+            if after_marker < bytes.len() && is_ident_char(bytes[after_marker]) {
+                continue;
+            }
+
+            let eq_pos = skip_ws_and_comments(bytes, after_marker);
+            if eq_pos >= bytes.len() || bytes[eq_pos] != b'=' {
+                continue;
+            }
+            if eq_pos + 1 < bytes.len() && bytes[eq_pos + 1] == b'=' {
+                continue;
+            }
+
+            let brace_pos = skip_ws_and_comments(bytes, eq_pos + 1);
+            if brace_pos < bytes.len() && bytes[brace_pos] == b'{' {
+                if let Some(close_pos) = extract_balanced_delimited(source, brace_pos, '{', '}') {
+                    return Some(&source[brace_pos..=close_pos]);
+                }
+            }
+        }
+    }
+    None
+}
+
+fn extract_canvas_attr_u32(source: &str, attr: &str) -> Option<u32> {
+    let lower = source.to_ascii_lowercase();
+    let canvas_start = lower.find("<canvas")?;
+    let canvas_end = lower[canvas_start..].find('>')? + canvas_start;
+    let tag = &source[canvas_start..=canvas_end];
+    let tag_lower = tag.to_ascii_lowercase();
+    let needle = format!("{}=", attr.to_ascii_lowercase());
+    let mut search_from = 0usize;
+    while let Some(rel) = tag_lower[search_from..].find(&needle) {
+        let idx = search_from + rel;
+        search_from = idx + needle.len();
+        if idx > 0 && !tag_lower.as_bytes()[idx - 1].is_ascii_whitespace() {
+            continue;
+        }
+        let rest = tag[idx + needle.len()..].trim_start();
+        let unquoted = rest
+            .strip_prefix('"')
+            .and_then(|s| s.split('"').next())
+            .or_else(|| rest.strip_prefix('\'').and_then(|s| s.split('\'').next()))?;
+        if let Ok(v) = unquoted.trim().parse::<u32>() {
+            if v >= 16 {
+                return Some(v);
+            }
+        }
+    }
+    None
 }
 
 fn collect_ordered_scripts(html_path: &Path) -> Vec<(String, String, String)> {
@@ -103,45 +289,57 @@ fn collect_ordered_scripts(html_path: &Path) -> Vec<(String, String, String)> {
 }
 
 fn find_scenes_array_bounds(source: &str) -> Option<(usize, usize)> {
-    for marker in ["scenes:", "SCENES =", "window.SCENES ="] {
-        if let Some(pos) = source.find(marker) {
-            let after_start = pos + marker.len();
-            let after = &source[after_start..];
-            if let Some(open_bracket) = after.find('[') {
-                let slice_start = after_start + open_bracket + 1;
-                let slice = &source[slice_start..];
-                let mut depth = 1i32;
-                let mut in_quote: Option<char> = None;
-                let mut escaped = false;
-                for (byte_idx, ch) in slice.char_indices() {
-                    if escaped {
-                        escaped = false;
-                        continue;
-                    }
-                    if let Some(q) = in_quote {
-                        if ch == '\\' {
-                            escaped = true;
-                        } else if ch == q {
-                            in_quote = None;
-                        }
-                        continue;
-                    }
-                    match ch {
-                        '"' | '\'' | '`' => in_quote = Some(ch),
-                        '[' => depth += 1,
-                        ']' => {
-                            depth -= 1;
-                            if depth == 0 {
-                                return Some((slice_start, slice_start + byte_idx));
-                            }
-                        }
-                        _ => {}
-                    }
+    let bytes = source.as_bytes();
+    let mut candidates: Vec<(usize, usize)> = Vec::new();
+
+    for (marker, is_assign) in [
+        ("window.SCENES", true),
+        ("SCENES", true),
+        ("\"scenes\"", false),
+        ("'scenes'", false),
+        ("scenes", false),
+    ] {
+        let mut search_from = 0usize;
+        while let Some(rel) = source[search_from..].find(marker) {
+            let idx = search_from + rel;
+            let after_marker = idx + marker.len();
+            search_from = after_marker;
+
+            if idx > 0 && is_ident_char(bytes[idx - 1]) {
+                continue;
+            }
+            if after_marker < bytes.len() && is_ident_char(bytes[after_marker]) {
+                continue;
+            }
+
+            let op_pos = skip_ws_and_comments(bytes, after_marker);
+            if op_pos >= bytes.len() {
+                continue;
+            }
+            if is_assign {
+                if bytes[op_pos] != b'='
+                    || (op_pos + 1 < bytes.len() && bytes[op_pos + 1] == b'=')
+                {
+                    continue;
+                }
+            } else if bytes[op_pos] != b':' {
+                continue;
+            }
+
+            let bracket_pos = skip_ws_and_comments(bytes, op_pos + 1);
+            if bracket_pos < bytes.len() && bytes[bracket_pos] == b'[' {
+                if let Some(close_pos) = extract_balanced_delimited(source, bracket_pos, '[', ']') {
+                    candidates.push((bracket_pos + 1, close_pos));
                 }
             }
         }
     }
-    None
+
+    candidates
+        .iter()
+        .copied()
+        .find(|&(s, e)| !extract_object_blocks(&source[s..e]).is_empty())
+        .or_else(|| candidates.first().copied())
 }
 
 fn find_scenes_array_slice(source: &str) -> Option<&str> {
@@ -211,6 +409,8 @@ pub fn parse_scenes_from_sources(
                 let title = extract_string_field(block, "title")
                     .or_else(|| extract_string_field(block, "label"))
                     .or_else(|| extract_string_field(block, "name"))
+                    .or_else(|| extract_string_field(block, "headline"))
+                    .or_else(|| extract_string_field(block, "header"))
                     .unwrap_or_else(|| id.clone());
 
                 let start_sec = extract_number_field(block, "start")
@@ -244,7 +444,8 @@ pub fn parse_scenes_from_sources(
                     start_frame,
                     duration_frames,
                     audio: extract_string_field(block, "audio"),
-                    words: extract_string_field(block, "words"),
+                    words: extract_string_field(block, "words")
+                        .or_else(|| extract_string_field(block, "wordsPath")),
                 });
             }
             return parsed;
@@ -343,33 +544,47 @@ pub fn inspect_workspace_film(html_path: &Path) -> FilmMeta {
         .map(str::to_string)
         .unwrap_or_else(|| "HTML Motion Film".to_string());
 
-    let top_source = if let Some((s, e)) = find_scenes_array_bounds(&combined_source) {
-        format!("{}\n{}", &combined_source[..s], &combined_source[e..])
-    } else {
-        combined_source.clone()
-    };
+    let script_source = strip_style_blocks(&combined_source);
+    let meta_obj_top = extract_meta_object_slice(&script_source).map(|obj| {
+        if let Some((s, e)) = find_scenes_array_bounds(obj) {
+            format!("{}\n{}", &obj[..s], &obj[e..])
+        } else {
+            obj.to_string()
+        }
+    });
 
-    let width = extract_number_field(&top_source, "width")
-        .or_else(|| extract_number_field(&combined_source, "width"))
+    let top_source = if let Some((s, e)) = find_scenes_array_bounds(&script_source) {
+        format!("{}\n{}", &script_source[..s], &script_source[e..])
+    } else {
+        script_source.clone()
+    };
+    let primary_meta = meta_obj_top.as_deref().unwrap_or(&top_source);
+
+    let width = extract_number_field(primary_meta, "width")
+        .or_else(|| extract_number_field(&top_source, "width"))
         .map(|v| (v.round() as u32).max(16))
+        .or_else(|| extract_canvas_attr_u32(&script_source, "width"))
         .unwrap_or(1080);
-    let height = extract_number_field(&top_source, "height")
-        .or_else(|| extract_number_field(&combined_source, "height"))
+    let height = extract_number_field(primary_meta, "height")
+        .or_else(|| extract_number_field(&top_source, "height"))
         .map(|v| (v.round() as u32).max(16))
+        .or_else(|| extract_canvas_attr_u32(&script_source, "height"))
         .unwrap_or(1920);
-    let fps = extract_number_field(&top_source, "fps")
-        .or_else(|| extract_number_field(&combined_source, "fps"))
+    let fps = extract_number_field(primary_meta, "fps")
+        .or_else(|| extract_number_field(&top_source, "fps"))
         .map(|v| (v.round() as u32).max(1))
         .unwrap_or(30);
 
-    let title = extract_string_field(&top_source, "title")
-        .or_else(|| extract_string_field(&combined_source, "title"))
+    let title = extract_string_field(primary_meta, "title")
+        .or_else(|| extract_string_field(&top_source, "title"))
         .unwrap_or(default_title);
-    let mut duration = extract_number_field(&top_source, "duration").unwrap_or(0.0);
+    let mut duration = extract_number_field(primary_meta, "duration")
+        .or_else(|| extract_number_field(&top_source, "duration"))
+        .unwrap_or(0.0);
 
     let preliminary_dur = if duration > 0.0 { duration } else { 15.0 };
     let scenes = parse_scenes_from_sources(
-        &combined_source,
+        &script_source,
         fps,
         preliminary_dur,
         &title,
@@ -378,7 +593,17 @@ pub fn inspect_workspace_film(html_path: &Path) -> FilmMeta {
 
     if duration <= 0.0 {
         let summed: f64 = scenes.iter().map(|s| s.duration.max(0.0)).sum();
-        duration = if summed > 0.0 { summed } else { 15.0 };
+        if summed > 0.0 {
+            duration = summed;
+        } else if let Some(frames) = extract_number_field(primary_meta, "durationInFrames") {
+            duration = if frames > 0.0 {
+                frames / fps as f64
+            } else {
+                15.0
+            };
+        } else {
+            duration = 15.0;
+        }
     }
 
     let total_frames = ((duration * fps as f64).round() as u32).max(1);
@@ -492,6 +717,57 @@ mod tests {
         assert_eq!(meta.scenes.len(), 5);
         assert!((meta.duration - 97.775).abs() < 0.01);
         assert_eq!(meta.total_frames, 2933);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_css_dimensions_and_scenes_ref_do_not_override_film_meta() {
+        let dir = std::env::temp_dir().join(format!("aetheria_css_scenes_test_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let script_dir = dir.join("script");
+        std::fs::create_dir_all(&script_dir).unwrap();
+        std::fs::write(script_dir.join("scene1.js"), "function r1(){}").unwrap();
+        std::fs::write(script_dir.join("scene2.js"), "function r2(){}").unwrap();
+
+        let html = r#"<!DOCTYPE html><html><head><style>
+          html, body { min-height: 100vh; }
+          #loadBar { width: 320px; height: 6px; }
+          #stage { width: 1080px; height: 1920px; }
+        </style></head><body><canvas id="film" width="1080" height="1920"></canvas>
+        <script>
+        (function () {
+          var SCENES = [
+            { id: "scene1_hook", audio: "/audio/scene1.wav", wordsPath: "/audio/scene1.words.json", duration: 20.135, headline: "Selamat Datang" },
+            { id: "scene2_tree", audio: "/audio/scene2.wav", wordsPath: "/audio/scene2.words.json", duration: 18.575, headline: "Pohon Ajaib" }
+          ];
+          var TOTAL_DUR = SCENES.reduce(function(a, s) { return a + s.duration; }, 0);
+          window.__filmMeta = {
+            title: "Christmas 3D",
+            width: 1080, height: 1920, fps: 30,
+            duration: TOTAL_DUR,
+            durationInFrames: Math.round(TOTAL_DUR * 30),
+            scenes: SCENES
+          };
+          function loadWords(s) { s._words = data.words || []; }
+          window.renderAt = function(t) {};
+        })();
+        </script></body></html>"#;
+        std::fs::write(dir.join("index.html"), html).unwrap();
+
+        let meta = inspect_workspace_film(&dir.join("index.html"));
+        assert!(meta.exists);
+        assert_eq!(meta.width, 1080);
+        assert_eq!(meta.height, 1920);
+        assert_eq!(meta.fps, 30);
+        assert_eq!(meta.scenes.len(), 2);
+        assert_eq!(meta.scenes[0].id, "scene1_hook");
+        assert_eq!(meta.scenes[0].title, "Selamat Datang");
+        assert_eq!(meta.scenes[0].audio.as_deref(), Some("/audio/scene1.wav"));
+        assert_eq!(meta.scenes[0].words.as_deref(), Some("/audio/scene1.words.json"));
+        assert_eq!(meta.scenes[1].audio.as_deref(), Some("/audio/scene2.wav"));
+        assert!((meta.duration - 38.71).abs() < 0.01);
+        assert_eq!(meta.total_frames, 1161);
 
         let _ = std::fs::remove_dir_all(&dir);
     }

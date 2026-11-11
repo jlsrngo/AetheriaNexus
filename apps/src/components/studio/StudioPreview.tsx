@@ -335,7 +335,7 @@ export const StudioPreview: React.FC = () => {
         <Timeline
           compositionId={activeComposition.id}
           durationInFrames={workspaceDuration ?? durationInFrames}
-          fps={activeComposition.fps}
+          fps={workspaceDims?.fps ?? activeComposition.fps}
           currentFrame={currentFrame}
           isPlaying={isPlaying}
           onSeek={handleSeek}
