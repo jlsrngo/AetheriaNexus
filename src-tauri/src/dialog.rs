@@ -13,7 +13,11 @@ pub async fn pick_folder() -> Result<Option<String>, String> {
         let picked = rfd::FileDialog::new()
             .set_title("Select Active Project Folder")
             .pick_folder();
-        Ok(picked.map(|p| p.to_string_lossy().to_string()))
+        Ok(picked.map(|p| {
+            let raw = p.to_string_lossy().to_string();
+            aetheria_engine::desktop::set_active_workspace_root(&raw);
+            raw
+        }))
     })
     .await
     .map_err(|e| e.to_string())?

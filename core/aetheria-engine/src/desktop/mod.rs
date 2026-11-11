@@ -13,11 +13,15 @@ use axum::{
 
 pub use sys::{handle_check_artcraft_updates, handle_check_updates, locate_web_dist, try_serve_static_asset};
 pub use window::{hide_console_window, launch_desktop_window, DesktopAction, DESKTOP_INIT_SCRIPT};
-pub use workspace::{check_allowed_path, get_active_workspace_root, set_active_workspace_root};
+pub use workspace::{
+    check_allowed_path, ensure_workspace_scaffold, get_active_workspace_root,
+    set_active_workspace_root,
+};
 
 pub fn router() -> Router {
     Router::new()
         .route("/api/desktop/pick-folder", post(fs::handle_pick_folder))
+        .route("/api/desktop/init-workspace", post(workspace::handle_init_workspace))
         .route("/api/desktop/folder-tree", post(fs::handle_folder_tree))
         .route("/api/desktop/read-file", post(fs::handle_read_file))
         .route("/api/desktop/write-file", post(fs::handle_write_file))

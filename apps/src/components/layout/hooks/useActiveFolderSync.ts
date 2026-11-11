@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { tauriPickFolder } from "../../../lib/api";
+import { syncWorkspaceScaffold } from "../../../lib/desktopBridge";
 
 export function useActiveFolderSync() {
   const navigate = useNavigate();
@@ -23,10 +24,17 @@ export function useActiveFolderSync() {
     };
   }, []);
 
+  useEffect(() => {
+    if (activeFolder) {
+      void syncWorkspaceScaffold(activeFolder);
+    }
+  }, [activeFolder]);
+
   const handleOpenFolder = useCallback(async () => {
     try {
       const selectedPath = await tauriPickFolder();
       if (selectedPath) {
+        await syncWorkspaceScaffold(selectedPath);
         localStorage.setItem("aetheria_active_folder", selectedPath);
         setActiveFolder(selectedPath);
 

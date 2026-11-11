@@ -15,6 +15,21 @@ async function postDesktopJson(endpoint: string, body?: any): Promise<any> {
   }
 }
 
+/**
+ * Ensures standard HTML5/JS project subfolders (`script`, `img`, `audio`, `ref`, `output`)
+ * exist inside an opened project workspace and refreshes Explorer if any were created.
+ */
+export async function syncWorkspaceScaffold(folderPath: string): Promise<void> {
+  const clean = (folderPath || "").trim();
+  if (!clean) return;
+  const res = await postDesktopJson("/api/desktop/init-workspace", {
+    folderPath: clean,
+  });
+  if (res?.ok && Array.isArray(res.created) && res.created.length > 0 && typeof window !== "undefined") {
+    window.dispatchEvent(new Event("aetheria-refresh-explorer"));
+  }
+}
+
 export function initDesktopBridge(): void {
   if (typeof window === "undefined") return;
 
@@ -79,6 +94,10 @@ export function initDesktopBridge(): void {
 
     getFolderTree: async (folderPath: string) => {
       return postDesktopJson("/api/desktop/folder-tree", { folderPath });
+    },
+
+    initWorkspace: async (folderPath: string) => {
+      return postDesktopJson("/api/desktop/init-workspace", { folderPath });
     },
 
     readFile: async (filePath: string) => {
