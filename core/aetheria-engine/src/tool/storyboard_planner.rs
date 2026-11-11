@@ -109,7 +109,7 @@ pub(crate) struct PlannedStoryboard {
 }
 
 pub(crate) async fn resolve_storyboard_timings(
-    root: &Path,
+    ws: &Path,
     workspace_dir: &str,
     sb_val: &Value,
 ) -> Result<PlannedStoryboard, Value> {
@@ -152,7 +152,7 @@ pub(crate) async fn resolve_storyboard_timings(
             .get("voFile")
             .and_then(Value::as_str)
             .map(str::to_string)
-            .unwrap_or_else(|| format!("workspace/public/vo_sb_s{}.wav", s_num));
+            .unwrap_or_else(|| format!("audio/vo_sb_s{}.wav", s_num));
 
         let vo_args = json!({
             "text": narration,
@@ -165,7 +165,7 @@ pub(crate) async fn resolve_storyboard_timings(
             return Err(json!({ "error": format!("Scene {} voiceover failed: {}", s_num, err) }));
         }
 
-        let vo_abs = root.join(&vo_rel);
+        let vo_abs = ws.join(&vo_rel);
         let words_path = vo_abs.with_extension("words.json");
         let words_json: Value = std::fs::read_to_string(&words_path)
             .ok()

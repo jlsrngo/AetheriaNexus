@@ -104,7 +104,7 @@ pub fn register_style_tool_definition() -> Value {
                     },
                     "file_path": {
                         "type": "string",
-                        "description": "Path to the markdown brief / instruction file (e.g. 'instruksi_remotion_agent_kinetic_motion_graphics_v2.md')"
+                        "description": "Path to the markdown brief / instruction file (e.g. 'kinetic_motion_brief.md')"
                     },
                     "description": {
                         "type": "string",

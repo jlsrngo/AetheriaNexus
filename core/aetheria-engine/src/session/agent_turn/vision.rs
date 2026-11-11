@@ -7,17 +7,9 @@ use base64::prelude::*;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
-/// Finds the bundled Remotion compositor FFmpeg binary across platforms
+/// Finds a local FFmpeg binary on PATH or standard engine locations.
 pub fn find_ffmpeg_bin() -> Option<PathBuf> {
-    let root_dir = crate::paths::project_root();
-    [
-        root_dir.join("node_modules/@remotion/compositor-win32-x64-msvc/ffmpeg.exe"),
-        root_dir.join("node_modules/@remotion/compositor-linux-x64-gnu/ffmpeg"),
-        root_dir.join("node_modules/@remotion/compositor-darwin-arm64/ffmpeg"),
-        root_dir.join("node_modules/@remotion/compositor-darwin-x64/ffmpeg"),
-    ]
-    .into_iter()
-    .find(|p| p.is_file())
+    crate::paths::locate_ffmpeg_binary()
 }
 
 /// Ingests attached files from chat payload (images, videos, audio)

@@ -1,20 +1,21 @@
 # render_video
 
-Triggers the local Nexus rendering pipeline to export the active video composition to an MP4 file on disk.
+Triggers the native pure-Rust Chrome/Edge CDP + FFmpeg exporter to render the active project's `index.html` + `script/*.js` + `audio/*` into an MP4 file on disk.
 
-This tool is the programmatic equivalent of clicking the "[↓] RENDER MP4" button on the desktop UI.
+This tool is the programmatic equivalent of clicking the Export MP4 button on the desktop Studio timeline.
 
 ### When to use:
-- Use when the user explicitly requests to render, export, or generate the physical MP4 video file (especially when communicating via automated triggers or remote bots like Telegram).
-- Do NOT use this tool to write or edit video scripts or change visual colors. To edit scripts or modify layout props, discuss with the user and edit the composition files using standard `write_file` or `edit_file`.
+- Use when the user explicitly requests to render, export, or generate the physical MP4 video file.
+- Do NOT use this tool to write or edit HTML/JS scene scripts. Edit `index.html` and `script/scene*.js` directly with `write` or `edit`.
 
 ### Parameters:
-- `composition_id` (string, optional): The Nexus composition identifier to render (default: "NexusEditorialVideo"; unknown ids fall back to the first registered composition).
-- `output_path` (string, optional): Target MP4 file path, resolved against the active project folder (e.g. "export/wealth-habits.mp4").
+- `composition_id` (string, optional): Optional label for the render job (defaults to `"HtmlMotionFilm"`).
+- `output_path` (string, optional): Target MP4 file path, resolved against the active project folder (e.g. `"output/my-video.mp4"`).
+- `codec` (string, optional): Video codec (`"h264"`, `"h265"`, `"vp9"`, `"prores"`). Defaults to `"h264"`.
 
 ### Example:
 ```json
 {
-  "output_path": "export/wealth-habits.mp4"
+  "output_path": "output/wealth-habits.mp4"
 }
 ```

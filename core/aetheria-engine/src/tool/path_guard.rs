@@ -7,7 +7,13 @@ use std::path::{Path, PathBuf};
 
 pub fn resolve_isolated_path(workspace_dir: &str, raw_file: &str) -> Result<PathBuf, String> {
     let ws_buf = if workspace_dir.trim().is_empty() {
-        crate::paths::project_root()
+        if let Some(active) = crate::desktop::get_active_workspace_root() {
+            PathBuf::from(active)
+        } else {
+            let scratch = crate::paths::aetheria_dot_dir().join("scratch");
+            let _ = std::fs::create_dir_all(&scratch);
+            scratch
+        }
     } else {
         PathBuf::from(workspace_dir)
     };

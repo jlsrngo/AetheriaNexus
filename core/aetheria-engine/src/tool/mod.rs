@@ -153,6 +153,7 @@ async fn execute_tool_call_inner(
                 workspace_dir,
                 arguments,
             )
+            .await
         }
         "voicebox_speak" | "voicebox" | "generate_speech" | "tts" => {
             voicebox::execute_voicebox(workspace_dir, arguments).await

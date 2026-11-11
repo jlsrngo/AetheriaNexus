@@ -1,12 +1,11 @@
 //! Deterministic Storyboard Engine Tool (`produce_video`).
 //! Orchestrates validation & timing resolution (`storyboard_planner`), 48kHz stereo mixing,
-//! Remotion template sync, MP4 rendering, and post-render FFmpeg QA snapshot extraction.
+//! standalone HTML5+JS Motion Film generation, pure-Rust CDP MP4 rendering, and FFmpeg QA snapshots.
 
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::process::Command;
 
-use super::skill_inspector::copy_dir_all;
 use super::storyboard_planner::{load_and_validate_storyboard, resolve_storyboard_timings};
 use crate::tool::render;
 
@@ -15,13 +14,13 @@ pub fn produce_video_tool_definition() -> Value {
         "type": "function",
         "function": {
             "name": "produce_video",
-            "description": "Deterministic end-to-end video producer from a declarative Storyboard JSON. You (the LLM) only write the creative storyboard (scenes with 8-12 words of narration, layout kind, and visual beats tied to spoken keywords). The engine automatically validates word counts, synthesizes Aetheria voiceovers, calculates exact word-level timings, mixes 48kHz stereo audio + punchy SFX with zero overlap, populates collision-free Remotion layouts, renders the MP4, and extracts QA snapshots.",
+            "description": "Deterministic end-to-end video producer from a declarative Storyboard JSON. Generates synchronized Aetheria voiceovers, mixes 48kHz stereo audio, emits a standalone HTML5+JS Motion Film (`index.html`), exports to MP4 via local Edge/Chrome CDP + FFmpeg, and extracts QA snapshots.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "storyboard_path": {
                         "type": "string",
-                        "description": "Path to storyboard JSON file (e.g. 'workspace/storyboard.json')."
+                        "description": "Path to storyboard JSON file inside active folder (e.g. 'storyboard.json')."
                     },
                     "storyboard": {
                         "type": "object",
@@ -29,12 +28,118 @@ pub fn produce_video_tool_definition() -> Value {
                     },
                     "output_path": {
                         "type": "string",
-                        "description": "Destination MP4 path (e.g. 'output/video.mp4')."
+                        "description": "Destination MP4 path inside active folder (e.g. 'output/video.mp4')."
                     }
                 }
             }
         }
     })
+}
+
+fn build_storyboard_html(resolved_json: &Value) -> String {
+    let payload_str = serde_json::to_string_pretty(resolved_json).unwrap_or_else(|_| "{}".to_string());
+    let title = resolved_json
+        .get("title")
+        .and_then(Value::as_str)
+        .unwrap_or("Aetheria Storyboard Film");
+    let duration = resolved_json
+        .get("totalDurationSec")
+        .and_then(Value::as_f64)
+        .unwrap_or(10.0);
+
+    format!(
+        r##"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{title}</title>
+  <script src="/script/aetheria-motion.js"></script>
+  <style>
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    html, body {{ width: 1080px; height: 1920px; overflow: hidden; background: #0A0A0C; font-family: Inter, system-ui, sans-serif; }}
+    canvas {{ display: block; width: 1080px; height: 1920px; }}
+  </style>
+</head>
+<body>
+<canvas id="stage" width="1080" height="1920"></canvas>
+<script>
+const STORYBOARD = {payload_str};
+const SCENES = (STORYBOARD.scenes || []).map((s, idx) => ({{
+  id: s.id || ("scene" + (idx + 1)),
+  title: s.narration || ("Scene " + (idx + 1)),
+  start: s.startSec || 0,
+  duration: s.durationSec || 4,
+  audio: idx === 0 && STORYBOARD.audioFile ? "/audio/" + STORYBOARD.audioFile : undefined,
+  dark: Boolean(s.dark),
+  tag: s.tag || "",
+  statValue: s.statValue || "",
+  statLabel: s.statLabel || "",
+  beats: Array.isArray(s.beats) ? s.beats : []
+}}));
+
+window.AETHERIA_FILM = {{
+  title: STORYBOARD.title || "Storyboard Film",
+  width: 1080,
+  height: 1920,
+  fps: STORYBOARD.fps || 60,
+  duration: {duration},
+  scenes: SCENES
+}};
+
+const canvas = document.getElementById("stage");
+const ctx = canvas.getContext("2d");
+
+window.renderAt = function(t) {{
+  const resolved = window.AM ? AM.resolveScene(t, SCENES) : {{ scene: SCENES[0] || {{}}, localTime: t, index: 0 }};
+  const sc = resolved.scene || {{}};
+  const lt = resolved.localTime || 0;
+  const dur = Math.max(0.5, sc.duration || 4);
+
+  const grad = ctx.createLinearGradient(0, 0, 0, 1920);
+  grad.addColorStop(0, sc.dark ? "#0A0A0C" : "#12131A");
+  grad.addColorStop(1, sc.dark ? "#14161E" : "#1D202B");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 1080, 1920);
+
+  if (window.AM && AM.drawGridBackdrop) {{
+    AM.drawGridBackdrop(ctx, t, "#10B981", "#0A0A0C", "#14161E");
+  }}
+
+  const pop = window.AM ? AM.pop(lt, 0.05, 2.4, 0.45, 0.16, 1.2) : [1, 0];
+  ctx.save();
+  ctx.translate(540, 820);
+  ctx.scale(Math.max(0.1, pop[0]) / (1 + pop[1]), Math.max(0.1, pop[0]) * (1 + pop[1]));
+  ctx.fillStyle = "#FAFAFA";
+  ctx.textAlign = "center";
+  ctx.font = "700 58px Inter, system-ui, sans-serif";
+  const words = String(sc.title || "").split(/\s+/);
+  let line = "";
+  let y = -60;
+  for (let i = 0; i < words.length; i++) {{
+    const next = line ? line + " " + words[i] : words[i];
+    if (ctx.measureText(next).width > 860 && line) {{
+      ctx.fillText(line, 0, y);
+      y += 74;
+      line = words[i];
+    }} else {{
+      line = next;
+    }}
+  }}
+  if (line) ctx.fillText(line, 0, y);
+  ctx.restore();
+
+  if (window.AM && AM.drawTopHeader) {{
+    AM.drawTopHeader(ctx, sc, lt, t);
+  }}
+}};
+
+window.renderAt(0);
+window.__ready = true;
+</script>
+</body>
+</html>
+"##
+    )
 }
 
 pub async fn execute_produce_video(
@@ -46,38 +151,41 @@ pub async fn execute_produce_video(
 ) -> Value {
     let root = crate::paths::project_root();
     let ws = if workspace_dir.trim().is_empty() {
-        root.clone()
+        crate::desktop::get_active_workspace_root()
+            .filter(|s| !s.trim().is_empty())
+            .map(PathBuf::from)
+            .unwrap_or_else(|| crate::paths::aetheria_dot_dir().join("scratch"))
     } else {
         PathBuf::from(workspace_dir)
     };
+    let ws_str = ws.to_string_lossy().to_string();
 
     let sb_val = match load_and_validate_storyboard(&ws, arguments) {
         Ok(v) => v,
         Err(err) => return err,
     };
 
-    let pub_dir = root.join("workspace").join("public");
-    let _ = std::fs::create_dir_all(&pub_dir);
+    let audio_dir = ws.join("audio");
+    let _ = std::fs::create_dir_all(&audio_dir);
 
-    let planned = match resolve_storyboard_timings(&root, workspace_dir, &sb_val).await {
+    let planned = match resolve_storyboard_timings(&ws, &ws_str, &sb_val).await {
         Ok(p) => p,
         Err(err) => return err,
     };
 
-    // Write resolved JSON & run sample-accurate 48kHz stereo master mixer
-    let resolved_json_path = pub_dir.join("sb_resolved.json");
+    let resolved_json_path = audio_dir.join("sb_resolved.json");
     let _ = std::fs::write(
         &resolved_json_path,
         serde_json::to_string_pretty(&planned.resolved_json).unwrap_or_default(),
     );
-    let master_wav_path = pub_dir.join("sb_master_audio.wav");
+    let master_wav_path = audio_dir.join("sb_master_audio.wav");
     let mixer_script = root.join("core").join("voicebox").join("storyboard_mixer.py");
     let mix_status = Command::new("python")
         .arg(&mixer_script)
         .arg("--resolved-json")
         .arg(&resolved_json_path)
         .arg("--public-dir")
-        .arg(&pub_dir)
+        .arg(&audio_dir)
         .arg("--out")
         .arg(&master_wav_path)
         .status();
@@ -85,55 +193,39 @@ pub async fn execute_produce_video(
         return json!({ "error": "Failed to mix storyboard master audio via storyboard_mixer.py" });
     }
 
-    // Sync master templates to workspace/src/_storyboard & write resolvedData.ts
-    let tpl_dir = root
-        .join("core")
-        .join("aetheria-engine")
-        .join("templates")
-        .join("storyboard");
-    let ws_sb_dir = root.join("workspace").join("src").join("_storyboard");
-    if tpl_dir.is_dir() {
-        let _ = copy_dir_all(&tpl_dir, &ws_sb_dir);
+    let html_out = ws.join("index.html");
+    let html_content = build_storyboard_html(&planned.resolved_json);
+    if let Err(e) = std::fs::write(&html_out, html_content) {
+        return json!({ "error": format!("Failed writing storyboard HTML film: {}", e) });
     }
-    let ts_content = format!(
-        "import {{ ResolvedStoryboard }} from \"./types\";\n\nexport const RESOLVED_STORYBOARD: ResolvedStoryboard = {};\n",
-        serde_json::to_string_pretty(&planned.resolved_json).unwrap_or_default()
-    );
-    let _ = std::fs::write(ws_sb_dir.join("resolvedData.ts"), ts_content);
 
-    // Render StoryboardVideo composition to MP4
     let out_mp4 = arguments
         .get("output_path")
         .and_then(Value::as_str)
         .unwrap_or("output/storyboard-video.mp4");
     let render_args = json!({
-        "composition_id": "StoryboardVideo",
+        "composition_id": "HtmlMotionFilm",
         "output_path": out_mp4
     });
     let render_res = render::execute_render_video_with_progress(
         session_id,
         assistant_msg_id,
         call_id,
-        workspace_dir,
+        &ws_str,
         &render_args,
-    );
+    )
+    .await;
     if render_res.get("error").is_some() {
         return render_res;
     }
 
-    // Automatic Post-Render QA: extract 1 snapshot PNG per scene midpoint via bundled ffmpeg
-    let ffmpeg_bin = root
-        .join("node_modules")
-        .join("@remotion")
-        .join("compositor-win32-x64-msvc")
-        .join("ffmpeg.exe");
     let mp4_path_str = render_res
         .get("outputPath")
         .and_then(Value::as_str)
         .unwrap_or(out_mp4);
     let mut qa_snapshots = Vec::new();
-    if ffmpeg_bin.is_file() {
-        let out_dir = root.join("output");
+    if let Some(ffmpeg_bin) = crate::paths::locate_ffmpeg_binary() {
+        let out_dir = ws.join("output");
         let _ = std::fs::create_dir_all(&out_dir);
         for sc in &planned.resolved_scenes {
             let idx = sc.get("index").and_then(Value::as_u64).unwrap_or(1);
@@ -161,7 +253,7 @@ pub async fn execute_produce_video(
 
     json!({
         "success": true,
-        "message": "Storyboard video produced with verified Aetheria voiceovers, zero-overlap 48kHz stereo SFX mix, and QA snapshots.",
+        "message": "Storyboard HTML film produced with verified Aetheria voiceovers and native MP4 export.",
         "outputPath": mp4_path_str,
         "totalDurationSec": planned.total_duration_sec,
         "totalFrames": planned.total_frames,

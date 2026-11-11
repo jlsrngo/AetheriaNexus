@@ -15,7 +15,7 @@ pub fn glob_tool_definition() -> Value {
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "pattern": { "type": "string", "description": "Wildcard pattern (e.g. '*', '*.tsx', 'apps/src/remotion/**/*.tsx', '**/*.mp4') or substring to filter files by." }
+                    "pattern": { "type": "string", "description": "Wildcard pattern (e.g. '*', '*.html', 'script/*.js', '**/*.mp4') or substring to filter files by." }
                 }
             }
         }

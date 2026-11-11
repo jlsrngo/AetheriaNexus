@@ -14,9 +14,9 @@ pub const CORRECTIONS_FILE_NAME: &str = "user-corrections.jsonl";
 /// Infers domain dynamically based on scanned file extensions.
 pub fn infer_domain(extensions: &[&str]) -> String {
     let mut types = Vec::new();
-    let has_remotion = extensions
+    let has_html_motion = extensions
         .iter()
-        .any(|&e| e == ".tsx" || e == ".ts" || e == ".jsx" || e == ".js");
+        .any(|&e| e == ".html" || e == ".htm" || e == ".js" || e == ".mjs" || e == ".css");
     let has_media = extensions
         .iter()
         .any(|&e| e == ".mp4" || e == ".webm" || e == ".mov" || e == ".mp3" || e == ".wav");
@@ -24,8 +24,8 @@ pub fn infer_domain(extensions: &[&str]) -> String {
         .iter()
         .any(|&e| e == ".svg" || e == ".png" || e == ".jpg" || e == ".webp");
 
-    if has_remotion {
-        types.push("Remotion React Video Compositions (.tsx / .ts)");
+    if has_html_motion {
+        types.push("HTML5 + JavaScript Deterministic Motion Films (.html / .js)");
     }
     if has_media {
         types.push("Video & Audio Render Assets (.mp4 / .mp3 / .wav)");
@@ -35,7 +35,7 @@ pub fn infer_domain(extensions: &[&str]) -> String {
     }
 
     if types.is_empty() {
-        "Remotion Programmatic Video Studio Workspace".to_string()
+        "HTML5 Motion Studio Project Workspace".to_string()
     } else {
         types.join(" | ")
     }
@@ -44,14 +44,13 @@ pub fn infer_domain(extensions: &[&str]) -> String {
 /// Derives universal syntax invariants based on file types.
 pub fn derive_syntax_invariants(extensions: &[&str]) -> Vec<String> {
     let mut inv = Vec::new();
-    let has_remotion = extensions.iter().any(|&e| e == ".tsx" || e == ".ts");
+    let has_html_motion = extensions.iter().any(|&e| e == ".html" || e == ".js");
 
-    if has_remotion {
-        inv.push("- Modular Workspace Compositions: Write all generated Remotion React components inside `workspace/src/` as modular files (`types.ts`, `components/*.tsx`, `scenes/Scene1..N.tsx`, `Root.tsx`, `entry.ts`), never inside `apps/src/` or `core/`.".to_string());
-        inv.push("- Dynamic Multi-Track Timeline (`V1`..`Vn`): Wrap each scene and visual element in `<Sequence>` layers (`V1`..`Vn`).".to_string());
-        inv.push("- TypeScript & JSX Integrity: Maintain valid TypeScript types and Remotion hooks (`useCurrentFrame`, `useVideoConfig`, `spring`, `interpolate`) so the live `<Player>` hot-reloads without errors.".to_string());
+    if has_html_motion {
+        inv.push("- Modular HTML Motion Architecture: Author films directly inside the opened project folder (`index.html`, `script/scene1..N.js`, `audio/*.wav`) with deterministic `window.renderAt(t)` and `window.__ready = true`.".to_string());
+        inv.push("- Zero Node/Remotion Dependencies: Pure browser Canvas 2D / SVG / CSS + Vanilla JS (`window.AM`) with frame-accurate seeking and headless Chrome/Edge CDP MP4 export.".to_string());
     }
-    inv.push("- Active Folder Isolation: Only inspect and operate on files within the currently opened active workspace folder.".to_string());
+    inv.push("- Active Folder Isolation: Only inspect and operate on files within the currently opened active project folder.".to_string());
 
     inv
 }

@@ -1,14 +1,14 @@
 //! Voicebox TTS Tool for Aetheria Engine.
 //! Invokes the embedded Voicebox TTS engine (Kokoro-82M + Indonesian Neural + Spotify Pedalboard DSP)
-//! to produce broadcast-quality voiceovers and word-level alignment for Remotion videos.
+//! to produce broadcast-quality voiceovers and word-level alignment for HTML Motion videos.
 
 use serde_json::{json, Value};
 use std::path::Path;
 use tokio::process::Command;
 
-/// Synchronize a generated audio file (and its companion `.words.json`) into `workspace/audio/`
-/// and `apps/public/audio/` so the live Studio preview and renderer always find them.
-fn sync_audio_to_public_dirs(root: &Path, target_out: &Path) {
+/// Ensure a generated audio file (and its companion `.words.json`) stays accessible inside
+/// `<active_workspace>/audio/` without ever leaking into engine source directories.
+fn sync_audio_inside_workspace(ws: &Path, target_out: &Path) {
     if !target_out.is_file() {
         return;
     }
@@ -16,18 +16,11 @@ fn sync_audio_to_public_dirs(root: &Path, target_out: &Path) {
         return;
     };
 
-    let ws_audio = root.join("workspace").join("audio");
+    let ws_audio = ws.join("audio");
     let _ = std::fs::create_dir_all(&ws_audio);
     let ws_dest = ws_audio.join(file_name);
     if ws_dest != target_out {
         let _ = std::fs::copy(target_out, &ws_dest);
-    }
-
-    let apps_audio = root.join("apps").join("public").join("audio");
-    let _ = std::fs::create_dir_all(&apps_audio);
-    let apps_dest = apps_audio.join(file_name);
-    if apps_dest != target_out {
-        let _ = std::fs::copy(target_out, &apps_dest);
     }
 
     let words_src = target_out.with_extension("words.json");
@@ -36,10 +29,6 @@ fn sync_audio_to_public_dirs(root: &Path, target_out: &Path) {
             let ws_words = ws_audio.join(words_name);
             if ws_words != words_src {
                 let _ = std::fs::copy(&words_src, &ws_words);
-            }
-            let apps_words = apps_audio.join(words_name);
-            if apps_words != words_src {
-                let _ = std::fs::copy(&words_src, &apps_words);
             }
         }
     }
@@ -50,7 +39,7 @@ pub fn voicebox_tool_definition() -> Value {
         "type": "function",
         "function": {
             "name": "voicebox_speak",
-            "description": "Generates natural, human-sounding voiceover audio + word alignment mastered with Spotify Pedalboard DSP (highpass, compressor, -14 LUFS limiter). For Indonesian, use voice: 'aetheria' (permanent Aetheria viral storytelling creator with youth energetic intonation), 'id-ID-GadisNeural' (warm, clear, professional female dubbing) or 'id-ID-ArdiNeural' (authoritative male narrator). For English, use voice: 'aetheria_en' (Aetheria English storytelling creator), 'af_heart' (female), or 'am_adam' (male). The engine automatically engages Project Voice Lock (.voice_lock.json) so the narrator identity remains 100% consistent across every scene. Use this tool whenever producing voiceover for a Remotion video scene or social media reel.",
+            "description": "Generates natural, human-sounding voiceover audio + word alignment mastered with Spotify Pedalboard DSP (highpass, compressor, -14 LUFS limiter). For Indonesian, use voice: 'aetheria' (permanent Aetheria viral storytelling creator with youth energetic intonation), 'id-ID-GadisNeural' (warm, clear, professional female dubbing) or 'id-ID-ArdiNeural' (authoritative male narrator). For English, use voice: 'aetheria_en' (Aetheria English storytelling creator), 'af_heart' (female), or 'am_adam' (male). The engine automatically engages Project Voice Lock (.voice_lock.json) so the narrator identity remains 100% consistent across every scene. Use this tool whenever producing voiceover for an HTML motion scene or social media reel.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -68,7 +57,7 @@ pub fn voicebox_tool_definition() -> Value {
                     },
                     "outputPath": {
                         "type": "string",
-                        "description": "Relative output path for the mastered WAV file. Defaults to 'workspace/audio/voiceover.wav'."
+                        "description": "Relative output path inside active project folder for the mastered WAV file. Defaults to 'audio/voiceover.wav'."
                     },
                     "lang": {
                         "type": "string",
@@ -103,7 +92,7 @@ pub fn voicebox_tool_definition() -> Value {
                     },
                     "refAudio": {
                         "type": "string",
-                        "description": "Optional reference audio (e.g. 'workspace/public/ref_voice.wav'). Analyzed for register/pitch; only cloned when cloneVoice=true."
+                        "description": "Optional reference audio inside active project folder (e.g. 'audio/ref_voice.wav'). Analyzed for register/pitch; only cloned when cloneVoice=true."
                     },
                     "rate": {
                         "type": "string",
@@ -130,7 +119,7 @@ pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
         .get("outputPath")
         .or_else(|| arguments.get("output_path"))
         .and_then(|v| v.as_str())
-        .unwrap_or("workspace/audio/voiceover.wav");
+        .unwrap_or("audio/voiceover.wav");
 
     let lang = arguments
         .get("lang")
@@ -138,34 +127,22 @@ pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
         .and_then(|v| v.as_str())
         .unwrap_or("id");
 
+    let target_out = match crate::tool::path_guard::resolve_isolated_path(workspace_dir, out_rel) {
+        Ok(p) => p,
+        Err(e) => return json!({ "error": e }),
+    };
+    let ws = target_out
+        .parent()
+        .and_then(|p| p.parent())
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            if workspace_dir.trim().is_empty() {
+                crate::paths::aetheria_dot_dir().join("scratch")
+            } else {
+                std::path::PathBuf::from(workspace_dir)
+            }
+        });
     let root = crate::paths::project_root();
-    let ws = if workspace_dir.trim().is_empty() {
-        root.clone()
-    } else {
-        std::path::PathBuf::from(workspace_dir)
-    };
-
-    let mut clean_out = out_rel.trim();
-    let ws_is_workspace = ws
-        .file_name()
-        .and_then(|n| n.to_str())
-        .map(|n| n.eq_ignore_ascii_case("workspace"))
-        .unwrap_or(false);
-
-    if ws_is_workspace {
-        while clean_out.starts_with("workspace/") || clean_out.starts_with("workspace\\") {
-            clean_out = &clean_out["workspace/".len()..];
-        }
-        while clean_out.starts_with("./workspace/") || clean_out.starts_with(".\\workspace\\") {
-            clean_out = &clean_out["./workspace/".len()..];
-        }
-    }
-
-    let target_out = if Path::new(clean_out).is_absolute() {
-        std::path::PathBuf::from(clean_out)
-    } else {
-        ws.join(clean_out)
-    };
 
     // Fast Cache Hit: Only reuse existing WAV if the text actually matches what was requested!
     // Never reuse an old file with different text just because the filename is the same.
@@ -180,11 +157,11 @@ pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
                         let clean_cached = cached_text.split_whitespace().collect::<Vec<_>>().join(" ");
                         let clean_requested = text.split_whitespace().collect::<Vec<_>>().join(" ");
                         if clean_cached == clean_requested {
-                            sync_audio_to_public_dirs(&root, &target_out);
+                            sync_audio_inside_workspace(&ws, &target_out);
                             return json!({
                                 "success": true,
                                 "cached": true,
-                                "message": format!("Reused existing mastered voiceover at '{}' (synced to workspace/public & bundle/public)", target_out.display()),
+                                "message": format!("Reused existing mastered voiceover at '{}'", target_out.display()),
                                 "outputPath": target_out.to_string_lossy().to_string()
                             });
                         }
@@ -268,7 +245,7 @@ pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
                 });
             }
 
-            sync_audio_to_public_dirs(&root, &target_out);
+            sync_audio_inside_workspace(&ws, &target_out);
 
             // Parse json output from python if possible
             if let Some(idx) = stdout.rfind('{') {
