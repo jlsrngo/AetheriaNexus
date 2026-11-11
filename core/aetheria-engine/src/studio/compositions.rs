@@ -1,58 +1,45 @@
-//! Studio composition presets storage and HTTP manipulation handlers.
+//! Studio composition presets storage and HTTP handlers scoped to the active project folder.
 
-pub use super::composition_scanner::scan_and_merge_workspace_compositions;
+pub use super::composition_scanner::scan_active_workspace_compositions;
 
 use super::composition_scanner::friendly_name_for_id;
+use super::motion::resolve_active_dir_from_request;
 use super::types::{CompositionPreset, UpdatePropsPayload};
 use crate::paths::aetheria_dot_dir;
-use axum::{response::IntoResponse, Json};
+use axum::{extract::Query, http::HeaderMap, response::IntoResponse, Json};
 use serde_json::json;
+use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
 static COMPOSITIONS: OnceLock<RwLock<Vec<CompositionPreset>>> = OnceLock::new();
 
 pub fn get_compositions_store() -> &'static RwLock<Vec<CompositionPreset>> {
-    COMPOSITIONS.get_or_init(|| {
-        let mut initial = Vec::new();
-        let file_path = aetheria_dot_dir().join("nexus_compositions.json");
-        if file_path.exists() {
-            if let Ok(content) = std::fs::read_to_string(&file_path) {
-                if let Ok(loaded) = serde_json::from_str::<Vec<CompositionPreset>>(&content) {
-                    if !loaded.is_empty() {
-                        initial = loaded;
-                    }
-                }
-            }
-        }
-        scan_and_merge_workspace_compositions(&mut initial);
-        RwLock::new(initial)
-    })
+    COMPOSITIONS.get_or_init(|| RwLock::new(Vec::new()))
 }
 
 pub fn default_presets() -> Vec<CompositionPreset> {
     Vec::new()
 }
 
-/// Call this when render succeeds to guarantee the composition is known immediately
+/// Registers a rendered composition in memory when no active HTML scan exists yet.
 pub fn register_rendered_composition(id: &str, _output_path: Option<&str>) {
     let mut store = get_compositions_store()
         .write()
         .unwrap_or_else(|e| e.into_inner());
-    scan_and_merge_workspace_compositions(&mut store);
     if !store.iter().any(|c| c.id == id) {
         let friendly = friendly_name_for_id(id);
         store.push(CompositionPreset {
             id: id.to_string(),
             name: friendly.clone(),
-            folder: "AI WORKSPACE".to_string(),
+            folder: "RENDERED".to_string(),
             ratio: "9:16".to_string(),
-            duration: 60.0,
+            duration: 15.0,
             fps: 30,
             width: 1080,
             height: 1920,
             props: json!({
                 "hookText": friendly,
-                "category": "AI RENDERED",
+                "category": "HTML MOTION",
                 "subCategory": "COMPLETED",
                 "authorHandle": "@aetheria"
             }),
@@ -60,15 +47,26 @@ pub fn register_rendered_composition(id: &str, _output_path: Option<&str>) {
     }
 }
 
-/// GET / POST /api/get-compositions
-pub async fn handle_get_compositions() -> impl IntoResponse {
-    let mut store = get_compositions_store()
-        .write()
+/// GET / POST /api/get-compositions (Strictly scoped to active workspace directory)
+pub async fn handle_get_compositions(
+    Query(q): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    let active_dir = resolve_active_dir_from_request(&q, &headers);
+    let mut discovered = scan_active_workspace_compositions(active_dir.as_deref());
+
+    let store = get_compositions_store()
+        .read()
         .unwrap_or_else(|e| e.into_inner());
-    scan_and_merge_workspace_compositions(&mut store);
+    for item in discovered.iter_mut() {
+        if let Some(saved) = store.iter().find(|s| s.id == item.id) {
+            item.props = saved.props.clone();
+        }
+    }
+
     Json(json!({
         "success": true,
-        "data": *store
+        "data": discovered
     }))
 }
 
@@ -97,23 +95,22 @@ pub async fn handle_update_default_props(
     }
 
     if !found {
-        let new_preset = CompositionPreset {
+        store.push(CompositionPreset {
             id: payload.composition_id.clone(),
             name: payload
                 .props
                 .get("hookText")
                 .and_then(|v| v.as_str())
-                .unwrap_or("AI Draft Composition")
+                .unwrap_or("HTML Motion Draft")
                 .to_string(),
-            folder: "AI GENERATED DRAFTS".to_string(),
+            folder: "ACTIVE PROJECT".to_string(),
             ratio: "9:16".to_string(),
-            duration: 5.0,
+            duration: 15.0,
             fps: 30,
             width: 1080,
             height: 1920,
             props: payload.props.clone(),
-        };
-        store.push(new_preset);
+        });
     }
 
     Json(json!({

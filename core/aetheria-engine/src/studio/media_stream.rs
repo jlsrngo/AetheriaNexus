@@ -45,7 +45,15 @@ pub async fn handle_stream_video(
         return (StatusCode::NOT_FOUND, "Video file not found").into_response();
     }
 
-    let mut file = match tokio::fs::File::open(&target_path).await {
+    serve_ranged_file(&headers, &target_path).await
+}
+
+/// Streams any static or media file with HTTP 206 Partial Content byte-range support.
+pub(crate) async fn serve_ranged_file(
+    headers: &HeaderMap,
+    target_path: &std::path::Path,
+) -> Response {
+    let mut file = match tokio::fs::File::open(target_path).await {
         Ok(f) => f,
         Err(_) => {
             return (
@@ -68,7 +76,7 @@ pub async fn handle_stream_video(
     };
 
     let file_size = metadata.len();
-    let content_type = mime_guess::from_path(&target_path)
+    let content_type = mime_guess::from_path(target_path)
         .first_or_octet_stream()
         .to_string();
 

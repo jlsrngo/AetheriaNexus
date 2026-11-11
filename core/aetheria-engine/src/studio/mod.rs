@@ -10,13 +10,19 @@
 //! - `scheduler`: Social media auto-posting queue and background daemon.
 //! - `timeline` & `script_generator`: 12-layer NLE timeline calculator and AI script generator.
 //! - `presets` & `video_reference`: Voicebox preset studio and video reference extractor.
-//! - `motion` & `motion_linter`: Single-file HTML motion film routes and determinism linter.
+//! - `motion`, `motion_linter` & `film_inspector`: HTML motion film routes, determinism linter, and project inspector.
+//! - `film_static_server`, `ffmpeg_pipeline`, `cdp_ws` & `html_renderer`: Pure-Rust headless browser CDP + FFmpeg renderer.
 //! - `native_renderer` & `native_canvas`: FFmpeg pipe renderer and RGBA software rasterizer.
 
 pub mod assets;
+pub mod cdp_ws;
 pub mod composition_scanner;
 pub mod compositions;
+pub mod ffmpeg_pipeline;
+pub mod film_inspector;
+pub mod film_static_server;
 pub mod gpu;
+pub mod html_renderer;
 pub mod media_stream;
 pub mod motion;
 pub mod motion_linter;
@@ -167,11 +173,19 @@ pub fn router() -> Router {
             "/api/skills/styles",
             get(styles::handle_list_styles).post(styles::handle_list_styles),
         )
-        // 9. Aetheria Motion Engine (Single-File HTML Canvas/SVG Film Inspector & Linter)
+        // 9. Aetheria Motion Engine (Single-File HTML Canvas/SVG Film Inspector, Bundle & Isolated Assets)
         .route(
             "/api/studio/film-meta",
             get(motion::handle_film_meta).post(motion::handle_film_meta),
         )
+        .route(
+            "/api/studio/film-bundle",
+            get(motion::handle_film_bundle).post(motion::handle_film_bundle),
+        )
         .route("/api/studio/film-lint", post(motion::handle_film_lint))
         .route("/api/studio/film-html", get(motion::handle_film_html))
+        .route(
+            "/api/studio/ws-asset/*relpath",
+            get(assets::handle_ws_asset),
+        )
 }

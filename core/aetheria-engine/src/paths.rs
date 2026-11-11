@@ -96,7 +96,7 @@ pub fn aetheria_data_dir() -> PathBuf {
     dir
 }
 
-/// Locates the repo root that owns `scripts/render.mjs`.
+/// Locates the repo or app installation root containing engine assets.
 /// Checks AETHERIA_ROOT, the current dir and its ancestors, then upwards from the executable.
 pub fn project_root() -> PathBuf {
     let mut candidates: Vec<PathBuf> = Vec::new();
@@ -133,38 +133,17 @@ pub fn project_root() -> PathBuf {
 
     candidates
         .into_iter()
-        .find(|dir| dir.join("scripts").join("render.mjs").is_file())
+        .find(|dir| {
+            dir.join("core").join("aetheria-engine").join("Cargo.toml").is_file()
+                || (dir.join("apps").join("package.json").is_file() && dir.join("Cargo.toml").is_file())
+                || dir.join("apps").join("public").is_dir()
+        })
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
 }
 
-/// Finds a Chromium build Remotion can drive, so a render never has to download one.
-/// Edge ships with every Windows 10/11, Chrome is the fallback.
-pub fn detect_browser_executable() -> Option<PathBuf> {
-    let base = |key: &str| {
-        std::env::var(key)
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .map(PathBuf::from)
-    };
+pub use crate::binary_locator::{detect_browser_executable, locate_ffmpeg_binary};
 
-    let browsers = [
-        ("Microsoft", "Edge", "msedge.exe"),
-        ("Google", "Chrome", "chrome.exe"),
-    ];
-
-    let mut candidates = Vec::new();
-    for root in ["PROGRAMFILES(X86)", "PROGRAMFILES", "LOCALAPPDATA"] {
-        if let Some(root) = base(root) {
-            for (vendor, product, exe) in browsers {
-                candidates.push(root.join(vendor).join(product).join("Application").join(exe));
-            }
-        }
-    }
-
-    candidates.into_iter().find(|path| path.is_file())
-}
-
-/// Stable folder for the Remotion webpack bundle so repeat renders skip the ~53s rebuild.
+/// Stable folder for engine render caches and temporary artifacts.
 /// Kept out of the install dir, which is read-only under Program Files.
 pub fn render_cache_dir() -> PathBuf {
     let base = std::env::var("LOCALAPPDATA")
@@ -290,11 +269,12 @@ mod tests {
     }
 
     #[test]
-    fn test_project_root_finds_render_script() {
+    fn test_project_root_finds_engine_root() {
         let root = project_root();
         assert!(
-            root.join("scripts").join("render.mjs").is_file(),
-            "project_root() returned {} which has no scripts/render.mjs",
+            root.join("core").join("aetheria-engine").join("Cargo.toml").is_file()
+                || root.join("apps").join("package.json").is_file(),
+            "project_root() returned {} which does not look like the engine repo root",
             root.display()
         );
     }
@@ -304,13 +284,6 @@ mod tests {
         let dir = render_cache_dir();
         assert!(dir.is_dir(), "render_cache_dir() returned {} which is not a directory", dir.display());
         assert!(dir.ends_with(Path::new("AetheriaNexus").join("bundle")));
-    }
-
-    #[test]
-    fn test_detect_browser_returns_existing_file() {
-        if let Some(path) = detect_browser_executable() {
-            assert!(path.is_file(), "detected browser {} does not exist", path.display());
-        }
     }
 }
 

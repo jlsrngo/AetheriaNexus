@@ -11,29 +11,9 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Instant;
 
-/// Locates local FFmpeg binary (system PATH or bundled compositor binary)
+/// Locates local FFmpeg binary via shared engine finder.
 pub fn locate_ffmpeg() -> Option<PathBuf> {
-    if let Ok(out) = Command::new("where").arg("ffmpeg").output() {
-        if out.status.success() {
-            let s = String::from_utf8_lossy(&out.stdout);
-            if let Some(first_line) = s.lines().next() {
-                let p = PathBuf::from(first_line.trim());
-                if p.is_file() {
-                    return Some(p);
-                }
-            }
-        }
-    }
-
-    let project_root = crate::paths::project_root();
-    let candidates = [
-        project_root.join("node_modules/@remotion/compositor-win32-x64-msvc/ffmpeg.exe"),
-        project_root.join("node_modules/@remotion/compositor-linux-x64-gnu/ffmpeg"),
-        project_root.join("node_modules/@remotion/compositor-darwin-arm64/ffmpeg"),
-        project_root.join("node_modules/@remotion/compositor-darwin-x64/ffmpeg"),
-    ];
-
-    candidates.into_iter().find(|c| c.is_file())
+    crate::paths::locate_ffmpeg_binary()
 }
 
 /// Executes pure native Rust direct CPU/GPU rendering

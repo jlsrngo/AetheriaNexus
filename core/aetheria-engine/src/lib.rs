@@ -1,4 +1,5 @@
 pub mod aetheria;
+pub mod binary_locator;
 pub mod bridge;
 pub mod cred_store;
 pub mod desktop;

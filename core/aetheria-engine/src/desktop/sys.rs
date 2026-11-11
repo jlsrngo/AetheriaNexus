@@ -30,9 +30,9 @@ pub async fn handle_engine_info() -> Response {
 }
 
 pub async fn handle_video_render(Json(payload): Json<Value>) -> impl IntoResponse {
-    let workspace = get_active_workspace_root().unwrap_or_else(|| ".".to_string());
+    let workspace = get_active_workspace_root().unwrap_or_default();
     let session_id = payload.get("session_id").and_then(|v| v.as_str()).unwrap_or("video_session");
-    let res = crate::tool::render::execute_render_video(session_id, &workspace, &payload);
+    let res = crate::tool::render::execute_render_video(session_id, &workspace, &payload).await;
     Json(res)
 }
 

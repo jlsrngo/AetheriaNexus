@@ -1,9 +1,12 @@
 //! Video Reference Extractor handler for Studio (`/api/studio/video-reference/extract`).
 
-use axum::{response::IntoResponse, Json};
+use crate::files::resolve_base_dir;
+use crate::paths::contains_path;
+use axum::{extract::Query, http::HeaderMap, response::IntoResponse, Json};
 use base64::Engine as _;
 use serde::Deserialize;
 use serde_json::json;
+use std::collections::HashMap;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -15,10 +18,12 @@ pub struct ExtractVideoRefPayload {
 
 /// POST `/api/studio/video-reference/extract`
 pub async fn handle_extract_video_reference(
+    Query(q): Query<HashMap<String, String>>,
+    headers: HeaderMap,
     Json(payload): Json<ExtractVideoRefPayload>,
 ) -> impl IntoResponse {
-    let root = crate::paths::project_root();
-    let ref_dir = root.join("workspace").join("ref");
+    let active_ws = resolve_base_dir(&q, &headers);
+    let ref_dir = active_ws.join("ref");
     let _ = std::fs::create_dir_all(&ref_dir);
 
     let target_video = if let Some(b64_raw) = payload.video_base64.filter(|s| !s.trim().is_empty()) {
@@ -31,7 +36,17 @@ pub async fn handle_extract_video_reference(
             .file_name
             .filter(|s| !s.trim().is_empty())
             .unwrap_or_else(|| format!("ref_{}.mp4", crate::paths::now_ms()));
-        let out_path = ref_dir.join(&safe_name);
+        let safe_base_name = std::path::Path::new(&safe_name)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("ref_upload.mp4");
+        let out_path = ref_dir.join(safe_base_name);
+        if !contains_path(&active_ws, &out_path) {
+            return Json(json!({
+                "success": false,
+                "error": "Upload filename resolved outside active project folder."
+            }));
+        }
         match base64::engine::general_purpose::STANDARD.decode(clean_b64) {
             Ok(bytes) => {
                 if let Err(e) = std::fs::write(&out_path, &bytes) {
@@ -51,11 +66,18 @@ pub async fn handle_extract_video_reference(
         }
     } else if let Some(vp) = payload.video_path.filter(|s| !s.trim().is_empty()) {
         let p = std::path::Path::new(&vp);
-        if p.is_absolute() {
+        let resolved = if p.is_absolute() {
             p.to_path_buf()
         } else {
-            root.join(p)
+            active_ws.join(p)
+        };
+        if !contains_path(&active_ws, &resolved) {
+            return Json(json!({
+                "success": false,
+                "error": "Reference videoPath is outside active project folder."
+            }));
         }
+        resolved
     } else {
         return Json(json!({
             "success": false,
@@ -67,7 +89,7 @@ pub async fn handle_extract_video_reference(
     let _ = std::fs::create_dir_all(&extracted_dir);
 
     let res = crate::tool::ref_extractor::execute_ref_extractor(
-        &root.to_string_lossy(),
+        &active_ws.to_string_lossy(),
         &json!({
             "videoPath": target_video.to_string_lossy().to_string(),
             "outputDir": extracted_dir.to_string_lossy().to_string()
@@ -86,4 +108,3 @@ pub async fn handle_extract_video_reference(
         "extractorResult": res
     }))
 }
-

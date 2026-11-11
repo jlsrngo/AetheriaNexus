@@ -1,13 +1,22 @@
-//! Studio asset scanner, media vault indexing, and static file CRUD.
+//! Studio asset scanner, media vault indexing, static file CRUD, and isolated asset serving.
 
 pub use super::media_stream::{handle_stream_video, StreamVideoQuery};
 
+use super::media_stream::serve_ranged_file;
+use super::motion::{resolve_active_dir_from_request, resolve_film_html_in_dir};
 use super::types::{
     format_file_size, DeleteFilePayload, NexusStaticFile, ScanMediaPayload, WriteFilePayload,
 };
-use crate::paths::gen_id;
-use axum::{response::IntoResponse, Json};
+use crate::files::resolve_base_dir;
+use crate::paths::{contains_path, gen_id, project_root};
+use axum::{
+    extract::{Path as AxumPath, Query},
+    http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Response},
+    Json,
+};
 use serde_json::json;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 fn build_asset_entry(root: &Path, path: &Path, bytes: u64) -> Option<NexusStaticFile> {
@@ -47,69 +56,96 @@ fn build_asset_entry(root: &Path, path: &Path, bytes: u64) -> Option<NexusStatic
     })
 }
 
-/// GET / POST /api/get-static-files (Non-blocking background scanner)
-pub async fn handle_get_static_files() -> impl IntoResponse {
+/// GET /api/studio/ws-asset/*relpath — serves assets strictly from active project folder (plus builtin runtime scripts).
+pub async fn handle_ws_asset(
+    AxumPath(raw_rel): AxumPath<String>,
+    Query(q): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+) -> Response {
+    let clean_rel = raw_rel.trim().trim_start_matches('/').replace('\\', "/");
+    if clean_rel.is_empty() || clean_rel.contains("..") || clean_rel.contains('\0') {
+        return (StatusCode::BAD_REQUEST, "Invalid asset path").into_response();
+    }
+
+    if let Some(active_root) = resolve_active_dir_from_request(&q, &headers) {
+        let mut search_roots = vec![active_root.clone()];
+        if let Some(film_html) = resolve_film_html_in_dir(&active_root) {
+            if let Some(film_dir) = film_html.parent() {
+                if film_dir != active_root {
+                    search_roots.insert(0, film_dir.to_path_buf());
+                }
+            }
+        }
+        let pub_dir = active_root.join("public");
+        if pub_dir.is_dir() {
+            search_roots.push(pub_dir);
+        }
+
+        for root in search_roots {
+            let candidate = root.join(&clean_rel);
+            if contains_path(&root, &candidate) && candidate.is_file() {
+                return serve_ranged_file(&headers, &candidate).await;
+            }
+        }
+    }
+
+    // Engine builtin shared helper fallback (runtime library & bundled SFX only)
+    let is_builtin_runtime = clean_rel.eq_ignore_ascii_case("script/aetheria-motion.js")
+        || clean_rel.eq_ignore_ascii_case("aetheria-motion.js")
+        || clean_rel.starts_with("sfx/");
+
+    if is_builtin_runtime {
+        let engine_public = project_root().join("apps").join("public");
+        let normalized = if clean_rel.eq_ignore_ascii_case("aetheria-motion.js") {
+            "script/aetheria-motion.js"
+        } else {
+            clean_rel.as_str()
+        };
+        let fallback = engine_public.join(normalized);
+        if contains_path(&engine_public, &fallback) && fallback.is_file() {
+            return serve_ranged_file(&headers, &fallback).await;
+        }
+    }
+
+    (StatusCode::NOT_FOUND, "Asset not found in active workspace").into_response()
+}
+
+/// GET / POST /api/get-static-files (Non-blocking background scanner for active folder only)
+pub async fn handle_get_static_files(
+    Query(q): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    let active_dir = resolve_active_dir_from_request(&q, &headers);
     let files = tokio::task::spawn_blocking(move || {
         let mut files = Vec::new();
-        let workspace = crate::desktop::get_active_workspace_root()
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("."));
+        let Some(workspace) = active_dir else {
+            return files;
+        };
 
-        let target_dirs = vec![
-            workspace.join("public"),
-            workspace.join("assets"),
-            workspace.join("media"),
-            workspace.join("output"),
-            workspace.join("export"),
-        ];
-
-        for dir in target_dirs {
-            if !dir.exists() || !dir.is_dir() {
-                continue;
-            }
-            if let Ok(entries) = std::fs::read_dir(&dir) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.is_file() {
-                        let bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
-                        if let Some(asset) = build_asset_entry(&workspace, &path, bytes) {
-                            files.push(asset);
-                        }
-                    }
+        let mut scan_roots = vec![workspace.clone()];
+        if let Some(html_path) = resolve_film_html_in_dir(&workspace) {
+            if let Some(film_dir) = html_path.parent() {
+                if film_dir != workspace {
+                    scan_roots.push(film_dir.to_path_buf());
                 }
             }
         }
 
-        if files.is_empty() {
-            files = vec![
-                NexusStaticFile {
-                    id: "stock-audio-1".to_string(),
-                    name: "lofi_focus_beat.mp3".to_string(),
-                    file_type: "audio".to_string(),
-                    size: "3.4 MB".to_string(),
-                    bytes: 3_565_158,
-                    path: "public/lofi_focus_beat.mp3".to_string(),
-                    relative_path: "public/lofi_focus_beat.mp3".to_string(),
-                },
-                NexusStaticFile {
-                    id: "stock-image-1".to_string(),
-                    name: "brand_telemetry_hud.png".to_string(),
-                    file_type: "image".to_string(),
-                    size: "1.2 MB".to_string(),
-                    bytes: 1_258_291,
-                    path: "public/brand_telemetry_hud.png".to_string(),
-                    relative_path: "public/brand_telemetry_hud.png".to_string(),
-                },
-                NexusStaticFile {
-                    id: "stock-data-1".to_string(),
-                    name: "hooks_library_2026.json".to_string(),
-                    file_type: "data".to_string(),
-                    size: "48 KB".to_string(),
-                    bytes: 49_152,
-                    path: "public/hooks_library_2026.json".to_string(),
-                    relative_path: "public/hooks_library_2026.json".to_string(),
-                },
-            ];
+        let mut seen_paths = HashSet::new();
+        for base in &scan_roots {
+            for sub in ["public", "assets", "media", "audio", "img", "output", "export"] {
+                let dir = base.join(sub);
+                if !dir.is_dir() {
+                    continue;
+                }
+                let mut found = Vec::new();
+                scan_directory_files(base, &dir, &mut found, 0, 3);
+                for item in found {
+                    if seen_paths.insert(item.path.clone()) {
+                        files.push(item);
+                    }
+                }
+            }
         }
         files
     })
@@ -123,18 +159,22 @@ pub async fn handle_get_static_files() -> impl IntoResponse {
 }
 
 /// POST /api/write-static-file
-pub async fn handle_write_static_file(Json(payload): Json<WriteFilePayload>) -> impl IntoResponse {
+pub async fn handle_write_static_file(
+    Query(q): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+    Json(payload): Json<WriteFilePayload>,
+) -> impl IntoResponse {
     let rel = payload
         .file_path
         .or(payload.path)
         .unwrap_or_else(|| "public/asset.bin".to_string());
+    let workspace = resolve_base_dir(&q, &headers);
 
     let res = tokio::task::spawn_blocking(move || -> Result<String, String> {
-        let workspace = crate::desktop::get_active_workspace_root()
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("."));
-
         let target = workspace.join(&rel);
+        if !contains_path(&workspace, &target) {
+            return Err("Path is outside active project folder".to_string());
+        }
         if let Some(parent) = target.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
@@ -165,14 +205,16 @@ pub async fn handle_write_static_file(Json(payload): Json<WriteFilePayload>) -> 
 
 /// POST /api/delete-static-file
 pub async fn handle_delete_static_file(
+    Query(q): Query<HashMap<String, String>>,
+    headers: HeaderMap,
     Json(payload): Json<DeleteFilePayload>,
 ) -> impl IntoResponse {
     let rel = payload.file_path.or(payload.path).unwrap_or_default();
-    let workspace = crate::desktop::get_active_workspace_root()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."));
-
+    let workspace = resolve_base_dir(&q, &headers);
     let target = workspace.join(rel);
+    if !contains_path(&workspace, &target) {
+        return Json(json!({ "success": false, "error": "Path is outside active project folder" }));
+    }
     if target.exists() && target.is_file() {
         match std::fs::remove_file(&target) {
             Ok(_) => Json(json!({ "success": true })),
@@ -208,21 +250,33 @@ pub fn scan_directory_files(
     }
 }
 
-pub async fn handle_scan_media_vault(Json(payload): Json<ScanMediaPayload>) -> impl IntoResponse {
+pub async fn handle_scan_media_vault(
+    Query(q): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+    Json(payload): Json<ScanMediaPayload>,
+) -> impl IntoResponse {
+    let workspace = resolve_base_dir(&q, &headers);
     let (scanned_path, results) = tokio::task::spawn_blocking(move || {
-        let workspace = crate::desktop::get_active_workspace_root()
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("."));
-
         let target_dir = if let Some(p) = payload.path {
-            PathBuf::from(p)
-        } else {
+            let candidate = PathBuf::from(&p);
+            if candidate.is_absolute() {
+                candidate
+            } else {
+                workspace.join(candidate)
+            }
+        } else if workspace.join("public").is_dir() {
             workspace.join("public")
+        } else {
+            workspace.clone()
         };
+
+        if !contains_path(&workspace, &target_dir) {
+            return (workspace.to_string_lossy().to_string(), Vec::new());
+        }
 
         let mut results: Vec<NexusStaticFile> = Vec::new();
         if target_dir.exists() && target_dir.is_dir() {
-            scan_directory_files(&target_dir, &target_dir, &mut results, 0, 4);
+            scan_directory_files(&workspace, &target_dir, &mut results, 0, 4);
         }
 
         if let Some(types) = payload.file_types {
