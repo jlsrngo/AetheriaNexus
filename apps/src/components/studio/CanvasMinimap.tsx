@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { Compass, Maximize2, RotateCcw, X } from "lucide-react";
+import { Compass, RotateCcw, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 interface CanvasMinimapProps {
@@ -36,16 +36,15 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
   const numericZoom = zoom === "fit" ? 1 : Math.max(0.25, zoom);
   const isZoomed = zoom !== "fit" && numericZoom > 1.05;
 
-  // Aspect-ratio aware thumbnail sizing
-  const maxW = 110;
-  const maxH = 130;
+  // Compact aspect-ratio aware thumbnail sizing inside square box
+  const maxDim = 54;
   const aspect = compositionWidth / Math.max(1, compositionHeight);
 
-  let thumbW = maxW;
-  let thumbH = Math.round(maxW / aspect);
-  if (thumbH > maxH) {
-    thumbH = maxH;
-    thumbW = Math.round(maxH * aspect);
+  let thumbW = maxDim;
+  let thumbH = Math.round(maxDim / aspect);
+  if (thumbH > maxDim) {
+    thumbH = maxDim;
+    thumbW = Math.round(maxDim * aspect);
   }
 
   // Exact rendered dimensions of the composition in viewport space
@@ -79,11 +78,8 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
       const clickYPct = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
 
       // Click location in composition normalized space (0..1), center is 0.5
-      const targetNormCenterX = clickXPct;
-      const targetNormCenterY = clickYPct;
-
-      const newPanX = -Math.round((targetNormCenterX - 0.5) * renderedW);
-      const newPanY = -Math.round((targetNormCenterY - 0.5) * renderedH);
+      const newPanX = -Math.round((clickXPct - 0.5) * renderedW);
+      const newPanY = -Math.round((clickYPct - 0.5) * renderedH);
 
       onPanChange(newPanX, newPanY);
     },
@@ -91,30 +87,35 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
   );
 
   return (
-    <div className="absolute bottom-3 right-3 z-30 bg-[#121215]/95 border border-[var(--border-strong)] rounded-xl shadow-2xl p-2.5 backdrop-blur-md flex flex-col gap-2 select-none w-auto pointer-events-auto transition-all animate-in fade-in duration-150">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 pb-1 border-b border-[var(--border-color)] text-[10px]">
-        <div className="flex items-center gap-1.5 font-semibold text-[var(--text-primary)]">
-          <Compass className="w-3.5 h-3.5 text-[#f97316]" />
-          <span>Minimap</span>
-          <span className="font-mono text-[9px] px-1 py-0.2 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-muted)]">
-            {ratio}
-          </span>
-        </div>
+    <div
+      className="absolute bottom-2.5 right-2.5 z-30 w-[92px] h-[92px] bg-[#121215]/95 border border-[#26262C] rounded-[10px] shadow-xl p-1.5 backdrop-blur-md flex flex-col select-none pointer-events-auto transition-all animate-in fade-in duration-150"
+      title={`Minimap (${ratio})`}
+    >
+      {/* Compact Header */}
+      <div className="h-4 flex items-center justify-between gap-1 pb-0.5 border-b border-[#26262C] shrink-0">
+        <button
+          type="button"
+          onClick={onResetZoom}
+          className="flex items-center gap-1 font-mono text-[9px] text-[#8E8E98] hover:text-amber-400 transition-colors cursor-pointer truncate"
+          title={`Zoom ${zoom === "fit" ? "FIT" : `${Math.round(numericZoom * 100)}%`} (${ratio}) — Click to Fit`}
+        >
+          <Compass className="w-2.5 h-2.5 text-[#f97316] shrink-0" />
+          <span>{zoom === "fit" ? "FIT" : `${Math.round(numericZoom * 100)}%`}</span>
+        </button>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 shrink-0">
           <button
             type="button"
             onClick={onResetZoom}
-            className="p-1 rounded text-[var(--text-muted)] hover:text-amber-400 hover:bg-[var(--bg-card)] transition-colors cursor-pointer"
-            title="Reset Pan & Zoom to Fit"
+            className="p-0.5 rounded text-[#8E8E98] hover:text-amber-400 transition-colors cursor-pointer"
+            title="Fit to Window"
           >
             <RotateCcw className="w-2.5 h-2.5" />
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-colors cursor-pointer"
+            className="p-0.5 rounded text-[#8E8E98] hover:text-[#FAFAFA] transition-colors cursor-pointer"
             title="Close Minimap"
           >
             <X className="w-2.5 h-2.5" />
@@ -122,8 +123,8 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
         </div>
       </div>
 
-      {/* Thumbnail Frame */}
-      <div className="flex justify-center items-center py-1">
+      {/* Centered Proportional Canvas Box */}
+      <div className="flex-1 min-h-0 flex items-center justify-center pt-1">
         <div
           ref={containerRef}
           style={{ width: `${thumbW}px`, height: `${thumbH}px` }}
@@ -142,7 +143,7 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
             }
           }}
           className={cn(
-            "relative rounded border border-[var(--border-strong)] bg-[#0A0A0C] overflow-hidden flex flex-col items-center justify-between p-1.5 shadow-inner",
+            "relative rounded-[4px] border border-[#26262C] bg-[#0A0A0C] overflow-hidden flex flex-col items-center justify-between p-1 shadow-inner",
             isZoomed ? "cursor-crosshair" : "cursor-default"
           )}
           title={
@@ -151,14 +152,9 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
               : "Zoom in on canvas to enable viewport panning"
           }
         >
-          {/* Mock Composition Layer Artifacts */}
-          <div className="w-full h-1.5 rounded-sm bg-[#cf6613]/50 border border-[#e07b27]/40" />
-          <div className="w-4/5 h-2 rounded-sm bg-[#3B1D6E]/70 border border-[#7C3AED]/40" />
-          <div className="w-full flex flex-col gap-1">
-            <div className="w-full h-1 rounded-sm bg-[#134E63]/60" />
-            <div className="w-3/4 h-1 rounded-sm bg-[#5C2D0C]/60" />
-          </div>
-          <div className="w-1/2 h-1 rounded-sm bg-[var(--text-muted)]/30 self-center" />
+          <div className="w-full h-1 rounded-[1px] bg-[#cf6613]/50" />
+          <div className="w-4/5 h-1 rounded-[1px] bg-[#7C3AED]/55" />
+          <div className="w-3/4 h-0.5 rounded-[1px] bg-[#06B6D4]/50" />
 
           {/* Viewport Indicator Rectangle */}
           <div
@@ -169,29 +165,13 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
               top: `${boxTopPct}%`,
             }}
             className={cn(
-              "absolute pointer-events-none rounded transition-all duration-75",
+              "absolute pointer-events-none rounded-[2px] transition-all duration-75",
               isZoomed
-                ? "border-2 border-amber-400 bg-amber-400/20 shadow-[0_0_12px_rgba(245,158,11,0.5)]"
+                ? "border border-amber-400 bg-amber-400/20 shadow-[0_0_8px_rgba(245,158,11,0.45)]"
                 : "border border-amber-400/50 bg-amber-400/10"
             )}
           />
         </div>
-      </div>
-
-      {/* Footer Info & Quick Actions */}
-      <div className="flex items-center justify-between gap-1 text-[9px] font-mono text-[var(--text-muted)] pt-1 border-t border-[var(--border-color)]">
-        <span>
-          {zoom === "fit" ? "FIT" : `${Math.round(numericZoom * 100)}%`}
-        </span>
-        <button
-          type="button"
-          onClick={onResetZoom}
-          className="hover:text-amber-400 cursor-pointer flex items-center gap-0.5"
-          title="Fit to Window"
-        >
-          <Maximize2 className="w-2.5 h-2.5" />
-          <span>Fit</span>
-        </button>
       </div>
     </div>
   );
