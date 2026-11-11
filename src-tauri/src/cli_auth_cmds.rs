@@ -1,93 +1,4 @@
-//! Aetheria Native Desktop API Module (Pure Rust)
-//!
-//! Provides native IPC endpoints invoked by the Tauri frontend webview via `window.__TAURI__.invoke(...)`.
-//! All core desktop logic, process orchestration, credential storage, and engine communications
-//! reside here in compiled Rust binary, leaving the React UI strictly as a thin presentation layer.
-
-use std::collections::HashMap;
-
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
-pub struct TauriEngineRequest {
-    pub path: String,
-    pub method: Option<String>,
-    pub headers: Option<HashMap<String, String>>,
-    pub body: Option<String>,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
-pub struct TauriEngineResponse {
-    pub status: u16,
-    pub status_text: String,
-    pub headers: HashMap<String, String>,
-    pub body: String,
-    pub ok: bool,
-}
-
-/// Provides system metadata and desktop environment status.
-#[tauri::command]
-pub fn desktop_info() -> serde_json::Value {
-    serde_json::json!({
-        "runtime": "tauri-v2",
-        "engine": "Axum v0.7 + Tokio v1.40",
-        "desktop": "Tauri v2 + Microsoft Edge WebView2",
-        "docs": "Native Win32 COM Sidecar",
-        "os": "Windows_NT x64"
-    })
-}
-
-/// Native window controls for custom frameless titlebar.
-#[tauri::command]
-pub fn window_minimize(window: tauri::Window) -> Result<(), String> {
-    window.minimize().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
-    let is_max = window.is_maximized().map_err(|e| e.to_string())?;
-    if is_max {
-        window.unmaximize().map_err(|e| e.to_string())
-    } else {
-        window.maximize().map_err(|e| e.to_string())
-    }
-}
-
-#[tauri::command]
-pub fn window_close(window: tauri::Window) -> Result<(), String> {
-    window.close().map_err(|e| e.to_string())
-}
-
-/// Dispatches an engine API call inside this process through the engine's Axum router.
-/// No loopback socket is involved; the HTTP port stays available for third-party clients.
-#[tauri::command]
-pub async fn tauri_engine_fetch(req: TauriEngineRequest) -> Result<TauriEngineResponse, String> {
-    let method_str = req.method.unwrap_or_else(|| "GET".to_string()).to_uppercase();
-    let path = if req.path.starts_with('/') {
-        req.path
-    } else {
-        format!("/{}", req.path)
-    };
-
-    let headers: Vec<(String, String)> = req.headers.unwrap_or_default().into_iter().collect();
-    let (status, resp_headers, body) = aetheria_engine::handle_local_request(
-        &method_str,
-        &path,
-        headers,
-        req.body.map(String::into_bytes),
-    )
-    .await;
-
-    Ok(TauriEngineResponse {
-        status,
-        status_text: reqwest::StatusCode::from_u16(status)
-            .ok()
-            .and_then(|s| s.canonical_reason())
-            .unwrap_or("")
-            .to_string(),
-        headers: resp_headers.into_iter().collect(),
-        body: String::from_utf8_lossy(&body).into_owned(),
-        ok: (200..300).contains(&status),
-    })
-}
+//! Local CLI provider login, logout, and credential harvesting Tauri commands.
 
 /// Spawns native terminal windows or clears credentials for CLI providers.
 #[tauri::command]
@@ -171,7 +82,9 @@ pub async fn tauri_cli_status() -> Result<serde_json::Value, String> {
 
     let agy_c = creds.get("antigravity");
     let agy_signed_in = agy_c.map(|c| !c.access_token.is_empty()).unwrap_or(false);
-    let agy_email = agy_c.and_then(|c| c.account_email.clone()).or_else(|| agy_c.and_then(|c| c.account_info.clone()));
+    let agy_email = agy_c
+        .and_then(|c| c.account_email.clone())
+        .or_else(|| agy_c.and_then(|c| c.account_info.clone()));
     let antigravity_slot = serde_json::json!({
         "detected": true,
         "cliInstalled": true,
@@ -265,37 +178,3 @@ pub async fn tauri_cli_status() -> Result<serde_json::Value, String> {
     }))
 }
 
-
-/// Invokes the local Nexus GPU render engine sidecar to export an MP4 video locally.
-#[tauri::command]
-pub async fn render_nexus_video(
-    props_json: Option<String>,
-    output_path: Option<String>,
-) -> Result<serde_json::Value, String> {
-    let props_arg = props_json.unwrap_or_else(|| "{}".to_string());
-    let output_target = output_path.as_deref().map(std::path::Path::new);
-
-    let mut cmd = aetheria_engine::tool::render::build_command(
-        &aetheria_engine::paths::project_root(),
-        aetheria_engine::tool::render::DEFAULT_COMPOSITION,
-        &props_arg,
-        output_target,
-    );
-
-    let output = cmd
-        .output()
-        .map_err(|e| format!("Failed to execute Nexus renderer: {}", e))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-    if !output.status.success() {
-        return Err(format!("Nexus render exited with error: {}\n{}", stdout, stderr));
-    }
-
-    Ok(serde_json::json!({
-        "success": true,
-        "stdout": stdout,
-        "outputPath": output_path
-    }))
-}

@@ -1,7 +1,10 @@
-pub mod api;
+pub mod cli_auth_cmds;
 pub mod dialog;
+pub mod engine_bridge;
 pub mod fs;
+pub mod studio_cmds;
 pub mod system;
+pub mod window_cmds;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -25,15 +28,17 @@ pub fn run() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
-            // 1. Core API & Window
-            api::desktop_info,
-            api::window_minimize,
-            api::window_toggle_maximize,
-            api::window_close,
-            api::tauri_engine_fetch,
-            api::tauri_cli_login,
-            api::tauri_cli_status,
-            api::render_nexus_video,
+            // 1. Core Window & Engine Bridge
+            window_cmds::desktop_info,
+            window_cmds::window_minimize,
+            window_cmds::window_toggle_maximize,
+            window_cmds::window_close,
+            engine_bridge::tauri_engine_fetch,
+            // 2. CLI Auth & Status
+            cli_auth_cmds::tauri_cli_login,
+            cli_auth_cmds::tauri_cli_status,
+            // 3. Studio Motion Render
+            studio_cmds::render_nexus_video,
             // 2. Native Dialogs
             dialog::pick_folder,
             dialog::pick_file,
