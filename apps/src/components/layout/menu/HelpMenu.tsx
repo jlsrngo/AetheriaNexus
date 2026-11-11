@@ -52,10 +52,12 @@ export const HelpMenu = memo(function HelpMenu({
         >
           <MenuItem
             icon={BookOpen}
-            label="Remotion Studio Documentation"
+            label="Aetheria HTML Motion Studio Docs"
             onClick={() => {
               onClose();
-              window.open("https://www.remotion.dev/docs", "_blank");
+              window.dispatchEvent(
+                new CustomEvent("aetheria-open-sidebar-view", { detail: "help" })
+              );
             }}
           />
 

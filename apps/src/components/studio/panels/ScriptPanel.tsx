@@ -182,8 +182,8 @@ export const ScriptPanel = memo(function ScriptPanel({
         }
       }
 
-      // 2. Always scan workspace/script, workspace root, and workspace/src on disk so files are never lost
-      const scanDirs = ["workspace/script", "workspace", "workspace/src", "script", "src"];
+      // Scan active project folder subdirectories directly on disk
+      const scanDirs = [".", "script", "src", "workspace/script", "workspace"];
       for (const scanDir of scanDirs) {
         try {
           const dirRes = await engineFetch(`/file?path=${encodeURIComponent(scanDir)}`);

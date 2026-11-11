@@ -14,8 +14,8 @@ import {
   LayoutTemplate,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import type { VideoLayerSpec } from "../../remotion/types";
-import { resolveColorToHex } from "../../remotion/types";
+import type { VideoLayerSpec } from "../../types/video";
+import { resolveColorToHex } from "../../types/video";
 import { useStudioStore } from "../../hooks/useStudioStore";
 import { ColorPickerField } from "./clip-modal/ColorPickerField";
 import { getFieldInfo } from "./clip-modal/clipModalTypes";

@@ -18,7 +18,7 @@ import { MenuItem } from "./items/MenuItem";
 import { MenuSeparator } from "./items/MenuSeparator";
 import { AppCommands } from "./hooks/useAppCommands";
 import { useStudioStore } from "../../../hooks/useStudioStore";
-import type { NexusVideoProps } from "../../../remotion/types";
+import type { NexusVideoProps } from "../../../types/video";
 
 interface EditMenuProps extends BaseMenuProps {
   commands: AppCommands;

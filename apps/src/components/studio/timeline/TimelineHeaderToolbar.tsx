@@ -32,7 +32,7 @@ import {
   Smartphone as PhonePortrait,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
-import type { VideoLayerSpec } from "../../../remotion/types";
+import type { VideoLayerSpec } from "../../../types/video";
 
 export interface TimelineHeaderToolbarProps {
   currentFrame: number;

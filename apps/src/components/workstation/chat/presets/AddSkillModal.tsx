@@ -113,7 +113,7 @@ export function AddSkillModal({ open, onClose, onSkillRegistered }: AddSkillModa
                   type="text"
                   value={filePath}
                   onChange={(e) => setFilePath(e.target.value)}
-                  placeholder="e.g. instruksi_remotion_agent_kinetic_motion_graphics_v2.md"
+                  placeholder="e.g. kinetic_motion_brief_v2.md"
                   className="w-full pl-3 pr-8 py-2 text-xs rounded-lg bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--accent-primary)] transition-colors font-mono"
                 />
                 <FolderOpen size={14} className="absolute right-3 text-[var(--text-muted)] pointer-events-none" />

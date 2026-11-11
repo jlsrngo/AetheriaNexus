@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { API_BASE, apiFetch } from "../lib/api";
-import { defaultNexusVideoProps, type NexusVideoProps } from "../remotion/types";
+import { defaultNexusVideoProps, type NexusVideoProps } from "../types/video";
 import type {
   StudioCanvasSettings,
   StudioComposition,
@@ -9,78 +9,14 @@ import type {
   StudioStaticAsset,
   StudioSubtitleCue,
 } from "../types/studio";
+import {
+  DEFAULT_WORKSPACE_COMPOSITION,
+  isStaleComposition,
+  loadStoredCompositions,
+  saveStoredCompositions,
+} from "./studioStoreStorage";
 
-const STORAGE_KEY = "aetheria_nexus_studio_compositions_v5";
-
-const STALE_FOLDERS = new Set([
-  "TIKTOK AUTOMATION",
-  "VIRAL HOOK TEMPLATES",
-  "SOCIAL FORMATS",
-]);
-
-const STALE_DUMMY_IDS = new Set([
-  "LinusTorvalds",
-  "RustHistory",
-  "TikTokVideo",
-  "nexus-vertical",
-  "nexus-square",
-  "nexus-landscape",
-  "hook-morning-habits",
-  "hook-finance-failure",
-  "hook-dopamine-reset",
-  "default",
-  "TuringVideo",
-  "alan-turing-documentary",
-  "turing-video",
-]);
-
-export const DEFAULT_WORKSPACE_COMPOSITION: StudioComposition = {
-  id: "NexusEditorialVideo",
-  name: "Sejarah Lahirnya Listrik",
-  folder: "AI WORKSPACE",
-  ratio: "9:16",
-  duration: 120.53,
-  fps: 30,
-  width: 1080,
-  height: 1920,
-  props: {
-    ...defaultNexusVideoProps,
-    hookText: "Sejarah Lahirnya Listrik",
-    bodyText: "",
-  },
-};
-
-const DEFAULT_COMPOSITIONS: StudioComposition[] = [DEFAULT_WORKSPACE_COMPOSITION];
-
-const DEFAULT_ASSETS: StudioStaticAsset[] = [
-  {
-    id: "stock-audio-1",
-    name: "lofi_focus_beat.mp3",
-    type: "audio",
-    size: "3.4 MB",
-    bytes: 3565158,
-    path: "public/lofi_focus_beat.mp3",
-    relativePath: "public/lofi_focus_beat.mp3",
-  },
-  {
-    id: "stock-image-1",
-    name: "brand_telemetry_hud.png",
-    type: "image",
-    size: "1.2 MB",
-    bytes: 1258291,
-    path: "public/brand_telemetry_hud.png",
-    relativePath: "public/brand_telemetry_hud.png",
-  },
-  {
-    id: "stock-data-1",
-    name: "hooks_library_2026.json",
-    type: "data",
-    size: "48 KB",
-    bytes: 49152,
-    path: "public/hooks_library_2026.json",
-    relativePath: "public/hooks_library_2026.json",
-  },
-];
+export { DEFAULT_WORKSPACE_COMPOSITION, isStaleComposition };
 
 interface StudioStoreState {
   compositions: StudioComposition[];
@@ -97,41 +33,7 @@ interface StudioStoreState {
   redoStack: NexusVideoProps[];
 }
 
-export function isStaleComposition(c: { id: string; folder?: string; name?: string }) {
-  if (STALE_DUMMY_IDS.has(c.id)) return true;
-  if (c.folder && STALE_FOLDERS.has(c.folder.toUpperCase())) return true;
-  const lowerId = (c.id || "").toLowerCase();
-  const lowerName = (c.name || "").toLowerCase();
-  if (lowerId === "default") return true;
-  if (lowerId.includes("turing") || lowerName.includes("turing")) return true;
-  return false;
-}
-
-function loadInitialCompositions(): StudioComposition[] {
-  if (typeof localStorage === "undefined") return DEFAULT_COMPOSITIONS;
-  try {
-    // Purge old storage keys
-    localStorage.removeItem("aetheria_nexus_studio_compositions_v4");
-    localStorage.removeItem("aetheria_nexus_studio_compositions_v3");
-    localStorage.removeItem("aetheria_nexus_studio_compositions_v2");
-    localStorage.removeItem("aetheria_nexus_studio_compositions");
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as StudioComposition[];
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        // Strip any obsolete mockup templates, turing, or defaults
-        const cleaned = parsed.filter((c) => !isStaleComposition(c));
-        const nonAi = cleaned.filter((c) => c.folder !== "AI WORKSPACE");
-        const combined = [DEFAULT_WORKSPACE_COMPOSITION, ...nonAi];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(combined));
-        return combined;
-      }
-    }
-  } catch { }
-  return DEFAULT_COMPOSITIONS;
-}
-
-const initialCompositions = loadInitialCompositions();
+const initialCompositions = loadStoredCompositions();
 
 let state: StudioStoreState = {
   compositions: initialCompositions,
@@ -155,7 +57,7 @@ let state: StudioStoreState = {
     inFrame: null,
     outFrame: null,
   },
-  assets: DEFAULT_ASSETS,
+  assets: [],
   renderJobs: [],
   subtitleCues: [],
   captionStyle: "#00F2FE",
@@ -172,9 +74,7 @@ function emit() {
   listeners.forEach((l) => l());
   if (storageTimer) clearTimeout(storageTimer);
   storageTimer = setTimeout(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.compositions));
-    } catch { }
+    saveStoredCompositions(state.compositions);
   }, 250);
 }
 
@@ -244,12 +144,21 @@ export const studioActions = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ compositionId: active.id, props: nextProps }),
-      }).catch(() => { });
+      }).catch(() => {});
     }, 300);
   },
 
-  updateActiveMetadata(partial: Partial<Pick<StudioComposition, "name" | "folder" | "ratio" | "duration" | "fps" | "width" | "height">>) {
-    const active = state.compositions.find((c) => c.id === state.activeCompositionId) ?? state.compositions[0];
+  updateActiveMetadata(
+    partial: Partial<
+      Pick<
+        StudioComposition,
+        "name" | "folder" | "ratio" | "duration" | "fps" | "width" | "height"
+      >
+    >
+  ) {
+    const active =
+      state.compositions.find((c) => c.id === state.activeCompositionId) ??
+      state.compositions[0];
     if (!active) return;
     const nextComps = state.compositions.map((c) =>
       c.id === active.id ? { ...c, ...partial } : c
@@ -270,7 +179,9 @@ export const studioActions = {
     const currentCloned = JSON.parse(JSON.stringify(active.props)) as NexusVideoProps;
     state = {
       ...state,
-      compositions: state.compositions.map((c) => (c.id === active.id ? { ...c, props: prev } : c)),
+      compositions: state.compositions.map((c) =>
+        c.id === active.id ? { ...c, props: prev } : c
+      ),
       undoStack: state.undoStack.slice(0, -1),
       redoStack: [currentCloned, ...state.redoStack.slice(0, 29)],
     };
@@ -285,7 +196,9 @@ export const studioActions = {
     const currentCloned = JSON.parse(JSON.stringify(active.props)) as NexusVideoProps;
     state = {
       ...state,
-      compositions: state.compositions.map((c) => (c.id === active.id ? { ...c, props: next } : c)),
+      compositions: state.compositions.map((c) =>
+        c.id === active.id ? { ...c, props: next } : c
+      ),
       undoStack: [...state.undoStack, currentCloned],
       redoStack: state.redoStack.slice(1),
     };
@@ -416,43 +329,55 @@ export const studioActions = {
       const res = await apiFetch(`${API_BASE}/get-compositions`);
       if (res.ok) {
         const json = (await res.json()) as { success?: boolean; data?: StudioComposition[] };
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          // Keep only non-stale, non-AI compositions from current state
-          const nonAi = state.compositions.filter(
-            (m) => !isStaleComposition(m) && m.folder !== "AI WORKSPACE"
+        if (json.success && Array.isArray(json.data)) {
+          const nonWorkspace = state.compositions.filter(
+            (m) =>
+              !isStaleComposition(m) &&
+              m.id !== "HtmlMotionFilm" &&
+              m.folder !== "ACTIVE PROJECT"
           );
 
-          // Guarantee exactly 1 AI WORKSPACE composition representing the active workspace video
-          const activeWorkspace: StudioComposition = {
-            ...DEFAULT_WORKSPACE_COMPOSITION,
-            props: {
-              ...DEFAULT_WORKSPACE_COMPOSITION.props,
-              ...(json.data[0]?.props || {}),
-              hookText: "Sejarah Lahirnya Listrik",
-            },
-          };
-
-          const merged = [activeWorkspace, ...nonAi];
-          state = {
-            ...state,
-            compositions: merged,
-            activeCompositionId: activeWorkspace.id,
-          };
+          if (json.data.length > 0) {
+            const incoming = json.data[0];
+            const activeWorkspace: StudioComposition = {
+              ...incoming,
+              props: {
+                ...defaultNexusVideoProps,
+                ...(incoming.props || {}),
+              },
+            };
+            const merged = [activeWorkspace, ...nonWorkspace];
+            state = {
+              ...state,
+              compositions: merged,
+              activeCompositionId: activeWorkspace.id,
+            };
+          } else {
+            state = {
+              ...state,
+              compositions: nonWorkspace,
+              activeCompositionId: nonWorkspace[0]?.id || "",
+            };
+          }
           emit();
         }
       }
-    } catch {}
+    } catch {
+      // Backend may still be booting
+    }
 
     try {
       const res = await apiFetch(`${API_BASE}/get-static-files`);
       if (res.ok) {
         const json = (await res.json()) as { success?: boolean; data?: StudioStaticAsset[] };
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        if (json.success && Array.isArray(json.data)) {
           state = { ...state, assets: json.data };
           emit();
         }
       }
-    } catch { }
+    } catch {
+      // Backend may still be booting
+    }
   },
 };
 
@@ -464,25 +389,22 @@ if (typeof window !== "undefined") {
   window.addEventListener("focus", () => {
     void studioActions.syncFromBackend();
   });
-}
 
-const EMPTY_COMPOSITION: StudioComposition = {
-  id: "empty",
-  name: "No compositions",
-  folder: "AI WORKSPACE",
-  ratio: "9:16",
-  duration: 5,
-  fps: 30,
-  width: 1080,
-  height: 1920,
-  props: defaultNexusVideoProps,
-};
+  window.addEventListener("aetheria-folder-change", () => {
+    void studioActions.syncFromBackend();
+  });
+}
 
 export function useStudioStore() {
   const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const activeComposition =
-    snap.compositions.find((c) => c.id === snap.activeCompositionId) ?? snap.compositions[0] ?? EMPTY_COMPOSITION;
-  const durationInFrames = Math.max(15, Math.round(activeComposition.duration * activeComposition.fps));
+    snap.compositions.find((c) => c.id === snap.activeCompositionId) ??
+    snap.compositions[0] ??
+    DEFAULT_WORKSPACE_COMPOSITION;
+  const durationInFrames = Math.max(
+    15,
+    Math.round(activeComposition.duration * activeComposition.fps)
+  );
 
   return {
     ...snap,
@@ -491,4 +413,3 @@ export function useStudioStore() {
     actions: studioActions,
   };
 }
-

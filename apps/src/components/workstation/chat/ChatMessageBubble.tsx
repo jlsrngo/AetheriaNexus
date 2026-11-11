@@ -29,7 +29,7 @@ const getAgentMeta = (agent?: string) => {
   if (lower.includes("audio") || lower.includes("sound") || lower.includes("voice")) {
     return { name: "Audio Producer", icon: "🎙️", color: "text-amber-400" };
   }
-  if (lower.includes("motion") || lower.includes("video") || lower.includes("remotion")) {
+  if (lower.includes("motion") || lower.includes("video")) {
     return { name: "Motion Engineer", icon: "🎨", color: "text-indigo-400" };
   }
   if (lower.includes("asset") || lower.includes("image") || lower.includes("curator")) {

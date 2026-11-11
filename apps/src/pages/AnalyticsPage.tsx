@@ -55,7 +55,7 @@ const DEFAULT_ACCOUNTS: Record<SocialPlatform, SocialAccountState> = {
     platform: "tiktok",
     handle: "@aetheria.studio",
     displayName: "Aetheria Content Lab",
-    bio: "Automated high-retention short-form videos with Remotion • 3 posts daily",
+    bio: "Automated high-retention short-form videos with Aetheria Motion Engine • 3 posts daily",
     followers: "28.4K",
     following: "142",
     likes: "194.2K",

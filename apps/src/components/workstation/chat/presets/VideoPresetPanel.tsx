@@ -135,7 +135,7 @@ export function VideoPresetPanel({
 
     const customNote =
       tuningInstruction.trim() ||
-      "Buat / tuning template video Remotion mengikuti referensi ini dengan kemiripan layout, palet warna, dan tipografi di atas 90%.";
+      "Buat / tuning video HTML Motion Engine mengikuti referensi ini dengan kemiripan layout, palet warna, dan tipografi di atas 90%.";
 
     const prompt = `[Video Preset & Reference Studio: ${templateName}]
 - Sumber Referensi: ${refSource}

@@ -293,7 +293,7 @@ export function ElementsCaptionsPanel({
           </div>
         </div>
 
-        {/* 3. Auto-Captions Engine (@remotion/captions) */}
+        {/* 3. Auto-Captions Engine */}
         <div className="p-2.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">

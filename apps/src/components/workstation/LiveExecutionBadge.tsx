@@ -248,7 +248,7 @@ export function formatToolStepLabel(
   }
 
   // 8. Studio Video Render, Voicebox TTS & Todo Checklist
-  if (t.includes("render_video") || t.includes("remotion_render") || t.includes("export_video")) {
+  if (t.includes("render_video") || t.includes("export_video")) {
     const compName =
       (argsOrTarget && typeof argsOrTarget === "object"
         ? argsOrTarget.composition_id || argsOrTarget.output_path

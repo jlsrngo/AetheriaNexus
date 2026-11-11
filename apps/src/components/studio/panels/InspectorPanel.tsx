@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { useStudioStore } from "../../../hooks/useStudioStore";
 import { apiFetch, API_BASE } from "../../../lib/api";
 import { cn } from "../../../lib/utils";
-import type { NexusVideoProps } from "../../../remotion/types";
+import type { NexusVideoProps } from "../../../types/video";
 import { InspectorCustomPropsSection } from "./InspectorCustomPropsSection";
 
 interface InspectorPanelProps {

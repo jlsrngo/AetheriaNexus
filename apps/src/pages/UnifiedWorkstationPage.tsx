@@ -313,7 +313,7 @@ export function UnifiedWorkstationPage() {
         className="flex-1 flex overflow-hidden relative"
         style={{ "--left-panel-width": "256px", "--right-panel-width": "320px" } as React.CSSProperties}
       >
-        {/* Activity Bar on far left (6 Remotion + VS Code icons) */}
+        {/* Activity Bar on far left (Motion Studio + IDE icons) */}
         <WorkstationActivityBar
           activeView={activeSidebarView}
           isCollapsed={leftCollapsed}

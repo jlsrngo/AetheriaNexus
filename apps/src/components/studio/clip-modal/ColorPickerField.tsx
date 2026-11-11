@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Palette, Pipette } from "lucide-react";
-import { resolveColorToHex } from "../../../remotion/types";
+import { resolveColorToHex } from "../../../types/video";
 
 export interface ColorPickerFieldProps {
   label: string;

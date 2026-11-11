@@ -242,7 +242,7 @@ function WorkstationLeftExplorerComponent({
         </div>
       )}
 
-      {/* Remotion Static Media Assets (public/) */}
+      {/* Workspace Static Media Assets */}
       <ExplorerMediaAssets />
 
       {/* Custom Confirmation Modal replacing native browser confirm */}

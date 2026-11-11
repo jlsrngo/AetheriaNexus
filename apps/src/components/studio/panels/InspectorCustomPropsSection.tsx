@@ -6,7 +6,7 @@ import type {
   CustomVideoLayerInput,
   NexusVideoProps,
   VideoLayerKind,
-} from "../../../remotion/types";
+} from "../../../types/video";
 
 interface InspectorCustomPropsSectionProps {
   props: NexusVideoProps;

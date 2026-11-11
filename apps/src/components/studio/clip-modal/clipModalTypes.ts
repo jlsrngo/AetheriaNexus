@@ -1,4 +1,4 @@
-import type { VideoLayerSpec } from "../../../remotion/types";
+import type { VideoLayerSpec } from "../../../types/video";
 
 export interface ClipFieldInfo {
   contentLabel: string;
