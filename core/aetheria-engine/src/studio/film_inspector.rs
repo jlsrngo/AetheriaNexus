@@ -102,12 +102,14 @@ fn collect_ordered_scripts(html_path: &Path) -> Vec<(String, String, String)> {
         .collect()
 }
 
-fn find_scenes_array_slice(source: &str) -> Option<&str> {
+fn find_scenes_array_bounds(source: &str) -> Option<(usize, usize)> {
     for marker in ["scenes:", "SCENES =", "window.SCENES ="] {
         if let Some(pos) = source.find(marker) {
-            let after = &source[pos + marker.len()..];
+            let after_start = pos + marker.len();
+            let after = &source[after_start..];
             if let Some(open_bracket) = after.find('[') {
-                let slice = &after[open_bracket + 1..];
+                let slice_start = after_start + open_bracket + 1;
+                let slice = &source[slice_start..];
                 let mut depth = 1i32;
                 let mut in_quote: Option<char> = None;
                 let mut escaped = false;
@@ -130,7 +132,7 @@ fn find_scenes_array_slice(source: &str) -> Option<&str> {
                         ']' => {
                             depth -= 1;
                             if depth == 0 {
-                                return Some(&slice[..byte_idx]);
+                                return Some((slice_start, slice_start + byte_idx));
                             }
                         }
                         _ => {}
@@ -140,6 +142,11 @@ fn find_scenes_array_slice(source: &str) -> Option<&str> {
         }
     }
     None
+}
+
+fn find_scenes_array_slice(source: &str) -> Option<&str> {
+    let (start, end) = find_scenes_array_bounds(source)?;
+    Some(&source[start..end])
 }
 
 fn extract_object_blocks(array_body: &str) -> Vec<&str> {
@@ -336,18 +343,29 @@ pub fn inspect_workspace_film(html_path: &Path) -> FilmMeta {
         .map(str::to_string)
         .unwrap_or_else(|| "HTML Motion Film".to_string());
 
-    let width = extract_number_field(&combined_source, "width")
+    let top_source = if let Some((s, e)) = find_scenes_array_bounds(&combined_source) {
+        format!("{}\n{}", &combined_source[..s], &combined_source[e..])
+    } else {
+        combined_source.clone()
+    };
+
+    let width = extract_number_field(&top_source, "width")
+        .or_else(|| extract_number_field(&combined_source, "width"))
         .map(|v| (v.round() as u32).max(16))
         .unwrap_or(1080);
-    let height = extract_number_field(&combined_source, "height")
+    let height = extract_number_field(&top_source, "height")
+        .or_else(|| extract_number_field(&combined_source, "height"))
         .map(|v| (v.round() as u32).max(16))
         .unwrap_or(1920);
-    let fps = extract_number_field(&combined_source, "fps")
+    let fps = extract_number_field(&top_source, "fps")
+        .or_else(|| extract_number_field(&combined_source, "fps"))
         .map(|v| (v.round() as u32).max(1))
         .unwrap_or(30);
 
-    let title = extract_string_field(&combined_source, "title").unwrap_or(default_title);
-    let mut duration = extract_number_field(&combined_source, "duration").unwrap_or(0.0);
+    let title = extract_string_field(&top_source, "title")
+        .or_else(|| extract_string_field(&combined_source, "title"))
+        .unwrap_or(default_title);
+    let mut duration = extract_number_field(&top_source, "duration").unwrap_or(0.0);
 
     let preliminary_dur = if duration > 0.0 { duration } else { 15.0 };
     let scenes = parse_scenes_from_sources(
@@ -436,6 +454,44 @@ mod tests {
         assert_eq!(meta.scenes[0].duration_frames, 150);
         assert_eq!(meta.scenes[1].start_frame, 150);
         assert_eq!(meta.scenes[1].duration_frames, 210);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_inspect_multi_scene_scoping_ignores_first_scene_duration() {
+        let dir = std::env::temp_dir().join(format!("aetheria_multi_scene_test_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let html = r#"<!DOCTYPE html><html><body><canvas id="film" width="1080" height="1920"></canvas>
+        <script>
+        var SCENES = [
+          { id: "scene1_hook", duration: 20.135, audio: "/audio/scene1.wav" },
+          { id: "scene2_tree", duration: 18.575, audio: "/audio/scene2.wav" },
+          { id: "scene3_santa", duration: 19.015, audio: "/audio/scene3.wav" },
+          { id: "scene4_party", duration: 19.215, audio: "/audio/scene4.wav" },
+          { id: "scene5_closing", duration: 20.835, audio: "/audio/scene5.wav" }
+        ];
+        var TOTAL_DUR = SCENES.reduce(function(a, s) { return a + s.duration; }, 0);
+        window.__filmMeta = {
+          title: "Christmas 3D",
+          width: 1080,
+          height: 1920,
+          fps: 30,
+          duration: TOTAL_DUR,
+          scenes: SCENES
+        };
+        window.renderAt = function(t) {};
+        </script></body></html>"#;
+        std::fs::write(dir.join("index.html"), html).unwrap();
+
+        let meta = inspect_workspace_film(&dir.join("index.html"));
+        assert!(meta.exists);
+        assert_eq!(meta.title, "Christmas 3D");
+        assert_eq!(meta.scenes.len(), 5);
+        assert!((meta.duration - 97.775).abs() < 0.01);
+        assert_eq!(meta.total_frames, 2933);
 
         let _ = std::fs::remove_dir_all(&dir);
     }

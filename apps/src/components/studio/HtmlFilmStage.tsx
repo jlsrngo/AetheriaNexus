@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Film, FolderOpen } from "lucide-react";
 import { useMotionConfig, useMotionFrame } from "./MotionContext";
 import { SceneAudioSync } from "./SceneAudioSync";
@@ -19,11 +19,24 @@ export {
 interface FrameWindow extends Window {
   renderAt?: (t: number) => void;
   __ready?: boolean;
+  __aetheriaHostTime?: number;
+  __aetheriaInHostCall?: boolean;
 }
 
 export interface HtmlFilmStageProps {
   film: HtmlFilmDescriptor;
   onRuntimeError?: (err: string | null) => void;
+}
+
+function invokeHostRenderAt(win: FrameWindow, timeSec: number): void {
+  if (typeof win.renderAt !== "function") return;
+  win.__aetheriaHostTime = timeSec;
+  win.__aetheriaInHostCall = true;
+  try {
+    win.renderAt(timeSec);
+  } finally {
+    win.__aetheriaInHostCall = false;
+  }
 }
 
 /**
@@ -35,10 +48,37 @@ export const HtmlFilmStage: React.FC<HtmlFilmStageProps> = ({
 }) => {
   const frame = useMotionFrame();
   const { fps, width, height } = useMotionConfig();
+  const stageBoxRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
+  const [boxSize, setBoxSize] = useState<{ w: number; h: number }>({
+    w: width,
+    h: height,
+  });
 
   const srcDoc = useMemo(() => prepareInjectedHtml(film), [film]);
+
+  useLayoutEffect(() => {
+    const el = stageBoxRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w > 0 && h > 0) {
+        setBoxSize({ w, h });
+      }
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (rect && rect.width > 0 && rect.height > 0) {
+        setBoxSize({ w: rect.width, h: rect.height });
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     setIframeReady(false);
@@ -49,7 +89,7 @@ export const HtmlFilmStage: React.FC<HtmlFilmStageProps> = ({
     const win = iframeRef.current?.contentWindow as FrameWindow | null;
     if (!win || typeof win.renderAt !== "function") return;
     try {
-      win.renderAt(frame / Math.max(1, fps));
+      invokeHostRenderAt(win, frame / Math.max(1, fps));
       onRuntimeError?.(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -63,7 +103,7 @@ export const HtmlFilmStage: React.FC<HtmlFilmStageProps> = ({
       if (win && typeof win.renderAt === "function") {
         setIframeReady(true);
         try {
-          win.renderAt(frame / Math.max(1, fps));
+          invokeHostRenderAt(win, frame / Math.max(1, fps));
           onRuntimeError?.(null);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -90,24 +130,41 @@ export const HtmlFilmStage: React.FC<HtmlFilmStageProps> = ({
     }, 100);
   };
 
+  const safeW = Math.max(1, width);
+  const safeH = Math.max(1, height);
+  const stageScale = Math.min(boxSize.w / safeW, boxSize.h / safeH);
+
   return (
-    <div className="relative w-full h-full bg-[#0A0A0C] overflow-hidden select-none">
+    <div
+      ref={stageBoxRef}
+      className="relative w-full h-full bg-[#0A0A0C] overflow-hidden select-none flex items-center justify-center"
+    >
       <SceneAudioSync scenes={film.scenes} activeDir={film.activeDir} />
-      <iframe
-        ref={iframeRef}
-        title={film.title || "Aetheria HTML Film"}
-        srcDoc={srcDoc}
-        onLoad={handleLoad}
-        sandbox="allow-scripts allow-same-origin"
+      <div
         style={{
-          width: `${width}px`,
-          height: `${height}px`,
-          border: "none",
-          display: "block",
-          pointerEvents: "none",
-          background: "#0A0A0C",
+          width: `${safeW}px`,
+          height: `${safeH}px`,
+          transform: `scale(${stageScale})`,
+          transformOrigin: "center center",
+          flexShrink: 0,
         }}
-      />
+      >
+        <iframe
+          ref={iframeRef}
+          title={film.title || "Aetheria HTML Film"}
+          srcDoc={srcDoc}
+          onLoad={handleLoad}
+          sandbox="allow-scripts allow-same-origin"
+          style={{
+            width: `${safeW}px`,
+            height: `${safeH}px`,
+            border: "none",
+            display: "block",
+            pointerEvents: "none",
+            background: "#0A0A0C",
+          }}
+        />
+      </div>
     </div>
   );
 };

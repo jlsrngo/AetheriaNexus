@@ -99,6 +99,9 @@ export const StudioPreview: React.FC = () => {
     [actions]
   );
 
+  const stageWidth = workspaceDims?.width ?? activeComposition.width;
+  const stageHeight = workspaceDims?.height ?? activeComposition.height;
+
   const {
     viewportRef,
     viewportDim,
@@ -110,6 +113,8 @@ export const StudioPreview: React.FC = () => {
     panX,
     panY,
     effectiveScale,
+    fitW,
+    fitH,
     renderedW,
     renderedH,
     canvasOriginX,
@@ -122,6 +127,8 @@ export const StudioPreview: React.FC = () => {
     handleCanvasDoubleClick,
   } = useStudioCanvasInteractions({
     activeComposition,
+    stageWidth,
+    stageHeight,
     durationInFrames,
     currentFrame,
     canvas,
@@ -138,10 +145,15 @@ export const StudioPreview: React.FC = () => {
 
   const scaleStyle: React.CSSProperties =
     canvas.zoom === "fit"
-      ? { width: "100%", height: "100%", willChange: "transform", transform: "translateZ(0)" }
+      ? {
+          width: `${fitW}px`,
+          height: `${fitH}px`,
+          willChange: "transform",
+          transform: "translateZ(0)",
+        }
       : {
-          width: "100%",
-          height: "100%",
+          width: `${fitW}px`,
+          height: `${fitH}px`,
           transform: `translate(${panX}px, ${panY}px) scale(${numericZoom}) translateZ(0)`,
           transformOrigin: "center center",
           transition: isPanning ? "none" : "transform 0.05s ease-out",
@@ -282,8 +294,8 @@ export const StudioPreview: React.FC = () => {
 
           {canvas.showMinimap !== false && (
             <CanvasMinimap
-              compositionWidth={activeComposition.width}
-              compositionHeight={activeComposition.height}
+              compositionWidth={stageWidth}
+              compositionHeight={stageHeight}
               ratio={activeComposition.ratio}
               zoom={canvas.zoom}
               panX={panX}

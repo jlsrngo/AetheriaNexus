@@ -78,6 +78,8 @@ describe("HtmlFilmStage utilities", () => {
     const html = prepareInjectedHtml(film);
     expect(html).not.toContain('src="/script/scene1.js"');
     expect(html).toContain("window.__resolveAssetUrl");
+    expect(html).toContain("data-aetheria-stage-chrome");
+    expect(html).toContain("__aetheriaHostTime");
     expect(html).toContain('data-script="scene1.js"');
     expect(html).toContain("window.__sceneLoaded = true;");
   });

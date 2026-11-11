@@ -172,8 +172,48 @@ function buildAssetShimScript(activeDir: string | null): string {
       });
     }
   }
+  var rawRenderAt = null;
+  try {
+    Object.defineProperty(window, "renderAt", {
+      configurable: true,
+      enumerable: true,
+      get: function () {
+        if (typeof rawRenderAt !== "function") return rawRenderAt;
+        return function (t) {
+          var targetT = t;
+          if (
+            !window.__aetheriaInHostCall &&
+            typeof window.__aetheriaHostTime === "number" &&
+            targetT === 0 &&
+            window.__aetheriaHostTime !== 0
+          ) {
+            targetT = window.__aetheriaHostTime;
+          }
+          return rawRenderAt.call(this, targetT);
+        };
+      },
+      set: function (fn) {
+        rawRenderAt = typeof fn === "function" ? fn : null;
+      }
+    });
+  } catch (e) {}
 })();
-</script>`;
+</script><style data-aetheria-stage-chrome>
+#loading, #controls, .aetheria-standalone-controls, [data-aetheria-standalone-chrome] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  background: #0A0A0C !important;
+}
+</style>`;
 }
 
 /**

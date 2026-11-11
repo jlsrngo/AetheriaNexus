@@ -17,6 +17,8 @@ export interface SelectedLayerBox {
 
 interface UseStudioCanvasInteractionsArgs {
   activeComposition: StudioComposition;
+  stageWidth?: number;
+  stageHeight?: number;
   durationInFrames: number;
   currentFrame: number;
   canvas: StudioCanvasSettings;
@@ -37,6 +39,8 @@ interface UseStudioCanvasInteractionsArgs {
  */
 export function useStudioCanvasInteractions({
   activeComposition,
+  stageWidth,
+  stageHeight,
   durationInFrames,
   currentFrame,
   canvas,
@@ -91,12 +95,14 @@ export function useStudioCanvasInteractions({
   const panX = canvas.panX ?? 0;
   const panY = canvas.panY ?? 0;
 
-  const compW = activeComposition.width;
-  const compH = activeComposition.height;
+  const compW = Math.max(16, stageWidth ?? activeComposition.width);
+  const compH = Math.max(16, stageHeight ?? activeComposition.height);
   const fitRatio = Math.min(
     Math.max(1, viewportDim.w - 32) / compW,
     Math.max(1, viewportDim.h - 32) / compH
   );
+  const fitW = compW * fitRatio;
+  const fitH = compH * fitRatio;
   const effectiveScale = canvas.zoom === "fit" ? fitRatio : fitRatio * numericZoom;
   const renderedW = compW * effectiveScale;
   const renderedH = compH * effectiveScale;
@@ -339,6 +345,8 @@ export function useStudioCanvasInteractions({
     panX,
     panY,
     effectiveScale,
+    fitW,
+    fitH,
     renderedW,
     renderedH,
     canvasOriginX,

@@ -126,12 +126,12 @@ async fn wait_for_cdp_ws_url(cdp_port: u16) -> Result<String, String> {
 }
 
 async fn wait_for_film_ready(cdp: &mut CdpWebSocket, meta: &mut FilmMeta) -> Result<(), String> {
-    for _ in 0..150 {
+    for attempt in 0..150 {
         let probe = cdp
             .call(
                 "Runtime.evaluate",
                 json!({
-                    "expression": "JSON.stringify({ ready: Boolean(window.__ready), hasRenderAt: typeof window.renderAt === 'function', meta: window.__filmMeta || window.AETHERIA_FILM || null })",
+                    "expression": "JSON.stringify({ ready: Boolean(window.__ready), readyDefined: typeof window.__ready !== 'undefined', docComplete: document.readyState === 'complete', hasRenderAt: typeof window.renderAt === 'function', meta: window.__filmMeta || window.AETHERIA_FILM || null })",
                     "returnByValue": true
                 }),
             )
@@ -142,9 +142,17 @@ async fn wait_for_film_ready(cdp: &mut CdpWebSocket, meta: &mut FilmMeta) -> Res
             .and_then(Value::as_str)
         {
             if let Ok(parsed) = serde_json::from_str::<Value>(raw_json) {
-                if parsed.get("ready").and_then(Value::as_bool) == Some(true)
-                    && parsed.get("hasRenderAt").and_then(Value::as_bool) == Some(true)
-                {
+                let is_ready = parsed.get("ready").and_then(Value::as_bool) == Some(true);
+                let has_render_at =
+                    parsed.get("hasRenderAt").and_then(Value::as_bool) == Some(true);
+                let ready_defined =
+                    parsed.get("readyDefined").and_then(Value::as_bool) == Some(true);
+                let doc_complete =
+                    parsed.get("docComplete").and_then(Value::as_bool) == Some(true);
+
+                // Proceed once explicit window.__ready is true, or when a film defined window.renderAt
+                // and completed DOM load without setting window.__ready after an initial settle grace window.
+                if has_render_at && (is_ready || (!ready_defined && doc_complete && attempt >= 6)) {
                     if let Some(rt_meta) = parsed.get("meta").filter(|v| v.is_object()) {
                         if let Some(d) = rt_meta.get("duration").and_then(Value::as_f64) {
                             if d > 0.0 {
@@ -153,6 +161,14 @@ async fn wait_for_film_ready(cdp: &mut CdpWebSocket, meta: &mut FilmMeta) -> Res
                             }
                         }
                     }
+                    let _ = cdp
+                        .call(
+                            "Runtime.evaluate",
+                            json!({
+                                "expression": "(() => { const s = document.createElement('style'); s.textContent = '#loading,#controls,.aetheria-standalone-controls,[data-aetheria-standalone-chrome]{display:none!important;opacity:0!important;visibility:hidden!important;}'; (document.head || document.documentElement).appendChild(s); return true; })()"
+                            }),
+                        )
+                        .await;
                     return Ok(());
                 }
             }
@@ -160,7 +176,7 @@ async fn wait_for_film_ready(cdp: &mut CdpWebSocket, meta: &mut FilmMeta) -> Res
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
 
-    Err("HTML film did not set window.__ready = true and window.renderAt within 15s".to_string())
+    Err("HTML film did not expose window.renderAt / window.__ready within 15s".to_string())
 }
 
 /// Renders the active HTML5+JS film using local headless Edge/Chrome CDP + FFmpeg.
