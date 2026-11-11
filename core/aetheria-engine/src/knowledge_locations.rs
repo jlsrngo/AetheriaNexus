@@ -4,6 +4,11 @@
 //! major Indonesian cities/regencies, and global business hubs, with an optional
 //! non-blocking fallback to Open-Meteo Geocoding API in Rust.
 
+#[path = "knowledge_locations_data.rs"]
+mod data;
+
+pub use data::LOCAL_LOCATIONS;
+
 use axum::{
     extract::Query,
     response::{IntoResponse, Response},
@@ -13,186 +18,6 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::time::Duration;
-
-pub const LOCAL_LOCATIONS: &[&str] = &[
-    // 38 Provinsi di Indonesia
-    "Aceh",
-    "Sumatera Utara",
-    "Sumatera Barat",
-    "Riau",
-    "Kepulauan Riau",
-    "Jambi",
-    "Sumatera Selatan",
-    "Bengkulu",
-    "Lampung",
-    "Kepulauan Bangka Belitung",
-    "DKI Jakarta",
-    "Jawa Barat",
-    "Banten",
-    "Jawa Tengah",
-    "DI Yogyakarta",
-    "Jawa Timur",
-    "Bali",
-    "Nusa Tenggara Barat",
-    "Nusa Tenggara Timur",
-    "Kalimantan Barat",
-    "Kalimantan Tengah",
-    "Kalimantan Selatan",
-    "Kalimantan Timur",
-    "Kalimantan Utara",
-    "Sulawesi Utara",
-    "Gorontalo",
-    "Sulawesi Tengah",
-    "Sulawesi Barat",
-    "Sulawesi Selatan",
-    "Sulawesi Tenggara",
-    "Maluku",
-    "Maluku Utara",
-    "Papua",
-    "Papua Barat",
-    "Papua Selatan",
-    "Papua Tengah",
-    "Papua Pegunungan",
-    "Papua Barat Daya",
-    // Kota & Kabupaten Utama di Indonesia
-    "Jakarta",
-    "Jakarta Pusat",
-    "Jakarta Selatan",
-    "Jakarta Barat",
-    "Jakarta Timur",
-    "Jakarta Utara",
-    "Surabaya",
-    "Bandung",
-    "Medan",
-    "Semarang",
-    "Makassar",
-    "Palembang",
-    "Tangerang",
-    "Tangerang Selatan",
-    "Depok",
-    "Bekasi",
-    "Bogor",
-    "Malang",
-    "Yogyakarta",
-    "Denpasar",
-    "Batam",
-    "Pekanbaru",
-    "Bandar Lampung",
-    "Padang",
-    "Samarinda",
-    "Balikpapan",
-    "Banjarmasin",
-    "Pontianak",
-    "Manado",
-    "Mataram",
-    "Kupang",
-    "Jayapura",
-    "Ambon",
-    "Palu",
-    "Kendari",
-    "Banda Aceh",
-    "Pangkalpinang",
-    "Tanjungpinang",
-    "Serang",
-    "Cilegon",
-    "Cirebon",
-    "Sukabumi",
-    "Tasikmalaya",
-    "Cimahi",
-    "Karawang",
-    "Cikarang",
-    "Surakarta (Solo)",
-    "Magelang",
-    "Salatiga",
-    "Pekalongan",
-    "Tegal",
-    "Purwokerto",
-    "Cilacap",
-    "Kudus",
-    "Jepara",
-    "Kediri",
-    "Madiun",
-    "Blitar",
-    "Mojokerto",
-    "Pasuruan",
-    "Probolinggo",
-    "Batu",
-    "Sidoarjo",
-    "Gresik",
-    "Banyuwangi",
-    "Jember",
-    "Sleman",
-    "Bantul",
-    "Badung",
-    "Gianyar",
-    "Singaraja",
-    "Lombok",
-    "Labuan Bajo",
-    "Tarakan",
-    "Bontang",
-    "Banjarbaru",
-    "Palangka Raya",
-    "Singkawang",
-    "Bitung",
-    "Tomohon",
-    "Parepare",
-    "Palopo",
-    "Baubau",
-    "Ternate",
-    "Tidore",
-    "Sorong",
-    "Manokwari",
-    "Merauke",
-    "Timika",
-    "Pematangsiantar",
-    "Binjai",
-    "Tebing Tinggi",
-    "Sibolga",
-    "Bukittinggi",
-    "Payakumbuh",
-    "Dumai",
-    "Lubuklinggau",
-    "Prabumulih",
-    "Metro",
-    // Kota Utama Dunia (Regional & Global)
-    "Singapore",
-    "Kuala Lumpur",
-    "Penang",
-    "Johor Bahru",
-    "Bangkok",
-    "Manila",
-    "Ho Chi Minh City",
-    "Hanoi",
-    "Tokyo",
-    "Osaka",
-    "Seoul",
-    "Hong Kong",
-    "Taipei",
-    "Shanghai",
-    "Beijing",
-    "Shenzhen",
-    "Guangzhou",
-    "Sydney",
-    "Melbourne",
-    "Perth",
-    "Dubai",
-    "Riyadh",
-    "Doha",
-    "London",
-    "Amsterdam",
-    "Frankfurt",
-    "Paris",
-    "Berlin",
-    "Zurich",
-    "New York",
-    "San Francisco",
-    "Los Angeles",
-    "Chicago",
-    "Seattle",
-    "Austin",
-    "Toronto",
-    "Vancouver",
-];
 
 #[derive(Debug, Deserialize)]
 pub struct LocationQuery {
@@ -239,7 +64,11 @@ pub fn filter_local_locations(query: &str, limit: usize) -> Vec<String> {
 }
 
 /// Hybrid search: combines `filter_local_locations` with Open-Meteo Geocoding API if fewer than `limit` local matches exist.
-pub async fn search_hybrid_locations(query: &str, limit: usize, allow_remote: bool) -> Vec<String> {
+pub async fn search_hybrid_locations(
+    query: &str,
+    limit: usize,
+    allow_remote: bool,
+) -> Vec<String> {
     let limit = limit.clamp(1, 20);
     let mut merged = filter_local_locations(query, limit);
     if merged.len() >= limit || !allow_remote {
@@ -277,13 +106,12 @@ pub async fn search_hybrid_locations(query: &str, limit: usize, allow_remote: bo
                             continue;
                         };
                         let admin1 = item.get("admin1").and_then(|v| v.as_str()).unwrap_or("");
-                        let label = if !admin1.is_empty()
-                            && !admin1.eq_ignore_ascii_case(name)
-                        {
-                            format!("{}, {}", name, admin1)
-                        } else {
-                            name.to_string()
-                        };
+                        let label =
+                            if !admin1.is_empty() && !admin1.eq_ignore_ascii_case(name) {
+                                format!("{}, {}", name, admin1)
+                            } else {
+                                name.to_string()
+                            };
 
                         let key = label.to_lowercase();
                         let name_key = name.to_lowercase();
@@ -347,4 +175,3 @@ mod tests {
         assert!(filter_local_locations("   ", 7).is_empty());
     }
 }
-
