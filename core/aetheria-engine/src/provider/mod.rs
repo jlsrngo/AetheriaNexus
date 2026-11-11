@@ -1,9 +1,16 @@
 pub mod catalog;
+pub mod catalog_crud;
+pub mod catalog_probe;
 pub mod cli_diagnostics;
 pub mod cloud_manager;
 pub mod config;
+pub mod key_rotation;
 pub mod local_cli;
+pub mod local_cli_auth;
+pub mod local_cli_registry;
 pub mod oauth;
+pub mod protocol_adapters;
+pub mod workspace_routes;
 
 #[allow(unused_imports)]
 pub use config::{read_aetheria_config, write_aetheria_config};
@@ -24,26 +31,40 @@ pub fn router() -> Router {
         .route("/api/agent", get(catalog::handle_agent_list))
         .route("/agent", get(catalog::handle_agent_list))
         .route("/api/agent/:id", get(catalog::handle_agent_get))
-        // UI Provider CRUD endpoints
+        // UI Provider CRUD & probe endpoints
         .route(
             "/api/providers",
-            get(catalog::handle_ui_providers_list).post(catalog::handle_ui_providers_upsert),
+            get(catalog::handle_ui_providers_list)
+                .post(catalog_crud::handle_ui_providers_upsert),
         )
         .route(
             "/providers",
-            get(catalog::handle_ui_providers_list).post(catalog::handle_ui_providers_upsert),
+            get(catalog::handle_ui_providers_list)
+                .post(catalog_crud::handle_ui_providers_upsert),
         )
-        .route("/api/providers/status", get(catalog::handle_providers_status))
-        .route("/api/providers/connect", post(catalog::handle_providers_connect))
-        .route("/api/providers/test", post(catalog::handle_providers_test))
-        .route("/providers/test", post(catalog::handle_providers_test))
+        .route(
+            "/api/providers/status",
+            get(catalog_probe::handle_providers_status),
+        )
+        .route(
+            "/api/providers/connect",
+            post(catalog_crud::handle_providers_connect),
+        )
+        .route(
+            "/api/providers/test",
+            post(catalog_probe::handle_providers_test),
+        )
+        .route(
+            "/providers/test",
+            post(catalog_probe::handle_providers_test),
+        )
         .route(
             "/api/providers/fetch-models",
-            post(catalog::handle_providers_fetch_models),
+            post(catalog_probe::handle_providers_fetch_models),
         )
         .route(
             "/providers/fetch-models",
-            post(catalog::handle_providers_fetch_models),
+            post(catalog_probe::handle_providers_fetch_models),
         )
         // Cloud Provider management & Model Pool routes
         .route(
@@ -62,7 +83,7 @@ pub fn router() -> Router {
             "/providers/cloud/pool",
             post(cloud_manager::handle_combine_model_pool),
         )
-        // Local-CLI endpoints
+        // Local-CLI status & connect routes
         .route(
             "/api/providers/local-cli/status",
             get(local_cli::handle_local_cli_status),
@@ -85,11 +106,13 @@ pub fn router() -> Router {
         )
         .route(
             "/api/providers/local-cli/quota",
-            get(local_cli::handle_local_cli_quota_post).post(local_cli::handle_local_cli_quota_post),
+            get(local_cli::handle_local_cli_quota_post)
+                .post(local_cli::handle_local_cli_quota_post),
         )
         .route(
             "/providers/local-cli/quota",
-            get(local_cli::handle_local_cli_quota_post).post(local_cli::handle_local_cli_quota_post),
+            get(local_cli::handle_local_cli_quota_post)
+                .post(local_cli::handle_local_cli_quota_post),
         )
         .route(
             "/api/providers/local-cli/models",
@@ -116,14 +139,6 @@ pub fn router() -> Router {
             post(local_cli::handle_local_cli_connect),
         )
         .route(
-            "/api/providers/local-cli/login",
-            post(local_cli::handle_local_cli_login),
-        )
-        .route(
-            "/providers/local-cli/login",
-            post(local_cli::handle_local_cli_login),
-        )
-        .route(
             "/api/providers/local-cli/inject",
             post(local_cli::handle_local_cli_inject),
         )
@@ -131,75 +146,90 @@ pub fn router() -> Router {
             "/providers/local-cli/inject",
             post(local_cli::handle_local_cli_inject),
         )
+        // Local-CLI authentication & OAuth routes
+        .route(
+            "/api/providers/local-cli/login",
+            post(local_cli_auth::handle_local_cli_login),
+        )
+        .route(
+            "/providers/local-cli/login",
+            post(local_cli_auth::handle_local_cli_login),
+        )
         .route(
             "/api/providers/local-cli/oauth/start",
-            post(local_cli::handle_local_cli_oauth_start),
+            post(local_cli_auth::handle_local_cli_oauth_start),
         )
         .route(
             "/providers/local-cli/oauth/start",
-            post(local_cli::handle_local_cli_oauth_start),
+            post(local_cli_auth::handle_local_cli_oauth_start),
         )
         .route(
             "/api/providers/local-cli/oauth/status",
-            post(local_cli::handle_local_cli_oauth_status),
+            post(local_cli_auth::handle_local_cli_oauth_status),
         )
         .route(
             "/providers/local-cli/oauth/status",
-            post(local_cli::handle_local_cli_oauth_status),
+            post(local_cli_auth::handle_local_cli_oauth_status),
         )
         .route(
             "/api/providers/local-cli/harvest",
-            post(local_cli::handle_local_cli_harvest),
+            post(local_cli_auth::handle_local_cli_harvest),
         )
         .route(
             "/api/providers/local-cli/signin",
-            post(local_cli::handle_local_cli_signin),
+            post(local_cli_auth::handle_local_cli_signin),
         )
         .route(
             "/api/providers/local-cli/token",
-            post(local_cli::handle_local_cli_token),
+            post(local_cli_auth::handle_local_cli_token),
         )
         .route(
             "/api/providers/local-cli/refresh",
-            post(local_cli::handle_local_cli_refresh),
+            post(local_cli_auth::handle_local_cli_refresh),
         )
         .route(
             "/providers/local-cli/refresh",
-            post(local_cli::handle_local_cli_refresh),
+            post(local_cli_auth::handle_local_cli_refresh),
         )
         .route(
             "/api/providers/local-cli/:source",
-            delete(local_cli::handle_local_cli_delete),
+            delete(local_cli_auth::handle_local_cli_delete),
         )
         // Wildcard provider ID routes
         .route(
             "/api/providers/:providerId",
-            put(catalog::handle_ui_providers_update).delete(catalog::handle_providers_delete),
+            put(catalog_crud::handle_ui_providers_update)
+                .delete(catalog_crud::handle_providers_delete),
         )
         .route(
             "/providers/:providerId",
-            put(catalog::handle_ui_providers_update).delete(catalog::handle_providers_delete),
+            put(catalog_crud::handle_ui_providers_update)
+                .delete(catalog_crud::handle_providers_delete),
         )
         .route(
             "/api/providers/:providerId/state",
-            put(catalog::handle_ui_providers_state),
+            put(catalog_crud::handle_ui_providers_state),
         )
         .route(
             "/providers/:providerId/state",
-            put(catalog::handle_ui_providers_state),
+            put(catalog_crud::handle_ui_providers_state),
         )
         .route(
             "/api/providers/:providerId/test",
-            post(catalog::handle_ui_provider_id_test),
+            post(catalog_probe::handle_ui_provider_id_test),
         )
         .route(
             "/providers/:providerId/test",
-            post(catalog::handle_ui_provider_id_test),
+            post(catalog_probe::handle_ui_provider_id_test),
         )
-        .route("/config", get(config::handle_config_get))
-        .route("/api/config", get(config::handle_config_get))
-        .route("/project", get(config::handle_project_list))
-        .route("/project/current", get(config::handle_project_current))
-        .route("/path", get(config::handle_path_get))
-        .route("/vcs", get(config::handle_vcs_get))
+        // Engine config & workspace path metadata routes
+        .route("/config", get(workspace_routes::handle_config_get))
+        .route("/api/config", get(workspace_routes::handle_config_get))
+        .route("/project", get(workspace_routes::handle_project_list))
+        .route(
+            "/project/current",
+            get(workspace_routes::handle_project_current),
+        )
+        .route("/path", get(workspace_routes::handle_path_get))
+        .route("/vcs", get(workspace_routes::handle_vcs_get))
 }

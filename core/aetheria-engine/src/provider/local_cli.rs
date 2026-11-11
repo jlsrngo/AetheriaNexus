@@ -1,286 +1,30 @@
+//! Local-CLI Status, Quota, Discovery, Connect & Bridge Injection HTTP Handlers.
+//!
+//! Static model catalogs live in `local_cli_registry` and authentication/OAuth
+//! routes live in `local_cli_auth`.
+
+pub use super::local_cli_auth::{
+    handle_local_cli_delete, handle_local_cli_harvest, handle_local_cli_login,
+    handle_local_cli_oauth_start, handle_local_cli_oauth_status, handle_local_cli_refresh,
+    handle_local_cli_signin, handle_local_cli_token,
+};
+pub use super::local_cli_registry::{
+    build_cli_provider_registry, build_discovered_list,
+    default_models_for_target_impl as default_models_for_target,
+};
+
 use super::config::{read_aetheria_config, write_aetheria_config};
 use crate::bridge::LOCAL_CLI_BRIDGE_PORT;
 use crate::cred_store::{
-    fetch_all_quotas, fetch_live_quotas_list, get_all_credentials, get_credential,
-    get_oauth_status, harvest_all, refresh_credential_source, register_local_cli_to_config,
-    remove_credential, set_credential, start_oauth_session, CredentialEntry,
+    fetch_all_quotas, fetch_live_quotas_list, get_all_credentials, harvest_all,
+    register_local_cli_to_config,
 };
-use crate::paths::{home_dir, now_iso, now_ms};
+use crate::paths::{home_dir, now_ms};
 use axum::{
-    extract::Path as AxumPath,
-    http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
 use serde_json::{json, Value};
-
-pub fn default_models_for_target(target: &str) -> Vec<&'static str> {
-    match target {
-        "claude" => vec![
-            "claude-sonnet-4-6",
-            "claude-opus-4-6",
-            "claude-haiku-4-5",
-        ],
-        "codex" => vec![
-            "gpt-5.6-terra",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.3-codex",
-            "gpt-5.2-codex",
-            "gpt-5.2",
-            "gpt-5.1-codex-max",
-            "gpt-5.1-codex-mini",
-        ],
-        "kiro" => vec![
-            "kiro/auto",
-            "kiro/claude-opus-4.6",
-            "kiro/claude-sonnet-4.6",
-            "kiro/claude-sonnet-4.5",
-            "kiro/claude-haiku-4.5",
-            "kiro/deepseek-3.2",
-            "kiro/minimax-m2.5",
-            "kiro/glm-5",
-            "kiro/qwen3-coder-next",
-        ],
-        "antigravity" => vec![
-            "gemini-3.8-pro-high",
-            "gemini-3.8-pro-low",
-            "gemini-3.8-flash-high",
-            "gemini-3.8-flash-medium",
-            "gemini-3.8-flash-low",
-            "gemini-3.8-flash-minimal",
-            "claude-sonnet-4-6-agy",
-            "claude-opus-4-6-thinking",
-            "gpt-oss-120b-medium",
-        ],
-        "opencode" => vec![
-            "opencode/big-pickle",
-            "opencode/mimo-v2-pro-free",
-            "opencode/mimo-v2-omni-free",
-            "opencode/nemotron-3-super-free",
-            "opencode/minimax-m2.5-free",
-            "opencode/gpt-5-nano",
-        ],
-        "9router" => vec![
-            "claude-sonnet-4-6",
-            "gpt-5.4",
-            "gemini-3.8-pro-high",
-        ],
-        _ => vec![],
-    }
-}
-
-pub fn build_discovered_list() -> Vec<Value> {
-    let creds = get_all_credentials();
-    let mut out = Vec::new();
-    let specs = [
-        (
-            "antigravity",
-            "Google Antigravity (agy)",
-            "oauth",
-            "Windows CredMan (gemini:antigravity)",
-            "gemini-3.8-flash-high",
-        ),
-        (
-            "claude",
-            "Claude Code",
-            "oauth",
-            "~/.claude/.credentials.json",
-            "claude-sonnet-4-6",
-        ),
-        (
-            "codex",
-            "OpenAI Codex / ChatGPT",
-            "oauth",
-            "~/.codex/auth.json",
-            "gpt-5.4",
-        ),
-        (
-            "kiro",
-            "Kiro (AWS)",
-            "oauth",
-            "~/.aws/sso/cache",
-            "kiro/auto",
-        ),
-        (
-            "opencode",
-            "OpenCode Zen",
-            "api_key",
-            "~/.local/share/opencode/auth.json",
-            "opencode/big-pickle",
-        ),
-    ];
-
-    for (prov, disp, ctype, src_path, def_mod) in specs {
-        let entry = creds.get(prov);
-        let has_token = entry.map(|e| !e.access_token.is_empty()).unwrap_or(false);
-        let expired = entry
-            .and_then(|e| e.expires_at)
-            .map(|exp| now_ms() >= exp)
-            .unwrap_or(false);
-        out.push(json!({
-            "provider": prov,
-            "displayName": disp,
-            "type": ctype,
-            "sourcePath": src_path,
-            "hasToken": has_token,
-            "hasRefreshToken": entry.and_then(|e| e.refresh_token.as_ref()).is_some(),
-            "isExpired": expired,
-            "expiresAt": entry.and_then(|e| e.expires_at),
-            "accountEmail": entry.and_then(|e| e.account_email.clone()).or_else(|| entry.and_then(|e| e.account_info.clone()).filter(|s| s.contains('@'))),
-            "region": entry.and_then(|e| e.region.clone()),
-            "defaultModel": def_mod,
-            "models": default_models_for_target(prov)
-        }));
-    }
-    out
-}
-
-pub fn build_cli_provider_registry() -> Vec<Value> {
-    vec![
-        json!({
-            "id": "claude",
-            "name": "Claude",
-            "vendor": "Anthropic",
-            "docsUrl": "https://claude.ai",
-            "loginCommand": "claude auth login",
-            "credentialPath": "~/.claude/.credentials.json",
-            "quota": "claude",
-            "models": [
-                "claude-3-7-sonnet",
-                "claude-3-5-sonnet",
-                "claude-3-5-haiku",
-                "claude-3-opus"
-            ],
-            "requiresCli": false,
-            "loginMode": "terminal",
-            "supportsAutoConfigure": true,
-            "supportsBrowserLogin": true,
-            "entitlement": {
-                "notice": "Requires a Claude Max or Pro subscription",
-                "noticeId": "Perlu langganan Claude Max atau Pro",
-                "url": "https://claude.ai"
-            }
-        }),
-        json!({
-            "id": "codex",
-            "name": "Codex",
-            "vendor": "OpenAI",
-            "docsUrl": "https://chatgpt.com",
-            "loginCommand": "codex login",
-            "credentialPath": "~/.codex/auth.json",
-            "quota": "codex",
-            "models": [
-                "gpt-5.6-terra",
-                "gpt-5.6-luna",
-                "gpt-5.5",
-                "gpt-6-luna",
-                "gpt-reserve"
-            ],
-            "requiresCli": false,
-            "loginMode": "terminal",
-            "supportsAutoConfigure": false,
-            "supportsBrowserLogin": true,
-            "entitlement": {
-                "notice": "Works on a free ChatGPT account, but only some models answer. A free login is refused by every other Codex model with \"not supported when using Codex with a ChatGPT account\".",
-                "noticeId": "Gratis berfungsi, tapi hanya sebagian model",
-                "url": "https://chatgpt.com/codex"
-            }
-        }),
-        json!({
-            "id": "opencode",
-            "name": "OpenCode",
-            "vendor": "opencode",
-            "docsUrl": "https://opencode.ai",
-            "installUrl": "https://opencode.ai",
-            "loginCommand": "opencode auth login",
-            "credentialPath": "~/.local/share/opencode/auth.json",
-            "quota": "none",
-            "models": [
-                "groq/openai/gpt-oss-120b",
-                "groq/qwen/qwen3.8-27b",
-                "groq/openai/gpt-oss-20b",
-                "opencode/big-pickle",
-                "9router/ComboMaut",
-                "opencode/nemotron-3.5-lightning-free"
-            ],
-            "requiresCli": true,
-            "loginMode": "terminal",
-            "supportsAutoConfigure": false,
-            "supportsBrowserLogin": false,
-            "note": {
-                "text": "Native requests route through OpenCode Zen and can take up to a minute on a cold model. Slow, not stuck.",
-                "textId": "Permintaan native lewat OpenCode Zen bisa sampai semenit saat model baru dipakai. Lambat, bukan macet."
-            }
-        }),
-        json!({
-            "id": "antigravity",
-            "name": "Google Antigravity CLI",
-            "vendor": "Google DeepMind",
-            "docsUrl": "https://antigravity.google.com",
-            "installUrl": "https://antigravity.google.com",
-            "installSizeMb": 181,
-            "loginCommand": "agy",
-            "credentialPath": "~/.gemini/oauth_creds.json",
-            "credentialTarget": "gemini:antigravity",
-            "quota": "antigravity",
-            "models": [
-                "gemini-3.8-flash-medium",
-                "gemini-3.8-flash-low",
-                "gemini-3.8-flash-high",
-                "gemini-2.5-pro",
-                "gemini-2.5-flash",
-                "claude-sonnet-4-6"
-            ],
-            "requiresCli": true,
-            "loginMode": "terminal",
-            "supportsAutoConfigure": false,
-            "supportsBrowserLogin": false
-        }),
-        json!({
-            "id": "kiro",
-            "name": "Kiro",
-            "vendor": "AWS",
-            "docsUrl": "https://kiro.dev",
-            "quota": "kiro",
-            "models": [
-                "kiro/auto",
-                "kiro/claude-opus-4.6",
-                "kiro/claude-sonnet-4.6",
-                "kiro/claude-sonnet-4.5",
-                "kiro/claude-haiku-4.5",
-                "kiro/deepseek-3.2",
-                "kiro/minimax-m2.5",
-                "kiro/glm-5",
-                "kiro/qwen3-coder-next"
-            ],
-            "requiresCli": false,
-            "loginMode": "browser",
-            "supportsAutoConfigure": false,
-            "supportsBrowserLogin": true
-        }),
-        json!({
-            "id": "nineRouter",
-            "name": "9Router",
-            "vendor": "9Router",
-            "docsUrl": "https://9router.com",
-            "quota": "none",
-            "models": [
-                "9router/ComboMaut",
-                "oc/big-pickle",
-                "oc/claude-sonnet-4.5",
-                "kr/claude-sonnet-4.5",
-                "vx/gemini-2.5-pro",
-                "deepseek-r1",
-                "cx/gpt-5.6-terra"
-            ],
-            "requiresCli": true,
-            "loginMode": "terminal",
-            "supportsAutoConfigure": false,
-            "supportsBrowserLogin": false
-        })
-    ]
-}
 
 pub async fn handle_local_cli_status() -> Response {
     harvest_all();
@@ -291,10 +35,7 @@ pub async fn handle_local_cli_status() -> Response {
     let mut sources = serde_json::Map::new();
     for s in ["codex", "claude", "opencode", "kiro", "antigravity", "groq"] {
         if let Some(c) = creds.get(s) {
-            let expired = c
-                .expires_at
-                .map(|exp| now_ms() >= exp)
-                .unwrap_or(false);
+            let expired = c.expires_at.map(|exp| now_ms() >= exp).unwrap_or(false);
             sources.insert(
                 s.to_string(),
                 json!({
@@ -322,7 +63,6 @@ pub async fn handle_local_cli_status() -> Response {
 
     let agy_c = creds.get("antigravity");
     let agy_signed_in = agy_c.map(|c| !c.access_token.is_empty()).unwrap_or(false);
-    let agy_email = agy_c.and_then(|c| c.account_email.clone());
     let antigravity_slot = json!({
         "detected": true,
         "cliInstalled": true,
@@ -330,13 +70,15 @@ pub async fn handle_local_cli_status() -> Response {
         "agySignedIn": agy_signed_in,
         "agyVersion": "1.3.1",
         "loggedIn": agy_signed_in,
-        "accountEmail": agy_email,
+        "accountEmail": agy_c.and_then(|c| c.account_email.clone()),
         "environment": "Google Antigravity CLI (agy)",
         "detail": if agy_signed_in { "Signed in & ready via Local-CLI Bridge" } else { "Not signed in" }
     });
 
-    let claude_c = creds.get("claude");
-    let claude_signed_in = claude_c.map(|c| !c.access_token.is_empty()).unwrap_or(false);
+    let claude_signed_in = creds
+        .get("claude")
+        .map(|c| !c.access_token.is_empty())
+        .unwrap_or(false);
     let claude_slot = json!({
         "installed": true,
         "version": "2.1.202",
@@ -550,55 +292,6 @@ pub async fn handle_local_cli_connect(Json(body): Json<Value>) -> Response {
     .into_response()
 }
 
-pub async fn handle_local_cli_login(Json(body): Json<Value>) -> Response {
-    let target = body.get("target").and_then(|v| v.as_str()).unwrap_or("");
-    match target {
-        "antigravity-logout" => {
-            remove_credential("antigravity");
-            return Json(json!({
-                "data": { "success": true, "message": "Signed out from Antigravity." }
-            }))
-            .into_response();
-        }
-        "opencode-logout" => {
-            remove_credential("opencode");
-            return Json(json!({
-                "data": { "success": true, "message": "Signed out from OpenCode." }
-            }))
-            .into_response();
-        }
-        "claude" | "codex" | "opencode-terminal" | "antigravity-cli" => {
-            let cmd_str = match target {
-                "claude" => "claude",
-                "codex" => "codex",
-                "opencode-terminal" => "opencode auth login",
-                "antigravity-cli" => "agy login",
-                _ => "cmd",
-            };
-            #[cfg(windows)]
-            {
-                let _ = std::process::Command::new("cmd")
-                    .args(["/c", "start", "cmd", "/k", cmd_str])
-                    .spawn();
-            }
-            return Json(json!({
-                "data": {
-                    "success": true,
-                    "message": format!("Launched '{}' in terminal window.", cmd_str)
-                }
-            }))
-            .into_response();
-        }
-        _ => Json(json!({
-            "data": {
-                "success": true,
-                "message": "Built-in Rust Local-CLI Bridge is active."
-            }
-        }))
-        .into_response(),
-    }
-}
-
 pub async fn handle_local_cli_inject(Json(body): Json<Value>) -> Response {
     let target = body
         .get("target")
@@ -664,184 +357,4 @@ pub async fn handle_local_cli_inject(Json(body): Json<Value>) -> Response {
         }
     }))
     .into_response()
-}
-
-pub async fn handle_local_cli_oauth_start(Json(body): Json<Value>) -> Response {
-    let target = body
-        .get("target")
-        .and_then(|v| v.as_str())
-        .unwrap_or("kiro");
-    let open_browser = body
-        .get("openBrowser")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(true);
-
-    match start_oauth_session(target, open_browser).await {
-        Ok(data) => Json(json!({ "data": data })).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "error": e, "data": { "status": "error", "message": e } })),
-        )
-            .into_response(),
-    }
-}
-
-pub async fn handle_local_cli_oauth_status(Json(body): Json<Value>) -> Response {
-    let req_id = body
-        .get("requestId")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    if let Some(st) = get_oauth_status(req_id) {
-        Json(json!({
-            "data": {
-                "requestId": st.request_id,
-                "target": st.target,
-                "status": st.status,
-                "message": st.message,
-                "authUrl": st.auth_url
-            }
-        }))
-        .into_response()
-    } else {
-        Json(json!({
-            "data": {
-                "requestId": req_id,
-                "target": "unknown",
-                "status": "error",
-                "message": "OAuth session not found"
-            }
-        }))
-        .into_response()
-    }
-}
-
-pub async fn handle_local_cli_harvest() -> Response {
-    let harvested = harvest_all();
-    register_local_cli_to_config(LOCAL_CLI_BRIDGE_PORT);
-    Json(json!({ "ok": true, "harvested": harvested })).into_response()
-}
-
-pub async fn handle_local_cli_signin(Json(body): Json<Value>) -> Response {
-    let source = body
-        .get("source")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    harvest_all();
-    if let Some(c) = get_credential(&source) {
-        if let Some(refreshed) = refresh_credential_source(&source, &c).await {
-            register_local_cli_to_config(LOCAL_CLI_BRIDGE_PORT);
-            return Json(json!({
-                "ok": true,
-                "source": source,
-                "method": "refresh",
-                "expiresAt": refreshed.expires_at
-            }))
-            .into_response();
-        }
-        register_local_cli_to_config(LOCAL_CLI_BRIDGE_PORT);
-        return Json(json!({
-            "ok": true,
-            "source": source,
-            "method": "harvest",
-            "expiresAt": c.expires_at
-        }))
-        .into_response();
-    }
-    (
-        StatusCode::BAD_REQUEST,
-        Json(json!({ "ok": false, "error": format!("No local credentials found for {}", source) })),
-    )
-        .into_response()
-}
-
-pub async fn handle_local_cli_token(Json(body): Json<Value>) -> Response {
-    let Some(source) = body.get("source").and_then(|v| v.as_str()) else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "error": "source is required" })),
-        )
-            .into_response();
-    };
-    let Some(token) = body.get("accessToken").and_then(|v| v.as_str()) else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "error": "accessToken is required" })),
-        )
-            .into_response();
-    };
-    set_credential(CredentialEntry {
-        source: source.to_string(),
-        access_token: token.trim().to_string(),
-        refresh_token: body
-            .get("refreshToken")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string()),
-        expires_at: None,
-        client_id: None,
-        client_secret: None,
-        region: body
-            .get("region")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string()),
-        account_info: Some("Manual token".to_string()),
-        updated_at: now_iso(),
-        auto_harvested: false,
-        ..Default::default()
-    });
-    register_local_cli_to_config(LOCAL_CLI_BRIDGE_PORT);
-    Json(json!({ "ok": true, "source": source })).into_response()
-}
-
-pub async fn handle_local_cli_refresh(Json(body): Json<Value>) -> Response {
-    let target = body
-        .get("source")
-        .or_else(|| body.get("target"))
-        .and_then(|v| v.as_str());
-    let action = body.get("action").and_then(|v| v.as_str()).unwrap_or("refresh");
-
-    if action == "logout" {
-        if let Some(t) = target {
-            remove_credential(t);
-            register_local_cli_to_config(LOCAL_CLI_BRIDGE_PORT);
-            return Json(json!({
-                "ok": true,
-                "data": { "success": true, "message": format!("Signed out from {}.", t) }
-            }))
-            .into_response();
-        }
-    }
-
-    harvest_all();
-    let creds = get_all_credentials();
-    let mut results = serde_json::Map::new();
-    let mut any_ok = false;
-    for (src, entry) in creds {
-        if let Some(t) = target {
-            if t != src {
-                continue;
-            }
-        }
-        let ok = refresh_credential_source(&src, &entry).await.is_some();
-        if ok {
-            any_ok = true;
-        }
-        results.insert(src, Value::Bool(ok));
-    }
-    register_local_cli_to_config(LOCAL_CLI_BRIDGE_PORT);
-    Json(json!({
-        "ok": true,
-        "results": results,
-        "data": {
-            "success": any_ok || target.is_none(),
-            "message": if any_ok { "Token refreshed successfully." } else { "Credentials re-harvested." }
-        }
-    }))
-    .into_response()
-}
-
-pub async fn handle_local_cli_delete(AxumPath(source): AxumPath<String>) -> Response {
-    let removed = remove_credential(&source);
-    register_local_cli_to_config(LOCAL_CLI_BRIDGE_PORT);
-    Json(json!({ "ok": removed })).into_response()
 }
