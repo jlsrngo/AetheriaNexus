@@ -6,8 +6,9 @@ AI agents working on this project must consult and adhere to the following speci
 
 1. **Primary PRD (Active Architecture & Feature Spec):**
    * [`PRD_DESKTOP_TAURI.md`](PRD_DESKTOP_TAURI.md)
-   * **Target:** Windows Desktop Application (`.exe` / `.msi` via Tauri v2 + Rust + React + Remotion).
-   * **Key Priorities:** TikTok-First (P0), Local Rendering (Rp 0 / Zero Cloud Costs), Video Stock Inventory, Scheduling & Account Analytics (Views, Likes, Followers).
+   * **Target:** Windows Desktop Application (`.exe` / `.msi` via Tauri v2 + Rust + React + Modular HTML5/JS Motion Engine).
+   * **Key Priorities:** TikTok-First (P0), Local Rendering (Rp 0 / Zero Cloud Costs via pure-Rust Headless Browser CDP + FFmpeg), Video Stock Inventory, Scheduling & Account Analytics (Views, Likes, Followers).
+   * **Workspace Isolation Rule:** Engine dan UI IDE wajib sepenuhnya terisolasi dari folder proyek pengguna yang dibuka (`workspace/`). Error di folder proyek tidak boleh mematahkan build/runtime IDE.
 2. **Cloud/Serverless Architecture Reference (Secondary/Legacy):**
    * [`PRD_VERCEL_OPTIMIZED.md`](PRD_VERCEL_OPTIMIZED.md)
    * Reference for web/cloud concepts if hybrid features are requested.
@@ -128,25 +129,43 @@ Semua komponen UI aplikasi desktop ini **WAJIB** mengikuti aturan berikut:
 
 ---
 
-## 6. React Architecture & Maintainability Guidelines
+## 6. Frontend: React Best Practices (`apps/src/`)
 
-Kode React harus dirancang **modular, bersih, dan mudah dirawat (*maintainable*)**:
+Seluruh kode React wajib mengikuti praktik terbaik React modern agar modular, deterministik, dan mudah dirawat (*ukuran file mengikuti kohesi tanggung jawab — bukan patokan angka baris kaku*):
 
-1. **Komponen Terpecah & Berfokus (Single Responsibility):**
-   * Dilarang membuat satu file raksasa (monolith > 300 baris).
-   * Pecah UI ke folder modular:
-     * `src/components/ui/` : Primitives UI (`Button`, `Card`, `Badge`, `Input`).
-     * `src/components/layout/` : Layout struktural (`Sidebar`, `Header`, `StatusBar`).
-     * `src/components/studio/` : Komponen editor & preview Remotion.
-     * `src/components/stock/` : Komponen manajemen stok video.
-     * `src/components/schedule/` : Komponen kalender posting.
-     * `src/components/analytics/` : Komponen metrik & tabel performa TikTok.
-2. **Pemisahan Logika & Tampilan (Custom Hooks):**
-   * Logika state kompleks (render engine, CRUD stok, API calls) ditarik ke custom hooks di `src/hooks/` (misal: `useVideoStock.ts`, `useVideoRender.ts`).
-3. **Strict Type Safety:**
-   * Semua props, model data, dan event payload wajib memiliki antarmuka TypeScript eksplisit di `src/types/`. Dilarang menggunakan `any`.
-4. **Desain Komponen Reusable:**
-   * Komponen UI murni menerima props dan callback, meminimalkan efek samping internal.
+1. **1 Komponen / Hook = 1 Tanggung Jawab Kohesif:**
+   * Pecah komponen hanya ketika mencampur lebih dari satu concern UI atau menggabungkan UI berat dengan logika/efek samping; jangan memecah satu komponen kohesif secara artifisial semata karena jumlah baris.
+   * Struktur folder modular sesuai domain:
+     * `apps/src/components/ui/` : Primitives UI murni (`Button`, `Card`, `Badge`, `Input`).
+     * `apps/src/components/layout/` : Struktur shell, menu bar, & sidebar.
+     * `apps/src/components/studio/` : Custom `HtmlMotionPlayer`, `HtmlFilmStage`, `SceneAudioSync`, panel preview & timeline terpecah per concern (`preview/`, `timeline/`, `panels/`).
+     * `apps/src/components/stock/`, `schedule/`, `analytics/` : Fitur domain masing-masing.
+2. **Pemisahan Container vs Presentational UI vs Custom Hooks (`apps/src/hooks/`):**
+   * Efek samping (`fetch`, listener keyboard/window, `requestAnimationFrame`, `ResizeObserver`, timer sinkronisasi audio/frame) wajib ditarik ke custom hook terfokus di `apps/src/hooks/` (mis. `useMotionPlayback.ts`, `useStudioCanvasViewport.ts`).
+   * Fungsi transformasi data murni, builder URL, atau kalkulasi koordinat/layer wajib dipisah ke modul `.ts` murni agar bisa dites langsung via Vitest tanpa render DOM.
+   * Komponen presentational murni hanya menerima `props` + callbacks dan tidak memegang state orkestrasi.
+3. **Isolasi Error & Ketahanan UI:**
+   * Pasang React `ErrorBoundary` di batas stage/panel (mis. `StageErrorBoundary`), sehingga error di skrip HTML/JS milik proyek pengguna hanya terisolasi di area stage dan tidak pernah mereload jendela aplikasi.
+4. **Strict Type Safety:**
+   * Semua props, state, event payload, dan response API wajib memiliki interface TypeScript eksplisit di `apps/src/types/`. Dilarang keras memakai `any`.
+
+---
+
+## 7. Backend: Rust Single-Responsibility Architecture (`core/` & `src-tauri/`)
+
+Seluruh kode Rust wajib mematuhi prinsip **1 File = 1 Tanggung Jawab Kohesif** *(berdasarkan kohesi tanggung jawab, bukan batas jumlah baris kaku — satu file tetap boleh panjang bila memang mengimplementasikan satu domain utuh beserta unit test-nya)*:
+
+1. **1 File = 1 Tanggung Jawab Logis:**
+   * Satu modul `.rs` hanya boleh memegang **satu tanggung jawab kohesif**:
+     * Jangan menggabungkan **HTTP/Tauri command handlers** dengan **domain parser/linter**, **subprocess launcher**, atau **protocol client** di satu file.
+     * Contoh pemisahan yang sehat: pisahkan **linter** (`motion_linter.rs`) dari **inspektor metadata/scene** (`film_inspector.rs`); pisahkan **static HTTP server** (`film_static_server.rs`), **FFmpeg CLI pipeline** (`ffmpeg_pipeline.rs`), dan **orkestrator browser CDP** (`html_renderer.rs`).
+2. **Orkestrasi Ramping & Sub-fungsi Terfokus:**
+   * Jangan memaksa memecah file hanya karena melewati angka baris tertentu bila masih satu konsep kohesif; cukup ekstrak helper privat saat sebuah fungsi menyentuh beberapa langkah I/O atau level abstraksi berbeda.
+3. **Layering Tegas (Thin Endpoints, Cohesive Services):**
+   * Handler Axum (`studio/*.rs`) dan command Tauri (`src-tauri/src/*_cmds.rs`) wajib tipis: validasi input, delegasi ke modul domain/service, lalu format response HTTP/JSON.
+   * Pisahkan grup command Tauri sesuai domain tanggung jawabnya (window, IPC bridge, auth CLI, render).
+4. **Isolasi Workspace & Sandbox Safety:**
+   * Setiap operasi I/O terhadap proyek pengguna wajib melewati path guard (`contains_path`, `resolve_isolated_path`) dan tidak boleh bergantung pada folder `workspace/` bawaan repositori ataupun memuat asset/kode proyek secara statis saat kompilasi engine.
 
 
 

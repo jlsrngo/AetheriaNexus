@@ -114,13 +114,8 @@ core/voicebox/models/
 **/__pycache__/
 *.pyc
 
-# Workspace runtime outputs
-workspace/public/
-workspace/output/*.mp4
-workspace/audio/*.wav
-workspace/storyboard.json
-workspace/styles/
-workspace/.aetheria/
+# Local sample/user workspace folders (completely decoupled from IDE source)
+workspace/
 
 # Runtime video assets in apps/public
 apps/public/*.wav
