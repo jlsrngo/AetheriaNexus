@@ -107,3 +107,4 @@ Use **project-relative paths only** (NEVER hardcode `workspace/` prefixes):
 # Deliver
 Complete modular project (`index.html`, `script/clay-kit.js`, `script/scene1.js`..`sceneN.js`, `audio/*.wav`, `audio/*.words.json`), plus a concise director breakdown covering the 5 acts, scene components, lighting/outline setup, and verified metrics (`width`, `height`, `fps`, `duration`).
 ```
+

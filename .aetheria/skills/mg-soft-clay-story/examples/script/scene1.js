@@ -66,13 +66,22 @@
       hero.rightArm.rotation.x = legSwing * 0.42;
 
       var isSpeaking = t > 0.4 && t < dur - 0.8;
-      hero.talkMouth.scale.y = isSpeaking ? 0.55 + Math.abs(Math.sin(t * 20.0)) * 0.65 : 0.35;
+      var mouthOpen = isSpeaking ? Math.abs(Math.sin(t * 20.0)) : 0;
+      hero.smileGroup.visible = mouthOpen <= 0.25;
+      hero.talkMouth.visible = mouthOpen > 0.25;
+      hero.talkMouth.scale.set(0.92 + (1 - mouthOpen) * 0.2, 0.55 + mouthOpen * 0.75, 1.0);
 
       world.clouds.forEach(function (cl) {
         var span = 18;
         cl.group.position.x = ((cl.x0 + cl.speed * t + span) % (span * 2)) - span;
       });
-      world.carGroup.position.x = ((-12 + 3.2 * t + 14) % 28) - 14;
+      world.cars.forEach(function (car) {
+        var span = 18;
+        var pos = (car.x0 + car.speed * t + span) % (span * 2);
+        if (pos < 0) pos += span * 2;
+        car.group.position.x = pos - span;
+        car.group.position.y = Math.abs(Math.sin(t * 12)) * 0.025;
+      });
 
       world.camera.position.x = Math.sin(t * 0.4) * 0.65;
       world.camera.position.y = 2.2 + Math.cos(t * 0.35) * 0.15;
@@ -109,3 +118,4 @@
     drawKawaiiSpeechBubble(hudCtx, 540, 480, "Selamat datang di Kota Pastel!");
   });
 })();
+

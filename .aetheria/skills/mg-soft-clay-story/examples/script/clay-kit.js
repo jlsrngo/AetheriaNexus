@@ -36,8 +36,7 @@
     mainMesh.receiveShadow = receiveShadow !== false;
     group.add(mainMesh);
     if (thickness > 0) {
-      var outGeo = createSmoothOutlineGeometry(geo, thickness);
-      group.add(new THREE.Mesh(outGeo, outlineMat));
+      group.add(new THREE.Mesh(createSmoothOutlineGeometry(geo, thickness), outlineMat));
     }
     return { group: group, mainMesh: mainMesh };
   }
@@ -123,6 +122,102 @@
     });
   }
 
+  function createKawaiiBuilding(mats, outlineMat, opts) {
+    var g = new THREE.Group();
+    g.position.set(opts.x, 0, opts.z);
+    var body = addOutlinedMesh(
+      new THREE.BoxGeometry(opts.w, opts.h, opts.d),
+      new THREE.MeshLambertMaterial({ color: opts.bodyHex }),
+      outlineMat,
+      0.055
+    );
+    body.group.position.set(0, opts.h / 2, 0);
+    var roofMat = new THREE.MeshLambertMaterial({ color: opts.roofHex });
+    var roof = addOutlinedMesh(
+      new THREE.BoxGeometry(opts.w + 0.36, 0.38, opts.d + 0.36),
+      roofMat,
+      outlineMat,
+      0.05
+    );
+    roof.group.position.set(0, opts.h + 0.19, 0);
+    g.add(body.group, roof.group);
+
+    var cols = Math.max(2, Math.floor(opts.w / 1.35));
+    var rows = Math.max(1, Math.floor((opts.h - 1.8) / 1.35));
+    var startX = -((cols - 1) * 1.1) / 2;
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        var win = addOutlinedMesh(
+          new THREE.BoxGeometry(0.66, 0.78, 0.08),
+          (r + c) % 2 === 0 ? mats.winLit : mats.winGlass,
+          outlineMat,
+          0.032,
+          false,
+          false
+        );
+        win.group.position.set(startX + c * 1.1, 2.2 + r * 1.3, opts.d / 2 + 0.05);
+        g.add(win.group);
+      }
+    }
+
+    if (opts.hasAwning !== false) {
+      var awnGeo = new THREE.CylinderGeometry(0.42, 0.42, opts.w * 0.76, 16, 1, false, 0, Math.PI * 0.5);
+      awnGeo.rotateZ(Math.PI / 2);
+      var awn = addOutlinedMesh(awnGeo, roofMat, outlineMat, 0.04, true, false);
+      awn.group.position.set(0, 1.35, opts.d / 2 + 0.02);
+      var door = addOutlinedMesh(new THREE.BoxGeometry(0.92, 1.28, 0.1), mats.winLit, outlineMat, 0.035, false, false);
+      door.group.position.set(0, 0.64, opts.d / 2 + 0.04);
+      g.add(awn.group, door.group);
+    }
+    return g;
+  }
+
+  function createKawaiiTree(mats, outlineMat, x, z, scale) {
+    var g = new THREE.Group();
+    g.position.set(x, 0, z);
+    g.scale.setScalar(scale || 1);
+    var trunk = addOutlinedMesh(new THREE.CylinderGeometry(0.2, 0.28, 1.2, 16), mats.trunk, outlineMat, 0.042);
+    trunk.group.position.set(0, 0.6, 0);
+    g.add(trunk.group);
+    [[0, 1.65, 0, 0.88, mats.foliage1], [0.42, 2.1, 0.15, 0.62, mats.foliage2], [-0.44, 1.98, -0.1, 0.58, mats.foliage2]].forEach(function (cr) {
+      var puff = addOutlinedMesh(new THREE.SphereGeometry(cr[3], 20, 20), cr[4], outlineMat, 0.044);
+      puff.group.position.set(cr[0], cr[1], cr[2]);
+      g.add(puff.group);
+    });
+    return g;
+  }
+
+  function createCuteRoundedCar(mats, outlineMat, bodyHex, roofHex, x0, laneZ, dir, speed) {
+    var g = new THREE.Group();
+    g.position.set(x0, 0, laneZ);
+    var chGeo = new THREE.SphereGeometry(0.65, 24, 18);
+    chGeo.scale(1.58, 0.62, 0.88);
+    var chassis = addOutlinedMesh(chGeo, new THREE.MeshLambertMaterial({ color: bodyHex }), outlineMat, 0.045);
+    chassis.group.position.set(0, 0.46, 0);
+    var cabGeo = new THREE.SphereGeometry(0.52, 24, 18);
+    cabGeo.scale(1.22, 0.72, 0.78);
+    var cabin = addOutlinedMesh(cabGeo, new THREE.MeshLambertMaterial({ color: roofHex }), outlineMat, 0.042);
+    cabin.group.position.set(-0.08 * dir, 0.78, 0);
+    var winGeo = new THREE.SphereGeometry(0.45, 20, 14);
+    winGeo.scale(1.08, 0.52, 0.83);
+    var winMesh = new THREE.Mesh(winGeo, mats.winGlass);
+    winMesh.position.set(-0.06 * dir, 0.8, 0);
+    g.add(chassis.group, cabin.group, winMesh);
+
+    var tireGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.2, 20);
+    tireGeo.rotateX(Math.PI / 2);
+    var hubGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.22, 16);
+    hubGeo.rotateX(Math.PI / 2);
+    [[-0.56, 0.5], [0.56, 0.5], [-0.56, -0.5], [0.56, -0.5]].forEach(function (w) {
+      var tMesh = new THREE.Mesh(tireGeo, mats.darkInk);
+      tMesh.position.set(w[0], 0.25, w[1]);
+      var hMesh = new THREE.Mesh(hubGeo, mats.shirt);
+      hMesh.position.set(w[0], 0.25, w[1]);
+      g.add(tMesh, hMesh);
+    });
+    return { group: g, x0: x0, speed: speed * dir };
+  }
+
   function buildChibiHero(mats, outlineMat) {
     var root = new THREE.Group();
     var bodyBounce = new THREE.Group();
@@ -131,8 +226,23 @@
     var headGroup = new THREE.Group();
     headGroup.position.set(0, 1.92, 0);
     bodyBounce.add(headGroup);
-    headGroup.add(new THREE.Mesh(createWavySpongeHeadGeometry(false), mats.spongeClay));
+    headGroup.add(new THREE.Mesh(createWavySpongeHeadGeometry(false), mats.sponge));
     headGroup.add(new THREE.Mesh(createWavySpongeHeadGeometry(true, 0.072), outlineMat));
+
+    [
+      [-0.98, 0.64, 0.115, 0.115, mats.pore, 0],
+      [0.64, 0.32, 0.105, 0.105, mats.pore, 0],
+      [-1.02, -0.54, 0.088, 0.088, mats.pore, 0],
+      [0.86, -0.52, 0.105, 0.105, mats.pore, 0],
+      [0.88, 0.74, 0.092, 0.082, mats.shirt, -0.3],
+      [1.05, 0.58, 0.046, 0.082, mats.shirt, -0.2]
+    ].forEach(function (pr) {
+      var dot = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), pr[4]);
+      dot.scale.set(pr[2], pr[3], 0.03);
+      dot.position.set(pr[0], pr[1], 0.61);
+      dot.rotation.z = pr[5];
+      headGroup.add(dot);
+    });
 
     var face = new THREE.Group();
     face.position.set(0, -0.1, 0.645);
@@ -151,28 +261,35 @@
     face.add(leftEye, rightEye);
 
     [-0.72, 0.72].forEach(function (cx) {
-      var cheek = new THREE.Mesh(new THREE.SphereGeometry(0.23, 20, 14), mats.blush);
+      var cheekGroup = new THREE.Group();
+      var cheek = new THREE.Mesh(new THREE.SphereGeometry(0.235, 20, 14), mats.blush);
       cheek.scale.set(1.08, 0.92, 0.15);
-      cheek.position.set(cx, -0.14, -0.01);
-      face.add(cheek);
+      cheekGroup.add(cheek);
+      [-0.055, 0.055].forEach(function (tx) {
+        var tick = new THREE.Mesh(new THREE.SphereGeometry(0.032, 12, 10), mats.blushTick);
+        tick.scale.set(0.75, 1.85, 0.5);
+        tick.position.set(tx, -0.01, 0.035);
+        tick.rotation.z = -0.15;
+        cheekGroup.add(tick);
+      });
+      cheekGroup.position.set(cx, -0.14, -0.01);
+      face.add(cheekGroup);
     });
 
+    var smilePts = [];
+    for (var si = 0; si <= 12; si++) {
+      var st = (si / 12) * 2 - 1;
+      smilePts.push(new THREE.Vector3(st * 0.092, (st * st - 1) * 0.065, 0));
+    }
+    var smileGroup = new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(smilePts), 16, 0.032, 10, false),
+      mats.darkInk
+    );
+    smileGroup.position.set(0, -0.04, 0.025);
     var talkMouth = new THREE.Mesh(new THREE.SphereGeometry(0.115, 20, 14), mats.darkInk);
-    talkMouth.scale.set(1.0, 0.65, 0.25);
+    talkMouth.scale.set(1.0, 0.85, 0.25);
     talkMouth.position.set(0, -0.08, 0.025);
-    face.add(talkMouth);
-
-    [
-      [-0.98, 0.64, 0.115],
-      [0.64, 0.32, 0.105],
-      [-1.02, -0.54, 0.088],
-      [0.86, -0.52, 0.105]
-    ].forEach(function (pr) {
-      var pore = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), mats.pore);
-      pore.scale.set(pr[2], pr[2], 0.03);
-      pore.position.set(pr[0], pr[1], 0.61);
-      headGroup.add(pore);
-    });
+    face.add(smileGroup, talkMouth);
 
     var torso = new THREE.Group();
     torso.position.set(0, 0.72, 0);
@@ -184,10 +301,25 @@
     pants.group.position.set(0, -0.2, 0);
     torso.add(pants.group);
 
-    // Coral diamond tie sculpted smoothly without spiky extrusions
+    var waist = new THREE.TorusGeometry(1.0, 0.03, 12, 48);
+    waist.rotateX(Math.PI / 2);
+    waist.scale(1.11, 1.0, 0.655);
+    var waistMesh = new THREE.Mesh(waist, mats.darkInk);
+    waistMesh.position.set(0, -0.02, 0);
+    torso.add(waistMesh);
+
+    [-0.56, -0.19, 0.19, 0.56].forEach(function (ang) {
+      var dPts = [];
+      for (var k = -3; k <= 3; k++) {
+        var a = ang + k * 0.025;
+        dPts.push(new THREE.Vector3(Math.sin(a) * 1.11, -0.15, Math.cos(a) * 0.725));
+      }
+      torso.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(dPts), 10, 0.024, 8, false), mats.darkInk));
+    });
+
     var tieGroup = new THREE.Group();
     tieGroup.position.set(0, 0.2, 0.72);
-    var tieKnot = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 14), mats.coralTie);
+    var tieKnot = addOutlinedMesh(new THREE.SphereGeometry(0.1, 16, 14), mats.coralTie, outlineMat, 0.025, false, false).group;
     tieKnot.scale.set(1.15, 0.9, 0.4);
     var tieBladeGeo = new THREE.SphereGeometry(1, 20, 16);
     var tbPos = tieBladeGeo.attributes.position;
@@ -204,16 +336,31 @@
     tieGroup.add(tieKnot, tieBlade);
     torso.add(tieGroup);
 
-    function makeLimb(x, y, geo, mat) {
+    function makeArm(side) {
       var g = new THREE.Group();
-      g.position.set(x, y, 0);
-      g.add(addOutlinedMesh(geo, mat, outlineMat, 0.045).group);
+      g.position.set(side * 1.02, 0.9, 0);
+      var sleeve = addOutlinedMesh(new THREE.SphereGeometry(0.19, 20, 18), mats.shirt, outlineMat, 0.045).group;
+      sleeve.scale.set(1.3, 0.9, 0.86);
+      sleeve.position.set(side * 0.15, -0.03, 0);
+      var hand = addOutlinedMesh(new THREE.SphereGeometry(0.165, 20, 20), mats.sponge, outlineMat, 0.045).group;
+      hand.position.set(side * 0.34, -0.08, 0);
+      g.add(sleeve, hand);
       return g;
     }
-    var leftArm = makeLimb(-1.12, 0.88, new THREE.SphereGeometry(0.22, 20, 20), mats.sponge);
-    var rightArm = makeLimb(1.12, 0.88, new THREE.SphereGeometry(0.22, 20, 20), mats.sponge);
-    var leftLeg = makeLimb(-0.44, 0.24, new THREE.SphereGeometry(0.24, 20, 20), mats.sponge);
-    var rightLeg = makeLimb(0.44, 0.24, new THREE.SphereGeometry(0.24, 20, 20), mats.sponge);
+    function makeLeg(side) {
+      var g = new THREE.Group();
+      g.position.set(side * 0.44, 0.34, 0);
+      var pipe = addOutlinedMesh(createSmoothTorsoPartGeometry(0.33, 0.3, 0.22, 0.82), mats.pants, outlineMat, 0.045).group;
+      var foot = addOutlinedMesh(new THREE.SphereGeometry(0.24, 20, 18), mats.sponge, outlineMat, 0.045).group;
+      foot.scale.set(1.05, 0.8, 0.88);
+      foot.position.set(0, -0.14, 0);
+      g.add(pipe, foot);
+      return g;
+    }
+    var leftArm = makeArm(-1);
+    var rightArm = makeArm(1);
+    var leftLeg = makeLeg(-1);
+    var rightLeg = makeLeg(1);
     bodyBounce.add(leftArm, rightArm, leftLeg, rightLeg);
 
     return {
@@ -222,6 +369,7 @@
       headGroup: headGroup,
       leftEye: leftEye,
       rightEye: rightEye,
+      smileGroup: smileGroup,
       talkMouth: talkMouth,
       leftArm: leftArm,
       rightArm: rightArm,
@@ -236,7 +384,6 @@
     var scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0xdbeafe, 0.008);
 
-    // Narrower portrait FOV frames vertical town + character cleanly on 1080x1920
     var camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 160);
     camera.position.set(0, 2.2, 13.5);
     camera.lookAt(0, 1.35, 0);
@@ -254,27 +401,30 @@
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.62));
-    var sun = new THREE.DirectionalLight(0xfffbeb, 0.48);
-    sun.position.set(10, 20, 15);
-    sun.castShadow = true;
-    scene.add(sun);
+    var sunLight = new THREE.DirectionalLight(0xfffbeb, 0.48);
+    sunLight.position.set(10, 20, 15);
+    sunLight.castShadow = true;
+    scene.add(sunLight);
 
     var outlineMat = new THREE.MeshBasicMaterial({ color: OUTLINE_COLOR, side: THREE.BackSide });
     var mats = {
       sponge: new THREE.MeshLambertMaterial({ color: 0xfef08a }),
-      spongeClay: createSoftClayMaterial(0xfef08a, 0xfde047, 0xfffbeb),
       pore: new THREE.MeshBasicMaterial({ color: 0xfacc15 }),
       shirt: new THREE.MeshLambertMaterial({ color: 0xffffff }),
       coralTie: new THREE.MeshLambertMaterial({ color: 0xfb7185 }),
       pants: new THREE.MeshLambertMaterial({ color: 0xc6a992 }),
       blush: new THREE.MeshBasicMaterial({ color: 0xfda4af }),
+      blushTick: new THREE.MeshBasicMaterial({ color: 0xf43f5e }),
       darkInk: new THREE.MeshBasicMaterial({ color: OUTLINE_COLOR }),
-      foliage: new THREE.MeshLambertMaterial({ color: 0x4ade80 }),
-      trunk: new THREE.MeshLambertMaterial({ color: 0x9a5b32 })
+      foliage1: new THREE.MeshLambertMaterial({ color: 0x4ade80 }),
+      foliage2: new THREE.MeshLambertMaterial({ color: 0x86efac }),
+      trunk: new THREE.MeshLambertMaterial({ color: 0x9a5b32 }),
+      winLit: new THREE.MeshBasicMaterial({ color: 0xfef08a }),
+      winGlass: new THREE.MeshBasicMaterial({ color: 0x7dd3fc })
     };
 
     var sidewalk = addOutlinedMesh(
-      new THREE.BoxGeometry(50, 0.24, 6.2),
+      new THREE.BoxGeometry(60, 0.24, 6.2),
       new THREE.MeshLambertMaterial({ color: 0xf1f5f9 }),
       outlineMat,
       0.04,
@@ -285,56 +435,52 @@
     scene.add(sidewalk.group);
 
     var road = new THREE.Mesh(
-      new THREE.PlaneGeometry(80, 5.2),
+      new THREE.PlaneGeometry(90, 5.4),
       new THREE.MeshLambertMaterial({ color: 0x64748b })
     );
     road.rotation.x = -Math.PI / 2;
-    road.position.set(0, 0.01, -3.7);
+    road.position.set(0, 0.01, -3.8);
     scene.add(road);
 
-    var buildings = [
-      [-6.8, -9.6, 4.2, 5.2, 3.4, 0x93c5fd, 0x0284c7],
-      [-1.8, -10.0, 4.4, 4.5, 3.4, 0xd8b4fe, 0x7c3aed],
-      [3.6, -9.6, 4.2, 4.9, 3.4, 0xfdba74, 0xea580c]
-    ];
-    buildings.forEach(function (b) {
-      var bg = new THREE.Group();
-      bg.position.set(b[0], 0, b[1]);
-      var body = addOutlinedMesh(
-        new THREE.BoxGeometry(b[2], b[3], b[4]),
-        new THREE.MeshLambertMaterial({ color: b[5] }),
-        outlineMat,
-        0.055
-      );
-      body.group.position.set(0, b[3] / 2, 0);
-      var roof = addOutlinedMesh(
-        new THREE.BoxGeometry(b[2] + 0.35, 0.38, b[4] + 0.35),
-        new THREE.MeshLambertMaterial({ color: b[6] }),
-        outlineMat,
-        0.05
-      );
-      roof.group.position.set(0, b[3] + 0.19, 0);
-      bg.add(body.group, roof.group);
-      scene.add(bg);
+    for (var zc = -2; zc <= 2; zc++) {
+      var zebra = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.42), mats.shirt);
+      zebra.rotation.x = -Math.PI / 2;
+      zebra.position.set(-4.2, 0.025, -3.8 + zc * 0.65);
+      scene.add(zebra);
+    }
+
+    [
+      { x: -11.5, z: -9.8, w: 4.2, h: 4.6, d: 3.4, bodyHex: 0xfda4af, roofHex: 0xe11d48 },
+      { x: -6.5, z: -9.8, w: 4.4, h: 5.2, d: 3.6, bodyHex: 0x93c5fd, roofHex: 0x0284c7 },
+      { x: -1.3, z: -10.2, w: 4.6, h: 4.3, d: 3.6, bodyHex: 0xd8b4fe, roofHex: 0x7c3aed },
+      { x: 4.0, z: -9.8, w: 4.4, h: 4.8, d: 3.6, bodyHex: 0xfdba74, roofHex: 0xea580c },
+      { x: 9.2, z: -9.6, w: 4.2, h: 4.5, d: 3.4, bodyHex: 0x86efac, roofHex: 0x16a34a }
+    ].forEach(function (cfg) {
+      scene.add(createKawaiiBuilding(mats, outlineMat, cfg));
     });
 
     [-4.8, 4.8].forEach(function (tx) {
-      var tree = new THREE.Group();
-      tree.position.set(tx, 0, -0.2);
-      var trunk = addOutlinedMesh(new THREE.CylinderGeometry(0.18, 0.25, 1.1, 16), mats.trunk, outlineMat, 0.04);
-      trunk.group.position.set(0, 0.55, 0);
-      var crown = addOutlinedMesh(new THREE.SphereGeometry(0.85, 20, 20), mats.foliage, outlineMat, 0.045);
-      crown.group.position.set(0, 1.55, 0);
-      tree.add(trunk.group, crown.group);
-      scene.add(tree);
+      scene.add(createKawaiiTree(mats, outlineMat, tx, 0.4, 0.92));
+      var bench = addOutlinedMesh(
+        new THREE.BoxGeometry(1.4, 0.14, 0.5),
+        new THREE.MeshLambertMaterial({ color: 0xe6b89c }),
+        outlineMat,
+        0.03
+      );
+      bench.group.position.set(tx * 1.25, 0.38, 0.9);
+      scene.add(bench.group);
     });
+
+    var sunMesh = addOutlinedMesh(new THREE.SphereGeometry(1.35, 24, 24), mats.winLit, outlineMat, 0.06, false, false).group;
+    sunMesh.position.set(5.5, 9.5, -17.0);
+    scene.add(sunMesh);
 
     var clouds = [
       { x0: -5.5, y: 7.4, z: -13.5, speed: 0.35, group: new THREE.Group() },
-      { x0: 4.5, y: 8.1, z: -14.5, speed: 0.25, group: new THREE.Group() }
+      { x0: 4.5, y: 8.2, z: -14.5, speed: 0.25, group: new THREE.Group() }
     ];
     clouds.forEach(function (cl) {
-      [[0, 0, 1.0], [-0.8, -0.1, 0.72], [0.8, -0.1, 0.75]].forEach(function (p) {
+      [[0, 0, 1.0], [-0.82, -0.1, 0.72], [0.82, -0.1, 0.75]].forEach(function (p) {
         var puff = addOutlinedMesh(new THREE.SphereGeometry(p[2], 20, 20), mats.shirt, outlineMat, 0.05, false, false);
         puff.group.position.set(p[0], p[1], 0);
         cl.group.add(puff.group);
@@ -343,18 +489,14 @@
       scene.add(cl.group);
     });
 
-    var carGroup = new THREE.Group();
-    carGroup.add(
-      addOutlinedMesh(
-        new THREE.SphereGeometry(0.65, 24, 18),
-        new THREE.MeshLambertMaterial({ color: 0xff8fab }),
-        outlineMat,
-        0.045
-      ).group
-    );
-    carGroup.scale.set(1.55, 0.75, 0.85);
-    carGroup.position.set(-8, 0.45, -2.9);
-    scene.add(carGroup);
+    var cars = [
+      createCuteRoundedCar(mats, outlineMat, 0xff8fab, 0xfff0f3, -9, -2.9, 1, 2.9),
+      createCuteRoundedCar(mats, outlineMat, 0x7dd3fc, 0xf0f9ff, 7, -4.8, -1, 3.2),
+      createCuteRoundedCar(mats, outlineMat, 0xfde047, 0xfefce8, 2, -2.9, 1, 2.5)
+    ];
+    cars.forEach(function (c) {
+      scene.add(c.group);
+    });
 
     var hero = buildChibiHero(mats, outlineMat);
     hero.root.position.set(0, 0, 1.8);
@@ -366,7 +508,7 @@
       renderer: renderer,
       hero: hero,
       clouds: clouds,
-      carGroup: carGroup,
+      cars: cars,
       projectHead: function () {
         var v = new THREE.Vector3();
         hero.headGroup.getWorldPosition(v);
@@ -386,6 +528,9 @@
     createWavySpongeHeadGeometry: createWavySpongeHeadGeometry,
     createSmoothTorsoPartGeometry: createSmoothTorsoPartGeometry,
     createSoftClayMaterial: createSoftClayMaterial,
+    createKawaiiBuilding: createKawaiiBuilding,
+    createKawaiiTree: createKawaiiTree,
+    createCuteRoundedCar: createCuteRoundedCar,
     initStage: initStage
   };
 })();
