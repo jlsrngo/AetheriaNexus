@@ -1,4 +1,4 @@
-import { NexusVideoProps } from "../remotion/types";
+import type { NexusVideoProps } from "./video";
 
 export type StudioThemeColor = "orange" | "emerald" | "violet" | "rose" | "amber" | "cyan";
 

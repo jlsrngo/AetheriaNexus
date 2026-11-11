@@ -334,19 +334,10 @@
   color: var(--text-primary) !important;
 }
 
-/* Nexus Video Player Swiss Brutalism Controls */
-div[data-remotion-player] {
-  border-radius: 0 !important;
-  font-family: 'JetBrains Mono', monospace !important;
-}
-
-div[data-remotion-player] button {
-  border-radius: 0 !important;
-  transition: none !important;
-}
-
-div[data-remotion-player] input[type="range"] {
-  border-radius: 0 !important;
+/* Aetheria HTML Motion Player Controls */
+div[data-html-motion-player] {
+  border-radius: 12px;
+  font-family: 'Inter', system-ui, sans-serif;
 }
 
 /* Hide scrollbar for Chrome, Safari, Edge, Firefox */
