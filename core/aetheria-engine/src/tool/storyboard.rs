@@ -180,7 +180,9 @@ pub async fn execute_produce_video(
     );
     let master_wav_path = audio_dir.join("sb_master_audio.wav");
     let mixer_script = root.join("core").join("voicebox").join("storyboard_mixer.py");
-    let mix_status = Command::new("python")
+    let mut mix_cmd = Command::new("python");
+    crate::paths::configure_hidden_std_command(&mut mix_cmd);
+    let mix_status = mix_cmd
         .arg(&mixer_script)
         .arg("--resolved-json")
         .arg(&resolved_json_path)
@@ -233,7 +235,9 @@ pub async fn execute_produce_video(
             let dur = sc.get("durationSec").and_then(Value::as_f64).unwrap_or(4.0);
             let mid = st + dur * 0.55;
             let snap_path = out_dir.join(format!("qa_scene_{}.png", idx));
-            let _ = Command::new(&ffmpeg_bin)
+            let mut ff_cmd = Command::new(&ffmpeg_bin);
+            crate::paths::configure_hidden_std_command(&mut ff_cmd);
+            let _ = ff_cmd
                 .args([
                     "-y",
                     "-ss",

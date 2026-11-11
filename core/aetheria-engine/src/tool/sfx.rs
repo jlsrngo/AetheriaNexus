@@ -48,6 +48,7 @@ pub async fn execute_smart_sfx(_workspace_dir: &str, arguments: &Value) -> Value
     let root = crate::paths::project_root();
 
     let mut py_cmd = Command::new("python");
+    crate::paths::configure_hidden_tokio_command(&mut py_cmd);
     py_cmd.arg("-c")
         .arg(format!(
             r#"

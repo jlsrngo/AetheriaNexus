@@ -92,7 +92,7 @@ pub fn voicebox_tool_definition() -> Value {
                     },
                     "refAudio": {
                         "type": "string",
-                        "description": "Optional reference audio inside active project folder (e.g. 'audio/ref_voice.wav'). Analyzed for register/pitch; only cloned when cloneVoice=true."
+                        "description": "Optional reference audio inside active project folder (e.g. 'ref/ref_voice.wav'). Analyzed for register/pitch; only cloned when cloneVoice=true."
                     },
                     "rate": {
                         "type": "string",
@@ -174,6 +174,7 @@ pub async fn execute_voicebox(workspace_dir: &str, arguments: &Value) -> Value {
     let script_path = root.join("core").join("voicebox").join("voicebox_engine.py");
 
     let mut cmd = Command::new("python");
+    crate::paths::configure_hidden_tokio_command(&mut cmd);
     cmd.arg(&script_path)
         .arg("--text")
         .arg(text)

@@ -27,13 +27,12 @@ pub fn get_oauth_status(request_id: &str) -> Option<OauthResult> {
 pub fn open_browser_url(url: &str) {
     #[cfg(windows)]
     {
-        if let Err(_) = std::process::Command::new("cmd")
-            .args(["/c", "start", "", url])
-            .spawn()
-        {
-            let _ = std::process::Command::new("rundll32.exe")
-                .args(["url.dll,FileProtocolHandler", url])
-                .spawn();
+        let mut cmd = std::process::Command::new("cmd");
+        crate::paths::configure_hidden_std_command(&mut cmd);
+        if let Err(_) = cmd.args(["/c", "start", "", url]).spawn() {
+            let mut fallback = std::process::Command::new("rundll32.exe");
+            crate::paths::configure_hidden_std_command(&mut fallback);
+            let _ = fallback.args(["url.dll,FileProtocolHandler", url]).spawn();
         }
     }
     #[cfg(not(windows))]

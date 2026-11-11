@@ -49,7 +49,9 @@ pub async fn process_social_links(
                                     let _ = std::fs::write(&mp4_path, &vid_bytes);
                                     let ff_cmd = ffmpeg_bin
                                         .unwrap_or_else(|| Path::new("ffmpeg"));
-                                    let _ = std::process::Command::new(ff_cmd)
+                                    let mut ff_audio = std::process::Command::new(ff_cmd);
+                                    crate::paths::configure_hidden_std_command(&mut ff_audio);
+                                    let _ = ff_audio
                                         .args([
                                             "-y",
                                             "-i",
@@ -68,7 +70,9 @@ pub async fn process_social_links(
                                     for (idx, ts) in ["00:00:01", "00:00:04", "00:00:14"].iter().enumerate() {
                                         let frame_jpg = std::env::temp_dir()
                                             .join(format!("aetheria_tiktok_ref_{}.jpg", idx));
-                                        let _ = std::process::Command::new(ff_cmd)
+                                        let mut ff_frame = std::process::Command::new(ff_cmd);
+                                        crate::paths::configure_hidden_std_command(&mut ff_frame);
+                                        let _ = ff_frame
                                             .args([
                                                 "-y",
                                                 "-ss",

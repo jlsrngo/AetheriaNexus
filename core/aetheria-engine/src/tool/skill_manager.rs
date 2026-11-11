@@ -208,6 +208,7 @@ pub async fn execute_install_plugin(workspace_dir: &str, arguments: &Value) -> V
 
     if is_git {
         let mut git_cmd = Command::new("git");
+        crate::paths::configure_hidden_tokio_command(&mut git_cmd);
         git_cmd.arg("clone").arg("--depth").arg("1");
         if let Some(ref branch) = parsed.branch_or_tag {
             git_cmd.arg("--branch").arg(branch);
@@ -217,6 +218,7 @@ pub async fn execute_install_plugin(workspace_dir: &str, arguments: &Value) -> V
         match git_cmd.output().await {
             Ok(output) if output.status.success() => {
                 let mut rev_cmd = Command::new("git");
+                crate::paths::configure_hidden_tokio_command(&mut rev_cmd);
                 rev_cmd.arg("-C").arg(&target_dir).arg("rev-parse").arg("HEAD");
                 let commit_hash = rev_cmd.output().await.ok().and_then(|o| {
                     if o.status.success() {
@@ -319,11 +321,13 @@ pub async fn execute_update_plugin(workspace_dir: &str, arguments: &Value) -> Va
     }
 
     let mut pull_cmd = Command::new("git");
+    crate::paths::configure_hidden_tokio_command(&mut pull_cmd);
     pull_cmd.arg("-C").arg(&plugin_dir).arg("pull");
 
     match pull_cmd.output().await {
         Ok(out) if out.status.success() => {
             let mut rev_cmd = Command::new("git");
+            crate::paths::configure_hidden_tokio_command(&mut rev_cmd);
             rev_cmd.arg("-C").arg(&plugin_dir).arg("rev-parse").arg("HEAD");
             let commit_hash = rev_cmd.output().await.ok().and_then(|o| {
                 if o.status.success() {

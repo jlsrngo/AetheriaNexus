@@ -41,7 +41,9 @@ pub async fn handle_open_url(Json(body): Json<Value>) -> Response {
     if raw_url.starts_with("http://") || raw_url.starts_with("https://") {
         #[cfg(windows)]
         {
-            let _ = std::process::Command::new("cmd")
+            let mut cmd = std::process::Command::new("cmd");
+            crate::paths::configure_hidden_std_command(&mut cmd);
+            let _ = cmd
                 .args(["/c", "start", "", raw_url])
                 .spawn();
         }
@@ -185,7 +187,9 @@ pub async fn handle_desktop_notify(Json(payload): Json<Value>) -> impl IntoRespo
                 }} catch {{}}",
                 icon_win_escaped, t_xml, b_xml, icon_uri_escaped
             );
-            let _ = std::process::Command::new("powershell").args(["-NoProfile", "-Command", &script]).spawn();
+            let mut ps = std::process::Command::new("powershell");
+            crate::paths::configure_hidden_std_command(&mut ps);
+            let _ = ps.args(["-NoProfile", "-Command", &script]).spawn();
         }
     });
 

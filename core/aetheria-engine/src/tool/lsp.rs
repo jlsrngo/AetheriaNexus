@@ -59,7 +59,9 @@ pub fn execute_lsp(workspace_dir: &str, arguments: &Value) -> Value {
             Err(e) => json!({ "ok": false, "diagnostics": [e.to_string()], "output": format!("JSON syntax error: {}", e) }),
         },
         "js" | "mjs" | "cjs" => {
-            let out = Command::new("node").arg("--check").arg(&target).output();
+            let mut node_cmd = Command::new("node");
+            crate::paths::configure_hidden_std_command(&mut node_cmd);
+            let out = node_cmd.arg("--check").arg(&target).output();
             match out {
                 Ok(o) if o.status.success() => {
                     json!({ "ok": true, "diagnostics": [], "output": "JavaScript syntax check passed (0 errors)." })

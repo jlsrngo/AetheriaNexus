@@ -335,6 +335,7 @@ pub async fn handle_test_voice_preset(
 
     let script_path = root.join("core").join("voicebox").join("voicebox_engine.py");
     let mut cmd = Command::new("python");
+    crate::paths::configure_hidden_tokio_command(&mut cmd);
     cmd.arg(&script_path)
         .arg("--text")
         .arg(text)

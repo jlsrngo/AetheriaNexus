@@ -32,7 +32,9 @@ pub fn load_store() -> SessionStoreData {
     // Auto-migrate from SQLite Aetheria-local.db if available
     let db_path = aetheria_data_dir().join("Aetheria-local.db");
     if db_path.exists() {
-        let _ = std::process::Command::new("bun")
+        let mut migrate_cmd = std::process::Command::new("bun");
+        crate::paths::configure_hidden_std_command(&mut migrate_cmd);
+        let _ = migrate_cmd
             .arg("scripts/migrate-sqlite-to-json.cjs")
             .output();
         if let Ok(raw) = std::fs::read_to_string(&p) {

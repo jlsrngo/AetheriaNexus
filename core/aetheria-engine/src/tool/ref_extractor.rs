@@ -63,6 +63,7 @@ pub async fn execute_ref_extractor(workspace_dir: &str, arguments: &Value) -> Va
     let script_path = root.join("core").join("ref_extractor").join("ref_extractor.py");
 
     let mut cmd = Command::new("python");
+    crate::paths::configure_hidden_tokio_command(&mut cmd);
     cmd.arg(&script_path)
         .arg(&video_path)
         .arg(&out_dir);

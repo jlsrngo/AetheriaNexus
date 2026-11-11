@@ -297,3 +297,25 @@ pub fn log_engine(category: &str, message: &str) {
         let _ = writeln!(f, "{}", line);
     }
 }
+
+#[cfg(windows)]
+pub const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+/// Configures a `std::process::Command` so background child processes do not open a console window on Windows.
+pub fn configure_hidden_std_command(cmd: &mut std::process::Command) -> &mut std::process::Command {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd
+}
+
+/// Configures a `tokio::process::Command` so background child processes do not open a console window on Windows.
+pub fn configure_hidden_tokio_command(
+    cmd: &mut tokio::process::Command,
+) -> &mut tokio::process::Command {
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd
+}

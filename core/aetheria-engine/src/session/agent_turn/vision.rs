@@ -81,7 +81,9 @@ pub fn process_attached_files(
                     if std::fs::write(&vid_path, &bytes).is_ok() {
                         if let Some(ff) = ffmpeg_bin {
                             // Extract reference voice audio track (24kHz mono WAV)
-                            let _ = std::process::Command::new(ff)
+                            let mut ff_audio = std::process::Command::new(ff);
+                            crate::paths::configure_hidden_std_command(&mut ff_audio);
+                            let _ = ff_audio
                                 .args([
                                     "-y",
                                     "-hide_banner",
@@ -101,7 +103,9 @@ pub fn process_attached_files(
                             // Extract 3 visual style keyframes (1s, 3s, 6s) for Vision LLM
                             for (idx, ts) in ["00:00:01", "00:00:03", "00:00:06"].iter().enumerate() {
                                 let frame_jpg = ref_dir.join(format!("ref_frame_{}.jpg", idx + 1));
-                                if std::process::Command::new(ff)
+                                let mut ff_frame = std::process::Command::new(ff);
+                                crate::paths::configure_hidden_std_command(&mut ff_frame);
+                                if ff_frame
                                     .args([
                                         "-y",
                                         "-hide_banner",
@@ -154,7 +158,9 @@ pub fn process_attached_files(
                     let ref_wav = ref_dir.join("ref_voice.wav");
                     if std::fs::write(&raw_audio, &bytes).is_ok() {
                         if let Some(ff) = ffmpeg_bin {
-                            let _ = std::process::Command::new(ff)
+                            let mut ff_norm = std::process::Command::new(ff);
+                            crate::paths::configure_hidden_std_command(&mut ff_norm);
+                            let _ = ff_norm
                                 .args([
                                     "-y",
                                     "-hide_banner",
