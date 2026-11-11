@@ -44,16 +44,15 @@ Every component — diorama environment, pastel buildings, props, UI bento cards
 - **Secondary Optional — Landscape 16:9 (Only if explicitly requested)**: `1920×1080`, `30 fps`, `60.0s – 120.0s`.
 
 # Vertical 9:16 Spatial Layout Contract (1080×1920 Mobile Standard)
-When building Portrait `1080×1920` scenes, compose BOTH the 3D camera framing (`PerspectiveCamera` FOV/distance) AND the 2D HUD `<canvas>` (`AM.drawTopHeader`, `AM.drawHeadlinePlaque`, `AM.drawSubtitles`) inside these safe zones:
+When building Portrait `1080×1920` scenes, keep the 3D sky and diorama unobstructed (**DO NOT** call `AM.drawTopHeader` or dark `AM.drawHeadlinePlaque` bars!). Compose the 3D camera framing (`PerspectiveCamera` FOV/distance) and 2D HUD `<canvas>` (`AM.drawSubtitles` + speech bubbles) inside these safe zones:
 
 | Zone ID | Vertical Span (Y) | Component Type | Constraints & Styling |
 | :--- | :--- | :--- | :--- |
-| **Zone 0** | `Y: 60 – 240px` | Chapter Progress Bar & Topic Pill | Monospace/clean chapter header via `AM.drawTopHeader` (`Y: 70`). Anchor corner badges left/right (`64px` margin) — never occlude the 3D sky/hero! |
+| **Zone 0** | `Y: 60 – 240px` | Clean Sky / Floating Atmosphere | Keep free of dark header bars (`AM.drawTopHeader` is FORBIDDEN here). Only sky, sun, clouds, or subtle story badge if truly needed. |
 | **Zone 1** | `Y: 260 – 920px` | 3D Pastel Diorama Backdrop Stage | Sky gradient (`#93C5FD -> #E0F2FE`), fluffy clouds, pastel buildings with rounded roofs/awnings, trees, capsule cars, or tilted 3D clay bento stage behind the subject. |
 | **Zone 2** | `Y: 340 – 1050px` | Primary 3D Visual Anchor | Chibi mascot (`createWavySpongeHeadGeometry` + `createSmoothTorsoPartGeometry`) or 3D clay prop/chart framed cleanly in the middle-upper viewport (`camera.aspect = 1080 / 1920`). |
-| **Zone 3** | `Y: 880 – 1100px` | 3D-to-2D Connectors & Micro-Props | Projected Canvas 2D speech bubbles (`vector3.project(camera)`), floating clay arrows, deterministic sparkle/dust puffs bridging hero to headline. |
-| **Zone 4** | `Y: 1100 – 1380px` | Bold Narrative Headline Plaque | Rendered via `AM.drawHeadlinePlaque` or kawaii rounded card (`#FFFDF9`, warm border `#594637`, hard offset shadow), uppercase bold title (`64–76px`). |
-| **Zone 5** | `Y: 1500 – 1720px` | Kinetic Voiceover Subtitles (Hormozi) | Synced word chips rendered from `/audio/*.words.json` via `AM.drawSubtitles` (`bottom: 200–240px`), crisp stroke/pill with `#FFDE59` or `#F5D0FE` active pop. |
+| **Zone 3** | `Y: 880 – 1100px` | 3D-to-2D Connectors & Speech Bubbles | Projected Canvas 2D kawaii speech bubbles (`vector3.project(camera)`), floating clay arrows, deterministic sparkle/dust puffs — ZERO dark headline boxes blocking the sidewalk. |
+| **Zone 4** | `Y: 1440 – 1700px` | Neobrutalism 1/1 Word Subtitles | Synced **1 word at a time** from `/audio/*.words.json` via `AM.drawSubtitles(hudCtx, scene._words, localTime, { style: "neobrutalism", wordsPerGroup: 1, ... })` using skill `tokens.json` colors (`palette`, border `#594637`, hard offset shadow `8px`). |
 | **Deadzone**| `Y > 1750px` & `X > 960px` | TikTok / Reels UI Exclusion Zone | NEVER place critical text, props, or character faces in the bottom 180px or extreme right rail. |
 
 # Long-Form Pacing & 5-Act Storytelling Architecture (60s – 120s)
@@ -80,10 +79,9 @@ Use **project-relative paths only** (NEVER hardcode `workspace/` prefixes):
 4. **Stage Shell (`index.html`)**:
    - Dual fixed `1080×1920` layer stack: `<canvas id="stage-webgl" width="1080" height="1920">` + `<canvas id="stage-hud" width="1080" height="1920">`.
    - WebGL context MUST enable `preserveDrawingBuffer: true` (`new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true })`) so headless Chromium CDP screenshots never capture blank WebGL buffers.
-   - Load `/script/aetheria-motion.js`, `/script/clay-kit.js`, and `/script/scene1.js` .. `/script/sceneN.js` in `<head>`.
-   - Note on `Three.js`: Aetheria static server only bundles `/script/aetheria-motion.js` and `/sfx/*` locally. Either vendor `three.min.js` at project-local `script/three.min.js` for 100% offline guarantee, or load Three.js r128 with a safe `typeof THREE === "undefined"` 2D soft-clay Canvas fallback so rendering never throws blank errors.
+   - Load `/script/three.min.js`, `/script/aetheria-motion.js`, `/script/clay-kit.js`, and `/script/scene1.js` .. `/script/sceneN.js` in `<head>`. Both `/script/three.min.js` (Three.js r128) and `/script/aetheria-motion.js` are bundled offline natively in Aetheria Engine — zero internet or external CDN required! Still guard with `typeof THREE === "undefined"` fallback if needed.
    - Define `SCENES` (referencing `/audio/sceneK.wav` and `/audio/sceneK.words.json`) and `window.__filmMeta = { title, width: 1080, height: 1920, fps: 30, duration, durationInFrames, scenes: SCENES }`.
-   - Expose deterministic `window.renderAt = function(t) { ... }` updating both Three.js WebGL `renderer.render(scene3d, camera)` and Canvas 2D HUD (`AM.drawTopHeader`, `AM.drawHeadlinePlaque`, `AM.drawSubtitles`). Call `window.renderAt(0); window.__ready = true;` after preloading `*.words.json`.
+   - Expose deterministic `window.renderAt = function(t) { ... }` updating both Three.js WebGL `renderer.render(scene3d, camera)` and Canvas 2D HUD **using Neobrutalism 1-by-1 word subtitles** synced to `scene._words` (`AM.drawSubtitles(hudCtx, scene._words || [], localTime, { style: "neobrutalism", wordsPerGroup: 1, palette: ["#FFDE59", "#BAE6FD", "#FDA4AF", "#F5D0FE", "#FFFDF9"], textColor: "#2B2118", borderColor: "#594637", shadowColor: "#594637", borderWidth: 6, shadowOffsetX: 8, shadowOffsetY: 8, radius: 16, tiltDeg: 2.0, uppercase: true, fontSize: 72, y: 1580 })`). **NEVER** call `AM.drawTopHeader` or dark `AM.drawHeadlinePlaque`! Call `window.renderAt(0); window.__ready = true;` after preloading `*.words.json`.
 
 # Signature Techniques (Derived from Kawaii 3D Town & Soft-Clay Spec)
 1. **Smooth Averaged-Normal Ink Outlines (`#594637`)**:
@@ -102,7 +100,7 @@ Use **project-relative paths only** (NEVER hardcode `workspace/` prefixes):
 - [ ] Zero `Math.random()`, `Date.now()`, `performance.now()`, `requestAnimationFrame`, `setInterval`, or `setTimeout` in `index.html` and `script/*.js`.
 - [ ] Frame at `t = 0.0` is fully composed (no empty sky, no splash/loading overlay blocking stage).
 - [ ] `node --check` passes cleanly on `script/clay-kit.js` and every `script/scene*.js`.
-- [ ] Zones 0, 4, 5 and bottom/right TikTok deadzones have zero overlap with main 3D character faces or props.
+- [ ] Zone 4 (Neobrutalism 1/1 word subtitles) and bottom/right TikTok deadzones have zero overlap with main 3D character faces or props, and NO `AM.drawTopHeader` / `AM.drawHeadlinePlaque` dark overlays appear.
 
 # Deliver
 Complete modular project (`index.html`, `script/clay-kit.js`, `script/scene1.js`..`sceneN.js`, `audio/*.wav`, `audio/*.words.json`), plus a concise director breakdown covering the 5 acts, scene components, lighting/outline setup, and verified metrics (`width`, `height`, `fps`, `duration`).

@@ -83,5 +83,29 @@ describe("HtmlFilmStage utilities", () => {
     expect(html).toContain('data-script="scene1.js"');
     expect(html).toContain("window.__sceneLoaded = true;");
   });
+
+  it("strips external Three.js CDN script tags when offline three.min.js is already bundled", () => {
+    const html = prepareInjectedHtml({
+      exists: true,
+      activeDir: "D:/Projects/Film3D",
+      filmRoot: "D:/Projects/Film3D",
+      title: "3D WebGL Film",
+      width: 1080,
+      height: 1920,
+      fps: 30,
+      duration: 8,
+      totalFrames: 240,
+      scenes: [],
+      rawHtml:
+        '<!DOCTYPE html><html><head><script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script><script src="/script/scene1.js"></script></head><body><canvas id="c"></canvas></body></html>',
+      scripts: [
+        { name: "three.min.js", relativePath: "script/three.min.js", code: "window.THREE={};" },
+        { name: "scene1.js", relativePath: "script/scene1.js", code: "window.__ok=true;" },
+      ],
+    });
+
+    expect(html).not.toContain("cdnjs.cloudflare.com");
+    expect(html).toContain('data-script="three.min.js"');
+  });
 });
 

@@ -95,12 +95,9 @@ pub fn resolve_active_html_film_path(explicit_dir: Option<&str>) -> Option<PathB
 }
 
 fn load_engine_motion_runtime() -> Option<String> {
-    let path = crate::paths::project_root()
-        .join("apps")
-        .join("public")
-        .join("script")
-        .join("aetheria-motion.js");
-    std::fs::read_to_string(path).ok()
+    Some(super::builtin_runtime::resolve_motion_runtime_code(
+        &crate::paths::project_root(),
+    ))
 }
 
 /// GET/POST /api/studio/film-meta
@@ -137,14 +134,31 @@ pub async fn handle_film_bundle(
     };
 
     let meta = inspect_workspace_film(&path);
-    let raw_html = std::fs::read_to_string(&path).unwrap_or_default();
+    let raw_html_disk = std::fs::read_to_string(&path).unwrap_or_default();
     let ordered = collect_ordered_script_files(&path);
+
+    let has_three_lib = ordered
+        .iter()
+        .any(|(name, _, _)| name.eq_ignore_ascii_case("three.min.js") || name.eq_ignore_ascii_case("three.js"));
+    let needs_three = !has_three_lib && super::builtin_runtime::uses_three_runtime(&raw_html_disk, &ordered);
+    let raw_html = if needs_three || has_three_lib {
+        super::builtin_runtime::rewrite_three_cdn_tags(&raw_html_disk, None)
+    } else {
+        raw_html_disk
+    };
 
     let has_motion_lib = ordered
         .iter()
         .any(|(name, _, _)| name.eq_ignore_ascii_case("aetheria-motion.js"));
 
-    let mut scripts: Vec<FilmScriptAsset> = Vec::with_capacity(ordered.len() + 1);
+    let mut scripts: Vec<FilmScriptAsset> = Vec::with_capacity(ordered.len() + 2);
+    if needs_three {
+        scripts.push(FilmScriptAsset {
+            name: "three.min.js".to_string(),
+            relative_path: "script/three.min.js".to_string(),
+            code: super::builtin_runtime::THREE_MIN_JS.to_string(),
+        });
+    }
     if !has_motion_lib {
         if let Some(builtin_am) = load_engine_motion_runtime() {
             scripts.push(FilmScriptAsset {
@@ -216,7 +230,11 @@ pub async fn handle_film_html(
             .into_response();
     };
 
-    let mut html = std::fs::read_to_string(&path).unwrap_or_default();
+    let raw_html = std::fs::read_to_string(&path).unwrap_or_default();
+    let mut html = super::builtin_runtime::rewrite_three_cdn_tags(
+        &raw_html,
+        Some("/api/studio/ws-asset/script/three.min.js"),
+    );
     if !html.contains("aetheria-motion.js") {
         let tag = "<script src=\"/api/studio/ws-asset/script/aetheria-motion.js\"></script>\n";
         if let Some(head_idx) = html.find("</head>") {

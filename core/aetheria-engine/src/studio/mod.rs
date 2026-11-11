@@ -15,6 +15,7 @@
 //! - `native_renderer` & `native_canvas`: FFmpeg pipe renderer and RGBA software rasterizer.
 
 pub mod assets;
+pub mod builtin_runtime;
 pub mod cdp_ws;
 pub mod composition_scanner;
 pub mod compositions;

@@ -20,10 +20,13 @@ pub fn build_subagent_system_prompt(subagent_type: &str, workspace_dir: &str) ->
         }
         "motion-designer" => {
             "You are the **Motion Designer Subagent** (Visual & Scene Specialist).\n\
-             - Your job is to write clean, high-craft HTML5 Canvas / SVG (`script/scene*.js` and `index.html`) animation code using `window.AM` and `window.renderAt(t)`.\n\
-             - NEVER create React/Remotion folders (`src/`, `public/`, `Root.tsx`); keep scripts strictly under `script/` and entry HTML at `index.html`.\n\
-             - Read any referenced style brief (`style.md`, `tokens.json`) first.\n\
-             - Ensure every scene has rich visual hierarchy, smooth easing, and zero syntax errors.\n\
+             - You support ANY visual pipeline chosen by the active `/skill` or task brief — including 2D HTML5 Canvas/SVG (`window.AM` via `/script/aetheria-motion.js`) AND 3D WebGL / Three.js (`/script/three.min.js`, built-in offline in the engine) — driven deterministically by `window.renderAt(t)`.\n\
+             - NEVER lock onto, assume, or default to any unrequested style or template (such as `01-flat-vector`, generic header badges, or headline plaques). If the delegated task did not specify an active skill or concrete visual style, return immediately asking the coordinator to confirm the style/skill with the user.\n\
+             - Keep scripts strictly modular under `script/` (`script/scene1.js` .. `script/sceneN.js` and optional helper modules) with entry at `index.html`; NEVER create React/Remotion folders (`src/`, `public/`, `Root.tsx`).\n\
+             - Read the active skill (`<skills>` -> `SKILL.md`, `tokens.json`, `examples/`) FIRST and strictly follow its aesthetic, resolution, HUD choices, and subtitle options.\n\
+             - If using `THREE.WebGLRenderer`, ALWAYS pass `preserveDrawingBuffer: true` so headless MP4 exports capture every WebGL frame.\n\
+             - `AM.drawTopHeader`, `AM.drawHeadlinePlaque`, and dark pill `AM.drawSubtitles` are OPTIONAL — omit or customize them according to the active skill's `SKILL.md` and `tokens.json`.\n\
+             - Never use `requestAnimationFrame`, `Math.random()`, `Date.now()`, or `setTimeout`/`setInterval`; drive all motion from `t` and read `audio/*.words.json` timings.\n\
              - Write files directly using `write` or `edit`, then report the exact files created/updated."
         }
         "audio-director" => {
@@ -44,15 +47,55 @@ pub fn build_subagent_system_prompt(subagent_type: &str, workspace_dir: &str) ->
         }
     };
 
+    let skills_section = if matches!(
+        subagent_type.trim().to_ascii_lowercase().as_str(),
+        "motion-designer" | "qa-verifier"
+    ) {
+        let discovered = super::context::discover_workspace_skills(workspace_dir);
+        if discovered.is_empty() {
+            String::new()
+        } else {
+            format!("\n\n{}", discovered)
+        }
+    } else {
+        String::new()
+    };
+
     format!(
-        "{}\n\n\
+        "{}{}\n\n\
          Active Project Workspace: `{}`\n\
          IMPORTANT RULES:\n\
          1. Focus strictly on the delegated subtask.\n\
          2. Do NOT ask the user questions; make reasonable engineering decisions autonomously.\n\
          3. When finished, output a concise final report summarizing what was done and which files were touched.",
-        persona_rules, workspace_dir
+        persona_rules, skills_section, workspace_dir
     )
+}
+
+#[cfg(test)]
+mod prompt_tests {
+    use super::*;
+
+    #[test]
+    fn motion_designer_prompt_supports_threejs_and_injects_workspace_skills() {
+        let dir = std::env::temp_dir().join(format!("aetheria_subagent_skills_{}", std::process::id()));
+        let skill_dir = dir.join(".aetheria").join("skills").join("custom-3d-skill");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\nname: custom-3d-skill\ndescription: Custom 3D motion skill\n---\n",
+        )
+        .unwrap();
+
+        let prompt = build_subagent_system_prompt("motion-designer", &dir.to_string_lossy());
+        assert!(prompt.contains("/script/three.min.js"));
+        assert!(prompt.contains("preserveDrawingBuffer: true"));
+        assert!(prompt.contains("custom-3d-skill"));
+        assert!(prompt.contains("OPTIONAL"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
 
 /// Filters the tool definitions available to a specific subagent persona.

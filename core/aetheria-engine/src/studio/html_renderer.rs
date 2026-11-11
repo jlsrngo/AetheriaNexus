@@ -61,6 +61,9 @@ fn spawn_headless_browser(
         .args([
             "--headless=new",
             "--disable-gpu-vsync",
+            "--enable-webgl",
+            "--ignore-gpu-blocklist",
+            "--enable-unsafe-swiftshader",
             "--no-first-run",
             "--no-default-browser-check",
             "--disable-background-timer-throttling",

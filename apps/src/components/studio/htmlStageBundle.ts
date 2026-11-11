@@ -227,6 +227,12 @@ export function prepareInjectedHtml(film: HtmlFilmDescriptor): string {
     /<script\b[^>]*src=["'](?:\.?\/)?(?:script|public\/script)\/[^"']+["'][^>]*>\s*<\/script>/gi,
     ""
   );
+  if (film.scripts.some((s) => s.name.toLowerCase() === "three.min.js")) {
+    html = html.replace(
+      /<script\b[^>]*src=["'](?:https?:)?\/\/[^"']*three(?:\.min)?\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/gi,
+      ""
+    );
+  }
 
   const shimTag = buildAssetShimScript(film.activeDir);
   const inlineScripts = film.scripts

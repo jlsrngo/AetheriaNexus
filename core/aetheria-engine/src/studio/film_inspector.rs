@@ -249,11 +249,25 @@ fn extract_canvas_attr_u32(source: &str, attr: &str) -> Option<u32> {
     None
 }
 
+fn extract_html_script_order(html_lower: &str, script_name: &str) -> Option<usize> {
+    let name_lower = script_name.to_ascii_lowercase();
+    let rel_needle = format!("script/{}", name_lower);
+    if let Some(pos) = html_lower.find(&rel_needle) {
+        return Some(pos);
+    }
+    html_lower
+        .find(&format!("\"{}\"", name_lower))
+        .or_else(|| html_lower.find(&format!("'{}'", name_lower)))
+}
+
 fn collect_ordered_scripts(html_path: &Path) -> Vec<(String, String, String)> {
-    let mut entries_list: Vec<(u32, String, std::path::PathBuf)> = Vec::new();
+    let mut entries_list: Vec<((u8, usize), String, std::path::PathBuf)> = Vec::new();
     let Some(ws_dir) = html_path.parent() else {
         return Vec::new();
     };
+    let html_lower = std::fs::read_to_string(html_path)
+        .unwrap_or_default()
+        .to_ascii_lowercase();
     let script_dir = ws_dir.join("script");
     let Ok(entries) = std::fs::read_dir(&script_dir) else {
         return Vec::new();
@@ -266,11 +280,20 @@ fn collect_ordered_scripts(html_path: &Path) -> Vec<(String, String, String)> {
                 .and_then(|n| n.to_str())
                 .unwrap_or("")
                 .to_string();
-            let order_key = if name.eq_ignore_ascii_case("aetheria-motion.js") {
-                0
+            let lower = name.to_ascii_lowercase();
+            let order_key = if lower == "three.min.js" || lower == "three.js" {
+                (0u8, 0usize)
+            } else if lower == "aetheria-motion.js" {
+                (1, 0)
+            } else if let Some(html_pos) = extract_html_script_order(&html_lower, &name) {
+                (2, html_pos)
             } else {
                 let digits: String = name.chars().filter(|c| c.is_ascii_digit()).collect();
-                digits.parse::<u32>().unwrap_or(999).saturating_add(1)
+                if digits.is_empty() && !lower.starts_with("scene") {
+                    (3, 0)
+                } else {
+                    (4, digits.parse::<usize>().unwrap_or(999))
+                }
             };
             entries_list.push((order_key, name, p));
         }
@@ -454,7 +477,7 @@ pub fn parse_scenes_from_sources(
 
     let scene_files: Vec<&String> = scene_script_names
         .iter()
-        .filter(|name| !name.eq_ignore_ascii_case("aetheria-motion.js"))
+        .filter(|name| !super::builtin_runtime::is_vendor_script_name(name))
         .collect();
 
     if !scene_files.is_empty() && fallback_duration > 0.0 {
@@ -531,8 +554,10 @@ pub fn inspect_workspace_film(html_path: &Path) -> FilmMeta {
     let mut script_names = Vec::with_capacity(scripts.len());
     for (name, _, code) in &scripts {
         script_names.push(name.clone());
-        combined_source.push('\n');
-        combined_source.push_str(code);
+        if !super::builtin_runtime::is_vendor_script_name(name) {
+            combined_source.push('\n');
+            combined_source.push_str(code);
+        }
     }
     let lint = lint_html_film(&combined_source);
 
@@ -768,6 +793,44 @@ mod tests {
         assert_eq!(meta.scenes[1].audio.as_deref(), Some("/audio/scene2.wav"));
         assert!((meta.duration - 38.71).abs() < 0.01);
         assert_eq!(meta.total_frames, 1161);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_collect_ordered_scripts_respects_html_kit_before_scenes_and_skips_vendor_lint() {
+        let dir = std::env::temp_dir().join(format!("aetheria_kit_order_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let script_dir = dir.join("script");
+        std::fs::create_dir_all(&script_dir).unwrap();
+
+        std::fs::write(
+            script_dir.join("three.min.js"),
+            "var THREE={WebGLRenderer:function(){requestAnimationFrame(function(){});Math.random();}};",
+        )
+        .unwrap();
+        std::fs::write(script_dir.join("clay-kit3d.js"), "window.ClayKit={};").unwrap();
+        std::fs::write(script_dir.join("scene1.js"), "window.S1=function(){};").unwrap();
+
+        let html = r#"<!DOCTYPE html><html><head>
+        <script src="/script/three.min.js"></script>
+        <script src="/script/clay-kit3d.js"></script>
+        <script src="/script/scene1.js"></script>
+        </head><body><canvas id="c" width="1080" height="1920"></canvas>
+        <script>
+        window.__filmMeta = { title: "3D", width: 1080, height: 1920, fps: 30, duration: 5 };
+        window.renderAt = function(t) {};
+        window.__ready = true;
+        </script></body></html>"#;
+        let html_path = dir.join("index.html");
+        std::fs::write(&html_path, html).unwrap();
+
+        let ordered = collect_ordered_script_files(&html_path);
+        let names: Vec<&str> = ordered.iter().map(|(n, _, _)| n.as_str()).collect();
+        assert_eq!(names, vec!["three.min.js", "clay-kit3d.js", "scene1.js"]);
+
+        let meta = inspect_workspace_film(&html_path);
+        assert!(meta.lint.valid, "vendor three.min.js must not fail project lint: {:?}", meta.lint.issues);
 
         let _ = std::fs::remove_dir_all(&dir);
     }

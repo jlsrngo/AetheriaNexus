@@ -155,6 +155,19 @@ fn summarize_film_meta(meta: &FilmMeta) -> Value {
     })
 }
 
+fn check_webgl_diagnostics(content: &str, file_name: &str, feedback: &mut FileFeedback) {
+    if crate::studio::builtin_runtime::is_vendor_script_name(file_name) {
+        return;
+    }
+    if content.contains("WebGLRenderer(") && !content.contains("preserveDrawingBuffer") {
+        feedback.has_errors = true;
+        feedback.diagnostics.push(
+            "ERROR (WEBGL_MISSING_PRESERVE_DRAWING_BUFFER): new THREE.WebGLRenderer(...) must include preserveDrawingBuffer: true so headless MP4 capture does not produce blank frames."
+                .to_string(),
+        );
+    }
+}
+
 /// Inspects a newly written or edited project file and returns actionable engine diagnostics.
 pub fn collect_file_feedback(workspace_dir: &str, target: &Path) -> FileFeedback {
     let mut feedback = FileFeedback::default();
@@ -166,6 +179,10 @@ pub fn collect_file_feedback(workspace_dir: &str, target: &Path) -> FileFeedback
         .extension()
         .and_then(|e| e.to_str())
         .map(|e| e.to_ascii_lowercase())
+        .unwrap_or_default();
+    let file_name = target
+        .file_name()
+        .and_then(|n| n.to_str())
         .unwrap_or_default();
 
     let content = match std::fs::read_to_string(target) {
@@ -209,8 +226,10 @@ pub fn collect_file_feedback(workspace_dir: &str, target: &Path) -> FileFeedback
             feedback
                 .diagnostics
                 .extend(find_short_hex_mix_warnings(&content));
+            check_webgl_diagnostics(&content, file_name, &mut feedback);
         }
         "html" | "htm" => {
+            check_webgl_diagnostics(&content, file_name, &mut feedback);
             let meta = inspect_workspace_film(target);
             feedback.film_meta = Some(summarize_film_meta(&meta));
             let ws_root = Path::new(workspace_dir);
@@ -278,7 +297,9 @@ pub fn collect_file_feedback(workspace_dir: &str, target: &Path) -> FileFeedback
             }
 
             for script_rel in extract_local_script_srcs(&content) {
-                if script_rel.eq_ignore_ascii_case("script/aetheria-motion.js") {
+                if script_rel.eq_ignore_ascii_case("script/aetheria-motion.js")
+                    || crate::studio::builtin_runtime::is_builtin_three_path(&script_rel)
+                {
                     continue;
                 }
                 if !workspace_asset_exists(film_dir, ws_root, &script_rel) {
@@ -384,6 +405,51 @@ mod tests {
         assert_eq!(meta["width"], 1080);
         assert_eq!(meta["height"], 1920);
         assert_eq!(meta["audioTracksResolved"], 0);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_webgl_renderer_requires_preserve_drawing_buffer_and_builtin_three_no_warning() {
+        let dir = std::env::temp_dir().join(format!("aetheria_fb_webgl_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("script")).unwrap();
+
+        let bad_kit = dir.join("script").join("clay-kit.js");
+        std::fs::write(
+            &bad_kit,
+            "function initStage(c){ return new THREE.WebGLRenderer({ canvas: c, antialias: true }); }\n",
+        )
+        .unwrap();
+        let fb_bad = collect_file_feedback(&dir.to_string_lossy(), &bad_kit);
+        assert!(fb_bad.has_errors);
+        assert!(fb_bad
+            .diagnostics
+            .iter()
+            .any(|d| d.contains("WEBGL_MISSING_PRESERVE_DRAWING_BUFFER")));
+
+        let html = r#"<!DOCTYPE html><html><head><style>body{margin:0}</style>
+        <script src="/script/three.min.js"></script>
+        <script src="/script/aetheria-motion.js"></script>
+        <script src="/script/clay-kit.js"></script></head>
+        <body><canvas id="c" width="1080" height="1920"></canvas>
+        <script>
+        window.__filmMeta = { title: "Clay", width: 1080, height: 1920, fps: 30, duration: 8 };
+        window.renderAt = function(t) {};
+        window.__ready = true;
+        </script></body></html>"#;
+        let html_path = dir.join("index.html");
+        std::fs::write(&html_path, html).unwrap();
+
+        let fb_html = collect_file_feedback(&dir.to_string_lossy(), &html_path);
+        assert!(
+            !fb_html
+                .diagnostics
+                .iter()
+                .any(|d| d.contains("MISSING_SCRIPT_FILE") && d.contains("three.min.js")),
+            "builtin /script/three.min.js should never report MISSING_SCRIPT_FILE: {:?}",
+            fb_html.diagnostics
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }

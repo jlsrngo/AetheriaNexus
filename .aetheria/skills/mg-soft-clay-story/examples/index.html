@@ -28,8 +28,8 @@
       display: block;
     }
   </style>
-  <!-- Load Three.js locally if vendored (script/three.min.js) or via CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Built-in offline Three.js r128 + Aetheria Motion runtime -->
+  <script src="/script/three.min.js"></script>
   <script src="/script/aetheria-motion.js"></script>
   <script src="/script/clay-kit.js"></script>
   <script src="/script/scene1.js"></script>
@@ -48,13 +48,27 @@
       var hudCanvas = document.getElementById("stage-hud");
       var hudCtx = hudCanvas.getContext("2d");
 
-      // Replace durations/audio/words with real Phase 1 voicebox_speak outputs in production
+      var SUBTITLE_STYLE = {
+        style: "neobrutalism",
+        wordsPerGroup: 1,
+        palette: ["#FFDE59", "#BAE6FD", "#FDA4AF", "#F5D0FE", "#FFFDF9"],
+        textColor: "#2B2118",
+        borderColor: "#594637",
+        shadowColor: "#594637",
+        borderWidth: 6,
+        shadowOffsetX: 8,
+        shadowOffsetY: 8,
+        radius: 16,
+        tiltDeg: 2.0,
+        uppercase: true,
+        fontSize: 72,
+        y: 1580
+      };
+
       var SCENES = [
         {
           id: "scene1_town_walk",
           title: "Kawaii Soft-Clay Morning Walk",
-          topic: "ACT I · 3D SOFT-CLAY DIORAMA",
-          headline: "JALAN PAGI DI KOTA PASTEL",
           accent: "#FB7185",
           secondary: "#93C5FD",
           start: 0,
@@ -68,7 +82,11 @@
             { word: "datang", start: 0.65, end: 1.05 },
             { word: "di", start: 1.05, end: 1.25 },
             { word: "Kota", start: 1.25, end: 1.65 },
-            { word: "Pastel", start: 1.65, end: 2.2 }
+            { word: "Pastel", start: 1.65, end: 2.2 },
+            { word: "Yuk", start: 2.35, end: 2.75 },
+            { word: "kita", start: 2.75, end: 3.1 },
+            { word: "jalan", start: 3.1, end: 3.65 },
+            { word: "pagi!", start: 3.65, end: 4.35 }
           ]
         }
       ];
@@ -104,9 +122,8 @@
           fn(hudCtx, localTime, scene.duration, scene, AM, stageWorld, currentTime);
         }
 
-        AM.drawTopHeader(hudCtx, scene, localTime, currentTime);
-        AM.drawHeadlinePlaque(hudCtx, scene, localTime);
-        AM.drawSubtitles(hudCtx, scene._words || [], localTime, scene.accent);
+        // Neobrutalism 1-by-1 word subtitles synced to audio/*.words.json using skill palette
+        AM.drawSubtitles(hudCtx, scene._words || [], localTime, SUBTITLE_STYLE);
         hudCtx.restore();
       };
 

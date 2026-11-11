@@ -37,7 +37,9 @@ async fn serve_static_film_file(film_root: &Path, ws_root: &Path, rel_raw: &str)
 
     if target_rel == "index.html" {
         let index_path = film_root.join("index.html");
-        let mut html = std::fs::read_to_string(&index_path).unwrap_or_default();
+        let raw_html = std::fs::read_to_string(&index_path).unwrap_or_default();
+        let mut html =
+            super::builtin_runtime::rewrite_three_cdn_tags(&raw_html, Some("/script/three.min.js"));
         if !html.contains("aetheria-motion.js") {
             let tag = "<script src=\"/script/aetheria-motion.js\"></script>\n";
             if let Some(head_idx) = html.find("</head>") {
@@ -72,18 +74,27 @@ async fn serve_static_film_file(film_root: &Path, ws_root: &Path, rel_raw: &str)
         }
     }
 
-    // Built-in engine runtime helper & bundled SFX fallback
-    if target_rel.eq_ignore_ascii_case("script/aetheria-motion.js")
-        || target_rel.eq_ignore_ascii_case("aetheria-motion.js")
-        || target_rel.starts_with("sfx/")
-    {
+    // Built-in engine runtime helpers & bundled SFX fallback
+    if super::builtin_runtime::is_builtin_three_path(target_rel) {
+        return (
+            [(header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+            super::builtin_runtime::THREE_MIN_JS,
+        )
+            .into_response();
+    }
+
+    if super::builtin_runtime::is_builtin_motion_path(target_rel) {
+        let code = super::builtin_runtime::resolve_motion_runtime_code(&project_root());
+        return (
+            [(header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+            code,
+        )
+            .into_response();
+    }
+
+    if target_rel.starts_with("sfx/") {
         let engine_pub = project_root().join("apps").join("public");
-        let norm = if target_rel.eq_ignore_ascii_case("aetheria-motion.js") {
-            "script/aetheria-motion.js"
-        } else {
-            target_rel
-        };
-        let fallback = engine_pub.join(norm);
+        let fallback = engine_pub.join(target_rel);
         if contains_path(&engine_pub, &fallback) && fallback.is_file() {
             if let Ok(bytes) = tokio::fs::read(&fallback).await {
                 let mime = mime_guess::from_path(&fallback)

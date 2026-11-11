@@ -90,18 +90,32 @@ pub async fn handle_ws_asset(
     }
 
     // Engine builtin shared helper fallback (runtime library & bundled SFX only)
-    let is_builtin_runtime = clean_rel.eq_ignore_ascii_case("script/aetheria-motion.js")
-        || clean_rel.eq_ignore_ascii_case("aetheria-motion.js")
-        || clean_rel.starts_with("sfx/");
+    if super::builtin_runtime::is_builtin_three_path(&clean_rel) {
+        return (
+            [(
+                axum::http::header::CONTENT_TYPE,
+                "application/javascript; charset=utf-8",
+            )],
+            super::builtin_runtime::THREE_MIN_JS,
+        )
+            .into_response();
+    }
 
-    if is_builtin_runtime {
+    if super::builtin_runtime::is_builtin_motion_path(&clean_rel) {
+        let code = super::builtin_runtime::resolve_motion_runtime_code(&project_root());
+        return (
+            [(
+                axum::http::header::CONTENT_TYPE,
+                "application/javascript; charset=utf-8",
+            )],
+            code,
+        )
+            .into_response();
+    }
+
+    if clean_rel.starts_with("sfx/") {
         let engine_public = project_root().join("apps").join("public");
-        let normalized = if clean_rel.eq_ignore_ascii_case("aetheria-motion.js") {
-            "script/aetheria-motion.js"
-        } else {
-            clean_rel.as_str()
-        };
-        let fallback = engine_public.join(normalized);
+        let fallback = engine_public.join(clean_rel.as_str());
         if contains_path(&engine_public, &fallback) && fallback.is_file() {
             return serve_ranged_file(&headers, &fallback).await;
         }
