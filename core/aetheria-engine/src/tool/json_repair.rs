@@ -7,6 +7,12 @@
 
 use serde_json::{json, Value};
 
+use super::json_syntax_helpers::{
+    auto_close_json_brackets, escape_control_chars_in_strings, remove_trailing_commas,
+    repair_single_quotes, strip_markdown_fences,
+};
+pub use super::tool_input_repair::{canonicalize_tool_name, normalize_tool_input_types};
+
 /// Attempts to parse a tool argument string into a `serde_json::Value`.
 ///
 /// 1. Fast path: native `serde_json::from_str`.
@@ -32,43 +38,43 @@ pub fn parse_or_repair_tool_args(raw: &str) -> Result<Value, String> {
                 || (inner_trimmed.starts_with('[') && inner_trimmed.ends_with(']'))
             {
                 if let Ok(inner_val) = serde_json::from_str::<Value>(inner_trimmed) {
-                    return Ok(inner_val);
+                    return Ok(normalize_tool_input_types(inner_val));
                 }
             }
         }
-        return Ok(val);
+        return Ok(normalize_tool_input_types(val));
     }
 
     // 2. Strip markdown fences
     let mut candidate = strip_markdown_fences(trimmed).to_string();
 
     if let Ok(val) = serde_json::from_str::<Value>(&candidate) {
-        return Ok(val);
+        return Ok(normalize_tool_input_types(val));
     }
 
     // 3. Repair unescaped newlines and tabs inside string literals
     candidate = escape_control_chars_in_strings(&candidate);
     if let Ok(val) = serde_json::from_str::<Value>(&candidate) {
-        return Ok(val);
+        return Ok(normalize_tool_input_types(val));
     }
 
     // 4. Remove trailing commas before } or ]
     candidate = remove_trailing_commas(&candidate);
     if let Ok(val) = serde_json::from_str::<Value>(&candidate) {
-        return Ok(val);
+        return Ok(normalize_tool_input_types(val));
     }
 
     // 5. Auto-close unclosed quotes and brackets
     candidate = auto_close_json_brackets(&candidate);
     if let Ok(val) = serde_json::from_str::<Value>(&candidate) {
-        return Ok(val);
+        return Ok(normalize_tool_input_types(val));
     }
 
     // 6. Attempt single quote to double quote conversion if single quotes are present
     if candidate.contains('\'') {
         let single_quote_repaired = repair_single_quotes(&candidate);
         if let Ok(val) = serde_json::from_str::<Value>(&single_quote_repaired) {
-            return Ok(val);
+            return Ok(normalize_tool_input_types(val));
         }
     }
 
@@ -78,200 +84,6 @@ pub fn parse_or_repair_tool_args(raw: &str) -> Result<Value, String> {
         "Failed to parse tool call arguments as JSON: '{}'. Please provide well-formed JSON object syntax.",
         preview
     ))
-}
-
-/// Strips ```` ```json ```` and ```` ``` ```` wrapper fences.
-fn strip_markdown_fences(s: &str) -> &str {
-    let mut cleaned = s.trim();
-    if cleaned.starts_with("```") {
-        if let Some(first_newline) = cleaned.find('\n') {
-            cleaned = &cleaned[first_newline + 1..];
-        } else {
-            cleaned = cleaned.trim_start_matches('`');
-        }
-    }
-    if cleaned.ends_with("```") {
-        cleaned = cleaned.trim_end_matches('`').trim_end();
-    }
-    cleaned.trim()
-}
-
-/// Escapes literal newlines, carriage returns, and unescaped tabs inside string literals.
-fn escape_control_chars_in_strings(input: &str) -> String {
-    let mut output = String::with_capacity(input.len() + 32);
-    let mut in_string = false;
-    let mut escape_active = false;
-
-    for ch in input.chars() {
-        if escape_active {
-            output.push(ch);
-            escape_active = false;
-            continue;
-        }
-
-        if ch == '\\' {
-            escape_active = true;
-            output.push(ch);
-            continue;
-        }
-
-        if ch == '"' {
-            in_string = !in_string;
-            output.push(ch);
-            continue;
-        }
-
-        if in_string {
-            match ch {
-                '\n' => output.push_str("\\n"),
-                '\r' => output.push_str("\\r"),
-                '\t' => output.push_str("\\t"),
-                _ => output.push(ch),
-            }
-        } else {
-            output.push(ch);
-        }
-    }
-
-    output
-}
-
-/// Removes trailing commas before `}` or `]`.
-fn remove_trailing_commas(input: &str) -> String {
-    let mut output = String::with_capacity(input.len());
-    let chars: Vec<char> = input.chars().collect();
-    let len = chars.len();
-    let mut in_string = false;
-    let mut escape_active = false;
-
-    let mut i = 0;
-    while i < len {
-        let ch = chars[i];
-
-        if escape_active {
-            output.push(ch);
-            escape_active = false;
-            i += 1;
-            continue;
-        }
-
-        if ch == '\\' {
-            escape_active = true;
-            output.push(ch);
-            i += 1;
-            continue;
-        }
-
-        if ch == '"' {
-            in_string = !in_string;
-            output.push(ch);
-            i += 1;
-            continue;
-        }
-
-        if !in_string && ch == ',' {
-            // Check if next non-whitespace char is } or ]
-            let mut j = i + 1;
-            while j < len && chars[j].is_whitespace() {
-                j += 1;
-            }
-            if j < len && (chars[j] == '}' || chars[j] == ']') {
-                // Skip the comma
-                i += 1;
-                continue;
-            }
-        }
-
-        output.push(ch);
-        i += 1;
-    }
-
-    output
-}
-
-/// Closes any unclosed string literals and matching braces/brackets.
-fn auto_close_json_brackets(input: &str) -> String {
-    let mut output = input.to_string();
-    let mut in_string = false;
-    let mut escape_active = false;
-    let mut stack = Vec::new();
-
-    for ch in input.chars() {
-        if escape_active {
-            escape_active = false;
-            continue;
-        }
-        if ch == '\\' {
-            escape_active = true;
-            continue;
-        }
-        if ch == '"' {
-            in_string = !in_string;
-            continue;
-        }
-        if !in_string {
-            match ch {
-                '{' => stack.push('}'),
-                '[' => stack.push(']'),
-                '}' => {
-                    if let Some(pos) = stack.iter().rposition(|&c| c == '}') {
-                        stack.remove(pos);
-                    }
-                }
-                ']' => {
-                    if let Some(pos) = stack.iter().rposition(|&c| c == ']') {
-                        stack.remove(pos);
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-
-    if in_string {
-        output.push('"');
-    }
-
-    while let Some(closing) = stack.pop() {
-        output.push(closing);
-    }
-
-    output
-}
-
-/// Simple heuristic to convert single-quoted JSON keys and strings to double-quoted JSON.
-fn repair_single_quotes(input: &str) -> String {
-    let mut output = String::with_capacity(input.len());
-    let mut in_double_quote = false;
-    let mut in_single_quote = false;
-    let mut escape_active = false;
-
-    for ch in input.chars() {
-        if escape_active {
-            output.push(ch);
-            escape_active = false;
-            continue;
-        }
-        if ch == '\\' {
-            escape_active = true;
-            output.push(ch);
-            continue;
-        }
-        if ch == '"' && !in_single_quote {
-            in_double_quote = !in_double_quote;
-            output.push(ch);
-            continue;
-        }
-        if ch == '\'' && !in_double_quote {
-            in_single_quote = !in_single_quote;
-            output.push('"');
-            continue;
-        }
-
-        output.push(ch);
-    }
-
-    output
 }
 
 #[cfg(test)]
@@ -353,5 +165,22 @@ mod tests {
         let err = parse_or_repair_tool_args(raw).expect_err("should return error");
         assert!(err.contains("Failed to parse tool call arguments as JSON"));
     }
-}
 
+    #[test]
+    fn test_type_coercion_and_null_stripping() {
+        let raw = r#"{
+            "filePath": "data.json",
+            "limit": "20",
+            "overwrite": "false",
+            "offset": null,
+            "todos": "[{\"id\":\"1\",\"content\":\"Fix bug\"}]"
+        }"#;
+        let res = parse_or_repair_tool_args(raw).expect("should parse and coerce");
+        assert_eq!(res["filePath"], "data.json");
+        assert_eq!(res["limit"], 20);
+        assert_eq!(res["overwrite"], false);
+        assert!(res.get("offset").is_none());
+        assert!(res["todos"].is_array());
+        assert_eq!(res["todos"][0]["id"], "1");
+    }
+}

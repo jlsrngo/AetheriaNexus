@@ -1,396 +1,398 @@
-//! Specialized Subagent Runner — executes focused subtasks in isolated contexts.
-//! Prevents monolithic agent context bloat when producing multi-scene videos (e.g. batch audio TTS, batch asset fetching, scene coding).
+//! Isolated Child-Agent / Subagent Runner — mirrors `packages/core/src/plugin/subagent.ts`
+//! and `packages/core/src/session/subagent-completion.ts`.
+//! Delegates store setup (`subagent_store`), config (`subagent_provider`), and tool loops (`subagent_tool_batch`).
+
+pub use super::subagent_store::{
+    build_subagent_system_prompt, build_subagent_tools, get_session_depth,
+    load_or_init_child_session, persist_child_session_state, MAX_SUBAGENT_DEPTH,
+};
 
 use serde_json::{json, Value};
+use std::time::Duration;
 
-use crate::paths::{gen_id, now_ms};
-use crate::provider::read_aetheria_config;
+use super::resilience::{send_resilient_chat_completion, SYNTHETIC_OUTPUT_LIMIT_PROMPT};
+use super::subagent_provider::resolve_subagent_provider_config;
+use super::subagent_tool_batch::execute_subagent_tool_calls;
+use crate::paths::now_ms;
+use crate::session::doom_loop::DoomLoopDetector;
 use crate::session::message::emit_event;
-use crate::session::session::{save_store, with_store};
-use crate::session::tools::execute_tool_call;
 
-/// Tool definition for the Main Agent to spawn/delegate tasks to a subagent
 pub fn spawn_subagent_tool_definition() -> Value {
     json!({
         "type": "function",
         "function": {
-            "name": "spawn_subagent",
-            "description": "Spawn a specialized subagent to perform heavy or batch tasks in an isolated context (e.g. batch voiceover synthesis, image asset downloading, or modular Aetheria HTML motion film coding in workspace/script/scene*.js + workspace/index.html). Prevents context token bloat in the main agent and keeps production modular.",
+            "name": "task",
+            "description": include_str!("../../tool/prompt/task.txt"),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "role": {
-                        "type": "string",
-                        "enum": ["audio", "assets", "motion", "research"],
-                        "description": "Specialized role of the subagent: 'audio' (voiceover synthesis & SFX in workspace/audio/), 'assets' (images & web asset downloads in workspace/img/), 'motion' (writing modular per-scene scripts workspace/script/scene1..N.js + stage shell workspace/index.html), or 'research' (code/reference inspection)."
-                    },
-                    "task": {
-                        "type": "string",
-                        "description": "Clear, actionable task description explaining what the subagent must execute and what summary to return."
-                    },
-                    "context": {
-                        "type": "string",
-                        "description": "Detailed context needed by the subagent (e.g. per-scene scripts, scene timestamps, character names, or design tokens)."
-                    }
+                    "description": { "type": "string", "description": "A short (3-5 words) summary of what this subagent will do" },
+                    "prompt": { "type": "string", "description": "Detailed, self-contained instructions for the subagent, including exact file paths and expected output" },
+                    "subagent_type": { "type": "string", "enum": ["general", "explore", "motion-designer", "audio-director", "qa-verifier"], "description": "The specialized persona and toolset for this subagent" },
+                    "sessionID": { "type": "string", "description": "Optional child sessionID from a previous `task` result to continue/resume that subagent's conversation instead of starting fresh" },
+                    "background": { "type": "boolean", "description": "Optional. If true, runs the subagent asynchronously in the background without blocking the parent turn and delivers a <subagent-notification> into the parent SessionInbox when complete." }
                 },
-                "required": ["role", "task"]
+                "required": ["description", "prompt", "subagent_type"]
             }
         }
     })
 }
 
-fn build_subagent_system_prompt(role: &str, workspace_dir: &str) -> String {
-    match role {
-        "audio" => format!(
-            "You are the Audio Production Subagent for Aetheria Video Studio.\n\
-             Workspace folder: {}\n\
-             Your sole responsibility is to synthesize voiceover audio tracks and SFX for video scenes using the `voicebox_speak` and `generate_smart_sfx` tools.\n\
-             CRITICAL AUDIO RULES:\n\
-             1. Always call `voicebox_speak` for each scene with pristine visual `text` and localized phonetic spelling in `spokenText` for foreign names, ships, acronyms, or numbers.\n\
-             2. Inspect generated `*.words.json` files to verify scene durations.\n\
-             3. DO NOT write React TSX components or download images.\n\
-             4. When all scene audios are synthesized, reply with a concise final summary listing each scene's audio file path and exact duration in seconds.",
-            workspace_dir
-        ),
-        "assets" => format!(
-            "You are the Visual Asset Subagent for Aetheria Video Studio.\n\
-             Workspace folder: {}\n\
-             Your sole responsibility is to search, fetch, and download images and graphic assets into `workspace/img/` using `fetch_web_image` and `websearch` tools.\n\
-             CRITICAL ASSET RULES:\n\
-             1. Fetch high-quality relevant images matching the scene descriptions.\n\
-             2. Ensure assets are saved with clean filenames in `workspace/img/`.\n\
-             3. DO NOT write workspace/index.html or synthesize audio.\n\
-             4. When all assets are downloaded, reply with a concise final summary listing each downloaded file path.",
-            workspace_dir
-        ),
-        "motion" => format!(
-            "You are the Aetheria Motion Graphics Subagent for Aetheria Video Studio.\n\
-             Workspace folder: {}\n\
-             Your sole responsibility is to write a complete, deterministic, showreel-grade modular HTML motion film using `write` and `edit` tools.\n\
-             CRITICAL MODULAR AETHERIA MOTION ENGINE RULES (01-FLAT-VECTOR LIVELY MOTION STANDARD):\n\
-             1. Modular Per-Scene Scripts (`workspace/script/scene1.js` .. `sceneN.js`): NEVER cram all scenes into a single 1,000-line HTML file. Write each scene in its own modular file `workspace/script/scene1.js`, `workspace/script/scene2.js`, ..., `workspace/script/sceneN.js` (~130–200 lines each) using `AM.registerScene(\"scene1_id\", function(ctx, localTime, dur, scene, AM) {{ ... }})`. Do NOT write React `.tsx` files.\n\
-             2. 5 MANDATORY LAWS OF LIVELY STUDIO MOTION (BAN STATIC BOXES):\n\
-                - Velocity-Driven Squash & Stretch (`AM.pop`): Every entering object MUST use `const [s, k] = AM.pop(localTime, t0, 2.4, 0.4, 0.22);` and scale with `(Math.max(0, s) / (1 + k), Math.max(0, s) * (1 + k))`.\n\
-                - Impulse & Impact Accents (`AM.kick` + `AM.drawBurstLines` + `AM.drawShockRing`): Every beat hit MUST trigger `AM.kick(localTime, hitTime, 3.5, 0.38)` camera/object impulse plus `AM.drawBurstLines(...)` and `AM.drawShockRing(...)`.\n\
-                - Articulated Rigging (`AM.drawCharacterRig` / Multi-Part Joints): Use `AM.drawCharacterRig(ctx, localTime, {{ x, y, reactTime, reachTime }})` or hierarchical joints (torso -> neck -> head -> blinking eyes, shoulder -> elbow -> hand) that breathe, nod, blink, and reach.\n\
-                - Living Camera (`AM.applyCamera`): Drive a continuous camera `{{ s, cx, cy, rot }}` with exponential zoom and impact kick.\n\
-                - Shape Wipe Transitions (`AM.drawShapeWipe`): End each scene with `AM.drawShapeWipe(ctx, localTime, dur - 0.65, 0.65, [scene.accent, scene.secondary, \"#FFF6E9\"], 540, 660)`.\n\
-             3. Lightweight Stage Shell (`workspace/index.html`): Load `<script src=\"/script/aetheria-motion.js\"></script>` and `<script src=\"/script/scene1.js\"></script>` .. `<script src=\"/script/sceneN.js\"></script>` in `<head>`.\n\
-             4. Define `SCENES` and `window.__filmMeta = {{ title, width: 1080, height: 1920, fps: 30, duration, durationInFrames, scenes: SCENES }}` matching the exact audio durations from `workspace/audio/*.words.json`.\n\
-             5. Define `window.renderAt = function(t) {{ ... }}` where every visual frame is a pure function of `t` (seconds). Dispatch `var renderFn = AM.getSceneRenderer(scene.id, resolved.index); if (renderFn) renderFn(ctx, localTime, dur, scene, AM);` plus `AM.drawTopHeader`, `AM.drawHeadlinePlaque`, and `AM.drawSubtitles`. Never use `Math.random()` or `setInterval()`.\n\
-             6. Call `window.renderAt(0); window.__ready = true;` after initialization so frame 0 is immediately visible.\n\
-             7. When finished, reply with a concise final summary of the modular `workspace/script/scene*.js` files and `workspace/index.html`.",
-            workspace_dir
-        ),
-        _ => format!(
-            "You are a Research & Analysis Subagent for Aetheria Video Studio.\n\
-             Workspace folder: {}\n\
-             Your responsibility is to inspect files, search codebase, and analyze references using `read`, `glob`, `grep`, and `websearch` tools.\n\
-             When finished, reply with a concise final summary of your findings.",
-            workspace_dir
-        ),
-    }
+enum SubagentExitOutcome {
+    Completed,
+    Incomplete(String),
+    Error(String),
 }
 
-fn build_subagent_tools(role: &str) -> Vec<Value> {
-    match role {
-        "audio" => vec![
-            crate::tool::voicebox::voicebox_tool_definition(),
-            crate::tool::sfx::sfx_tool_definition(),
-            crate::tool::read::read_tool_definition(),
-            crate::tool::glob::glob_tool_definition(),
-            crate::tool::write::write_tool_definition(),
-        ],
-        "assets" => vec![
-            crate::tool::websearch::fetch_web_image_tool_definition(),
-            crate::tool::websearch::websearch_tool_definition(),
-            crate::tool::read::read_tool_definition(),
-            crate::tool::glob::glob_tool_definition(),
-        ],
-        "motion" => vec![
-            crate::tool::write::write_tool_definition(),
-            crate::tool::edit::edit_tool_definition(),
-            crate::tool::read::read_tool_definition(),
-            crate::tool::glob::glob_tool_definition(),
-            crate::tool::grep::grep_tool_definition(),
-        ],
-        _ => vec![
-            crate::tool::read::read_tool_definition(),
-            crate::tool::glob::glob_tool_definition(),
-            crate::tool::grep::grep_tool_definition(),
-            crate::tool::websearch::websearch_tool_definition(),
-        ],
-    }
-}
-
-/// Executes a subagent turn loop (up to 12 steps) with isolated context
-pub async fn execute_subagent(
-    session_id: &str,
-    workspace_dir: &str,
-    arguments: &Value,
-) -> Value {
-    let role = arguments
-        .get("role")
-        .or_else(|| arguments.get("subagent_type"))
-        .or_else(|| arguments.get("agent"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("general")
-        .to_lowercase();
-    let task = arguments
-        .get("task")
-        .or_else(|| arguments.get("prompt"))
-        .or_else(|| arguments.get("description"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let context = arguments
-        .get("context")
-        .or_else(|| arguments.get("details"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-
-    if task.trim().is_empty() {
-        return json!({ "error": "Task parameter is required for subagent." });
-    }
-
-    let role_display = match role.as_str() {
-        "audio" => "Audio Producer",
-        "assets" => "Asset Curator",
-        "motion" => "Motion Engineer",
-        _ => "Research Assistant",
-    };
-
-    crate::paths::log_engine(
-        "subagent",
-        &format!("🚀 Spawning subagent [{}] for task: {}", role_display, task),
-    );
-
-    let sys_prompt = build_subagent_system_prompt(&role, workspace_dir);
-    let tools = build_subagent_tools(&role);
-
-    let user_prompt = if !context.trim().is_empty() {
-        format!("TASK:\n{}\n\nCONTEXT:\n{}", task.trim(), context.trim())
-    } else {
-        task.trim().to_string()
-    };
-
-    let mut messages = vec![
-        json!({ "role": "system", "content": sys_prompt }),
-        json!({ "role": "user", "content": user_prompt }),
-    ];
-
-    let cfg = read_aetheria_config();
-    let provider_id = cfg
-        .pointer("/provider/active")
-        .and_then(|v| v.as_str())
-        .unwrap_or("antigravity");
-    let model_id = cfg
-        .pointer(&format!("/provider/{}/model", provider_id))
-        .or_else(|| cfg.pointer("/model/active"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("default");
-
-    let is_local_bridge = provider_id == "antigravity" || provider_id == "local-cli";
-    let base_url = if is_local_bridge {
-        let active_port = crate::bridge::ensure_bridge_running().await;
-        format!("http://127.0.0.1:{}/v1", active_port)
-    } else {
-        cfg.pointer(&format!("/provider/{}/options/baseURL", provider_id))
-            .or_else(|| cfg.pointer(&format!("/provider/{}/api/url", provider_id)))
+pub fn execute_subagent<'a>(
+    parent_session_id: &'a str,
+    workspace_dir: &'a str,
+    arguments: &'a Value,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Value> + Send + 'a>> {
+    Box::pin(async move {
+        let description = arguments
+            .get("description")
             .and_then(|v| v.as_str())
-            .map(|s| s.trim_end_matches('/').to_string())
-            .unwrap_or_else(|| crate::bridge::get_bridge_base_url())
-    };
+            .unwrap_or("Subagent Task");
+        let prompt = arguments
+            .get("prompt")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let subagent_type = arguments
+            .get("subagent_type")
+            .or_else(|| arguments.get("type"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("general");
+        let requested_session_id = arguments
+            .get("sessionID")
+            .or_else(|| arguments.get("child_session_id"))
+            .or_else(|| arguments.get("session_id"))
+            .and_then(|v| v.as_str());
+        let run_in_background = arguments
+            .get("background")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
 
-    let api_key = cfg
-        .pointer(&format!("/provider/{}/options/apiKey", provider_id))
-        .and_then(|v| v.as_str())
-        .unwrap_or("local-cli-bridge");
+        if prompt.trim().is_empty() {
+            return json!({ "ok": false, "state": "error", "error": "Subagent `prompt` is required and cannot be empty." });
+        }
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(120))
-        .build()
-        .unwrap();
-
-    let mut final_summary = String::new();
-    let mut steps_executed = 0;
-
-    for step in 0..12 {
-        steps_executed = step + 1;
-        emit_event(
-            workspace_dir,
-            "session.next.step.started",
-            json!({
-                "sessionID": session_id,
-                "step": step + 1,
-                "label": format!("🤖 [{}] Working on subtask (step {})...", role_display, step + 1)
-            }),
+        let parent_depth = get_session_depth(parent_session_id);
+        if parent_depth >= MAX_SUBAGENT_DEPTH {
+            let err_msg = format!(
+                "Maximum subagent recursion depth ({}) reached. Execute the remaining tools directly instead of spawning another subagent.",
+                MAX_SUBAGENT_DEPTH
+            );
+            return json!({
+                "ok": false, "state": "error", "subagent_type": subagent_type, "error": err_msg,
+                "output": format!("<subagent state=\"error\">\n{}\n</subagent>", err_msg)
+            });
+        }
+        let child_depth = parent_depth + 1;
+        let sys_prompt = build_subagent_system_prompt(subagent_type, workspace_dir);
+        let (child_session_id, chat_messages, is_resumed) = load_or_init_child_session(
+            parent_session_id,
+            requested_session_id,
+            subagent_type,
+            description,
+            child_depth,
+            &sys_prompt,
+            prompt,
         );
 
-        let req_body = json!({
-            "model": model_id,
-            "messages": messages,
-            "stream": false,
-            "tools": tools
-        });
+        crate::session::coordinator::begin_session_turn(&child_session_id);
+        crate::session::job_registry::start_job(
+            &child_session_id,
+            parent_session_id,
+            Some(&child_session_id),
+            "subagent",
+            description,
+            run_in_background,
+        );
 
-        let resp = match client
-            .post(format!("{}/chat/completions", base_url))
-            .header("Content-Type", "application/json")
-            .header("Authorization", format!("Bearer {}", api_key))
-            .json(&req_body)
-            .send()
-            .await
+        if run_in_background {
+            let parent_id_owned = parent_session_id.to_string();
+            let ws_owned = workspace_dir.to_string();
+            let child_id_owned = child_session_id.clone();
+            let sub_type_owned = subagent_type.to_string();
+            let desc_owned = description.to_string();
+
+            tokio::spawn(async move {
+                let out = run_subagent_loop(
+                    &parent_id_owned,
+                    &ws_owned,
+                    &child_id_owned,
+                    &sub_type_owned,
+                    &desc_owned,
+                    is_resumed,
+                    child_depth,
+                    chat_messages,
+                )
+                .await;
+
+                let state_str = out.get("state").and_then(|v| v.as_str()).unwrap_or("completed");
+                let output_xml = out.get("output").and_then(|v| v.as_str()).unwrap_or("");
+                let notification = format!(
+                    "<subagent-notification sessionID=\"{}\" type=\"{}\" state=\"{}\">\n{}\n</subagent-notification>",
+                    child_id_owned, sub_type_owned, state_str, output_xml
+                );
+                let delivery = if crate::session::session::is_active_run(&parent_id_owned) {
+                    crate::session::coordinator::InboxDelivery::Steer
+                } else {
+                    crate::session::coordinator::InboxDelivery::Queue
+                };
+                crate::session::coordinator::admit_inbox_item(&parent_id_owned, &notification, delivery);
+            });
+
+            return json!({
+                "ok": true, "state": "running", "mode": "background",
+                "sessionID": child_session_id, "subagent_type": subagent_type, "description": description,
+                "output": format!(
+                    "<subagent sessionID=\"{}\" type=\"{}\" state=\"running\" mode=\"background\">\nThe subagent is working in the background (sessionID: {}). You will be notified automatically when it finishes. DO NOT sleep or poll.\n</subagent>",
+                    child_session_id, subagent_type, child_session_id
+                )
+            });
+        }
+
+        run_subagent_loop(
+            parent_session_id,
+            workspace_dir,
+            &child_session_id,
+            subagent_type,
+            description,
+            is_resumed,
+            child_depth,
+            chat_messages,
+        )
+        .await
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_subagent_loop(
+    parent_session_id: &str,
+    workspace_dir: &str,
+    child_session_id: &str,
+    subagent_type: &str,
+    description: &str,
+    is_resumed: bool,
+    child_depth: usize,
+    mut chat_messages: Vec<Value>,
+) -> Value {
+    let child_session_id = child_session_id.to_string();
+    emit_event(
+        workspace_dir,
+        "subagent.started",
+        json!({
+            "parentSessionId": parent_session_id, "subagentSessionId": child_session_id,
+            "subagentType": subagent_type, "description": description,
+            "resumed": is_resumed, "depth": child_depth, "timestamp": now_ms()
+        }),
+    );
+
+    let (mut base_url, mut api_key, mut model_id) = resolve_subagent_provider_config().await;
+    let tools = build_subagent_tools(subagent_type, child_depth);
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(15))
+        .timeout(Duration::from_secs(120))
+        .build()
+        .unwrap_or_default();
+
+    let mut final_text = String::new();
+    let mut tools_executed: Vec<String> = Vec::new();
+    let mut steps_run: usize = 0;
+    let max_steps: usize = 12;
+    let mut output_limit_continuations: usize = 0;
+    let mut doom_detector = DoomLoopDetector::default();
+    let mut exit_outcome = SubagentExitOutcome::Completed;
+
+    while steps_run < max_steps {
+        if let Some(reason) = crate::session::coordinator::is_session_interrupted(parent_session_id)
+            .or_else(|| crate::session::coordinator::is_session_interrupted(&child_session_id))
         {
-            Ok(r) => r,
-            Err(e) => {
-                crate::paths::log_engine("subagent", &format!("Network error in subagent: {}", e));
-                break;
-            }
-        };
-
-        let raw_json: Value = match resp.json().await {
-            Ok(j) => j,
-            Err(e) => {
-                crate::paths::log_engine("subagent", &format!("JSON parse error in subagent: {}", e));
-                break;
-            }
-        };
-
-        let choice = raw_json
-            .pointer("/choices/0/message")
-            .cloned()
-            .unwrap_or(Value::Null);
-
-        if choice.is_null() {
+            exit_outcome = SubagentExitOutcome::Incomplete(format!("Subagent interrupted ({})", reason));
             break;
         }
+        for steer in crate::session::coordinator::drain_pending_steers(&child_session_id) {
+            chat_messages.push(json!({ "role": "user", "content": steer.text }));
+        }
+        if crate::session::compaction::should_compact(
+            &chat_messages,
+            crate::session::compaction::DEFAULT_CONTEXT_WINDOW,
+        ) {
+            chat_messages = crate::session::compaction::emergency_compact_messages(&chat_messages);
+        }
 
-        messages.push(choice.clone());
+        steps_run += 1;
+        let completion = match send_resilient_chat_completion(
+            &client, &mut base_url, &mut api_key, &mut model_id, &mut chat_messages, &tools, 0.3, 4096,
+        ).await {
+            Ok(out) => out,
+            Err(err_msg) => {
+                exit_outcome = SubagentExitOutcome::Error(err_msg);
+                break;
+            }
+        };
 
-        if let Some(txt) = choice.get("content").and_then(|v| v.as_str()) {
-            if !txt.trim().is_empty() {
-                final_summary = txt.to_string();
+        if !completion.assistant_text.trim().is_empty() {
+            if !final_text.is_empty() && output_limit_continuations > 0 {
+                final_text.push('\n');
+                final_text.push_str(&completion.assistant_text);
+            } else {
+                final_text = completion.assistant_text.clone();
             }
         }
 
-        let mut tool_calls = choice
-            .get("tool_calls")
-            .and_then(|v| v.as_array())
-            .cloned()
-            .unwrap_or_default();
+        if !completion.tool_calls.is_empty() {
+            output_limit_continuations = 0;
+            chat_messages.push(json!({
+                "role": "assistant",
+                "content": if completion.assistant_text.is_empty() { Value::Null } else { json!(completion.assistant_text) },
+                "tool_calls": completion.tool_calls
+            }));
 
-        if tool_calls.is_empty() {
-            if let Some(txt) = choice.get("content").and_then(|v| v.as_str()) {
-                if txt.contains("<invoke ") {
-                    let mut txt_mut = txt.to_string();
-                    let xml_calls = super::runner::extract_xml_tool_calls(&mut txt_mut);
-                    if !xml_calls.is_empty() {
-                        tool_calls = xml_calls;
+            if let Some(doom_reason) = execute_subagent_tool_calls(
+                parent_session_id,
+                &child_session_id,
+                workspace_dir,
+                subagent_type,
+                steps_run,
+                &completion.tool_calls,
+                &mut doom_detector,
+                &mut tools_executed,
+                &mut chat_messages,
+            ).await {
+                exit_outcome = SubagentExitOutcome::Incomplete(doom_reason);
+                break;
+            }
+
+            if steps_run >= max_steps {
+                chat_messages.push(json!({ "role": "user", "content": crate::session::coordinator::MAX_STEPS_PROMPT }));
+                if let Ok(synth) = send_resilient_chat_completion(
+                    &client, &mut base_url, &mut api_key, &mut model_id, &mut chat_messages, &[], 0.2, 2048,
+                ).await {
+                    if !synth.assistant_text.trim().is_empty() {
+                        final_text = synth.assistant_text;
                     }
                 }
+                exit_outcome = SubagentExitOutcome::Incomplete(format!(
+                    "Reached maximum step limit ({}) while still requesting tool calls. You can resume this subagent by passing sessionID=\"{}\".",
+                    max_steps, child_session_id
+                ));
             }
+            continue;
         }
 
-        if tool_calls.is_empty() {
-            // Subagent finished all tool work and replied with final summary
-            break;
+        if (completion.finish_reason == "length" || completion.finish_reason == "max_tokens")
+            && output_limit_continuations < 2
+            && steps_run < max_steps
+        {
+            output_limit_continuations += 1;
+            chat_messages.push(json!({ "role": "assistant", "content": completion.assistant_text }));
+            chat_messages.push(json!({ "role": "user", "content": SYNTHETIC_OUTPUT_LIMIT_PROMPT }));
+            continue;
         }
 
-        // Execute subagent tool calls
-        for tc in tool_calls {
-            let tc_id = tc.get("id").and_then(|v| v.as_str()).unwrap_or("call_sub");
-            let fn_name = tc.pointer("/function/name").and_then(|v| v.as_str()).unwrap_or("");
-            let fn_args_str = tc.pointer("/function/arguments").and_then(|v| v.as_str()).unwrap_or("{}");
-            let fn_args: Value = serde_json::from_str(fn_args_str).unwrap_or(json!({}));
-
-            crate::paths::log_engine(
-                "subagent",
-                &format!("🔧 [{}] Executing tool: {}", role_display, fn_name),
-            );
-
-            let tool_output = execute_tool_call(
-                session_id,
-                &gen_id("sub_msg"),
-                tc_id,
-                fn_name,
-                &fn_args,
-                workspace_dir,
-            )
-            .await;
-
-            let tool_res_str = match &tool_output {
-                Value::String(s) => s.clone(),
-                other => other.to_string(),
-            };
-
-            let (bounded_tool_res, _) = crate::tool::truncator::bound_tool_output(fn_name, &tool_res_str);
-
-            messages.push(json!({
-                "role": "tool",
-                "tool_call_id": tc_id,
-                "content": bounded_tool_res
-            }));
+        if !completion.assistant_text.is_empty() {
+            chat_messages.push(json!({ "role": "assistant", "content": completion.assistant_text }));
         }
+        exit_outcome = SubagentExitOutcome::Completed;
+        break;
     }
 
-    let summary_text = if !final_summary.is_empty() {
-        final_summary
-    } else {
-        format!("Subagent [{}] successfully executed tasks.", role_display)
+    let (ok_flag, state_str, error_field) = match &exit_outcome {
+        SubagentExitOutcome::Completed => {
+            crate::session::job_registry::settle_job_completed(&child_session_id, Some(final_text.clone()));
+            (true, "completed", None)
+        }
+        SubagentExitOutcome::Incomplete(reason) => {
+            crate::session::job_registry::settle_job_error(&child_session_id, reason);
+            (false, "incomplete", Some(reason.clone()))
+        }
+        SubagentExitOutcome::Error(err) => {
+            crate::session::job_registry::settle_job_error(&child_session_id, err);
+            (false, "error", Some(err.clone()))
+        }
     };
 
-    // Record subagent message as an independent assistant turn in chat history
-    let subagent_msg = json!({
-        "id": gen_id("submsg"),
-        "type": "assistant",
-        "role": "assistant",
-        "agent": role_display,
-        "content": [{
-            "type": "text",
-            "id": gen_id("txt"),
-            "text": summary_text
-        }],
-        "finish": "stop",
-        "time": {
-            "created": now_ms(),
-            "completed": now_ms()
-        }
-    });
-
-    with_store(|store| {
-        store.messages.entry(session_id.to_string()).or_default().push(subagent_msg.clone());
-        save_store(store);
-    });
-
+    persist_child_session_state(&child_session_id, &chat_messages, state_str);
     emit_event(
         workspace_dir,
-        "session.message.created",
+        "subagent.completed",
         json!({
-            "sessionID": session_id,
-            "message": subagent_msg
+            "parentSessionId": parent_session_id, "subagentSessionId": child_session_id,
+            "subagentType": subagent_type, "description": description, "state": state_str,
+            "ok": ok_flag, "stepsRun": steps_run, "toolsExecuted": tools_executed,
+            "error": error_field, "timestamp": now_ms()
         }),
     );
 
-    emit_event(
-        workspace_dir,
-        "session.next.step.started",
-        json!({
-            "sessionID": session_id,
-            "label": format!("✅ [{}] Subtask completed", role_display)
-        }),
-    );
+    let body_summary = if !final_text.trim().is_empty() {
+        final_text.clone()
+    } else if let Some(ref err_msg) = error_field {
+        format!("Subagent [{}] stopped in state '{}' after {} steps (tools called: {:?}). Reason: {}", subagent_type, state_str, steps_run, tools_executed, err_msg)
+    } else {
+        format!("Subagent [{}] completed {} steps (tools called: {:?}).", subagent_type, steps_run, tools_executed)
+    };
+    let formatted_envelope = if let Some(ref err_msg) = error_field {
+        format!("<subagent sessionID=\"{}\" type=\"{}\" state=\"{}\">\n{}\n\n[Diagnostic: {}]\n</subagent>", child_session_id, subagent_type, state_str, body_summary, err_msg)
+    } else {
+        format!("<subagent sessionID=\"{}\" type=\"{}\" state=\"{}\">\n{}\n</subagent>", child_session_id, subagent_type, state_str, body_summary)
+    };
 
-    let envelope = format!(
-        "<subagent sessionID=\"{}\" role=\"{}\" state=\"completed\">\n{}\n</subagent>",
-        session_id, role_display, summary_text
-    );
+    let mut result = json!({
+        "ok": ok_flag, "state": state_str, "sessionID": child_session_id,
+        "subagent_type": subagent_type, "description": description, "resumed": is_resumed,
+        "steps_executed": steps_run, "tools_called": tools_executed, "output": formatted_envelope
+    });
+    if let Some(err_msg) = error_field {
+        result["error"] = json!(err_msg);
+    }
+    result
+}
 
-    json!({
-        "ok": true,
-        "role": role,
-        "role_display": role_display,
-        "steps_executed": steps_executed,
-        "summary": summary_text,
-        "content": envelope
-    })
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_subagent_empty_prompt_returns_structured_error() {
+        let out = execute_subagent("sess_parent_test", "E:\\JS\\ArunakiNexus\\workspace", &json!({
+            "description": "Empty test", "prompt": "   ", "subagent_type": "explore"
+        })).await;
+        assert_eq!(out["ok"], false);
+        assert_eq!(out["state"], "error");
+    }
+
+    #[tokio::test]
+    async fn test_subagent_recursion_depth_guard_blocks_deep_nesting() {
+        crate::session::session::with_store(|store| {
+            store.sessions.insert("sess_deep_child".to_string(), json!({ "id": "sess_deep_child", "subagentDepth": MAX_SUBAGENT_DEPTH }));
+        });
+        let out = execute_subagent("sess_deep_child", "E:\\JS\\ArunakiNexus\\workspace", &json!({
+            "description": "Nested spawn", "prompt": "Try spawning another subagent", "subagent_type": "general"
+        })).await;
+        assert_eq!(out["ok"], false);
+        assert_eq!(out["state"], "error");
+    }
+
+    #[test]
+    fn test_child_session_creation_and_continuation() {
+        let unique_child_id = crate::paths::gen_id("sub_test_cont");
+        let (child_id, initial_msgs, resumed) = load_or_init_child_session(
+            "parent_123", Some(&unique_child_id), "explore", "Find files", 1, "You are Explore.", "Step 1 prompt",
+        );
+        assert_eq!(child_id, unique_child_id);
+        assert!(!resumed);
+        assert_eq!(initial_msgs.len(), 2);
+        let mut updated = initial_msgs;
+        updated.push(json!({ "role": "assistant", "content": "Found 3 files." }));
+        persist_child_session_state(&child_id, &updated, "incomplete");
+        let (resumed_id, resumed_msgs, is_resumed) = load_or_init_child_session(
+            "parent_123", Some(&unique_child_id), "explore", "Continue finding files", 1, "You are Explore.", "Step 2 continuation prompt",
+        );
+        assert_eq!(resumed_id, unique_child_id);
+        assert!(is_resumed);
+        assert_eq!(resumed_msgs.len(), 4);
+    }
 }

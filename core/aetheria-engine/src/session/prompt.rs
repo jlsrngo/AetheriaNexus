@@ -25,7 +25,7 @@ static SESSION_LOCKS: OnceLock<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>
 
 pub fn get_session_lock(session_id: &str) -> Arc<tokio::sync::Mutex<()>> {
     let map = SESSION_LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut guard = map.lock().unwrap();
+    let mut guard = map.lock().unwrap_or_else(|e| e.into_inner());
     guard
         .entry(session_id.to_string())
         .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
@@ -188,6 +188,38 @@ pub async fn handle_prompt(
     );
 
     let files_c = files_val.clone();
+    let wants_steer = body
+        .get("delivery")
+        .and_then(|v| v.as_str())
+        .map(|s| s.eq_ignore_ascii_case("steer"))
+        .unwrap_or(false)
+        || body.get("steer").and_then(|v| v.as_bool()).unwrap_or(false);
+
+    // If the session is already running a turn and the caller requested a mid-turn steer,
+    // admit it into the SessionInbox so the active runner promotes it at the next step boundary!
+    if wants_steer && crate::session::session::is_active_run(&session_id) {
+        let item = crate::session::coordinator::admit_inbox_item(
+            &session_id,
+            &prompt_text,
+            crate::session::coordinator::InboxDelivery::Steer,
+        );
+        return Json(json!({
+            "data": {
+                "id": user_msg_id,
+                "inboxID": item.id,
+                "sessionID": session_id,
+                "prompt": {
+                    "text": prompt_text,
+                    "files": [],
+                    "agents": []
+                },
+                "delivery": "steer",
+                "timeCreated": created_ms
+            }
+        }))
+        .into_response();
+    }
+
     let lock = get_session_lock(&sid_c);
     tokio::spawn(async move {
         let _turn_guard = lock.lock().await;
@@ -223,131 +255,4 @@ pub async fn handle_prompt(
     .into_response()
 }
 
-/// Synchronous runner for headless or CLI bridge execution.
-/// Awaits completion and returns the final assistant text.
-pub async fn run_session_prompt_sync(
-    session_id: &str,
-    workspace_dir: &str,
-    prompt_text: &str,
-    user_tag: Option<&str>,
-) -> String {
-    let dir = normalize_workspace_path(workspace_dir);
-    let model_ref = default_model_ref();
-    let provider_id = model_ref
-        .get("providerID")
-        .and_then(|v| v.as_str())
-        .unwrap_or("antigravity")
-        .to_string();
-    let model_id = model_ref
-        .get("id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("gemini-3.8-flash-low")
-        .to_string();
-
-    let user_msg_id = gen_id("msg");
-    let created_ms = now_ms();
-    let display_prompt = if let Some(tag) = user_tag {
-        format!("{}: {}", tag, prompt_text)
-    } else {
-        prompt_text.to_string()
-    };
-
-    let user_msg = json!({
-        "id": user_msg_id,
-        "type": "user",
-        "role": "user",
-        "agent": "default",
-        "model": {
-            "providerID": provider_id,
-            "id": model_id
-        },
-        "text": display_prompt,
-        "content": [{ "type": "text", "text": display_prompt }],
-        "time": { "created": created_ms }
-    });
-
-    let full_prompt = prompt_text.to_string();
-
-    // 1. Record user message in store and retrieve history
-    let history = with_store(|store| {
-        // Ensure session exists in store.sessions so it appears in sidebar history
-        if !store.sessions.contains_key(session_id) {
-            let p_preview: String = if prompt_text.chars().count() > 40 {
-                format!("{}...", prompt_text.chars().take(40).collect::<String>())
-            } else {
-                prompt_text.to_string()
-            };
-            let title = if let Some(tag) = user_tag {
-                format!("{}: {}", tag, p_preview)
-            } else {
-                p_preview
-            };
-            store.sessions.insert(
-                session_id.to_string(),
-                json!({
-                    "id": session_id,
-                    "title": title,
-                    "model": {
-                        "providerID": provider_id,
-                        "id": model_id
-                    },
-                    "time": {
-                        "created": created_ms,
-                        "updated": created_ms
-                    }
-                }),
-            );
-        }
-
-        let msgs = store.messages.entry(session_id.to_string()).or_default();
-        let hist = msgs.clone();
-        msgs.push(user_msg);
-        save_store(store);
-        hist
-    });
-
-    // 2. Emit UI events so desktop workstation updates in real-time
-    emit_event(
-        &dir,
-        "session.prompt.started",
-        json!({
-            "sessionID": session_id,
-            "messageID": user_msg_id,
-            "prompt": full_prompt
-        }),
-    );
-
-    // 3. Execute agent turn
-    run_agent_turn(
-        session_id,
-        &dir,
-        &provider_id,
-        &model_id,
-        &history,
-        &full_prompt,
-        None,
-    )
-    .await;
-
-    // 4. Retrieve final response text
-    with_store(|store| {
-        store
-            .messages
-            .get(session_id)
-            .and_then(|msgs| msgs.last())
-            .and_then(|last| last.get("content"))
-            .and_then(|c| c.as_array())
-            .and_then(|arr| {
-                arr.iter()
-                    .find_map(|p| p.get("text").and_then(|t| t.as_str()))
-            })
-            .unwrap_or("Done.")
-            .to_string()
-    })
-}
-
-/// Executes a direct prompt without persistent user session history.
-pub async fn run_direct_prompt(workspace_dir: &str, prompt_text: &str) -> String {
-    let session_id = format!("ses_tg_{}", now_ms());
-    run_session_prompt_sync(&session_id, workspace_dir, prompt_text, None).await
-}
+pub use super::prompt_sync::{run_direct_prompt, run_session_prompt_sync};

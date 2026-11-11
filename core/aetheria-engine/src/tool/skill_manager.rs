@@ -1,420 +1,21 @@
-//! OpenCode-Aligned Coding Agent Plugin & Skill Harness for Aetheria Engine.
-//! Supports installing plugins & skills from GitHub repositories (e.g. `github:owner/repo`,
-//! `owner/repo`, `git+https://...#path:packages/...`), local paths, and npm/git bundles.
+//! OpenCode-Aligned Coding Agent Plugin & Skill Tool Executors for Aetheria Engine.
+//! Handles tool definitions and lifecycle commands (`install`, `list`, `toggle`, `update`, `uninstall`),
+//! delegating registry storage to `skill_registry`, source parsing to `skill_source`,
+//! and domain validation / skill linking to `skill_inspector`.
 
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use tokio::process::Command;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct PluginSkillEntry {
-    pub name: String,
-    pub path: String,
-    pub description: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct PluginRuleEntry {
-    pub name: String,
-    pub path: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct InstalledPluginRecord {
-    pub id: String,
-    pub name: String,
-    pub version: String,
-    pub description: String,
-    pub source: String,
-    pub enabled: bool,
-    pub installed_at: u64,
-    pub commit_hash: Option<String>,
-    pub sub_path: Option<String>,
-    pub path: String,
-    pub skills: Vec<PluginSkillEntry>,
-    pub rules: Vec<PluginRuleEntry>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct PluginRegistry {
-    pub version: u32,
-    pub plugins: Vec<InstalledPluginRecord>,
-}
-
-fn get_registry_path(ws: &Path) -> PathBuf {
-    ws.join(".aetheria").join("plugins.json")
-}
-
-pub fn load_plugin_registry(ws: &Path) -> PluginRegistry {
-    let reg_file = get_registry_path(ws);
-    if let Ok(data) = std::fs::read_to_string(&reg_file) {
-        if let Ok(reg) = serde_json::from_str::<PluginRegistry>(&data) {
-            return reg;
-        }
-    }
-    PluginRegistry {
-        version: 1,
-        plugins: Vec::new(),
-    }
-}
-
-pub fn save_plugin_registry(ws: &Path, reg: &PluginRegistry) {
-    let reg_file = get_registry_path(ws);
-    if let Some(parent) = reg_file.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    if let Ok(json_str) = serde_json::to_string_pretty(reg) {
-        let _ = std::fs::write(&reg_file, json_str);
-    }
-}
-
-/// Parsed source representation supporting OpenCode syntax:
-/// - `github:owner/repo`
-/// - `git+https://github.com/owner/repo.git#path:packages/plugins/name`
-/// - `owner/repo#branch`
-pub struct ParsedGitSource {
-    pub clone_url: String,
-    pub branch_or_tag: Option<String>,
-    pub sub_path: Option<String>,
-    pub default_id: String,
-}
-
-pub fn parse_opencode_source(raw: &str) -> Result<ParsedGitSource, String> {
-    let mut s = raw.trim();
-    if s.is_empty() {
-        return Err("Source cannot be empty".to_string());
-    }
-
-    // Strip "git+" prefix if present (e.g. git+https://...)
-    if let Some(rest) = s.strip_prefix("git+") {
-        s = rest;
-    }
-
-    // Check for "github:" prefix
-    if let Some(rest) = s.strip_prefix("github:") {
-        let clean = rest.trim_start_matches('/');
-        let (repo, frag) = split_fragment(clean);
-        let (branch, sub_path) = parse_fragment(frag);
-        let id = derive_id_from_path(sub_path.as_deref().unwrap_or(repo));
-        return Ok(ParsedGitSource {
-            clone_url: format!("https://github.com/{}.git", repo),
-            branch_or_tag: branch,
-            sub_path,
-            default_id: id,
-        });
-    }
-
-    // Direct HTTP(S) or Git SSH URL
-    if s.starts_with("http://") || s.starts_with("https://") || s.starts_with("git@") {
-        let (base, frag) = split_fragment(s);
-        let (branch, sub_path) = parse_fragment(frag);
-        let clean_base = if base.ends_with(".git") {
-            base.to_string()
-        } else {
-            format!("{}.git", base.trim_end_matches('/'))
-        };
-        let id = derive_id_from_path(sub_path.as_deref().unwrap_or(base));
-        return Ok(ParsedGitSource {
-            clone_url: clean_base,
-            branch_or_tag: branch,
-            sub_path,
-            default_id: id,
-        });
-    }
-
-    // Shorthand "owner/repo"
-    if s.contains('/') && !s.contains(' ') {
-        let (repo, frag) = split_fragment(s);
-        let (branch, sub_path) = parse_fragment(frag);
-        let id = derive_id_from_path(sub_path.as_deref().unwrap_or(repo));
-        return Ok(ParsedGitSource {
-            clone_url: format!("https://github.com/{}.git", repo),
-            branch_or_tag: branch,
-            sub_path,
-            default_id: id,
-        });
-    }
-
-    // Local path
-    Ok(ParsedGitSource {
-        clone_url: s.to_string(),
-        branch_or_tag: None,
-        sub_path: None,
-        default_id: derive_id_from_path(s),
-    })
-}
-
-fn split_fragment(s: &str) -> (&str, Option<&str>) {
-    if let Some(idx) = s.find('#') {
-        (&s[..idx], Some(&s[idx + 1..]))
-    } else {
-        (s, None)
-    }
-}
-
-fn parse_fragment(frag_opt: Option<&str>) -> (Option<String>, Option<String>) {
-    let Some(frag) = frag_opt else {
-        return (None, None);
-    };
-
-    // Supports:
-    // "#main" (branch)
-    // "#path:packages/plugins/foo" (subpath)
-    // "#main::path:packages/foo" (branch + subpath)
-    let mut branch = None;
-    let mut sub_path = None;
-
-    if frag.contains("::path:") {
-        let parts: Vec<&str> = frag.split("::path:").collect();
-        branch = Some(parts[0].to_string());
-        sub_path = Some(parts[1].trim_matches('/').to_string());
-    } else if let Some(p) = frag.strip_prefix("path:") {
-        sub_path = Some(p.trim_matches('/').to_string());
-    } else {
-        branch = Some(frag.to_string());
-    }
-
-    (branch, sub_path)
-}
-
-fn derive_id_from_path(p: &str) -> String {
-    let clean = p.trim_end_matches('/').trim_end_matches(".git");
-    clean
-        .split('/')
-        .last()
-        .unwrap_or("plugin")
-        .to_lowercase()
-        .replace([' ', '_', '.'], "-")
-}
-
-/// Discovers manifest, skills, and rules from an installed directory (including subpath)
-fn inspect_plugin_directory(
-    root_dir: &Path,
-    sub_path_opt: Option<&str>,
-    default_id: &str,
-    source: &str,
-) -> InstalledPluginRecord {
-    let effective_dir = if let Some(sub) = sub_path_opt {
-        root_dir.join(sub)
-    } else {
-        root_dir.to_path_buf()
-    };
-
-    let manifest_path = effective_dir.join("plugin.json");
-    let mut name = default_id.to_string();
-    let mut description = format!("Aetheria plugin: {}", default_id);
-    let mut version = "1.0.0".to_string();
-
-    if let Ok(manifest_raw) = std::fs::read_to_string(&manifest_path) {
-        if let Ok(val) = serde_json::from_str::<Value>(&manifest_raw) {
-            if let Some(n) = val.get("name").and_then(|v| v.as_str()) {
-                name = n.to_string();
-            }
-            if let Some(d) = val.get("description").and_then(|v| v.as_str()) {
-                description = d.to_string();
-            }
-            if let Some(v) = val.get("version").and_then(|v| v.as_str()) {
-                version = v.to_string();
-            }
-        }
-    }
-
-    let mut discovered_skills: Vec<PluginSkillEntry> = Vec::new();
-    let mut discovered_rules: Vec<PluginRuleEntry> = Vec::new();
-
-    // 1. Root SKILL.md
-    let root_skill = effective_dir.join("SKILL.md");
-    if root_skill.is_file() {
-        let skill_desc = extract_description_from_skill_md(&root_skill).unwrap_or_else(|| description.clone());
-        discovered_skills.push(PluginSkillEntry {
-            name: default_id.to_string(),
-            path: root_skill.display().to_string(),
-            description: skill_desc,
-        });
-    }
-
-    // 2. Sub-skills in `skills/`
-    let subskills_dir = effective_dir.join("skills");
-    if subskills_dir.is_dir() {
-        if let Ok(entries) = std::fs::read_dir(&subskills_dir) {
-            for entry in entries.flatten() {
-                let p = entry.path();
-                if p.is_dir() {
-                    let sub_md = p.join("SKILL.md");
-                    if sub_md.is_file() {
-                        let sub_name = p.file_name().and_then(|n| n.to_str()).unwrap_or("skill").to_string();
-                        let sub_desc = extract_description_from_skill_md(&sub_md).unwrap_or_else(|| format!("Skill: {}", sub_name));
-                        discovered_skills.push(PluginSkillEntry {
-                            name: sub_name,
-                            path: sub_md.display().to_string(),
-                            description: sub_desc,
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-    // 3. Rules in `rules/` or `rules.md`
-    let root_rules = effective_dir.join("rules.md");
-    if root_rules.is_file() {
-        discovered_rules.push(PluginRuleEntry {
-            name: format!("{}-rules", default_id),
-            path: root_rules.display().to_string(),
-        });
-    }
-
-    let rules_dir = effective_dir.join("rules");
-    if rules_dir.is_dir() {
-        if let Ok(entries) = std::fs::read_dir(&rules_dir) {
-            for entry in entries.flatten() {
-                let p = entry.path();
-                if p.is_file() && p.extension().and_then(|e| e.to_str()) == Some("md") {
-                    let rule_name = p.file_stem().and_then(|s| s.to_str()).unwrap_or("rule").to_string();
-                    discovered_rules.push(PluginRuleEntry {
-                        name: rule_name,
-                        path: p.display().to_string(),
-                    });
-                }
-            }
-        }
-    }
-
-    InstalledPluginRecord {
-        id: default_id.to_string(),
-        name,
-        version,
-        description,
-        source: source.to_string(),
-        enabled: true,
-        installed_at: crate::paths::now_ms(),
-        commit_hash: None,
-        sub_path: sub_path_opt.map(str::to_string),
-        path: effective_dir.display().to_string(),
-        skills: discovered_skills,
-        rules: discovered_rules,
-    }
-}
-
-fn extract_description_from_skill_md(path: &Path) -> Option<String> {
-    if let Ok(content) = std::fs::read_to_string(path) {
-        for line in content.lines().take(35) {
-            let trimmed = line.trim();
-            if let Some(desc) = trimmed.strip_prefix("description:") {
-                return Some(desc.trim().trim_matches('"').trim_matches('\'').to_string());
-            }
-        }
-    }
-    None
-}
-
-/// Validates whether an installed plugin belongs to the motion graphics, animation, video,
-/// audio/sfx, or visual creative storytelling domain. If unrelated (e.g. backend SQL, kubernetes, crypto),
-/// the engine strictly rejects the plugin unless bypassValidation=true is explicitly provided.
-pub fn validate_motion_graphics_domain(
-    plugin_dir: &Path,
-    rec: &InstalledPluginRecord,
-) -> Result<(), String> {
-    let domain_keywords = [
-        "motion", "animation", "anim", "video", "remotion", "graphic", "visual", "storyboard",
-        "typography", "kinetic", "audio", "sfx", "sound", "music", "voice", "voiceover", "speech",
-        "tts", "render", "timeline", "keyframe", "fps", "cadence", "3d", "webgl", "three", "canvas",
-        "glsl", "effect", "color", "palette", "design", "aesthetic", "brand", "caption", "subtitle",
-        "cut", "editing", "camera", "b-roll", "stock", "clip", "tiktok", "reel", "short", "youtube",
-        "intro", "outro", "lower-third", "hud", "overlay", "transition", "spring", "scene", "composition",
-    ];
-
-    let mut corpus = String::new();
-    corpus.push_str(&rec.id.to_lowercase());
-    corpus.push(' ');
-    corpus.push_str(&rec.name.to_lowercase());
-    corpus.push(' ');
-    corpus.push_str(&rec.description.to_lowercase());
-    corpus.push(' ');
-
-    for s in &rec.skills {
-        corpus.push_str(&s.name.to_lowercase());
-        corpus.push(' ');
-        corpus.push_str(&s.description.to_lowercase());
-        corpus.push(' ');
-    }
-
-    for r in &rec.rules {
-        corpus.push_str(&r.name.to_lowercase());
-        corpus.push(' ');
-    }
-
-    for mf in ["plugin.json", "package.json"] {
-        let p = plugin_dir.join(mf);
-        if let Ok(c) = std::fs::read_to_string(&p) {
-            corpus.push_str(&c.to_lowercase());
-        }
-    }
-
-    let mut has_creative_assets = false;
-    if let Ok(entries) = std::fs::read_dir(plugin_dir) {
-        for e in entries.flatten() {
-            if let Some(ext) = e.path().extension().and_then(|s| s.to_str()) {
-                let lext = ext.to_lowercase();
-                if ["mp4", "mov", "wav", "mp3", "svg", "glsl", "gltf", "hdr"].contains(&lext.as_str()) {
-                    has_creative_assets = true;
-                    break;
-                }
-            }
-        }
-    }
-
-    let mut match_count = 0;
-    for kw in &domain_keywords {
-        if corpus.contains(kw) {
-            match_count += 1;
-        }
-    }
-
-    if match_count == 0 && !has_creative_assets {
-        return Err(format!(
-            "Policy Rejection: Plugin '{}' does not belong to the Motion Graphics or Creative Video domain. Aetheria Nexus strictly accepts only plugins related to motion graphics, video animation, audio/sfx design, or visual storytelling. (Matched domain keywords: 0). To override this policy, pass `force: true`.",
-            rec.name
-        ));
-    }
-
-    Ok(())
-}
-
-/// Links discovered plugin skills into `.agents/skills/` so legacy skill lookups discover them
-fn link_plugin_skills_to_workspace(ws: &Path, plugin_rec: &InstalledPluginRecord) {
-    let ws_skills = ws.join(".agents").join("skills");
-    let _ = std::fs::create_dir_all(&ws_skills);
-
-    for s in &plugin_rec.skills {
-        let skill_source_path = Path::new(&s.path);
-        if let Some(parent_dir) = skill_source_path.parent() {
-            let dest_dir = ws_skills.join(&s.name);
-            if !dest_dir.exists() {
-                let _ = copy_dir_all(parent_dir, &dest_dir);
-            }
-        }
-    }
-}
-
-fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
-    std::fs::create_dir_all(dst)?;
-    for entry in std::fs::read_dir(src)? {
-        let entry = entry?;
-        let ty = entry.file_type()?;
-        if ty.is_dir() {
-            copy_dir_all(&entry.path(), &dst.join(entry.file_name()))?;
-        } else {
-            std::fs::copy(entry.path(), dst.join(entry.file_name()))?;
-        }
-    }
-    Ok(())
-}
+use super::skill_inspector::{
+    copy_dir_all, inspect_plugin_directory, link_plugin_skills_to_workspace,
+};
+pub use super::skill_inspector::validate_motion_graphics_domain;
+pub use super::skill_registry::{
+    load_plugin_registry, save_plugin_registry, InstalledPluginRecord, PluginRegistry,
+    PluginRuleEntry, PluginSkillEntry,
+};
+pub use super::skill_source::{parse_opencode_source, ParsedGitSource};
 
 pub fn skill_tool_definitions() -> Vec<Value> {
     vec![
@@ -512,6 +113,64 @@ pub fn skill_tool_definitions() -> Vec<Value> {
     ]
 }
 
+fn resolve_workspace(workspace_dir: &str) -> PathBuf {
+    let root = crate::paths::project_root();
+    if workspace_dir.trim().is_empty() {
+        root
+    } else {
+        PathBuf::from(workspace_dir)
+    }
+}
+
+fn finalize_plugin_install(
+    ws: &Path,
+    target_dir: &Path,
+    plugin_id: &str,
+    sub_path: Option<&str>,
+    source_raw: &str,
+    commit_hash: Option<String>,
+    arguments: &Value,
+    source_label: &str,
+) -> Value {
+    let mut rec = inspect_plugin_directory(target_dir, sub_path, plugin_id, source_raw);
+    rec.commit_hash = commit_hash;
+    rec.enabled = arguments
+        .get("enabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+
+    // Domain Policy Guard: strictly reject plugins not related to motion graphics / video / audio
+    let bypass = arguments
+        .get("force")
+        .or_else(|| arguments.get("bypassValidation"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    if !bypass {
+        if let Err(reject_reason) = validate_motion_graphics_domain(target_dir, &rec) {
+            let _ = std::fs::remove_dir_all(target_dir);
+            return json!({
+                "success": false,
+                "rejected": true,
+                "error": reject_reason,
+                "pluginId": plugin_id
+            });
+        }
+    }
+
+    link_plugin_skills_to_workspace(ws, &rec);
+
+    let mut reg = load_plugin_registry(ws);
+    reg.plugins.retain(|p| p.id != plugin_id);
+    reg.plugins.push(rec.clone());
+    save_plugin_registry(ws, &reg);
+
+    json!({
+        "success": true,
+        "message": format!("Successfully installed {}plugin '{}' ({} skills, {} rules).", source_label, plugin_id, rec.skills.len(), rec.rules.len()),
+        "plugin": rec
+    })
+}
+
 pub async fn execute_install_plugin(workspace_dir: &str, arguments: &Value) -> Value {
     let source_raw = match arguments.get("source").and_then(|v| v.as_str()) {
         Some(s) if !s.trim().is_empty() => s.trim(),
@@ -523,13 +182,7 @@ pub async fn execute_install_plugin(workspace_dir: &str, arguments: &Value) -> V
         Err(e) => return json!({ "error": format!("Invalid plugin source: {}", e) }),
     };
 
-    let root = crate::paths::project_root();
-    let ws = if workspace_dir.trim().is_empty() {
-        root.clone()
-    } else {
-        PathBuf::from(workspace_dir)
-    };
-
+    let ws = resolve_workspace(workspace_dir);
     let plugin_id = arguments
         .get("name")
         .or_else(|| arguments.get("id"))
@@ -554,19 +207,15 @@ pub async fn execute_install_plugin(workspace_dir: &str, arguments: &Value) -> V
         || parsed.clone_url.starts_with("git@");
 
     if is_git {
-        // Clone from GitHub
         let mut git_cmd = Command::new("git");
         git_cmd.arg("clone").arg("--depth").arg("1");
-
         if let Some(ref branch) = parsed.branch_or_tag {
             git_cmd.arg("--branch").arg(branch);
         }
-
         git_cmd.arg(&parsed.clone_url).arg(&target_dir);
 
         match git_cmd.output().await {
             Ok(output) if output.status.success() => {
-                // Get commit hash
                 let mut rev_cmd = Command::new("git");
                 rev_cmd.arg("-C").arg(&target_dir).arg("rev-parse").arg("HEAD");
                 let commit_hash = rev_cmd.output().await.ok().and_then(|o| {
@@ -577,43 +226,16 @@ pub async fn execute_install_plugin(workspace_dir: &str, arguments: &Value) -> V
                     }
                 });
 
-                let mut rec = inspect_plugin_directory(
+                finalize_plugin_install(
+                    &ws,
                     &target_dir,
-                    parsed.sub_path.as_deref(),
                     &plugin_id,
+                    parsed.sub_path.as_deref(),
                     source_raw,
-                );
-                rec.commit_hash = commit_hash;
-                rec.enabled = arguments.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
-
-                // Domain Policy Guard: strictly reject plugins not related to motion graphics / video / audio
-                let bypass = arguments.get("force").or_else(|| arguments.get("bypassValidation")).and_then(|v| v.as_bool()).unwrap_or(false);
-                if !bypass {
-                    if let Err(reject_reason) = validate_motion_graphics_domain(&target_dir, &rec) {
-                        let _ = std::fs::remove_dir_all(&target_dir);
-                        return json!({
-                            "success": false,
-                            "rejected": true,
-                            "error": reject_reason,
-                            "pluginId": plugin_id
-                        });
-                    }
-                }
-
-                // Link skills to workspace
-                link_plugin_skills_to_workspace(&ws, &rec);
-
-                // Save to registry
-                let mut reg = load_plugin_registry(&ws);
-                reg.plugins.retain(|p| p.id != plugin_id);
-                reg.plugins.push(rec.clone());
-                save_plugin_registry(&ws, &reg);
-
-                json!({
-                    "success": true,
-                    "message": format!("Successfully installed plugin '{}' from GitHub ({} skills, {} rules).", plugin_id, rec.skills.len(), rec.rules.len()),
-                    "plugin": rec
-                })
+                    commit_hash,
+                    arguments,
+                    "GitHub ",
+                )
             }
             Ok(output) => {
                 let err = String::from_utf8_lossy(&output.stderr).to_string();
@@ -622,61 +244,29 @@ pub async fn execute_install_plugin(workspace_dir: &str, arguments: &Value) -> V
             Err(err) => json!({ "error": format!("Failed to run git: {}", err) }),
         }
     } else {
-        // Local directory install
         let local_path = Path::new(&parsed.clone_url);
         if !local_path.exists() {
             return json!({ "error": format!("Local directory not found: {}", parsed.clone_url) });
         }
-
         if let Err(err) = copy_dir_all(local_path, &target_dir) {
             return json!({ "error": format!("Failed to copy plugin files: {}", err) });
         }
 
-        let mut rec = inspect_plugin_directory(
+        finalize_plugin_install(
+            &ws,
             &target_dir,
-            parsed.sub_path.as_deref(),
             &plugin_id,
+            parsed.sub_path.as_deref(),
             source_raw,
-        );
-        rec.enabled = arguments.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
-
-        // Domain Policy Guard: strictly reject plugins not related to motion graphics / video / audio
-        let bypass = arguments.get("force").or_else(|| arguments.get("bypassValidation")).and_then(|v| v.as_bool()).unwrap_or(false);
-        if !bypass {
-            if let Err(reject_reason) = validate_motion_graphics_domain(&target_dir, &rec) {
-                let _ = std::fs::remove_dir_all(&target_dir);
-                return json!({
-                    "success": false,
-                    "rejected": true,
-                    "error": reject_reason,
-                    "pluginId": plugin_id
-                });
-            }
-        }
-
-        link_plugin_skills_to_workspace(&ws, &rec);
-
-        let mut reg = load_plugin_registry(&ws);
-        reg.plugins.retain(|p| p.id != plugin_id);
-        reg.plugins.push(rec.clone());
-        save_plugin_registry(&ws, &reg);
-
-        json!({
-            "success": true,
-            "message": format!("Successfully installed local plugin '{}' ({} skills, {} rules).", plugin_id, rec.skills.len(), rec.rules.len()),
-            "plugin": rec
-        })
+            None,
+            arguments,
+            "local ",
+        )
     }
 }
 
 pub fn execute_list_plugins(workspace_dir: &str) -> Value {
-    let root = crate::paths::project_root();
-    let ws = if workspace_dir.trim().is_empty() {
-        root.clone()
-    } else {
-        PathBuf::from(workspace_dir)
-    };
-
+    let ws = resolve_workspace(workspace_dir);
     let reg = load_plugin_registry(&ws);
     json!({
         "success": true,
@@ -691,13 +281,7 @@ pub fn execute_toggle_plugin(workspace_dir: &str, arguments: &Value) -> Value {
         _ => return json!({ "error": "plugin_toggle requires 'id'." }),
     };
     let enabled = arguments.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
-
-    let root = crate::paths::project_root();
-    let ws = if workspace_dir.trim().is_empty() {
-        root.clone()
-    } else {
-        PathBuf::from(workspace_dir)
-    };
+    let ws = resolve_workspace(workspace_dir);
 
     let mut reg = load_plugin_registry(&ws);
     let mut found = false;
@@ -728,13 +312,7 @@ pub async fn execute_update_plugin(workspace_dir: &str, arguments: &Value) -> Va
         _ => return json!({ "error": "plugin_update requires 'id'." }),
     };
 
-    let root = crate::paths::project_root();
-    let ws = if workspace_dir.trim().is_empty() {
-        root.clone()
-    } else {
-        PathBuf::from(workspace_dir)
-    };
-
+    let ws = resolve_workspace(workspace_dir);
     let plugin_dir = ws.join(".aetheria").join("plugins").join(id);
     if !plugin_dir.exists() {
         return json!({ "error": format!("Plugin directory '{}' does not exist.", plugin_dir.display()) });
@@ -783,13 +361,7 @@ pub async fn execute_uninstall_plugin(workspace_dir: &str, arguments: &Value) ->
         _ => return json!({ "error": "plugin_uninstall requires 'id'." }),
     };
 
-    let root = crate::paths::project_root();
-    let ws = if workspace_dir.trim().is_empty() {
-        root.clone()
-    } else {
-        PathBuf::from(workspace_dir)
-    };
-
+    let ws = resolve_workspace(workspace_dir);
     let plugin_dir = ws.join(".aetheria").join("plugins").join(id);
     if plugin_dir.exists() {
         let _ = std::fs::remove_dir_all(&plugin_dir);
@@ -803,75 +375,4 @@ pub async fn execute_uninstall_plugin(workspace_dir: &str, arguments: &Value) ->
         "success": true,
         "message": format!("Plugin '{}' has been uninstalled.", id)
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_opencode_shorthand() {
-        let parsed = parse_opencode_source("github:remotion-dev/remotion-plugin").unwrap();
-        assert_eq!(parsed.clone_url, "https://github.com/remotion-dev/remotion-plugin.git");
-        assert_eq!(parsed.default_id, "remotion-plugin");
-
-        let parsed_sub = parse_opencode_source("git+https://github.com/acme/mono.git#path:packages/plugins/motion").unwrap();
-        assert_eq!(parsed_sub.clone_url, "https://github.com/acme/mono.git");
-        assert_eq!(parsed_sub.sub_path.as_deref(), Some("packages/plugins/motion"));
-        assert_eq!(parsed_sub.default_id, "motion");
-    }
-
-    #[test]
-    fn test_rejects_unrelated_plugins() {
-        let dummy_dir = std::env::temp_dir().join("dummy_unrelated_plugin");
-        let _ = std::fs::create_dir_all(&dummy_dir);
-
-        let rec = InstalledPluginRecord {
-            id: "pg-migrations".to_string(),
-            name: "Postgres Migrations".to_string(),
-            version: "1.0.0".to_string(),
-            description: "A database migration runner for SQL databases".to_string(),
-            source: "github:db/pg-migrations".to_string(),
-            enabled: true,
-            installed_at: 0,
-            commit_hash: None,
-            sub_path: None,
-            path: dummy_dir.display().to_string(),
-            skills: vec![],
-            rules: vec![],
-        };
-
-        let result = validate_motion_graphics_domain(&dummy_dir, &rec);
-        assert!(result.is_err(), "Expected unrelated plugin to be rejected!");
-        let err_msg = result.unwrap_err();
-        assert!(err_msg.contains("Policy Rejection"), "Error must cite policy rejection");
-
-        let _ = std::fs::remove_dir_all(&dummy_dir);
-    }
-
-    #[test]
-    fn test_accepts_motion_graphics_plugins() {
-        let dummy_dir = std::env::temp_dir().join("dummy_motion_plugin");
-        let _ = std::fs::create_dir_all(&dummy_dir);
-
-        let rec = InstalledPluginRecord {
-            id: "kinetic-titles".to_string(),
-            name: "Kinetic Titles Plugin".to_string(),
-            version: "1.0.0".to_string(),
-            description: "High-retention kinetic typography and video animation presets for Remotion".to_string(),
-            source: "github:creative/kinetic-titles".to_string(),
-            enabled: true,
-            installed_at: 0,
-            commit_hash: None,
-            sub_path: None,
-            path: dummy_dir.display().to_string(),
-            skills: vec![],
-            rules: vec![],
-        };
-
-        let result = validate_motion_graphics_domain(&dummy_dir, &rec);
-        assert!(result.is_ok(), "Expected motion graphics plugin to pass validation!");
-
-        let _ = std::fs::remove_dir_all(&dummy_dir);
-    }
 }

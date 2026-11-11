@@ -84,9 +84,20 @@ pub async fn handle_switch_model(
     }
 }
 
-/// HTTP handler to abort an in-flight prompt run.
+/// HTTP handler to abort an in-flight prompt run and cooperatively cancel any child jobs.
 pub async fn handle_abort(AxumPath(id): AxumPath<String>) -> Response {
+    crate::session::coordinator::interrupt_session(&id, "user");
     set_active_run(&id, false);
+    crate::session::agent_turn::resilience::settle_stale_session_state(&id, "global");
+    crate::session::message::emit_event(
+        "global",
+        "session.aborted",
+        json!({
+            "sessionID": id,
+            "reason": "user",
+            "timestamp": now_ms()
+        }),
+    );
     Json(json!({ "data": { "aborted": true } })).into_response()
 }
 

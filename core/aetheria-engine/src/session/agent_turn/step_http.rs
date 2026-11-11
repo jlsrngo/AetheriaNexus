@@ -1,0 +1,282 @@
+//! Single-Step Resilient HTTP Sender for Parent Agent Turn
+//! Handles transient HTTP retries, local bridge auto-heal, emergency compaction heal,
+//! quota failover to Kenari, and multimodal vision-to-text fallback.
+
+use crate::bridge::LOCAL_CLI_BRIDGE_PORT;
+use crate::session::message::emit_event;
+use serde_json::{json, Value};
+
+use super::resilience::{
+    compute_retry_backoff_ms, is_unreachable_network_error, sanitize_multimodal_messages_to_text,
+};
+
+pub(crate) struct StepHttpContext<'a> {
+    pub client: &'a reqwest::Client,
+    pub cfg: &'a Value,
+    pub session_id: &'a str,
+    pub workspace_dir: &'a str,
+    pub is_local_bridge: bool,
+    pub current_provider_id: &'a mut String,
+    pub current_model_id: &'a mut String,
+    pub base_url: &'a mut String,
+    pub api_key: &'a mut String,
+    pub chat_messages: &'a mut Vec<Value>,
+}
+
+pub(crate) async fn execute_step_http_request(
+    ctx: &mut StepHttpContext<'_>,
+    tools_def: &[Value],
+) -> Result<reqwest::Response, String> {
+    let mut req_body = json!({
+        "model": *ctx.current_model_id,
+        "messages": *ctx.chat_messages,
+        "stream": false
+    });
+    if !tools_def.is_empty() {
+        req_body["tools"] = Value::Array(tools_def.to_vec());
+    }
+
+    let mut net_attempt = 0usize;
+    let resp = loop {
+        let active_key =
+            crate::provider::protocol_adapters::select_healthy_api_key(ctx.api_key);
+        let send_res = ctx
+            .client
+            .post(format!("{}/chat/completions", ctx.base_url))
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {}", active_key))
+            .json(&req_body)
+            .send()
+            .await;
+
+        match send_res {
+            Ok(ok_r) => {
+                let code = ok_r.status().as_u16();
+                if (code == 502 || code == 503 || code == 504 || code == 408) && net_attempt < 3 {
+                    net_attempt += 1;
+                    let retry_after = ok_r
+                        .headers()
+                        .get("retry-after")
+                        .and_then(|v| v.to_str().ok());
+                    let delay_ms = compute_retry_backoff_ms(net_attempt, false, retry_after);
+                    crate::paths::log_engine(
+                        "ai",
+                        &format!(
+                            "⏳ Upstream HTTP {} transient error; backing off {}ms (retry #{}/3)...",
+                            code, delay_ms, net_attempt
+                        ),
+                    );
+                    tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                    continue;
+                }
+                break Ok(ok_r);
+            }
+            Err(net_e) if net_attempt < 2 && !net_e.is_timeout() => {
+                net_attempt += 1;
+                let err_s = net_e.to_string();
+                if ctx.is_local_bridge
+                    || ctx
+                        .base_url
+                        .contains(&format!(":{}", LOCAL_CLI_BRIDGE_PORT))
+                {
+                    let new_port = crate::bridge::ensure_bridge_running().await;
+                    *ctx.base_url = format!("http://127.0.0.1:{}/v1", new_port);
+                }
+                let is_unreach = is_unreachable_network_error(&err_s);
+                let delay_ms = compute_retry_backoff_ms(net_attempt, is_unreach, None);
+                crate::paths::log_engine(
+                    "ai",
+                    &format!(
+                        "🔄 Transient network error ({}); backing off {}ms (retry #{}/2)...",
+                        err_s, delay_ms, net_attempt
+                    ),
+                );
+                tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+            }
+            Err(net_e) => break Err(net_e),
+        }
+    };
+
+    let mut r = match resp {
+        Ok(r) => r,
+        Err(e) => {
+            crate::paths::log_engine(
+                "ai",
+                &format!("⚠️ Connection error to AI endpoint {}: {}", ctx.base_url, e),
+            );
+            if ctx.is_local_bridge
+                || ctx
+                    .base_url
+                    .contains(&format!(":{}", LOCAL_CLI_BRIDGE_PORT))
+            {
+                crate::paths::log_engine("ai", "🔄 Auto-healing Local-CLI Bridge and retrying turn...");
+                let new_port = crate::bridge::ensure_bridge_running().await;
+                *ctx.base_url = format!("http://127.0.0.1:{}/v1", new_port);
+                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                ctx.client
+                    .post(format!("{}/chat/completions", ctx.base_url))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", format!("Bearer {}", ctx.api_key))
+                    .json(&req_body)
+                    .send()
+                    .await
+                    .map_err(|re| format!("Error: Failed to reach AI provider ({}).", re))?
+            } else if e.is_timeout() && ctx.chat_messages.len() > 2 {
+                crate::paths::log_engine(
+                    "ai",
+                    "⏱️ AI request timed out! Triggering emergency context compaction and retrying...",
+                );
+                *ctx.chat_messages =
+                    crate::session::compaction::emergency_compact_messages(ctx.chat_messages);
+                req_body["messages"] = Value::Array(ctx.chat_messages.clone());
+                let retried = ctx
+                    .client
+                    .post(format!("{}/chat/completions", ctx.base_url))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", format!("Bearer {}", ctx.api_key))
+                    .json(&req_body)
+                    .send()
+                    .await
+                    .map_err(|re| {
+                        format!(
+                            "Error: Failed to reach AI provider after timeout retry ({}).",
+                            re
+                        )
+                    })?;
+                if !retried.status().is_success() {
+                    let err_body = retried.text().await.unwrap_or_default();
+                    return Err(format!(
+                        "Error from AI provider after timeout retry: {}",
+                        err_body
+                    ));
+                }
+                retried
+            } else {
+                return Err(format!("Error: Failed to reach AI provider ({}).", e));
+            }
+        }
+    };
+
+    if !r.status().is_success() {
+        let status_code = r.status().as_u16();
+        let err_txt = r.text().await.unwrap_or_default();
+
+        if crate::session::compaction::is_context_overflow_error(&err_txt)
+            && ctx.chat_messages.len() > 2
+        {
+            crate::paths::log_engine(
+                "ai",
+                "🩹 Context window overflow detected! Triggering emergency compaction auto-heal...",
+            );
+            *ctx.chat_messages =
+                crate::session::compaction::emergency_compact_messages(ctx.chat_messages);
+            req_body["messages"] = Value::Array(ctx.chat_messages.clone());
+
+            emit_event(
+                ctx.workspace_dir,
+                "session.overflow_healed",
+                json!({
+                    "sessionID": ctx.session_id,
+                    "compactedMessages": ctx.chat_messages.len()
+                }),
+            );
+
+            let retried = send_raw_post(ctx.client, ctx.base_url, ctx.api_key, &req_body)
+                .await
+                .map_err(|e| format!("Error reaching AI provider during auto-heal retry: {}", e))?;
+            if !retried.status().is_success() {
+                let final_err = retried.text().await.unwrap_or_default();
+                return Err(format!(
+                    "Error from AI provider (after context compaction): {}",
+                    final_err
+                ));
+            }
+            r = retried;
+        } else if crate::session::compaction::is_quota_or_rate_limit_error(status_code, &err_txt)
+            || err_txt.contains("MONTHLY_REQUEST_COUNT")
+            || err_txt.contains("insufficient balance")
+        {
+            let cur_key = crate::provider::protocol_adapters::select_healthy_api_key(ctx.api_key);
+            if let Some(next_key) = crate::provider::protocol_adapters::rotate_api_key_on_quota(
+                ctx.api_key, &cur_key, 60_000,
+            ) {
+                r = send_raw_post(ctx.client, ctx.base_url, &next_key, &req_body)
+                    .await
+                    .map_err(|e| format!("Error during multi-key rotation retry: {}", e))?;
+            } else if *ctx.current_provider_id != "kenari"
+                || *ctx.current_model_id != "llama-3-3-70b-instruct:free"
+            {
+                crate::paths::log_engine(
+                    "ai",
+                    "⚡ Provider quota/balance limit reached. Failing over to Kenari free model...",
+                );
+                emit_event(
+                    ctx.workspace_dir,
+                    "session.failover",
+                    json!({
+                        "sessionID": ctx.session_id,
+                        "fromProvider": *ctx.current_provider_id,
+                        "fromModel": *ctx.current_model_id,
+                        "toProvider": "kenari",
+                        "toModel": "llama-3-3-70b-instruct:free",
+                        "reason": "Quota or balance limit reached"
+                    }),
+                );
+                *ctx.current_provider_id = "kenari".to_string();
+                *ctx.current_model_id = "llama-3-3-70b-instruct:free".to_string();
+                *ctx.base_url = "https://kenari.id/v1".to_string();
+                *ctx.api_key = ctx
+                    .cfg
+                    .pointer("/providers/kenari/request/body/apiKey")
+                    .or_else(|| ctx.cfg.pointer("/provider/kenari/request/body/apiKey"))
+                    .or_else(|| ctx.cfg.pointer("/provider/kenari/options/apiKey"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("kn-d4064183d620d48ada4409df456e02a4f1840f73a7541333")
+                    .to_string();
+                req_body["model"] = json!(*ctx.current_model_id);
+                let fo_r = send_raw_post(ctx.client, ctx.base_url, ctx.api_key, &req_body)
+                    .await
+                    .map_err(|e| format!("Error reaching AI provider during failover: {}", e))?;
+                if !fo_r.status().is_success() {
+                    let final_err = fo_r.text().await.unwrap_or_default();
+                    return Err(format!("Error from AI provider after failover: {}", final_err));
+                }
+                r = fo_r;
+            } else {
+                return Err(format!("Error from AI provider: {}", err_txt));
+            }
+        } else if err_txt.contains("upstream_rejected")
+            && sanitize_multimodal_messages_to_text(ctx.chat_messages)
+        {
+            req_body["messages"] = Value::Array(ctx.chat_messages.clone());
+            let retried = send_raw_post(ctx.client, ctx.base_url, ctx.api_key, &req_body)
+                .await
+                .map_err(|e| format!("Error reaching AI provider during retry: {}", e))?;
+            if !retried.status().is_success() {
+                let final_err = retried.text().await.unwrap_or_default();
+                return Err(format!("Error from AI provider: {}", final_err));
+            }
+            r = retried;
+        } else {
+            return Err(format!("Error from AI provider: {}", err_txt));
+        }
+    }
+
+    Ok(r)
+}
+
+async fn send_raw_post(
+    client: &reqwest::Client,
+    base_url: &str,
+    api_key: &str,
+    body: &Value,
+) -> Result<reqwest::Response, reqwest::Error> {
+    client
+        .post(format!("{}/chat/completions", base_url))
+        .header("Content-Type", "application/json")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .json(body)
+        .send()
+        .await
+}
+

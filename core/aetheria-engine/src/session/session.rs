@@ -64,12 +64,17 @@ where
 
 pub fn set_active_run(session_id: &str, running: bool) {
     let m = ACTIVE_RUNS.get_or_init(|| Mutex::new(HashMap::new()));
-    if let Ok(mut guard) = m.lock() {
-        if running {
-            guard.insert(session_id.to_string(), true);
-        } else {
-            guard.remove(session_id);
-        }
+    let mut guard = m.lock().unwrap_or_else(|e| e.into_inner());
+    if running {
+        guard.insert(session_id.to_string(), true);
+    } else {
+        guard.remove(session_id);
     }
+}
+
+pub fn is_active_run(session_id: &str) -> bool {
+    let m = ACTIVE_RUNS.get_or_init(|| Mutex::new(HashMap::new()));
+    let guard = m.lock().unwrap_or_else(|e| e.into_inner());
+    guard.get(session_id).copied().unwrap_or(false)
 }
 
