@@ -6,9 +6,9 @@ import {
   RotateCw,
   FolderCode,
   ExternalLink,
-  Plus,
-  Dot,
+  X,
 } from "lucide-react";
+import { getFileIcon } from "../../workspace/tree-utils";
 import { engineFetch } from "../../../lib/engine";
 import { cn } from "../../../lib/utils";
 import type { WorkspaceFile } from "../../workstation/explorer/types";
@@ -73,6 +73,13 @@ function toDisplayRelativePath(fullPath: string, activeFolder?: string): string 
   return norm;
 }
 
+function toScriptKey(rawPath: string, activeFolder?: string): string {
+  return toDisplayRelativePath(rawPath, activeFolder)
+    .replace(/^\.\//, "")
+    .replace(/\/+/g, "/")
+    .toLowerCase();
+}
+
 function countLines(text?: string): number {
   if (!text) return 0;
   return text.split(/\r?\n/).length;
@@ -129,9 +136,9 @@ export const ScriptPanel = memo(function ScriptPanel({
                 if (!rawPath || !CODE_EXT_REGEX.test(rawPath)) continue;
                 if (isInternalAppFile(rawPath)) continue;
 
-                const normKey = rawPath.replace(/\\/g, "/").toLowerCase();
-                const fileName = rawPath.split(/[\\/]/).pop() || rawPath;
                 const relPath = toDisplayRelativePath(rawPath, activeFolder);
+                const normKey = toScriptKey(rawPath, activeFolder);
+                const fileName = relPath.split(/[\\/]/).pop() || rawPath;
 
                 if (toolName === "write") {
                   const content = String(input.content || "");
@@ -193,18 +200,21 @@ export const ScriptPanel = memo(function ScriptPanel({
               if (item.type === "file" && CODE_EXT_REGEX.test(item.name)) {
                 if (isInternalAppFile(item.path)) continue;
                 const fullPath = item.absolute || item.path;
-                const normKey = fullPath.replace(/\\/g, "/").toLowerCase();
-                if (!fileMap.has(normKey)) {
+                const normKey = toScriptKey(fullPath, activeFolder);
+                const existing = fileMap.get(normKey);
+                if (!existing) {
                   fileMap.set(normKey, {
                     id: normKey,
                     name: item.name,
                     relativePath: toDisplayRelativePath(fullPath, activeFolder),
                     fullPath: fullPath,
                     status: "added",
-                    addedLines: 60,
+                    addedLines: 0,
                     removedLines: 0,
                     updatedAt: Date.now(),
                   });
+                } else if (item.absolute && !/^[a-zA-Z]:[\\/]/.test(existing.fullPath)) {
+                  existing.fullPath = fullPath;
                 }
               } else if (
                 item.type === "directory" &&
@@ -217,18 +227,21 @@ export const ScriptPanel = memo(function ScriptPanel({
                     if (sub.type === "file" && CODE_EXT_REGEX.test(sub.name)) {
                       if (isInternalAppFile(sub.path)) continue;
                       const subFullPath = sub.absolute || sub.path;
-                      const subKey = subFullPath.replace(/\\/g, "/").toLowerCase();
-                      if (!fileMap.has(subKey)) {
+                      const subKey = toScriptKey(subFullPath, activeFolder);
+                      const existingSub = fileMap.get(subKey);
+                      if (!existingSub) {
                         fileMap.set(subKey, {
                           id: subKey,
                           name: sub.name,
                           relativePath: toDisplayRelativePath(subFullPath, activeFolder),
                           fullPath: subFullPath,
                           status: "added",
-                          addedLines: 80,
+                          addedLines: 0,
                           removedLines: 0,
                           updatedAt: Date.now(),
                         });
+                      } else if (sub.absolute && !/^[a-zA-Z]:[\\/]/.test(existingSub.fullPath)) {
+                        existingSub.fullPath = subFullPath;
                       }
                     }
                   }
@@ -311,51 +324,55 @@ export const ScriptPanel = memo(function ScriptPanel({
   };
 
   return (
-    <div
+    <aside
       style={{ width }}
-      className="h-full bg-[#121215] border-r border-[#26262C] flex flex-col select-none text-[#FAFAFA]"
+      className="h-full bg-[var(--bg-panel)] text-[var(--text-primary)] border-r border-[var(--border-color)] flex flex-col shrink-0 transition-colors duration-150 select-none"
     >
-      {/* Header */}
-      <div className="h-11 px-3.5 border-b border-[#26262C] flex items-center justify-between shrink-0 bg-[#0A0A0C]">
-        <div className="flex items-center gap-2 min-w-0">
-          {isFloating && (
-            <GripHorizontal className="w-4 h-4 text-[#8E8E98] cursor-grab shrink-0" />
-          )}
-          <FileCode2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-[#FAFAFA] truncate">
-            LLM Video Scripts
-          </span>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-[#1A1A1F] text-[#8E8E98] border border-[#26262C] shrink-0">
+      {/* Panel Header */}
+      <div
+        className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0"
+        title="Drag header to detach into a floating resizable window"
+      >
+        <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5 min-w-0">
+          <GripHorizontal className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+          <FileCode2 className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" strokeWidth={2} />
+          <span className="truncate">Scripts</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] font-mono text-[var(--text-muted)] shrink-0">
             {allScriptFiles.length}
           </span>
-        </div>
+        </span>
 
         <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
             onClick={() => void fetchSessionScripts()}
             title="Refresh generated scripts"
-            className="p-1 rounded-[6px] hover:bg-[#1A1A1F] text-[#8E8E98] hover:text-[#FAFAFA] transition-colors cursor-pointer"
+            className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
           >
             <RotateCw
               className={cn("w-3.5 h-3.5", isLoading && "animate-spin")}
+              strokeWidth={1.5}
             />
           </button>
           <button
             type="button"
             onClick={onClose}
-            title="Close Panel"
-            className="p-1 rounded-[6px] hover:bg-[#1A1A1F] text-[#8E8E98] hover:text-[#FAFAFA] transition-colors cursor-pointer"
+            title={isFloating ? "Return to Sidebar" : "Close Panel (Ctrl+B)"}
+            className="w-6 h-6 rounded-md bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] flex items-center justify-center transition-colors cursor-pointer"
           >
-            <PanelLeftClose className="w-3.5 h-3.5" />
+            {isFloating ? (
+              <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+            ) : (
+              <PanelLeftClose className="w-3.5 h-3.5" strokeWidth={1.75} />
+            )}
           </button>
         </div>
       </div>
 
       {/* Summary Bar */}
       {allScriptFiles.length > 0 && (
-        <div className="px-3.5 py-2 border-b border-[#26262C] bg-[#0F0F12] flex items-center justify-between text-[11px]">
-          <span className="text-[#8E8E98]">
+        <div className="px-3 py-1.5 border-b border-[var(--border-color)] bg-[var(--bg-panel-sub)] flex items-center justify-between text-[11px]">
+          <span className="text-[var(--text-muted)]">
             {allScriptFiles.length}{" "}
             {allScriptFiles.length === 1 ? "script file" : "script files"}
           </span>
@@ -366,21 +383,21 @@ export const ScriptPanel = memo(function ScriptPanel({
         </div>
       )}
 
-      {/* File Diff List (Matches Reference UI) */}
+      {/* File Diff List */}
       <div className="flex-1 overflow-y-auto py-1.5 custom-scrollbar">
         {allScriptFiles.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center px-6 text-center gap-2.5 text-[#8E8E98]">
-            <div className="w-10 h-10 rounded-[10px] bg-[#1A1A1F] border border-[#26262C] flex items-center justify-center text-[#8E8E98]">
+          <div className="h-full flex flex-col items-center justify-center px-6 text-center gap-2.5 text-[var(--text-muted)]">
+            <div className="w-10 h-10 rounded-[10px] bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-muted)]">
               <FolderCode className="w-5 h-5 stroke-[1.5]" />
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-[#FAFAFA]">
-                Belum Ada File Script dari LLM
+              <p className="text-xs font-medium text-[var(--text-primary)]">
+                No Script Files Yet
               </p>
-              <p className="text-[11px] text-[#8E8E98] leading-relaxed">
-                Kirim instruksi pembuatan video di panel Chat. Semua file komponen
-                React (<code>.tsx</code>, <code>.ts</code>, <code>.css</code>) yang
-                ditulis oleh LLM di Workspace akan muncul di sini secara modular.
+              <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                Send a video creation prompt in Chat. All modular motion script files
+                (<code>index.html</code>, <code>script/*.js</code>, <code>.css</code>)
+                in the project folder will appear here.
               </p>
             </div>
           </div>
@@ -388,7 +405,6 @@ export const ScriptPanel = memo(function ScriptPanel({
           <div className="flex flex-col">
             {allScriptFiles.map((file) => {
               const isSelected = selectedPath === file.fullPath;
-              const isAdded = file.status === "added";
               return (
                 <button
                   key={file.id}
@@ -398,24 +414,13 @@ export const ScriptPanel = memo(function ScriptPanel({
                   className={cn(
                     "group w-full px-3 py-1.5 flex items-center gap-2.5 text-left transition-colors cursor-pointer border-l-2",
                     isSelected
-                      ? "bg-[#1A1A1F] border-emerald-400"
-                      : "border-transparent hover:bg-[#1A1A1F]/70"
+                      ? "bg-[var(--bg-hover)] border-[var(--border-primary)]"
+                      : "border-transparent hover:bg-[var(--bg-hover)]/70"
                   )}
                 >
-                  {/* Status Box Icon ([+] or [•]) */}
-                  <span
-                    className={cn(
-                      "w-4 h-4 rounded-[4px] border flex items-center justify-center shrink-0",
-                      isAdded
-                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                        : "border-amber-500/40 bg-amber-500/10 text-amber-400"
-                    )}
-                  >
-                    {isAdded ? (
-                      <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
-                    ) : (
-                      <Dot className="w-3.5 h-3.5 stroke-[3]" />
-                    )}
+                  {/* File Type Icon (HTML, JS, CSS, etc.) */}
+                  <span className="w-4 h-4 flex items-center justify-center shrink-0">
+                    {getFileIcon(file.name)}
                   </span>
 
                   {/* Monospace Diff Counter (+N -M) */}
@@ -436,21 +441,21 @@ export const ScriptPanel = memo(function ScriptPanel({
 
                   {/* Bold Filename + Muted Relative Path */}
                   <div className="flex items-baseline gap-2 min-w-0 flex-1 overflow-hidden">
-                    <span className="text-[12px] font-semibold text-[#FAFAFA] shrink-0 group-hover:text-white">
+                    <span className="text-[12px] font-semibold text-[var(--text-primary)] shrink-0">
                       {file.name}
                     </span>
-                    <span className="text-[11px] text-[#8E8E98] truncate">
+                    <span className="text-[11px] text-[var(--text-muted)] truncate">
                       {file.relativePath}
                     </span>
                   </div>
 
-                  <ExternalLink className="w-3 h-3 text-[#8E8E98] opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" />
+                  <ExternalLink className="w-3 h-3 text-[var(--text-muted)] opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" />
                 </button>
               );
             })}
           </div>
         )}
       </div>
-    </div>
+    </aside>
   );
 });

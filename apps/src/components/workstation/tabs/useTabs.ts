@@ -4,6 +4,14 @@ import { CenterTab } from "./types";
 import { CanvasItem } from "../canvas/types";
 import { extractCanvasTitle } from "../canvas/canvas";
 import { engineFetch } from "../../../lib/engine";
+import { resolveWorkspaceAssetUrl } from "../../studio/htmlStageBundle";
+import {
+  getFileExtension,
+  inferMimeType,
+  isDirectMediaExtension,
+  isKnownBinaryExtension,
+  toWorkspaceRelativePath,
+} from "./fileMediaUtils";
 
 interface UseTabsOptions {
   activeFolder: string;
@@ -289,6 +297,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
       if (existing) {
         if (!silent) {
           setActiveTabId(existing.id);
+          window.dispatchEvent(new CustomEvent("aetheria:focus-file-tab"));
         }
         return;
       }
@@ -300,36 +309,65 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
       openingTabsRef.current.add(cleanName);
 
       try {
+        const ext = getFileExtension(filePath || cleanName);
+        const isSvg = ext === "svg";
+        const isDirectMedia = !isSvg && isDirectMediaExtension(ext);
+        const relPath = toWorkspaceRelativePath(filePath, activeFolder);
+        const resolvedMediaUrl =
+          relPath ? resolveWorkspaceAssetUrl(relPath, activeFolder) ?? undefined : undefined;
+
         let fileContent = content || "";
-        const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
-        if (!fileContent && desktop?.readFile) {
-          const fullPath = (filePath.includes(":") || filePath.startsWith("/") || filePath.startsWith("\\"))
-            ? filePath
-            : `${activeFolder}\\${filePath}`;
-          try {
-            const res = await desktop.readFile(fullPath);
-            if (typeof res?.content === "string") {
-              fileContent = res.content;
-            }
-          } catch {}
+        let fileEncoding: "utf-8" | "base64" | undefined;
+        let fileMimeType: string | undefined;
+
+        if (!fileContent && isDirectMedia && resolvedMediaUrl) {
+          fileEncoding = "base64";
+          fileMimeType = inferMimeType(ext);
+        } else {
+          const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
+          if (!fileContent && desktop?.readFile) {
+            const fullPath =
+              filePath.includes(":") || filePath.startsWith("/") || filePath.startsWith("\\")
+                ? filePath
+                : `${activeFolder}\\${filePath}`;
+            try {
+              const res = await desktop.readFile(fullPath);
+              if (typeof res?.content === "string") {
+                fileContent = res.content;
+                if (res?.encoding === "base64") {
+                  fileEncoding = "base64";
+                }
+              }
+            } catch {}
+          }
+
+          if (!fileContent) {
+            try {
+              const res = await engineFetch(
+                `/file/content?directory=${encodeURIComponent(activeFolder || "")}&path=${encodeURIComponent(filePath)}`
+              );
+              if (res.ok) {
+                const json = await res.json();
+                fileContent =
+                  json.data?.content ||
+                  (typeof json.data === "string" ? json.data : json.content || "");
+                const enc = json.data?.encoding || json.encoding;
+                if (enc === "base64") {
+                  fileEncoding = "base64";
+                }
+                const mime = json.data?.mimeType || json.mimeType;
+                if (typeof mime === "string" && mime) {
+                  fileMimeType = mime;
+                }
+              }
+            } catch {}
+          }
         }
 
-        if (!fileContent) {
-          try {
-            const res = await engineFetch(
-              `/file/content?directory=${encodeURIComponent(activeFolder || "")}&path=${encodeURIComponent(filePath)}`
-            );
-            if (res.ok) {
-              const json = await res.json();
-              fileContent =
-                json.data?.content ||
-                (typeof json.data === "string" ? json.data : "");
-            }
-          } catch {}
-        }
+        const isBinaryTab = fileEncoding === "base64" || isDirectMedia;
 
         // CRITICAL: If silent (auto-opened in background) and file is empty or unreadable, NEVER open an empty dummy tab!
-        if (silent && (!fileContent || !fileContent.trim() || fileContent === "Empty document...")) {
+        if (silent && (!fileContent || !fileContent.trim() || fileContent === "Empty document...") && !isBinaryTab) {
           return;
         }
 
@@ -338,9 +376,12 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
           type: "file",
           title: cleanName,
           path: filePath,
-          fileType: cleanName.split(".").pop() || "txt",
-          content: fileContent || "Empty document...",
-          originalContent: fileContent || "",
+          fileType: ext || "txt",
+          content: isBinaryTab ? fileContent : fileContent || "Empty document...",
+          encoding: fileEncoding,
+          mimeType: fileMimeType || (isBinaryTab ? inferMimeType(ext) : undefined),
+          mediaUrl: isBinaryTab ? resolvedMediaUrl : undefined,
+          originalContent: isBinaryTab ? "" : fileContent || "",
         };
 
         setTabs((prev) => {
@@ -350,6 +391,9 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
           return [...prev, newTab];
         });
         setActiveTabId(tabId);
+        if (!silent) {
+          window.dispatchEvent(new CustomEvent("aetheria:focus-file-tab"));
+        }
       } catch {
         if (!silent) {
           toast.error(`Failed to read file ${cleanName}`);
@@ -382,7 +426,12 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
     if (!activeFolder) return;
     try {
       setTabs((currentTabs) => {
-        const fileTabs = currentTabs.filter((t) => t.type === "file");
+        const fileTabs = currentTabs.filter((t) => {
+          if (t.type !== "file") return false;
+          if (t.encoding === "base64" || t.mediaUrl) return false;
+          const ext = getFileExtension(t.path || t.title) || t.fileType || "";
+          return ext === "svg" || !isKnownBinaryExtension(ext);
+        });
         if (fileTabs.length === 0) return currentTabs;
 
         const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
@@ -464,6 +513,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
 
       const targetTab = tabs.find((t) => t.id === tabId);
       if (!targetTab) return;
+      if (targetTab.encoding === "base64" || targetTab.mediaUrl) return;
       let filePath = targetTab.path || targetTab.title;
       if (targetTab.fileType === "wordcraft-app" && !filePath.includes(".")) {
         filePath = `${filePath}.docx`;

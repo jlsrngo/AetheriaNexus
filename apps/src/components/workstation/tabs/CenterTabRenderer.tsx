@@ -1,9 +1,11 @@
 import { memo, lazy, Suspense } from "react";
 import { CenterTab } from "./types";
 import { CenterEditorView } from "./CenterEditorView";
+import { CenterMediaViewer } from "./CenterMediaViewer";
 import { SplitDiffViewer } from "./SplitDiffViewer";
 import { StudioPreview } from "../../studio/StudioPreview";
 import { cn } from "../../../lib/utils";
+import { classifyTabPreview } from "./fileMediaUtils";
 
 const CanvasView = lazy(() =>
   import("../canvas/CanvasView").then((m) => ({ default: m.CanvasView }))
@@ -54,6 +56,28 @@ export const CenterTabRenderer = memo(function CenterTabRenderer({
   onAcceptDiff,
 }: CenterTabRendererProps) {
   const isTabCanvas = tab.type === "canvas";
+  const previewKind = classifyTabPreview({
+    title: tab.title,
+    path: tab.path,
+    fileType: tab.fileType,
+    encoding: tab.encoding,
+    id: tab.id,
+  });
+
+  const renderCodeEditor = () => (
+    <CenterEditorView
+      currentContent={tabContent}
+      lineCount={lineCount}
+      addedLineNums={addedLineNums}
+      cursorPos={cursorPos}
+      textareaRef={textareaRef}
+      gutterRef={gutterRef}
+      onTextChange={onTextChange}
+      updateCursorPos={updateCursorPos}
+      onScroll={onScroll}
+      onKeyDown={onKeyDown}
+    />
+  );
 
   return (
     <div
@@ -93,21 +117,17 @@ export const CenterTabRenderer = memo(function CenterTabRenderer({
             onCloseTab(tab.id);
           }}
         />
-      ) : (
+      ) : previewKind !== "text" ? (
         isActive && (
-          <CenterEditorView
-            currentContent={tabContent}
-            lineCount={lineCount}
-            addedLineNums={addedLineNums}
-            cursorPos={cursorPos}
-            textareaRef={textareaRef}
-            gutterRef={gutterRef}
-            onTextChange={onTextChange}
-            updateCursorPos={updateCursorPos}
-            onScroll={onScroll}
-            onKeyDown={onKeyDown}
+          <CenterMediaViewer
+            tab={tab}
+            kind={previewKind}
+            activeFolder={_activeFolder}
+            renderSvgEditor={previewKind === "svg" ? renderCodeEditor : undefined}
           />
         )
+      ) : (
+        isActive && renderCodeEditor()
       )}
     </div>
   );

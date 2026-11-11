@@ -1,9 +1,10 @@
-import { memo, useState, useCallback } from "react";
+import { memo, useState, useCallback, useEffect, useRef } from "react";
 import { CenterTab } from "./tabs/types";
 import { StudioPreview } from "../studio/StudioPreview";
 import { CenterTabRenderer } from "./tabs/CenterTabRenderer";
 import { useCenterPanelEditor } from "./hooks/useCenterPanelEditor";
-import { Film, FileCode, X } from "lucide-react";
+import { getFileIcon } from "../workspace/tree-utils";
+import { Film, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 export type { CenterTab };
@@ -32,7 +33,23 @@ function WorkstationCenterPanelComponent({
 }: WorkstationCenterPanelProps) {
   const [activeView, setActiveView] = useState<"studio" | "script">("studio");
   const [_unsavedTabs, setUnsavedTabs] = useState<Record<string, boolean>>({});
+  const prevTabIdRef = useRef<string | null>(activeTabId);
   const activeTab = tabs.find((t) => t.id === activeTabId);
+
+  useEffect(() => {
+    if (activeTabId && activeTabId !== prevTabIdRef.current) {
+      setActiveView("script");
+    } else if (!activeTabId) {
+      setActiveView("studio");
+    }
+    prevTabIdRef.current = activeTabId;
+  }, [activeTabId]);
+
+  useEffect(() => {
+    const handleFocusTab = () => setActiveView("script");
+    window.addEventListener("aetheria:focus-file-tab", handleFocusTab);
+    return () => window.removeEventListener("aetheria:focus-file-tab", handleFocusTab);
+  }, []);
 
   const handleDirtyChange = useCallback((tabId: string, dirty: boolean) => {
     setUnsavedTabs((prev) => ({ ...prev, [tabId]: dirty }));
@@ -95,7 +112,7 @@ function WorkstationCenterPanelComponent({
                       : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
                   )}
                 >
-                  <FileCode className="w-3 h-3 text-amber-400" />
+                  {getFileIcon(tab.title)}
                   <span className="truncate max-w-[120px]">{tab.title}</span>
                   <button
                     type="button"

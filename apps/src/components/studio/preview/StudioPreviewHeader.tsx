@@ -45,22 +45,27 @@ export const StudioPreviewHeader: React.FC<StudioPreviewHeaderProps> = ({
   onUpdateCanvas,
   onRequestFullscreen,
 }) => (
-  <div className="h-9 px-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between gap-2 text-[11px] shrink-0">
-    <div className="flex items-center gap-2 min-w-0">
-      <span className="flex items-center gap-1.5 font-semibold text-[var(--text-primary)] shrink-0">
-        <Film className="w-3.5 h-3.5 text-[#f97316] shrink-0" />
-        <span>Nexus Canvas</span>
-      </span>
-      <span className="text-[var(--text-muted)] shrink-0">•</span>
-      <span className="font-medium text-[var(--text-secondary)] truncate">
-        {activeComposition.name.replace(/\s*\(\d+:\d+\)/g, "")}
-      </span>
+  <div className="border-b border-[var(--border-color)] bg-[var(--bg-panel)] flex flex-col text-[11px] shrink-0">
+    {/* Row 1: Active composition title and resolution */}
+    <div className="h-8 px-3 border-b border-[var(--border-color)] flex items-center justify-between gap-2 min-w-0">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="flex items-center gap-1.5 font-semibold text-[var(--text-primary)] shrink-0">
+          <Film className="w-3.5 h-3.5 text-[#f97316] shrink-0" />
+          <span>Nexus Canvas</span>
+        </span>
+        <span className="text-[var(--text-muted)] shrink-0">•</span>
+        <span className="font-medium text-[var(--text-secondary)] truncate">
+          {activeComposition.name.replace(/\s*\(\d+:\d+\)/g, "")}
+        </span>
+      </div>
       <span className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] font-mono text-[10px] text-amber-400 font-semibold shrink-0 whitespace-nowrap">
         {activeComposition.width}×{activeComposition.height} ({activeComposition.ratio})
       </span>
     </div>
 
-    <div className="flex items-center gap-1.5 shrink-0">
+    {/* Row 2: Canvas viewport & grid controls */}
+    <div className="h-8 px-3 bg-[var(--bg-panel-sub)] flex items-center justify-between gap-1.5 overflow-x-auto no-scrollbar">
+      <div className="flex items-center gap-1.5 shrink-0">
       <div className="flex items-center gap-1 px-1.5 h-6 rounded-md bg-[var(--bg-card)] border border-[var(--border-strong)]">
         <button
           type="button"
@@ -250,6 +255,7 @@ export const StudioPreviewHeader: React.FC<StudioPreviewHeaderProps> = ({
       >
         <Maximize2 className="w-3 h-3" />
       </button>
+      </div>
     </div>
   </div>
 );

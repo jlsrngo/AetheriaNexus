@@ -219,7 +219,30 @@ async fn handle_content(
 
     let is_binary = matches!(
         ext.as_str(),
-        "xlsx" | "xls" | "docx" | "pptx" | "pdf" | "png" | "jpg" | "jpeg" | "gif" | "webp" | "zip"
+        "xlsx"
+            | "xls"
+            | "docx"
+            | "pptx"
+            | "pdf"
+            | "png"
+            | "jpg"
+            | "jpeg"
+            | "gif"
+            | "webp"
+            | "bmp"
+            | "ico"
+            | "wav"
+            | "mp3"
+            | "ogg"
+            | "m4a"
+            | "aac"
+            | "flac"
+            | "mp4"
+            | "mov"
+            | "webm"
+            | "avi"
+            | "mkv"
+            | "zip"
     ) || bytes.iter().take(512).any(|&b| b == 0);
 
     if is_binary {
@@ -231,6 +254,19 @@ async fn handle_content(
             "pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "png" => "image/png",
             "jpg" | "jpeg" => "image/jpeg",
+            "gif" => "image/gif",
+            "webp" => "image/webp",
+            "bmp" => "image/bmp",
+            "ico" => "image/x-icon",
+            "wav" => "audio/wav",
+            "mp3" => "audio/mpeg",
+            "ogg" => "audio/ogg",
+            "m4a" => "audio/mp4",
+            "aac" => "audio/aac",
+            "flac" => "audio/flac",
+            "mp4" => "video/mp4",
+            "mov" => "video/quicktime",
+            "webm" => "video/webm",
             _ => "application/octet-stream",
         };
         let payload = json!({

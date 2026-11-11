@@ -5,6 +5,9 @@ export interface CenterTab {
   path?: string;
   fileType?: string;
   content?: string;
+  encoding?: "utf-8" | "base64";
+  mimeType?: string;
+  mediaUrl?: string;
   originalContent?: string;
   beforeContent?: string;
   afterContent?: string;
