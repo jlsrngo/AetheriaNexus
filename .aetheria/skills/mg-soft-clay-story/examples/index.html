@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kawaii Soft-Clay City Story (Portrait 9:16 Deterministic Example)</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 1080px;
+      height: 1920px;
+      overflow: hidden;
+      background: #93C5FD;
+      font-family: "Inter", sans-serif;
+    }
+    #stage {
+      position: relative;
+      width: 1080px;
+      height: 1920px;
+      background: linear-gradient(180deg, #93C5FD 0%, #BAE6FD 48%, #E0F2FE 100%);
+    }
+    #stage canvas {
+      position: absolute;
+      inset: 0;
+      width: 1080px;
+      height: 1920px;
+      display: block;
+    }
+  </style>
+  <!-- Load Three.js locally if vendored (script/three.min.js) or via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="/script/aetheria-motion.js"></script>
+  <script src="/script/clay-kit.js"></script>
+  <script src="/script/scene1.js"></script>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="stage-webgl" width="1080" height="1920"></canvas>
+    <canvas id="stage-hud" width="1080" height="1920"></canvas>
+  </div>
+  <script>
+    (function () {
+      var W = 1080;
+      var H = 1920;
+      var FPS = 30;
+      var glCanvas = document.getElementById("stage-webgl");
+      var hudCanvas = document.getElementById("stage-hud");
+      var hudCtx = hudCanvas.getContext("2d");
+
+      // Replace durations/audio/words with real Phase 1 voicebox_speak outputs in production
+      var SCENES = [
+        {
+          id: "scene1_town_walk",
+          title: "Kawaii Soft-Clay Morning Walk",
+          topic: "ACT I · 3D SOFT-CLAY DIORAMA",
+          headline: "JALAN PAGI DI KOTA PASTEL",
+          accent: "#FB7185",
+          secondary: "#93C5FD",
+          start: 0,
+          duration: 8.0,
+          startFrame: 0,
+          durationFrames: 240,
+          audio: "/audio/scene1.wav",
+          words: "/audio/scene1.words.json",
+          _words: [
+            { word: "Selamat", start: 0.2, end: 0.65 },
+            { word: "datang", start: 0.65, end: 1.05 },
+            { word: "di", start: 1.05, end: 1.25 },
+            { word: "Kota", start: 1.25, end: 1.65 },
+            { word: "Pastel", start: 1.65, end: 2.2 }
+          ]
+        }
+      ];
+
+      var totalDuration = SCENES.reduce(function (acc, s) {
+        return acc + Number(s.duration || 0);
+      }, 0);
+
+      window.__filmMeta = {
+        title: "Kawaii Soft-Clay City Story",
+        width: W,
+        height: H,
+        fps: FPS,
+        duration: totalDuration,
+        durationInFrames: Math.round(totalDuration * FPS),
+        scenes: SCENES
+      };
+
+      var stageWorld = window.ClayKit ? window.ClayKit.initStage(glCanvas, W, H) : null;
+
+      window.renderAt = function (t) {
+        var AM = window.AM;
+        var currentTime = AM.clamp(Number(t) || 0, 0, Math.max(0.01, totalDuration - 0.001));
+        var resolved = AM.resolveScene(currentTime, SCENES);
+        var scene = resolved.scene;
+        var localTime = resolved.localTime;
+
+        hudCtx.clearRect(0, 0, W, H);
+        hudCtx.save();
+
+        var fn = AM.getSceneRenderer(scene.id, resolved.index);
+        if (fn) {
+          fn(hudCtx, localTime, scene.duration, scene, AM, stageWorld, currentTime);
+        }
+
+        AM.drawTopHeader(hudCtx, scene, localTime, currentTime);
+        AM.drawHeadlinePlaque(hudCtx, scene, localTime);
+        AM.drawSubtitles(hudCtx, scene._words || [], localTime, scene.accent);
+        hudCtx.restore();
+      };
+
+      Promise.all(
+        SCENES.map(function (sc) {
+          if (!sc.words) return Promise.resolve();
+          return fetch(sc.words)
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+              if (data && Array.isArray(data.words) && data.words.length > 0) {
+                sc._words = data.words;
+              }
+            })
+            .catch(function () {});
+        })
+      ).finally(function () {
+        window.renderAt(0);
+        window.__ready = true;
+      });
+    })();
+  </script>
+</body>
+</html>
