@@ -1,11 +1,46 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
+  loadWorkspaceHtmlFilm,
   prepareInjectedHtml,
   resolveWorkspaceAssetUrl,
   type HtmlFilmDescriptor,
 } from "./HtmlFilmStage";
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("HtmlFilmStage utilities", () => {
+  it("requests /api/studio/film-bundle so Axum returns JSON instead of HTML SPA fallback", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ exists: false }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const film = await loadWorkspaceHtmlFilm();
+    expect(film).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/api/studio/film-bundle");
+  });
+
+  it("throws a clear error instead of raw JSON syntax crash if endpoint returns non-JSON HTML", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("<!doctype html><html></html>", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        })
+      )
+    );
+
+    await expect(loadWorkspaceHtmlFilm()).rejects.toThrow(
+      /Invalid JSON from \/api\/studio\/film-bundle/
+    );
+  });
   it("resolves workspace-relative audio and image URLs with active directory isolation", () => {
     const url = resolveWorkspaceAssetUrl("/audio/scene1.wav", "D:/Projects/MyVideo");
     expect(url).toBe(

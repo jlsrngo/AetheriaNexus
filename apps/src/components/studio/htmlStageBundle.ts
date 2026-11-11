@@ -79,11 +79,20 @@ export function resolveWorkspaceAssetUrl(
  * Never bundles repo-local `workspace/` assets at Vite compile time.
  */
 export async function loadWorkspaceHtmlFilm(): Promise<HtmlFilmDescriptor | null> {
-  const res = await apiFetch("/studio/film-bundle");
+  const res = await apiFetch(`${API_BASE}/studio/film-bundle`);
   if (!res.ok) {
     throw new Error(`Engine returned HTTP ${res.status} while loading film bundle.`);
   }
-  const data = (await res.json()) as FilmBundleApiPayload;
+  const rawText = await res.text();
+  let data: FilmBundleApiPayload;
+  try {
+    data = JSON.parse(rawText) as FilmBundleApiPayload;
+  } catch {
+    const preview = rawText.trim().slice(0, 80);
+    throw new Error(
+      `Invalid JSON from /api/studio/film-bundle (${res.status}): ${preview || "<empty>"}`
+    );
+  }
   if (!data.exists || !data.rawHtml) {
     return null;
   }
