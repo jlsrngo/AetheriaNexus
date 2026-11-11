@@ -23,7 +23,7 @@ pub fn resolve_reference_report(workspace_dir: &str) -> Option<String> {
         1. VISUAL FIDELITY: Maintain stylistic harmony (color palette, typography hierarchy, visual layouts).\n\
         2. SEQUENTIAL AUDIO: Voiceover narration must be sequential (never overlap speech tracks).\n\
         3. PRONUNCIATION: When calling `voicebox_speak`, supply `spokenText` for foreign names or acronyms.\n\
-        4. DETERMINISTIC HTML ENGINE: Write the motion film in `workspace/index.html` driven by `window.renderAt(t)` and `window.AM`.",
+        4. DETERMINISTIC HTML ENGINE: Write the motion film using modular scene scripts (`script/scene1.js`..`script/sceneN.js`) and `index.html` driven by `window.renderAt(t)` and `window.AM`.",
         bp_text.trim()
     ))
 }
@@ -123,7 +123,7 @@ pub fn resolve_dynamic_style_or_skill_command(_workspace_dir: &str, prompt_text:
                                 {brief_section}\
                                 \"\"\"\n\
                                 MANDATORY RULES FOR THIS GENERATION:\n\
-                                1. Write the complete motion film in `workspace/index.html` using the Aetheria Single-File HTML Motion Engine (`window.AETHERIA_FILM`, `window.renderAt(t)`, `window.AM`).\n\
+                                1. Write modular per-scene scripts (`script/scene1.js`..`script/sceneN.js`) orchestrated by `index.html` using the Aetheria Modular HTML Motion Engine (`window.__filmMeta`, `window.renderAt(t)`, `window.AM`).\n\
                                 2. Strictly apply these exact colors, fonts, camera movement rules, scale law (`u(refPx)`), and motion curves (`AM.spring`, `AM.anticipation`, `AM.stagger`).\n\
                                 3. Follow the Do's and Don'ts from the skill guidelines and exact brief specifications.",
                                 path_display = path.display()

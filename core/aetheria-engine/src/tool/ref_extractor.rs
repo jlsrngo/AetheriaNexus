@@ -16,11 +16,11 @@ pub fn ref_extractor_tool_definition() -> Value {
                 "properties": {
                     "videoPath": {
                         "type": "string",
-                        "description": "Path to the reference MP4 video file (e.g. 'workspace/ref/reference.mp4')."
+                        "description": "Path to the reference MP4 video file (e.g. 'ref/reference.mp4')."
                     },
                     "outputDir": {
                         "type": "string",
-                        "description": "Optional output folder to save extracted blueprints, frames, and palette. Defaults to 'workspace/ref/extracted'."
+                        "description": "Optional output folder to save extracted blueprints, frames, and palette. Defaults to 'ref/extracted'."
                     }
                 },
                 "required": ["videoPath"]
@@ -52,13 +52,7 @@ pub async fn execute_ref_extractor(workspace_dir: &str, arguments: &Value) -> Va
         return json!({ "error": format!("Reference video file not found at: {}", video_path.display()) });
     }
 
-    let default_out = if ws.join("ref").exists() {
-        "ref"
-    } else if ws.join("workspace").join("ref").exists() {
-        "workspace/ref/extracted"
-    } else {
-        "ref"
-    };
+    let default_out = "ref/extracted";
     let out_raw = arguments.get("outputDir").and_then(|v| v.as_str()).unwrap_or(default_out);
     let out_dir = if std::path::Path::new(out_raw).is_absolute() {
         std::path::PathBuf::from(out_raw)

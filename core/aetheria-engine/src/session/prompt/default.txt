@@ -20,7 +20,8 @@ Adapt your language, tone, and creative style to match the user's request. Never
   - `index.html` — Lightweight HTML stage shell & scene orchestrator (~100–180 lines).
   - `script/` — `aetheria-motion.js` runtime + modular per-scene scripts (`scene1.js`, `scene2.js`, ..., `sceneN.js`).
   - `audio/` — Synthesized `.wav` voiceovers and `.words.json` subtitle timing files.
-  - `img/` — Downloaded images, textures, and graphic assets.
+  - `img/` — Downloaded images, textures, and graphic assets (loaded via `/img/<filename>`).
+  - `ref/` — Reference videos, style frames, and extracted voice tracks (loaded via `/ref/<filename>`).
   - `output/` — Rendered `.mp4` videos.
 - Never create React/Remotion folders (`src/`, `Root.tsx`, `entry.ts`, `types.ts`, `public/`) or modify application engine source files outside the user's open project workspace unless explicitly instructed.
 

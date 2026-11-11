@@ -12,6 +12,14 @@ pub fn find_ffmpeg_bin() -> Option<PathBuf> {
     crate::paths::locate_ffmpeg_binary()
 }
 
+/// Resolves the isolated `ref/` directory inside the currently open project folder.
+fn resolve_workspace_ref_dir(workspace_dir: &str) -> PathBuf {
+    let dir = crate::tool::path_guard::resolve_isolated_path(workspace_dir, "ref")
+        .unwrap_or_else(|_| crate::paths::aetheria_dot_dir().join("scratch").join("ref"));
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
 /// Ingests attached files from chat payload (images, videos, audio)
 pub fn process_attached_files(
     workspace_dir: &str,
@@ -20,7 +28,6 @@ pub fn process_attached_files(
 ) -> (Vec<String>, Vec<String>) {
     let mut ocr_transcriptions = Vec::new();
     let mut image_urls = Vec::new();
-    let root_dir = crate::paths::project_root();
 
     let files_arr = match files.and_then(|f| f.as_array()) {
         Some(arr) => arr,
@@ -44,14 +51,13 @@ pub fn process_attached_files(
             if let Some(comma_pos) = uri.find(',') {
                 let b64_data = &uri[comma_pos + 1..];
                 if let Ok(bytes) = BASE64_STANDARD.decode(b64_data.trim()) {
-                    let pub_dir = root_dir.join("workspace").join("public");
-                    let _ = std::fs::create_dir_all(&pub_dir);
+                    let ref_dir = resolve_workspace_ref_dir(workspace_dir);
                     let clean_name = file_name
                         .replace(|c: char| !c.is_alphanumeric() && c != '.' && c != '_', "_");
-                    let img_path = pub_dir.join(format!("ref_{}", clean_name));
+                    let img_path = ref_dir.join(format!("ref_{}", clean_name));
                     if std::fs::write(&img_path, &bytes).is_ok() {
                         ocr_transcriptions.push(format!(
-                            "[Reference Image Style Asset: '{}' saved at workspace/public/ref_{} (use staticFile(\"ref_{}\") in Remotion or match its color palette, typography, and layout style)]",
+                            "[Reference Image Style Asset: '{}' saved at ref/ref_{} (use '/ref/ref_{}' in index.html / script/scene*.js or match its color palette, typography, and layout style)]",
                             file_name, clean_name, clean_name
                         ));
                     }
@@ -67,12 +73,11 @@ pub fn process_attached_files(
             if let Some(comma_pos) = uri.find(',') {
                 let b64_data = &uri[comma_pos + 1..];
                 if let Ok(bytes) = BASE64_STANDARD.decode(b64_data.trim()) {
-                    let pub_dir = root_dir.join("workspace").join("public");
-                    let _ = std::fs::create_dir_all(&pub_dir);
+                    let ref_dir = resolve_workspace_ref_dir(workspace_dir);
                     let clean_name = file_name
                         .replace(|c: char| !c.is_alphanumeric() && c != '.' && c != '_', "_");
-                    let vid_path = pub_dir.join(format!("ref_{}", clean_name));
-                    let ref_wav = pub_dir.join("ref_voice.wav");
+                    let vid_path = ref_dir.join(format!("ref_{}", clean_name));
+                    let ref_wav = ref_dir.join("ref_voice.wav");
                     if std::fs::write(&vid_path, &bytes).is_ok() {
                         if let Some(ff) = ffmpeg_bin {
                             // Extract reference voice audio track (24kHz mono WAV)
@@ -95,7 +100,7 @@ pub fn process_attached_files(
 
                             // Extract 3 visual style keyframes (1s, 3s, 6s) for Vision LLM
                             for (idx, ts) in ["00:00:01", "00:00:03", "00:00:06"].iter().enumerate() {
-                                let frame_jpg = pub_dir.join(format!("ref_frame_{}.jpg", idx + 1));
+                                let frame_jpg = ref_dir.join(format!("ref_frame_{}.jpg", idx + 1));
                                 if std::process::Command::new(ff)
                                     .args([
                                         "-y",
@@ -126,7 +131,7 @@ pub fn process_attached_files(
                             }
                         }
                         ocr_transcriptions.push(format!(
-                            "[Reference Video Style & Voice Asset: '{}' saved at workspace/public/ref_{}. Visual keyframes have been attached for style matching, and its voice track is extracted at 'workspace/public/ref_voice.wav'. Only clone it (refAudio + cloneVoice: true) if it is the user's own voice or they confirmed permission; otherwise describe its tone in voiceDesign.]",
+                            "[Reference Video Style & Voice Asset: '{}' saved at ref/ref_{}. Visual keyframes have been attached for style matching, and its voice track is extracted at 'ref/ref_voice.wav'. Only clone it (refAudio + cloneVoice: true) if it is the user's own voice or they confirmed permission; otherwise describe its tone in voiceDesign.]",
                             file_name, clean_name
                         ));
                     }
@@ -142,12 +147,11 @@ pub fn process_attached_files(
             if let Some(comma_pos) = uri.find(',') {
                 let b64_data = &uri[comma_pos + 1..];
                 if let Ok(bytes) = BASE64_STANDARD.decode(b64_data.trim()) {
-                    let pub_dir = root_dir.join("workspace").join("public");
-                    let _ = std::fs::create_dir_all(&pub_dir);
+                    let ref_dir = resolve_workspace_ref_dir(workspace_dir);
                     let clean_name = file_name
                         .replace(|c: char| !c.is_alphanumeric() && c != '.' && c != '_', "_");
-                    let raw_audio = pub_dir.join(format!("ref_{}", clean_name));
-                    let ref_wav = pub_dir.join("ref_voice.wav");
+                    let raw_audio = ref_dir.join(format!("ref_{}", clean_name));
+                    let ref_wav = ref_dir.join("ref_voice.wav");
                     if std::fs::write(&raw_audio, &bytes).is_ok() {
                         if let Some(ff) = ffmpeg_bin {
                             let _ = std::process::Command::new(ff)
@@ -169,20 +173,21 @@ pub fn process_attached_files(
                             let _ = std::fs::copy(&raw_audio, &ref_wav);
                         }
                         ocr_transcriptions.push(format!(
-                            "[Reference Voice Audio Asset: '{}' normalized to 'workspace/public/ref_voice.wav'. If this is the user's own recording (or they confirmed permission), pass refAudio: \"workspace/public/ref_voice.wav\" with cloneVoice: true to voicebox_speak; otherwise describe its tone in voiceDesign.]",
+                            "[Reference Voice Audio Asset: '{}' normalized to 'ref/ref_voice.wav'. If this is the user's own recording (or they confirmed permission), pass refAudio: \"ref/ref_voice.wav\" with cloneVoice: true to voicebox_speak; otherwise describe its tone in voiceDesign.]",
                             file_name
                         ));
                     }
                 }
             }
         } else if !uri.is_empty() {
-            let candidate = Path::new(workspace_dir).join(uri);
-            if candidate.exists() {
-                ocr_transcriptions.push(format!(
-                    "[Attached Media Asset: {} at {}]",
-                    file_name,
-                    candidate.display()
-                ));
+            if let Ok(candidate) = crate::tool::path_guard::resolve_isolated_path(workspace_dir, uri) {
+                if candidate.exists() {
+                    ocr_transcriptions.push(format!(
+                        "[Attached Media Asset: {} at {}]",
+                        file_name,
+                        candidate.display()
+                    ));
+                }
             }
         }
     }

@@ -1,8 +1,10 @@
 //! Web Image Fetch Tool — searches Wikipedia / Wikimedia Commons or direct URLs
-//! and downloads editorial photos or fallback illustrations into workspace public assets.
+//! and downloads editorial photos or fallback illustrations into the project's `img/` subfolder.
 
 use serde_json::{json, Value};
+use std::path::PathBuf;
 
+use super::path_guard::resolve_isolated_path;
 use super::websearch::encode_query;
 
 pub fn fetch_web_image_tool_definition() -> Value {
@@ -10,7 +12,7 @@ pub fn fetch_web_image_tool_definition() -> Value {
         "type": "function",
         "function": {
             "name": "fetch_web_image",
-            "description": "Searches the internet (Wikipedia, Wikimedia Commons, or direct URL) and downloads a real photo, historical image, portrait, or illustration directly into `workspace/img/<filename>` so you can render it inside `workspace/index.html` using `/img/<filename>`.",
+            "description": "Searches the internet (Wikipedia, Wikimedia Commons, or direct URL) and downloads a real photo, historical image, portrait, or illustration directly into `img/<filename>` inside the active project folder so you can render it inside `index.html` or `script/scene*.js` using `/img/<filename>`.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -20,7 +22,7 @@ pub fn fetch_web_image_tool_definition() -> Value {
                     },
                     "outputPath": {
                         "type": "string",
-                        "description": "Destination path inside workspace/img (e.g. 'workspace/img/img_hacker.jpg' or 'img/img_terminal.jpg')."
+                        "description": "Destination path inside the active project's img/ subfolder (e.g. 'img/img_hacker.jpg' or 'img_terminal.jpg')."
                     },
                     "url": {
                         "type": "string",
@@ -33,26 +35,30 @@ pub fn fetch_web_image_tool_definition() -> Value {
     })
 }
 
-fn sync_image_to_bundle(root: &std::path::Path, target_out: &std::path::Path) {
-    if !target_out.is_file() {
-        return;
+/// Normalizes an LLM-provided image output path so assets land cleanly inside `img/`
+/// without leaking legacy `workspace/` or `public/` prefixes.
+fn normalize_image_rel_path(raw_out: &str) -> String {
+    let mut s = raw_out.trim().replace('\\', "/");
+    while let Some(rest) = s.strip_prefix("./").or_else(|| s.strip_prefix('/')) {
+        s = rest.to_string();
     }
-    let Some(file_name) = target_out.file_name() else {
-        return;
-    };
-    let ws_img = root.join("workspace").join("img");
-    let _ = std::fs::create_dir_all(&ws_img);
-    let ws_dest = ws_img.join(file_name);
-    if ws_dest != target_out {
-        let _ = std::fs::copy(target_out, &ws_dest);
+    if let Some(rest) = s.strip_prefix("workspace/") {
+        s = rest.to_string();
     }
-
-    let apps_img = root.join("apps").join("public").join("img");
-    let _ = std::fs::create_dir_all(&apps_img);
-    let apps_dest = apps_img.join(file_name);
-    if apps_dest != target_out {
-        let _ = std::fs::copy(target_out, &apps_dest);
+    if let Some(rest) = s.strip_prefix("public/") {
+        s = if rest.starts_with("img/") {
+            rest.to_string()
+        } else {
+            format!("img/{}", rest)
+        };
     }
+    if s.is_empty() {
+        return "img/web_image.jpg".to_string();
+    }
+    if !s.contains('/') {
+        return format!("img/{}", s);
+    }
+    s
 }
 
 pub async fn execute_fetch_web_image(workspace_dir: &str, arguments: &Value) -> Value {
@@ -66,7 +72,7 @@ pub async fn execute_fetch_web_image(workspace_dir: &str, arguments: &Value) -> 
         .or_else(|| arguments.get("output_path"))
         .or_else(|| arguments.get("filename"))
         .and_then(|v| v.as_str())
-        .unwrap_or("workspace/public/web_image.jpg")
+        .unwrap_or("img/web_image.jpg")
         .trim();
     let direct_url = arguments
         .get("url")
@@ -78,62 +84,31 @@ pub async fn execute_fetch_web_image(workspace_dir: &str, arguments: &Value) -> 
         return json!({ "error": "fetch_web_image requires 'query' or 'url'." });
     }
 
-    let root = crate::paths::project_root();
-    let ws = if workspace_dir.trim().is_empty() {
-        root.clone()
-    } else {
-        std::path::PathBuf::from(workspace_dir)
-    };
-
-    let ws_is_workspace = ws
-        .file_name()
-        .and_then(|n| n.to_str())
-        .map(|n| n.eq_ignore_ascii_case("workspace"))
-        .unwrap_or(false);
-
-    let mut clean_raw = raw_out.trim();
-    if ws_is_workspace {
-        while clean_raw.starts_with("workspace/") || clean_raw.starts_with("workspace\\") {
-            clean_raw = &clean_raw["workspace/".len()..];
+    let clean_rel = normalize_image_rel_path(raw_out);
+    let target_out: PathBuf = if std::path::Path::new(raw_out).is_absolute() {
+        match resolve_isolated_path(workspace_dir, raw_out) {
+            Ok(p) => p,
+            Err(e) => return json!({ "error": e }),
         }
-        while clean_raw.starts_with("./workspace/") || clean_raw.starts_with(".\\workspace\\") {
-            clean_raw = &clean_raw["./workspace/".len()..];
-        }
-    }
-
-    let clean_rel = if ws_is_workspace {
-        if clean_raw.starts_with("public/") || clean_raw.starts_with("public\\") {
-            clean_raw.to_string()
-        } else if !clean_raw.contains('/') && !clean_raw.contains('\\') {
-            format!("public/{}", clean_raw)
-        } else {
-            clean_raw.to_string()
-        }
-    } else if clean_raw.starts_with("workspace/public/")
-        || clean_raw.starts_with("workspace\\public\\")
-    {
-        clean_raw.to_string()
-    } else if clean_raw.starts_with("public/") || clean_raw.starts_with("public\\") {
-        format!("workspace/{}", clean_raw)
-    } else if !clean_raw.contains('/') && !clean_raw.contains('\\') {
-        format!("workspace/public/{}", clean_raw)
     } else {
-        clean_raw.to_string()
-    };
-
-    let target_out = if std::path::Path::new(&clean_rel).is_absolute() {
-        std::path::PathBuf::from(&clean_rel)
-    } else {
-        ws.join(&clean_rel)
+        match resolve_isolated_path(workspace_dir, &clean_rel) {
+            Ok(p) => p,
+            Err(e) => return json!({ "error": e }),
+        }
     };
     if let Some(parent) = target_out.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
 
-    let static_name = target_out
+    let asset_name = target_out
         .file_name()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_else(|| "web_image.jpg".to_string());
+    let asset_rel = if clean_rel.starts_with("img/") {
+        clean_rel.clone()
+    } else {
+        format!("img/{}", asset_name)
+    };
 
     let client = reqwest::Client::builder()
         .user_agent("AetheriaNexus/1.0 (https://github.com/jlsrngo/AetheriaNexus; studio@aetheria.ai)")
@@ -203,15 +178,15 @@ pub async fn execute_fetch_web_image(workspace_dir: &str, arguments: &Value) -> 
                 if let Ok(bytes) = resp.bytes().await {
                     if bytes.len() > 1024 {
                         if std::fs::write(&target_out, &bytes).is_ok() {
-                            sync_image_to_bundle(&root, &target_out);
                             return json!({
                                 "success": true,
                                 "query": query,
                                 "sourceUrl": img_url,
                                 "outputPath": target_out.to_string_lossy().to_string(),
-                                "staticFile": static_name,
+                                "assetPath": asset_rel,
+                                "assetUrl": format!("/{}", asset_rel),
                                 "bytes": bytes.len(),
-                                "message": format!("Downloaded internet image to workspace/public/{} (use staticFile(\"{}\") in <Img />)", static_name, static_name)
+                                "message": format!("Downloaded internet image to {} (use '/{}' in index.html / script/scene*.js)", asset_rel, asset_rel)
                             });
                         }
                     }
@@ -235,14 +210,14 @@ pub async fn execute_fetch_web_image(workspace_dir: &str, arguments: &Value) -> 
         safe_label.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
     );
     let _ = std::fs::write(&target_out, fallback_svg.as_bytes());
-    sync_image_to_bundle(&root, &target_out);
     json!({
         "success": true,
         "fallback": true,
         "query": query,
         "outputPath": target_out.to_string_lossy().to_string(),
-        "staticFile": static_name,
-        "message": format!("Generated fallback illustration at workspace/public/{} (use staticFile(\"{}\") in <Img />)", static_name, static_name)
+        "assetPath": asset_rel,
+        "assetUrl": format!("/{}", asset_rel),
+        "message": format!("Generated fallback illustration {} at {} (use '/{}' in index.html / script/scene*.js)", asset_name, asset_rel, asset_rel)
     })
 }
 

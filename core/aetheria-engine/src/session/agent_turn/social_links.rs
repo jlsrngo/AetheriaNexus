@@ -36,12 +36,11 @@ pub async fn process_social_links(
                         .unwrap_or("creator");
                     let play_url = data.get("play").and_then(|v| v.as_str()).unwrap_or("");
 
-                    let pub_dir = Path::new(workspace_dir)
-                        .join("workspace")
-                        .join("public");
-                    let _ = std::fs::create_dir_all(&pub_dir);
-                    let mp4_path = pub_dir.join("ref_tiktok.mp4");
-                    let wav_path = pub_dir.join("ref_voice.wav");
+                    let ref_dir = crate::tool::path_guard::resolve_isolated_path(workspace_dir, "ref")
+                        .unwrap_or_else(|_| Path::new(workspace_dir).join("ref"));
+                    let _ = std::fs::create_dir_all(&ref_dir);
+                    let mp4_path = ref_dir.join("ref_tiktok.mp4");
+                    let wav_path = ref_dir.join("ref_voice.wav");
 
                     if !play_url.is_empty() {
                         if let Ok(vid_resp) = reqwest::get(play_url).await {
@@ -95,8 +94,8 @@ pub async fn process_social_links(
 
                     ocr_transcriptions.push(format!(
                         "[TikTok Reference Video Extracted (@{}, duration: {}s, title: \"{}\"):\n\
-                        - Reference Video Saved: workspace/public/ref_tiktok.mp4\n\
-                        - Reference Voice Track Extracted: workspace/public/ref_voice.wav. When the user requests matching or using this voice sample, pass `refAudio: \"workspace/public/ref_voice.wav\"` and `cloneVoice: true` to `voicebox_speak` so Voicebox clones the speaker's exact vocal timbre and intonation!\n\
+                        - Reference Video Saved: ref/ref_tiktok.mp4\n\
+                        - Reference Voice Track Extracted: ref/ref_voice.wav. When the user requests matching or using this voice sample, pass `refAudio: \"ref/ref_voice.wav\"` and `cloneVoice: true` to `voicebox_speak` so Voicebox clones the speaker's exact vocal timbre and intonation!\n\
                         - Keyframes attached to vision context: study the reference's motion language (entrance/exit choreography, camera moves, layout zones, typography hierarchy, palette) and translate it into this video's own style per the Visual Style System — inspired by, never a pixel copy.]",
                         author, duration, title
                     ));
