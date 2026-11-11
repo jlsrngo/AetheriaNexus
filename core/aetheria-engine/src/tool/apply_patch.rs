@@ -39,12 +39,14 @@ pub fn execute_apply_patch(session_id: &str, workspace_dir: &str, arguments: &Va
     }
 
     let mut touched_files: Vec<String> = Vec::new();
+    let mut touched_paths: Vec<std::path::PathBuf> = Vec::new();
     let mut current_op: Option<(&str, String)> = None;
     let mut current_lines: Vec<&str> = Vec::new();
 
     let flush_op = |op: Option<(&str, String)>,
                     lines: &[&str],
-                    touched: &mut Vec<String>|
+                    touched: &mut Vec<String>,
+                    written: &mut Vec<std::path::PathBuf>|
      -> Result<(), String> {
         let Some((kind, rel_path)) = op else {
             return Ok(());
@@ -69,6 +71,7 @@ pub fn execute_apply_patch(session_id: &str, workspace_dir: &str, arguments: &Va
                 crate::files::record_document_change(workspace_dir, &rel_path, "", &content);
                 std::fs::write(&target, &content).map_err(|e| e.to_string())?;
                 touched.push(format!("A {}", rel_path));
+                written.push(target);
             }
             "update" => {
                 let existing = std::fs::read_to_string(&target).map_err(|e| {
@@ -83,6 +86,7 @@ pub fn execute_apply_patch(session_id: &str, workspace_dir: &str, arguments: &Va
                 );
                 std::fs::write(&target, &updated).map_err(|e| e.to_string())?;
                 touched.push(format!("M {}", rel_path));
+                written.push(target);
             }
             _ => {}
         }
@@ -95,19 +99,19 @@ pub fn execute_apply_patch(session_id: &str, workspace_dir: &str, arguments: &Va
             continue;
         }
         if let Some(path) = trimmed.strip_prefix("*** Add File:") {
-            if let Err(e) = flush_op(current_op.take(), &current_lines, &mut touched_files) {
+            if let Err(e) = flush_op(current_op.take(), &current_lines, &mut touched_files, &mut touched_paths) {
                 return json!({ "ok": false, "error": e });
             }
             current_lines.clear();
             current_op = Some(("add", path.trim().to_string()));
         } else if let Some(path) = trimmed.strip_prefix("*** Update File:") {
-            if let Err(e) = flush_op(current_op.take(), &current_lines, &mut touched_files) {
+            if let Err(e) = flush_op(current_op.take(), &current_lines, &mut touched_files, &mut touched_paths) {
                 return json!({ "ok": false, "error": e });
             }
             current_lines.clear();
             current_op = Some(("update", path.trim().to_string()));
         } else if let Some(path) = trimmed.strip_prefix("*** Delete File:") {
-            if let Err(e) = flush_op(current_op.take(), &current_lines, &mut touched_files) {
+            if let Err(e) = flush_op(current_op.take(), &current_lines, &mut touched_files, &mut touched_paths) {
                 return json!({ "ok": false, "error": e });
             }
             current_lines.clear();
@@ -117,7 +121,7 @@ pub fn execute_apply_patch(session_id: &str, workspace_dir: &str, arguments: &Va
         }
     }
 
-    if let Err(e) = flush_op(current_op.take(), &current_lines, &mut touched_files) {
+    if let Err(e) = flush_op(current_op.take(), &current_lines, &mut touched_files, &mut touched_paths) {
         return json!({ "ok": false, "error": e });
     }
 
@@ -127,11 +131,15 @@ pub fn execute_apply_patch(session_id: &str, workspace_dir: &str, arguments: &Va
         json!({ "sessionID": session_id, "files": touched_files }),
     );
 
-    json!({
+    let mut res = json!({
         "ok": true,
         "filesChanged": touched_files,
         "output": format!("Successfully applied patch to {} file(s): {}", touched_files.len(), touched_files.join(", "))
-    })
+    });
+    if let Some(last_target) = touched_paths.last() {
+        super::film_feedback::attach_post_write_feedback(&mut res, workspace_dir, last_target);
+    }
+    res
 }
 
 fn apply_unified_lines_to_content(original: &str, patch_lines: &[&str]) -> Result<String, String> {

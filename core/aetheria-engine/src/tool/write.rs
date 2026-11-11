@@ -106,7 +106,9 @@ pub fn execute_write(session_id: &str, workspace_dir: &str, arguments: &Value) -
                             "after": content
                         }),
                     );
-                    json!({ "ok": true, "bytesWritten": content.len() })
+                    let mut res = json!({ "ok": true, "bytesWritten": content.len() });
+                    super::film_feedback::attach_post_write_feedback(&mut res, workspace_dir, &p);
+                    res
                 }
                 Err(e) => json!({ "error": format!("Write error: {}", e) }),
             }

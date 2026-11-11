@@ -175,11 +175,17 @@ pub fn execute_edit(session_id: &str, workspace_dir: &str, arguments: &Value) ->
                                         "after": updated
                                     }),
                                 );
-                                json!({
+                                let mut res = json!({
                                     "ok": true,
                                     "output": "Edit applied successfully.",
                                     "occurrencesReplaced": count
-                                })
+                                });
+                                super::film_feedback::attach_post_write_feedback(
+                                    &mut res,
+                                    workspace_dir,
+                                    &p,
+                                );
+                                res
                             }
                             Err(e) => json!({ "error": format!("Write error: {}", e) }),
                         }

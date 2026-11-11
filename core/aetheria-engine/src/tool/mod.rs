@@ -8,6 +8,7 @@ pub mod codemode;
 pub mod edit;
 pub mod edit_matchers;
 pub mod fetch_web_image;
+pub mod film_feedback;
 pub mod glob;
 pub mod grep;
 pub mod json_repair;

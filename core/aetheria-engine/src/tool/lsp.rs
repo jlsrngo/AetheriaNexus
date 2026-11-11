@@ -1,7 +1,6 @@
 //! Workspace LSP Diagnostics & Symbol Extractor — mirrors `packages/core/src/tool/lsp.ts`.
 
 use serde_json::{json, Value};
-use std::process::Command;
 
 use super::resolve_isolated_path;
 
@@ -59,19 +58,54 @@ pub fn execute_lsp(workspace_dir: &str, arguments: &Value) -> Value {
             Err(e) => json!({ "ok": false, "diagnostics": [e.to_string()], "output": format!("JSON syntax error: {}", e) }),
         },
         "js" | "mjs" | "cjs" => {
-            let mut node_cmd = Command::new("node");
-            crate::paths::configure_hidden_std_command(&mut node_cmd);
-            let out = node_cmd.arg("--check").arg(&target).output();
-            match out {
-                Ok(o) if o.status.success() => {
-                    json!({ "ok": true, "diagnostics": [], "output": "JavaScript syntax check passed (0 errors)." })
+            let feedback = super::film_feedback::collect_file_feedback(workspace_dir, &target);
+            if let Some(err) = feedback.syntax_error {
+                json!({
+                    "ok": false,
+                    "diagnostics": feedback.diagnostics,
+                    "output": err
+                })
+            } else {
+                let mut res = json!({
+                    "ok": true,
+                    "diagnostics": feedback.diagnostics,
+                    "output": if feedback.diagnostics.is_empty() {
+                        "JavaScript syntax and film lint passed (0 issues).".to_string()
+                    } else {
+                        format!(
+                            "JavaScript syntax passed with {} advisory diagnostic(s).",
+                            feedback.diagnostics.len()
+                        )
+                    }
+                });
+                if let Some(obj) = res.as_object_mut() {
+                    if let Some(meta) = feedback.film_meta {
+                        obj.insert("filmMeta".to_string(), meta);
+                    }
                 }
-                Ok(o) => {
-                    let stderr = String::from_utf8_lossy(&o.stderr).trim().to_string();
-                    json!({ "ok": false, "diagnostics": [stderr], "output": stderr })
-                }
-                Err(e) => json!({ "ok": false, "error": format!("Failed to invoke node --check: {}", e) }),
+                res
             }
+        }
+        "html" | "htm" => {
+            let feedback = super::film_feedback::collect_file_feedback(workspace_dir, &target);
+            let mut res = json!({
+                "ok": !feedback.has_errors,
+                "diagnostics": feedback.diagnostics,
+                "output": if feedback.diagnostics.is_empty() {
+                    "HTML motion film inspection passed (0 issues).".to_string()
+                } else {
+                    format!(
+                        "HTML film inspection reported {} diagnostic(s).",
+                        feedback.diagnostics.len()
+                    )
+                }
+            });
+            if let Some(obj) = res.as_object_mut() {
+                if let Some(meta) = feedback.film_meta {
+                    obj.insert("filmMeta".to_string(), meta);
+                }
+            }
+            res
         }
         _ => {
             let content = std::fs::read_to_string(&target).unwrap_or_default();
