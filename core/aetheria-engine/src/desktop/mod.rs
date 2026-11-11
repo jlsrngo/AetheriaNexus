@@ -1,6 +1,7 @@
-//! Desktop module — modularized into workspace, fs, sys, and window.
+//! Desktop module — modularized into workspace, fs, fs_shell, sys, and window.
 
 pub mod fs;
+pub mod fs_shell;
 pub mod sys;
 pub mod window;
 pub mod workspace;
