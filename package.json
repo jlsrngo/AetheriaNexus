@@ -14,7 +14,6 @@
     "typecheck": "tsc -b apps/tsconfig.json",
     "test:unit": "cargo test --workspace",
     "test:smoke": "npx tsx scripts/smoke-local-cli.ts",
-    "test:pos": "npx tsx scripts/test-pos-integration.ts",
     "test:knowledge": "npx tsx scripts/test-knowledge-e2e.ts",
     "bundle:prepare": "node scripts/prepare-bundle.cjs",
     "tauri": "npx @tauri-apps/cli",

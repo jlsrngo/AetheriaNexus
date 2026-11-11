@@ -1,35 +1,29 @@
 # GitHub Linguist Overrides
-# Accurately showcase Aetheria's multi-tier architecture:
-# TypeScript (Core AI Engine & React UI), JavaScript (Electron Desktop Shell & Automation), CSS, HTML, and Shell.
+# Highlight actual engine & workstation source code (Rust backend + React/TypeScript UI)
 
 # Documentation & Specifications
 docs/** linguist-documentation
 *.md linguist-documentation
 *.txt linguist-documentation
 
-# Test Suites & Fixtures (prevent test mock data from artificially inflating code metrics)
-packages/engine/engine/test/** linguist-vendored
-packages/engine/engine/specs/** linguist-vendored
-packages/aetheria-tools/test/** linguist-vendored
+# Test Suites & Fixtures (prevent test files from skewing code metrics)
 **/*.test.ts linguist-vendored
 **/*.test.tsx linguist-vendored
 **/*.spec.ts linguist-vendored
+
+# External Demo References & Generated Workspace Outputs
+references/** linguist-vendored
+workspace/** linguist-generated
 
 # Vendored ArtCraft bundles ship Subresource Integrity hashes over their exact bytes.
 # Any EOL conversion on checkout breaks SRI and the WASM app never boots.
 apps/public/artcraft/** -text
 
-# Generated SDK & External Agent Runtime Assets
-packages/engine/sdk/** linguist-vendored
-.opencode/** linguist-vendored
-.agents/** linguist-vendored
-
 # Detectable UI Styling & Markup
 *.css linguist-detectable=true
 *.html linguist-detectable=true
 
-# Recognize Electron Desktop Process & Tooling as JavaScript
-apps/desktop/*.cjs linguist-language=JavaScript linguist-detectable=true
+# Tooling Scripts as JavaScript
 scripts/*.cjs linguist-language=JavaScript linguist-detectable=true
 *.cjs linguist-language=JavaScript
 
