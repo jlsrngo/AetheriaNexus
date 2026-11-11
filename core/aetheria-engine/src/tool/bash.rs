@@ -2,11 +2,19 @@
 //! Native tools (`read`, `edit`, `write`, `render_video`) remain top priority.
 
 use serde_json::{json, Value};
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Mutex, OnceLock};
 
 use super::resolve_isolated_path;
 use crate::session::message::emit_event;
+
+static SESSION_CWD_MAP: OnceLock<Mutex<HashMap<String, PathBuf>>> = OnceLock::new();
+
+fn session_cwd_store() -> &'static Mutex<HashMap<String, PathBuf>> {
+    SESSION_CWD_MAP.get_or_init(|| Mutex::new(HashMap::new()))
+}
 
 pub fn bash_tool_definition() -> Value {
     json!({
@@ -52,14 +60,26 @@ pub async fn execute_bash(
     let scratch_dir = Path::new(workspace_dir).join(".aetheria").join("scratch");
     let _ = std::fs::create_dir_all(&scratch_dir);
 
-    // Determine working directory (strictly inside workspace)
+    // Determine working directory (strictly inside workspace; persists across session bash calls)
     let workdir = if let Some(wd) = arguments.get("workdir").and_then(|v| v.as_str()) {
         match resolve_isolated_path(workspace_dir, wd) {
-            Ok(p) => p,
+            Ok(p) => {
+                session_cwd_store()
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .insert(session_id.to_string(), p.clone());
+                p
+            }
             Err(e) => return json!({ "error": e }),
         }
     } else {
-        scratch_dir.clone()
+        session_cwd_store()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(session_id)
+            .cloned()
+            .filter(|p| p.exists())
+            .unwrap_or_else(|| scratch_dir.clone())
     };
 
     let cmd_str = command.to_string();
