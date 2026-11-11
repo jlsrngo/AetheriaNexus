@@ -144,7 +144,7 @@ export const TreeNodeItem = memo(function TreeNodeItem({
             className="text-[11px] text-[var(--text-dim)] italic py-0.5"
             style={{ paddingLeft: `${(depth + 1) * 12 + 16}px` }}
           >
-            (kosong)
+            (empty)
           </div>
         )}
       </div>

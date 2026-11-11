@@ -491,34 +491,23 @@ export function LiveExecutionBadge({ status, active = true }: LiveExecutionBadge
       : undefined;
   const label =
     status?.preview ||
-    (status?.toolName ? `Running ${status.toolName}...` : "Engine sedang memproses instruksi...");
+    (status?.toolName ? `Running ${status.toolName}...` : "Processing request...");
 
   return (
-    <div className="w-full rounded-[10px] bg-[var(--bg-card)] border border-[var(--border-color)] px-3 py-2 font-mono text-[11px] select-none shadow-xs animate-in fade-in duration-150">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span
-              className={cn(
-                "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
-                isRender ? "bg-rose-400" : "bg-emerald-400"
-              )}
-            />
-            <span
-              className={cn(
-                "relative inline-flex rounded-full h-2 w-2",
-                isRender ? "bg-rose-500" : "bg-emerald-500"
-              )}
-            />
-          </span>
+    <div className="w-full py-1 font-mono text-[11px] select-none animate-in fade-in duration-150">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2 min-w-0">
           <Loader2
             size={12}
             className={cn(
-              "animate-spin shrink-0",
+              "animate-spin shrink-0 mt-0.5",
               isRender ? "text-rose-400" : "text-[#e59344]"
             )}
           />
-          <span className="text-[var(--text-primary)] font-medium truncate">
+          <span
+            title={label}
+            className="text-[var(--text-primary)] font-medium leading-snug break-words line-clamp-2"
+          >
             {label}
           </span>
         </div>
@@ -546,7 +535,7 @@ export function LiveExecutionBadge({ status, active = true }: LiveExecutionBadge
             <span>
               {typeof status?.renderedFrames === "number" && typeof status?.totalFrames === "number"
                 ? `Frame ${status.renderedFrames} / ${status.totalFrames} (4-Shard Parallel Engine)`
-                : "Menyiapkan 4 browser shard paralel & audio..."}
+                : "Preparing 4 parallel browser shards & audio..."}
             </span>
             <span className="text-emerald-400 font-medium">LIVE</span>
           </div>

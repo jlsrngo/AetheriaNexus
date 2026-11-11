@@ -826,6 +826,14 @@ export function useWorkstationChat({
           return;
         }
 
+        // Verify with engine before declaring timeout: long LLM retries or renders
+        // can legitimately go silent > 90s while the turn is still running on the backend.
+        const stillRunningOnEngine = await isSessionActive(chatIdToUse).catch(() => false);
+        if (stillRunningOnEngine) {
+          resetWatchdog(120000);
+          return;
+        }
+
         abortCtrl.abort();
         isLocalSendingRef.current = false;
         setStreamingState(false);
@@ -1218,7 +1226,7 @@ export function useWorkstationChat({
           setLiveStatus({ type: "tool_preparing", toolName, preview: label });
 
           const existingStep = accumulatedSteps.find(
-            (s) => s.iconType === "tool" && (callId ? s.id === callId : s.status === "running" || s.toolName === toolName)
+            (s) => s.iconType === "tool" && (callId ? s.id === callId : s.status === "running" && s.toolName === toolName)
           );
           if (existingStep) {
             existingStep.label = label;
@@ -1236,7 +1244,7 @@ export function useWorkstationChat({
           }
 
           const existingToolPart = accumulatedParts.find(
-            (p) => p.type === "tool" && (callId ? p.step.id === callId : p.step.status === "running" || p.step.toolName === toolName)
+            (p) => p.type === "tool" && (callId ? p.step.id === callId : p.step.status === "running" && p.step.toolName === toolName)
           );
           if (existingToolPart && existingToolPart.type === "tool") {
             existingToolPart.step.label = label;
@@ -1304,7 +1312,7 @@ export function useWorkstationChat({
 
           const finalStatus: "completed" | "running" = isFinished ? "completed" : "running";
           const existingStep = accumulatedSteps.find(
-            (s) => s.iconType === "tool" && (callId ? s.id === callId : s.status === "running" || s.toolName === toolName)
+            (s) => s.iconType === "tool" && (callId ? s.id === callId : s.status === "running" && s.toolName === toolName)
           );
           if (existingStep) {
             if (label) {
@@ -1331,7 +1339,7 @@ export function useWorkstationChat({
           }
 
           const existingToolPart = accumulatedParts.find(
-            (p) => p.type === "tool" && (callId ? p.step.id === callId : p.step.status === "running" || p.step.toolName === toolName)
+            (p) => p.type === "tool" && (callId ? p.step.id === callId : p.step.status === "running" && p.step.toolName === toolName)
           );
           if (existingToolPart && existingToolPart.type === "tool") {
             if (label) {

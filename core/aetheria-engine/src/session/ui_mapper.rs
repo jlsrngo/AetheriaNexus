@@ -288,6 +288,15 @@ pub fn map_messages_for_ui(raw_messages: &[Value]) -> Vec<Value> {
                 }
             }
 
+            // Append executionSteps so tool progress stays unified across step continuations
+            if let Some(new_steps) = m.get("executionSteps").and_then(|v| v.as_array()) {
+                if let Some(old_steps) = last.get_mut("executionSteps").and_then(|v| v.as_array_mut()) {
+                    old_steps.extend(new_steps.clone());
+                } else {
+                    last["executionSteps"] = json!(new_steps);
+                }
+            }
+
             last["id"] = m["id"].clone();
         } else {
             merged.push(m);

@@ -5,9 +5,10 @@ import { cn } from "../../../lib/utils";
 import { useTheme } from "../../../lib/theme";
 import { API_BASE } from "../../../lib/api";
 import { getFileIcon } from "../../workspace/tree-utils";
-import { MessageThoughtBadge, StepItem, LiveActionIndicator, getActiveActionText } from "../LiveExecutionBadge";
+import { MessageThoughtBadge, type StepItem } from "../LiveExecutionBadge";
 import { ChatMessageContent } from "./ChatMessageContent";
 import { QuestionPromptCard } from "./QuestionPromptCard";
+import { getSubagentMeta } from "./subagentMeta";
 import { Message, QuestionData } from "./types";
 
 const MESSAGE_TIME_FORMATTER = new Intl.DateTimeFormat([], {
@@ -20,26 +21,6 @@ const IMAGE_EXT_REGEX = /\.(png|jpg|jpeg|webp|gif)$/i;
 const IMAGE_OR_SVG_EXT_REGEX = /\.(png|jpg|jpeg|webp|gif|svg)$/i;
 const THINK_TAG_REGEX = /<\/?think\??>/gi;
 const EXTERNAL_SOURCE_REGEX = /^\[(Telegram|WhatsApp|Platform)\s*([^\]]*)\]:\s*([\s\S]*)$/i;
-
-const getAgentMeta = (agent?: string) => {
-  if (!agent || agent === "default") {
-    return { name: "Studio Director", icon: "🎬", color: "text-[#FAFAFA]" };
-  }
-  const lower = agent.toLowerCase();
-  if (lower.includes("audio") || lower.includes("sound") || lower.includes("voice")) {
-    return { name: "Audio Producer", icon: "🎙️", color: "text-amber-400" };
-  }
-  if (lower.includes("motion") || lower.includes("video")) {
-    return { name: "Motion Engineer", icon: "🎨", color: "text-indigo-400" };
-  }
-  if (lower.includes("asset") || lower.includes("image") || lower.includes("curator")) {
-    return { name: "Asset Curator", icon: "🔍", color: "text-emerald-400" };
-  }
-  if (lower.includes("research") || lower.includes("analyst")) {
-    return { name: "Research Assistant", icon: "📑", color: "text-sky-400" };
-  }
-  return { name: agent, icon: "🤖", color: "text-[var(--text-secondary)]" };
-};
 
 interface ChatMessageBubbleProps {
   msg: Message;
@@ -142,7 +123,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
     };
   }, [isUser, displayContent]);
 
-  const agentMeta = useMemo(() => getAgentMeta(msg?.agent), [msg?.agent]);
+  const subagentMeta = useMemo(() => getSubagentMeta(msg?.agent), [msg?.agent]);
 
   const timeString = useMemo(() => {
     if (!msg?.createdAt) return "";
@@ -323,11 +304,6 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
     Boolean(msg?.question);
   const isThinkingActive = !isUser && Boolean(isStreaming && !hasVisibleContent);
 
-  const activeActionText = useMemo(() => {
-    if (!isStreaming) return "";
-    return getActiveActionText(steps, undefined, Boolean(isThinkingActive || (msg?.reasoning && !hasVisibleContent)), hasVisibleContent);
-  }, [isStreaming, steps, isThinkingActive, msg?.reasoning, hasVisibleContent]);
-
   const hasThoughtOrSteps =
     !isUser &&
     (Boolean(showThinking && (msg?.reasoning || isThinkingActive || msg?.thoughtSec || thoughtSec || msg?.thoughtMs || thoughtMs)) ||
@@ -355,16 +331,13 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
 
   return (
     <div
-      className={cn(
-        "group relative flex flex-col gap-1 w-full max-w-[96%] min-w-0",
-        isUser ? "ml-auto items-end" : "mr-auto items-start"
-      )}
+      className="group relative flex flex-col gap-1.5 w-full min-w-0 px-3 py-3 border-b border-[var(--border-color)] items-start"
     >
-      {!isUser && (
-        <div className="flex items-center gap-1.5 px-1 py-0.5 select-none">
-          <span className="text-xs">{agentMeta.icon}</span>
-          <span className={cn("text-[11px] font-semibold tracking-wide", agentMeta.color)}>
-            {agentMeta.name}
+      {!isUser && subagentMeta && (
+        <div className="flex items-center gap-1.5 py-0.5 select-none">
+          <subagentMeta.Icon className={cn("w-3 h-3 shrink-0", subagentMeta.color)} />
+          <span className={cn("text-[11px] font-semibold tracking-wide", subagentMeta.color)}>
+            {subagentMeta.name}
           </span>
         </div>
       )}
@@ -400,10 +373,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
               return (
                 <div
                   key={group.id}
-                  className={cn(
-                    "p-3 rounded-2xl text-xs leading-relaxed w-full min-w-0 max-w-full break-words [word-break:break-word] [overflow-wrap:anywhere] overflow-hidden font-sans relative",
-                    "bg-[var(--bg-card)] text-[var(--text-secondary)] rounded-bl-xs border border-[var(--border-color)]"
-                  )}
+                  className="text-xs leading-relaxed w-full min-w-0 max-w-full break-words [word-break:break-word] [overflow-wrap:anywhere] overflow-hidden font-sans relative text-[var(--text-secondary)]"
                 >
                   {attachedImages.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-2.5">
@@ -472,12 +442,12 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
           {hasVisibleContent ? (
             <div
               className={cn(
-                "p-3 rounded-2xl text-xs leading-relaxed w-full min-w-0 max-w-full break-words [word-break:break-word] [overflow-wrap:anywhere] overflow-hidden font-sans relative",
+                "text-xs leading-relaxed w-full min-w-0 max-w-full break-words [word-break:break-word] [overflow-wrap:anywhere] overflow-hidden font-sans relative",
                 isUser
                   ? isNeobrutalism
-                    ? "bg-[#CCFF00] text-[#141413] rounded-br-xs border border-[#141413]"
-                    : "bg-[var(--bg-hover)] text-[var(--text-primary)] rounded-br-xs border border-[var(--border-strong)]"
-                  : "bg-[var(--bg-card)] text-[var(--text-secondary)] rounded-bl-xs border border-[var(--border-color)]"
+                    ? "pl-2.5 border-l-2 border-[#CCFF00] text-[var(--text-primary)] font-medium"
+                    : "pl-2.5 border-l-2 border-[var(--border-strong)] text-[var(--text-primary)]"
+                  : "text-[var(--text-secondary)]"
               )}
             >
               {attachedImages.length > 0 && (
@@ -561,23 +531,10 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
         </>
       )}
 
-      {/* Dynamic active indicator while streaming - active, transparent, never passive */}
-      {!isUser && isStreaming && (
-        <div className="py-0.5 px-1">
-          <LiveActionIndicator
-            action={activeActionText}
-            elapsedSec={liveElapsedSec}
-          />
-        </div>
-      )}
-
-      {/* Action Toolbar & Timestamp - only rendered when there is visible bubble content */}
-      {hasVisibleContent && (
+      {/* Action Toolbar & Timestamp - rendered once message stops streaming */}
+      {hasVisibleContent && !isStreaming && (
         <div
-          className={cn(
-            "flex items-center gap-2 px-1 select-none text-[10px] text-[var(--text-muted)] mt-0.5",
-            isUser ? "flex-row-reverse" : "flex-row"
-          )}
+          className="flex items-center justify-between gap-2 w-full select-none text-[10px] text-[var(--text-muted)] pt-0.5"
         >
           <span className="opacity-70">{timeString}</span>
 

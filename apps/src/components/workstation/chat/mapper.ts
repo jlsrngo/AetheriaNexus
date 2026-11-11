@@ -412,8 +412,12 @@ export function mapEngineMessages(raw: any[]): Message[] {
         }
       }
       if (m.executionSteps) {
-        const existingLabels = new Set((last.executionSteps || []).map((s) => s.label));
-        const newSteps = m.executionSteps.filter((s) => !existingLabels.has(s.label));
+        const existingIds = new Set(
+          (last.executionSteps || []).map((s) => s.id).filter(Boolean)
+        );
+        const newSteps = m.executionSteps.filter(
+          (s) => !s.id || !existingIds.has(s.id)
+        );
         last.executionSteps = [...(last.executionSteps || []), ...newSteps];
       }
       if (m.thoughtSec) {

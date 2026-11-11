@@ -71,6 +71,10 @@ function WorkstationLeftExplorerComponent({
 
   const handleToggle = onToggle || onClose;
   const hasNative = nativeTree.length > 0;
+  const explorerTitle =
+    activeWorkspace?.name ||
+    activeWorkspace?.rootPath?.split(/[\\/]/).filter(Boolean).pop() ||
+    t("explorer", "Explorer");
 
   useEffect(() => {
     if (!deleteTarget) return;
@@ -126,7 +130,9 @@ function WorkstationLeftExplorerComponent({
         <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5 min-w-0">
           <GripHorizontal className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
           <Folder className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" strokeWidth={2} />
-          <span className="truncate">{t("explorer", "Explorer")}</span>
+          <span className="truncate" title={activeWorkspace?.rootPath || explorerTitle}>
+            {explorerTitle}
+          </span>
         </span>
         <div className="flex items-center gap-1 shrink-0">
           {activeWorkspace?.rootPath ? (

@@ -221,7 +221,7 @@ pub async fn run_agent_turn(
                 "messageID": assistant_msg_id,
                 "step": _step + 1,
                 "label": if is_greeting {
-                    "Menjawab...".to_string()
+                    "Replying...".to_string()
                 } else if _step == 0 {
                     "Analyzing prompt & planning video architecture...".to_string()
                 } else {

@@ -213,7 +213,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
       {/* Messages List Area */}
       <div
         onScroll={handleScrollContainer}
-        className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-4 font-sans text-xs min-w-0"
+        className="flex-1 overflow-y-auto overflow-x-hidden py-1 font-sans text-xs min-w-0"
       >
         {allMessages.length === 0 && !isStreaming ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4 select-none">
@@ -261,9 +261,9 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
           </>
         )}
 
-        {/* Live Execution Telemetry Badge & Mirror Card */}
+        {/* Live Execution Telemetry & Mirror Card */}
         {isStreaming && (
-          <div className="mr-auto items-start max-w-[92%] space-y-2">
+          <div className="w-full px-3 py-2.5 space-y-2 border-b border-[var(--border-color)]">
             <LiveExecutionBadge status={liveStatus} />
             <LiveDocumentPreview status={liveStatus} />
             <LiveMirrorCard
