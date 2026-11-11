@@ -206,9 +206,17 @@ pub(crate) async fn execute_step_http_request(
             } else if *ctx.current_provider_id != "kenari"
                 || *ctx.current_model_id != "llama-3-3-70b-instruct:free"
             {
+                let Some(resolved_key) = resolve_configured_kenari_key(ctx.cfg) else {
+                    return Err(format!(
+                        "Quota or balance limit reached on '{}' and no Kenari failover API key is configured. {}",
+                        ctx.current_provider_id, err_txt
+                    ));
+                };
+
+                let primary_provider = ctx.current_provider_id.clone();
                 crate::paths::log_engine(
                     "ai",
-                    "⚡ Provider quota/balance limit reached. Failing over to Kenari free model...",
+                    "Provider quota/balance limit reached. Failing over to Kenari free model...",
                 );
                 emit_event(
                     ctx.workspace_dir,
@@ -225,21 +233,18 @@ pub(crate) async fn execute_step_http_request(
                 *ctx.current_provider_id = "kenari".to_string();
                 *ctx.current_model_id = "llama-3-3-70b-instruct:free".to_string();
                 *ctx.base_url = "https://kenari.id/v1".to_string();
-                *ctx.api_key = ctx
-                    .cfg
-                    .pointer("/providers/kenari/request/body/apiKey")
-                    .or_else(|| ctx.cfg.pointer("/provider/kenari/request/body/apiKey"))
-                    .or_else(|| ctx.cfg.pointer("/provider/kenari/options/apiKey"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("kn-d4064183d620d48ada4409df456e02a4f1840f73a7541333")
-                    .to_string();
+                *ctx.api_key = resolved_key;
                 req_body["model"] = json!(*ctx.current_model_id);
                 let fo_r = send_raw_post(ctx.client, ctx.base_url, ctx.api_key, &req_body)
                     .await
                     .map_err(|e| format!("Error reaching AI provider during failover: {}", e))?;
                 if !fo_r.status().is_success() {
                     let final_err = fo_r.text().await.unwrap_or_default();
-                    return Err(format!("Error from AI provider after failover: {}", final_err));
+                    return Err(format!(
+                        "Quota limit reached on '{}'; Kenari failover failed: {}",
+                        primary_provider,
+                        final_err.trim()
+                    ));
                 }
                 r = fo_r;
             } else {
@@ -278,5 +283,52 @@ async fn send_raw_post(
         .json(body)
         .send()
         .await
+}
+
+fn resolve_configured_kenari_key(cfg: &Value) -> Option<String> {
+    const POINTERS: [&str; 6] = [
+        "/providers/kenari/options/apiKey",
+        "/provider/kenari/options/apiKey",
+        "/providers/kenari/apiKey",
+        "/provider/kenari/apiKey",
+        "/providers/kenari/request/body/apiKey",
+        "/provider/kenari/request/body/apiKey",
+    ];
+    for ptr in POINTERS {
+        if let Some(key) = cfg
+            .pointer(ptr)
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|k| !k.is_empty())
+        {
+            return Some(key.to_string());
+        }
+    }
+    std::env::var("KENARI_API_KEY")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|k| !k.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_configured_kenari_key;
+    use serde_json::json;
+
+    #[test]
+    fn test_resolve_configured_kenari_key_prefers_config_and_ignores_missing() {
+        let empty = json!({});
+        if std::env::var("KENARI_API_KEY").unwrap_or_default().trim().is_empty() {
+            assert_eq!(resolve_configured_kenari_key(&empty), None);
+        }
+
+        let cfg = json!({
+            "providers": { "kenari": { "options": { "apiKey": "  kn-user-test-key  " } } }
+        });
+        assert_eq!(
+            resolve_configured_kenari_key(&cfg).as_deref(),
+            Some("kn-user-test-key")
+        );
+    }
 }
 

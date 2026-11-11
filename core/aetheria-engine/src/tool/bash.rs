@@ -27,7 +27,7 @@ pub fn bash_tool_definition() -> Value {
                 "properties": {
                     "command": {
                         "type": "string",
-                        "description": "Shell command to execute inside the Remotion video workspace (e.g. TypeScript check or media utility)."
+                        "description": "Shell command to execute inside the active project workspace (e.g. FFmpeg media inspection or validation utility)."
                     },
                     "workdir": {
                         "type": "string",

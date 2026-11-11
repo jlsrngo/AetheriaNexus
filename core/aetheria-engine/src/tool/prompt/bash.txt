@@ -1,6 +1,6 @@
-Executes shell commands inside the workspace for Remotion video tooling, TypeScript verification, media asset inspection (FFmpeg/FFprobe), or running helper scripts in `.aetheria/scratch/`.
+Executes shell commands inside the active workspace for media asset inspection (FFmpeg/FFprobe), script validation, or running helper scripts in `.aetheria/scratch/`.
 
 CRITICAL RULES & PRIORITY:
-1. NATIVE TOOLS FIRST: Always prefer native tools (`read`, `edit`, `write`, `glob`, `grep`, `render_video`) for editing Remotion `.tsx` compositions and rendering MP4 videos.
+1. NATIVE TOOLS FIRST: Always prefer native tools (`read`, `edit`, `write`, `glob`, `grep`, `render_video`) for writing modular HTML5/JS films (`index.html`, `script/scene*.js`) and rendering MP4 videos.
 2. ISOLATED SCRATCH LOCATION: Any temporary helper scripts must be written to and executed from `.aetheria/scratch/`. Never clutter the root project folder with temporary scripts.
-3. WORKSPACE SCOPE: Strictly limited to the active Remotion video studio workspace. Destructive commands outside the workspace are forbidden.
+3. WORKSPACE SCOPE: Strictly limited to the active project folder. Destructive commands outside the workspace are forbidden.

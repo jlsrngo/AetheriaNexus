@@ -200,3 +200,23 @@ pub fn assemble_system_prompt(workspace_dir: &str) -> String {
 
     sys_prompt
 }
+
+#[cfg(test)]
+mod tests {
+    use super::assemble_system_prompt;
+
+    #[test]
+    fn system_prompt_uses_registered_subagent_types() {
+        let prompt = include_str!("../prompt/default.txt");
+        assert!(prompt.contains("subagent_type: \"audio-director\""));
+        assert!(prompt.contains("subagent_type: \"motion-designer\""));
+        assert!(prompt.contains("subagent_type: \"qa-verifier\""));
+        assert!(!prompt.contains("spawn_subagent(role:"));
+
+        let tmp = std::env::temp_dir().join("aetheria_ctx_prompt_test");
+        let _ = std::fs::create_dir_all(&tmp);
+        let assembled = assemble_system_prompt(&tmp.to_string_lossy());
+        assert!(assembled.contains("Working directory:"));
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+}

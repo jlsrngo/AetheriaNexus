@@ -66,7 +66,9 @@ pub fn get_living_memory_for_workspace(workspace_dir: &str) -> String {
             let trimmed = content.trim();
             let has_legacy_doc_rules = trimmed.contains("Spreadsheets & Tabular Data")
                 || trimmed.contains("General Document Workspace")
-                || trimmed.contains("Workbook Integrity:");
+                || trimmed.contains("Workbook Integrity:")
+                || trimmed.contains("Remotion React")
+                || trimmed.contains("workspace/src/");
             if !trimmed.is_empty() && !has_legacy_doc_rules {
                 return content;
             }
