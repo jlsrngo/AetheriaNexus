@@ -247,7 +247,7 @@ pub fn launch_desktop_window(url: &str) {
     let _ = std::fs::create_dir_all(&data_dir);
     let mut web_context = wry::WebContext::new(Some(data_dir));
 
-    let _webview = WebViewBuilder::new_with_web_context(&mut web_context)
+    let _webview = match WebViewBuilder::new_with_web_context(&mut web_context)
         .with_initialization_script(DESKTOP_INIT_SCRIPT)
         .with_ipc_handler(move |req| {
             let msg = req.body().as_str();
@@ -269,7 +269,13 @@ pub fn launch_desktop_window(url: &str) {
         })
         .with_url(url)
         .build(&window)
-        .expect("Failed to initialize WebView2 runtime");
+    {
+        Ok(wv) => wv,
+        Err(e) => {
+            eprintln!("[Desktop] Failed to initialize WebView2 runtime: {}", e);
+            return;
+        }
+    };
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;

@@ -147,7 +147,7 @@ pub(crate) async fn handle_codex_request(body: Value, model: &str, is_stream: bo
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(240))
         .build()
-        .unwrap();
+        .unwrap_or_default();
 
     let mut req_builder = client
         .post("https://chatgpt.com/backend-api/codex/responses")

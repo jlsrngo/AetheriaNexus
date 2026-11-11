@@ -103,7 +103,7 @@ pub async fn handle_oauth_start(AxumPath(provider): AxumPath<String>) -> Respons
     let expires_at = now_ms() + 10 * 60 * 1000;
 
     {
-        let mut map = get_pending_map().lock().unwrap();
+        let mut map = get_pending_map().lock().unwrap_or_else(|e| e.into_inner());
         // Prune expired
         let now = now_ms();
         map.retain(|_, v| v.expires_at > now);
@@ -153,7 +153,7 @@ pub async fn handle_oauth_result(
             .into_response();
     };
 
-    let map = get_pending_map().lock().unwrap();
+    let map = get_pending_map().lock().unwrap_or_else(|e| e.into_inner());
     if let Some(entry) = map.get(state) {
         if entry.expires_at < now_ms() {
             return (
@@ -332,7 +332,7 @@ pub async fn handle_oauth_callback(
     }
 
     if let Some(profile) = profile_result {
-        let mut map = get_pending_map().lock().unwrap();
+        let mut map = get_pending_map().lock().unwrap_or_else(|e| e.into_inner());
         if let Some(entry) = map.get_mut(&state) {
             entry.profile = Some(profile);
         }

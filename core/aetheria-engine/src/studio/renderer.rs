@@ -63,7 +63,7 @@ pub async fn handle_render_media(
     };
 
     {
-        let mut jobs = get_render_jobs_store().write().unwrap();
+        let mut jobs = get_render_jobs_store().write().unwrap_or_else(|e| e.into_inner());
         jobs.insert(render_id.clone(), job);
     }
 
@@ -92,7 +92,7 @@ pub async fn handle_render_media(
                             let msg_type = parsed.get("type").and_then(|v| v.as_str()).unwrap_or("");
                             if msg_type == "status" {
                                 if let Some(total) = parsed.get("totalFrames").and_then(|v| v.as_u64()) {
-                                    let mut jobs = get_render_jobs_store().write().unwrap();
+                                    let mut jobs = get_render_jobs_store().write().unwrap_or_else(|e| e.into_inner());
                                     if let Some(j) = jobs.get_mut(&rid) {
                                         j.total_frames = total as u32;
                                     }
@@ -102,7 +102,7 @@ pub async fn handle_render_media(
                                 let rendered = parsed.get("renderedFrames").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
                                 let total = parsed.get("totalFrames").and_then(|v| v.as_u64()).unwrap_or(150) as u32;
 
-                                let mut jobs = get_render_jobs_store().write().unwrap();
+                                let mut jobs = get_render_jobs_store().write().unwrap_or_else(|e| e.into_inner());
                                 if let Some(j) = jobs.get_mut(&rid) {
                                     j.percent = percent;
                                     j.rendered_frames = rendered;
@@ -121,7 +121,7 @@ pub async fn handle_render_media(
                                     }),
                                 );
                             } else if msg_type == "done" {
-                                let mut jobs = get_render_jobs_store().write().unwrap();
+                                let mut jobs = get_render_jobs_store().write().unwrap_or_else(|e| e.into_inner());
                                 if let Some(j) = jobs.get_mut(&rid) {
                                     j.percent = 100;
                                     j.status = "done".to_string();
@@ -141,7 +141,7 @@ pub async fn handle_render_media(
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("Render engine failed")
                                     .to_string();
-                                let mut jobs = get_render_jobs_store().write().unwrap();
+                                let mut jobs = get_render_jobs_store().write().unwrap_or_else(|e| e.into_inner());
                                 if let Some(j) = jobs.get_mut(&rid) {
                                     j.status = "error".to_string();
                                     j.error = Some(message.clone());
@@ -164,7 +164,7 @@ pub async fn handle_render_media(
                 let exit_status = process.wait().await;
                 let success = exit_status.map(|s| s.success()).unwrap_or(false);
 
-                let mut jobs = get_render_jobs_store().write().unwrap();
+                let mut jobs = get_render_jobs_store().write().unwrap_or_else(|e| e.into_inner());
                 if let Some(j) = jobs.get_mut(&rid) {
                     if success {
                         j.status = "done".to_string();
@@ -176,7 +176,7 @@ pub async fn handle_render_media(
                 }
             }
             Err(e) => {
-                let mut jobs = get_render_jobs_store().write().unwrap();
+                let mut jobs = get_render_jobs_store().write().unwrap_or_else(|e| e.into_inner());
                 if let Some(j) = jobs.get_mut(&rid) {
                     j.status = "error".to_string();
                     j.error = Some(format!("Failed to spawn render process: {}", e));
@@ -207,7 +207,7 @@ pub async fn handle_render_media(
 pub async fn handle_render_progress(
     Query(query): Query<ProgressQuery>,
 ) -> impl IntoResponse {
-    let jobs = get_render_jobs_store().read().unwrap();
+    let jobs = get_render_jobs_store().read().unwrap_or_else(|e| e.into_inner());
     if let Some(ref rid) = query.render_id {
         if let Some(job) = jobs.get(rid) {
             return Json(json!({

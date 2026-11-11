@@ -23,7 +23,7 @@ pub fn get_scheduled_posts_store() -> &'static RwLock<Vec<ScheduledPost>> {
 }
 
 pub fn save_scheduled_posts() {
-    let posts = get_scheduled_posts_store().read().unwrap();
+    let posts = get_scheduled_posts_store().read().unwrap_or_else(|e| e.into_inner());
     let file_path = aetheria_dot_dir().join("nexus_scheduled_posts.json");
     if let Ok(json) = serde_json::to_string_pretty(&*posts) {
         let _ = std::fs::write(file_path, json);
@@ -38,7 +38,7 @@ pub fn start_scheduler_daemon() {
             let now = now_ms();
             let mut updated = false;
             {
-                let mut posts = get_scheduled_posts_store().write().unwrap();
+                let mut posts = get_scheduled_posts_store().write().unwrap_or_else(|e| e.into_inner());
                 for post in posts.iter_mut() {
                     if post.status == "scheduled" && post.scheduled_time <= now {
                         println!(
@@ -85,7 +85,7 @@ pub async fn handle_schedule_post(
     };
 
     {
-        let mut posts = get_scheduled_posts_store().write().unwrap();
+        let mut posts = get_scheduled_posts_store().write().unwrap_or_else(|e| e.into_inner());
         posts.push(post.clone());
     }
     save_scheduled_posts();
@@ -97,7 +97,7 @@ pub async fn handle_schedule_post(
 }
 
 pub async fn handle_schedule_list() -> impl IntoResponse {
-    let posts = get_scheduled_posts_store().read().unwrap();
+    let posts = get_scheduled_posts_store().read().unwrap_or_else(|e| e.into_inner());
     Json(json!({
         "success": true,
         "data": &*posts
@@ -107,7 +107,7 @@ pub async fn handle_schedule_list() -> impl IntoResponse {
 pub async fn handle_schedule_cancel(
     Json(payload): Json<CancelPostPayload>,
 ) -> impl IntoResponse {
-    let mut posts = get_scheduled_posts_store().write().unwrap();
+    let mut posts = get_scheduled_posts_store().write().unwrap_or_else(|e| e.into_inner());
     let initial_len = posts.len();
     posts.retain(|p| p.id != payload.id);
     let removed = posts.len() < initial_len;

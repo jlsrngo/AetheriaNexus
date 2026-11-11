@@ -152,7 +152,7 @@ pub(crate) async fn handle_claude_request(body: Value, model: &str, is_stream: b
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(240))
         .build()
-        .unwrap();
+        .unwrap_or_default();
 
     let resp = match client
         .post("https://api.anthropic.com/v1/messages")
