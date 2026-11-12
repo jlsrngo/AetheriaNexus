@@ -10,9 +10,43 @@ use super::resilience::{
     compute_retry_backoff_ms, is_unreachable_network_error, sanitize_multimodal_messages_to_text,
 };
 use super::retry::parse_retry_after_ms;
+use super::stream_emit::StreamStepOutput;
+use super::stream_sse::{read_step_response, StreamReadError};
+use crate::session::coordinator::{subscribe_session_interrupt, wait_session_interrupt};
 use crate::session::provider_error::{
     classify_provider_failure, ClassifiedProviderError, ProviderErrorKind,
 };
+
+pub(crate) enum StepStreamOutcome {
+    Completed(StreamStepOutput),
+    Aborted(Vec<Value>),
+    Failed(StepHttpError),
+}
+
+async fn sleep_interruptible(
+    delay_ms: u64,
+    interrupt_rx: &tokio::sync::watch::Receiver<bool>,
+) -> bool {
+    tokio::select! {
+        biased;
+        _ = wait_session_interrupt(interrupt_rx.clone()) => false,
+        _ = tokio::time::sleep(std::time::Duration::from_millis(delay_ms)) => true,
+    }
+}
+
+async fn send_post_interruptible(
+    client: &reqwest::Client,
+    base_url: &str,
+    api_key: &str,
+    body: &Value,
+    interrupt_rx: &tokio::sync::watch::Receiver<bool>,
+) -> Result<Result<reqwest::Response, reqwest::Error>, ()> {
+    tokio::select! {
+        biased;
+        _ = wait_session_interrupt(interrupt_rx.clone()) => Err(()),
+        res = send_raw_post(client, base_url, api_key, body) => Ok(res),
+    }
+}
 
 #[derive(Debug, Clone)]
 pub(crate) struct StepHttpError {
@@ -40,6 +74,15 @@ impl StepHttpError {
             retryable: true,
         }
     }
+
+    fn aborted() -> Self {
+        Self {
+            status: None,
+            category: "aborted".to_string(),
+            message: "Execution interrupted by user.".to_string(),
+            retryable: false,
+        }
+    }
 }
 
 enum StepSendOutcome {
@@ -65,14 +108,76 @@ fn is_transient_gateway_status(code: u16) -> bool {
     matches!(code, 408 | 502 | 503 | 504)
 }
 
+pub(crate) async fn execute_step_and_stream(
+    ctx: &mut StepHttpContext<'_>,
+    tools_def: &[Value],
+    assistant_msg_id: &str,
+) -> StepStreamOutcome {
+    let interrupt_rx = subscribe_session_interrupt(ctx.session_id);
+    let mut stream_attempt = 0usize;
+
+    loop {
+        if *interrupt_rx.borrow() {
+            return StepStreamOutcome::Aborted(Vec::new());
+        }
+        let resp = match execute_step_http_request(ctx, tools_def).await {
+            Ok(r) => r,
+            Err(e) if e.category == "aborted" => return StepStreamOutcome::Aborted(Vec::new()),
+            Err(e) => return StepStreamOutcome::Failed(e),
+        };
+        match read_step_response(
+            resp,
+            ctx.workspace_dir,
+            ctx.session_id,
+            assistant_msg_id,
+            interrupt_rx.clone(),
+        )
+        .await
+        {
+            Ok(out) => return StepStreamOutcome::Completed(out),
+            Err(StreamReadError::AbortedByUser { content_parts }) => {
+                return StepStreamOutcome::Aborted(content_parts);
+            }
+            Err(StreamReadError::ProviderChunkError(c)) => {
+                return StepStreamOutcome::Failed(StepHttpError::from_classified(c));
+            }
+            Err(StreamReadError::InterruptedMidStream(reason)) => {
+                if stream_attempt >= 5 {
+                    return StepStreamOutcome::Failed(StepHttpError::transport(
+                        "provider.transport",
+                        reason,
+                    ));
+                }
+                stream_attempt += 1;
+                let delay_ms = compute_retry_backoff_ms(stream_attempt, false, None);
+                emit_event(
+                    ctx.workspace_dir,
+                    "session.retry.scheduled",
+                    json!({
+                        "sessionID": ctx.session_id,
+                        "attempt": stream_attempt + 1,
+                        "delayMs": delay_ms,
+                        "reason": reason,
+                    }),
+                );
+                if !sleep_interruptible(delay_ms, &interrupt_rx).await {
+                    return StepStreamOutcome::Aborted(Vec::new());
+                }
+            }
+        }
+    }
+}
+
 pub(crate) async fn execute_step_http_request(
     ctx: &mut StepHttpContext<'_>,
     tools_def: &[Value],
 ) -> Result<reqwest::Response, StepHttpError> {
+    let interrupt_rx = subscribe_session_interrupt(ctx.session_id);
     let mut req_body = json!({
         "model": *ctx.current_model_id,
         "messages": *ctx.chat_messages,
-        "stream": false
+        "stream": true,
+        "stream_options": { "include_usage": true }
     });
     if !tools_def.is_empty() {
         req_body["tools"] = Value::Array(tools_def.to_vec());
@@ -82,14 +187,18 @@ pub(crate) async fn execute_step_http_request(
     let send_outcome = loop {
         let active_key =
             crate::provider::protocol_adapters::select_healthy_api_key(ctx.api_key);
-        let send_res = ctx
-            .client
-            .post(format!("{}/chat/completions", ctx.base_url))
-            .header("Content-Type", "application/json")
-            .header("Authorization", format!("Bearer {}", active_key))
-            .json(&req_body)
-            .send()
-            .await;
+        let send_res = match send_post_interruptible(
+            ctx.client,
+            ctx.base_url,
+            &active_key,
+            &req_body,
+            &interrupt_rx,
+        )
+        .await
+        {
+            Ok(res) => res,
+            Err(()) => return Err(StepHttpError::aborted()),
+        };
 
         match send_res {
             Ok(ok_r) => {
@@ -135,7 +244,9 @@ pub(crate) async fn execute_step_http_request(
                                 "reason": c429.message,
                             }),
                         );
-                        tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                        if !sleep_interruptible(delay_ms, &interrupt_rx).await {
+                            return Err(StepHttpError::aborted());
+                        }
                         continue;
                     }
                     break StepSendOutcome::ErrorBody(code, err_body);
@@ -165,7 +276,9 @@ pub(crate) async fn execute_step_http_request(
                             "reason": format!("HTTP {}", code),
                         }),
                     );
-                    tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                    if !sleep_interruptible(delay_ms, &interrupt_rx).await {
+                        return Err(StepHttpError::aborted());
+                    }
                     continue;
                 }
                 break StepSendOutcome::Response(ok_r);
@@ -183,6 +296,16 @@ pub(crate) async fn execute_step_http_request(
                 }
                 let is_unreach = is_unreachable_network_error(&err_s);
                 let delay_ms = compute_retry_backoff_ms(net_attempt, is_unreach, None);
+                emit_event(
+                    ctx.workspace_dir,
+                    "session.retry.scheduled",
+                    json!({
+                        "sessionID": ctx.session_id,
+                        "attempt": net_attempt + 1,
+                        "delayMs": delay_ms,
+                        "reason": err_s,
+                    }),
+                );
                 crate::paths::log_engine(
                     "ai",
                     &format!(
@@ -190,7 +313,9 @@ pub(crate) async fn execute_step_http_request(
                         err_s, delay_ms, net_attempt
                     ),
                 );
-                tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                if !sleep_interruptible(delay_ms, &interrupt_rx).await {
+                    return Err(StepHttpError::aborted());
+                }
             }
             Err(net_e) => break StepSendOutcome::Transport(net_e),
         }

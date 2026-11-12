@@ -115,6 +115,8 @@ export function normalizeEvent(raw) {
       out = { kind: "session.failover", to: str(p.model) ?? str(p.to) ?? "" };
       break;
     case "session.error":
+    case "session.step.failed":
+    case "session.execution.failed":
     case "error":
       out = {
         kind: "session.error",

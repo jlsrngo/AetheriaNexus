@@ -24,9 +24,11 @@ use super::context::{
     resolve_reference_report, resolve_voice_preset_command,
 };
 use super::history::build_chat_messages;
-use super::step_http::{execute_step_http_request, StepHttpContext};
+use super::step_http::{execute_step_and_stream, StepHttpContext, StepStreamOutcome};
 use super::tool_batch::execute_tool_batch;
-use super::turn_finalize::{finalize_agent_turn, finalize_failed_turn};
+use super::turn_finalize::{
+    finalize_agent_turn, finalize_execution_failure, finalize_failed_turn, finalize_interrupted_turn,
+};
 use super::vision::{find_ffmpeg_bin, process_attached_files, process_social_links};
 use super::xml_tool_parser::extract_xml_tool_calls;
 
@@ -214,6 +216,7 @@ pub async fn run_agent_turn(
 
     let mut content_parts: Vec<Value> = Vec::new();
     let mut final_text = String::new();
+    let mut final_text_streamed = false;
     let mut doom_loop_detector = crate::session::doom_loop::DoomLoopDetector::default();
     let mut length_continuation_count = 0usize;
     let mut unknown_finish_retries = 0usize;
@@ -234,10 +237,18 @@ pub async fn run_agent_turn(
                     _step + 1
                 ),
             );
-            if final_text.trim().is_empty() {
-                final_text = "Eksekusi dihentikan oleh pengguna.".to_string();
-            }
-            break;
+            finalize_interrupted_turn(
+                &current_provider_id,
+                &current_model_id,
+                session_id,
+                workspace_dir,
+                &assistant_msg_id,
+                started_ms,
+                content_parts,
+                &usage_acc,
+                &reason,
+            );
+            return;
         }
 
         for steer in crate::session::coordinator::drain_pending_steers(session_id) {
@@ -255,7 +266,6 @@ pub async fn run_agent_turn(
             }));
         }
 
-        let step_start = now_ms();
         emit_event(
             workspace_dir,
             "session.next.step.started",
@@ -304,9 +314,24 @@ pub async fn run_agent_turn(
             api_key: &mut api_key,
             chat_messages: &mut chat_messages,
         };
-        let r = match execute_step_http_request(&mut http_ctx, &tools_def).await {
-            Ok(resp) => resp,
-            Err(step_err) => {
+        let stream_out = match execute_step_and_stream(&mut http_ctx, &tools_def, &assistant_msg_id).await {
+            StepStreamOutcome::Completed(out) => out,
+            StepStreamOutcome::Aborted(partial_parts) => {
+                content_parts.extend(partial_parts);
+                finalize_interrupted_turn(
+                    &current_provider_id,
+                    &current_model_id,
+                    session_id,
+                    workspace_dir,
+                    &assistant_msg_id,
+                    started_ms,
+                    content_parts,
+                    &usage_acc,
+                    "user",
+                );
+                return;
+            }
+            StepStreamOutcome::Failed(step_err) => {
                 finalize_failed_turn(
                     &current_provider_id,
                     &current_model_id,
@@ -326,56 +351,54 @@ pub async fn run_agent_turn(
             }
         };
 
-        let data: Value = r.json().await.unwrap_or_else(|_| json!({}));
-        let msg = data
-            .pointer("/choices/0/message")
-            .cloned()
-            .unwrap_or_else(|| json!({}));
-        let mut msg_text = msg
-            .get("content")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-        let mut msg_reasoning = msg
-            .get("reasoning_content")
-            .or_else(|| msg.get("reasoning"))
-            .or_else(|| msg.get("thought"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_string();
+        let mut msg = stream_out.assistant_msg;
+        let mut msg_text = stream_out.text;
+        let mut msg_reasoning = stream_out.reasoning;
+        let mut step_parts = stream_out.content_parts;
 
-        if let Some(s_idx) = msg_text.find("<think>") {
-            if let Some(e_rel) = msg_text[s_idx + 7..].find("</think>") {
-                let e_idx = s_idx + 7 + e_rel;
-                let inline_thought = msg_text[s_idx + 7..e_idx].trim();
-                if !inline_thought.is_empty() {
-                    if !msg_reasoning.is_empty() {
-                        msg_reasoning.push_str("\n\n");
+        if msg_reasoning.is_empty() {
+            if let Some(s_idx) = msg_text.find("<think>") {
+                if let Some(e_rel) = msg_text[s_idx + 7..].find("</think>") {
+                    let e_idx = s_idx + 7 + e_rel;
+                    let inline_thought = msg_text[s_idx + 7..e_idx].trim();
+                    if !inline_thought.is_empty() {
+                        msg_reasoning.push_str(inline_thought);
+                        let r_part_id = gen_id("rsn");
+                        emit_event(
+                            workspace_dir,
+                            "session.next.reasoning.ended",
+                            json!({ "sessionID": session_id, "messageID": assistant_msg_id, "id": r_part_id, "text": msg_reasoning }),
+                        );
+                        step_parts.insert(
+                            0,
+                            json!({
+                                "type": "reasoning",
+                                "id": r_part_id,
+                                "text": msg_reasoning,
+                            }),
+                        );
                     }
-                    msg_reasoning.push_str(inline_thought);
+                    msg_text = format!("{}{}", &msg_text[..s_idx], &msg_text[e_idx + 8..])
+                        .trim()
+                        .to_string();
+                    msg["content"] = Value::String(msg_text.clone());
                 }
-                msg_text = format!("{}{}", &msg_text[..s_idx], &msg_text[e_idx + 8..])
-                    .trim()
-                    .to_string();
             }
         }
 
-        let mut tool_calls = msg
-            .get("tool_calls")
-            .and_then(|v| v.as_array())
-            .cloned()
-            .unwrap_or_default();
+        let mut tool_calls = stream_out.tool_calls;
         if tool_calls.is_empty() && msg_text.contains("<invoke ") {
             tool_calls = extract_xml_tool_calls(&mut msg_text);
+            msg["content"] = Value::String(msg_text.clone());
+            if !tool_calls.is_empty() {
+                msg["tool_calls"] = Value::Array(tool_calls.clone());
+            }
         }
 
-        let raw_finish = data
-            .pointer("/choices/0/finish_reason")
-            .and_then(|v| v.as_str());
-        let step_finish = normalize_finish_reason(raw_finish, !tool_calls.is_empty());
+        let step_finish = normalize_finish_reason(stream_out.raw_finish.as_deref(), !tool_calls.is_empty());
 
         if step_finish == FinishReason::ContentFilter {
+            content_parts.extend(step_parts);
             finalize_failed_turn(
                 &current_provider_id,
                 &current_model_id,
@@ -395,15 +418,7 @@ pub async fn run_agent_turn(
         }
 
         if step_finish == FinishReason::Unknown {
-            if !msg_text.is_empty() {
-                emit_step_text(
-                    workspace_dir,
-                    session_id,
-                    &assistant_msg_id,
-                    &msg_text,
-                    &mut content_parts,
-                );
-            }
+            content_parts.extend(step_parts);
             if unknown_finish_retries < 3 {
                 unknown_finish_retries += 1;
                 emit_session_error(
@@ -448,38 +463,18 @@ pub async fn run_agent_turn(
         unknown_finish_retries = 0;
 
         let cost_tiers = resolve_model_cost_tiers(&cfg, &current_provider_id, &current_model_id);
-        let step_usage = record_step_usage(data.get("usage"), &cost_tiers);
+        let step_usage = record_step_usage(stream_out.usage.as_ref(), &cost_tiers);
         usage_acc.record_step(step_usage);
 
-        let step_end = now_ms();
-        if !msg_reasoning.is_empty() {
-            let r_part_id = gen_id("rsn");
-            emit_event(
-                workspace_dir,
-                "session.next.reasoning.ended",
-                json!({ "sessionID": session_id, "messageID": assistant_msg_id, "id": r_part_id, "text": msg_reasoning }),
-            );
-            content_parts.push(json!({
-                "type": "reasoning",
-                "id": r_part_id,
-                "text": msg_reasoning,
-                "time": { "start": step_start, "end": step_end, "created": step_start, "completed": step_end }
-            }));
-        }
+        let had_streamed_text = step_parts
+            .iter()
+            .any(|p| p.get("type").and_then(|v| v.as_str()) == Some("text"));
+        content_parts.extend(step_parts);
 
         if tool_calls.is_empty() {
             if step_finish == FinishReason::Length {
                 length_continuation_count += 1;
                 let exhausted = length_continuation_count >= MAX_LENGTH_CONTINUATION_STREAK;
-                if !msg_text.is_empty() {
-                    emit_step_text(
-                        workspace_dir,
-                        session_id,
-                        &assistant_msg_id,
-                        &msg_text,
-                        &mut content_parts,
-                    );
-                }
                 emit_event(
                     workspace_dir,
                     "session.next.step.ended",
@@ -493,7 +488,7 @@ pub async fn run_agent_turn(
                     }),
                 );
                 if exhausted {
-                    finalize_failed_turn(
+                    finalize_execution_failure(
                         &current_provider_id,
                         &current_model_id,
                         session_id,
@@ -505,8 +500,6 @@ pub async fn run_agent_turn(
                         Some(FinishReason::Length),
                         "output-limit",
                         OUTPUT_LIMIT_EXHAUSTED_MESSAGE,
-                        false,
-                        None,
                     );
                     return;
                 }
@@ -522,15 +515,6 @@ pub async fn run_agent_turn(
             length_continuation_count = 0;
             let pending_steers = crate::session::coordinator::drain_pending_steers(session_id);
             if !pending_steers.is_empty() {
-                if !msg_text.is_empty() {
-                    emit_step_text(
-                        workspace_dir,
-                        session_id,
-                        &assistant_msg_id,
-                        &msg_text,
-                        &mut content_parts,
-                    );
-                }
                 emit_event(
                     workspace_dir,
                     "session.next.step.ended",
@@ -560,15 +544,6 @@ pub async fn run_agent_turn(
             if let Some(next_queued) =
                 crate::session::coordinator::pop_next_queued_input(session_id)
             {
-                if !msg_text.is_empty() {
-                    emit_step_text(
-                        workspace_dir,
-                        session_id,
-                        &assistant_msg_id,
-                        &msg_text,
-                        &mut content_parts,
-                    );
-                }
                 emit_event(
                     workspace_dir,
                     "session.next.step.ended",
@@ -587,6 +562,7 @@ pub async fn run_agent_turn(
                 continue;
             }
             final_text = msg_text;
+            final_text_streamed = had_streamed_text;
             last_step_usage = step_usage;
             last_finish = step_finish;
             break;
@@ -634,6 +610,7 @@ pub async fn run_agent_turn(
         &assistant_msg_id,
         started_ms,
         reached_max_steps,
+        final_text_streamed,
         final_text,
         content_parts,
         &mut chat_messages,
@@ -642,30 +619,4 @@ pub async fn run_agent_turn(
         last_finish,
     )
     .await;
-}
-
-fn emit_step_text(
-    workspace_dir: &str,
-    session_id: &str,
-    assistant_msg_id: &str,
-    text: &str,
-    content_parts: &mut Vec<Value>,
-) {
-    let txt_part_id = gen_id("txt");
-    emit_event(
-        workspace_dir,
-        "session.next.text.started",
-        json!({ "sessionID": session_id, "messageID": assistant_msg_id, "id": txt_part_id }),
-    );
-    emit_event(
-        workspace_dir,
-        "session.next.text.delta",
-        json!({ "sessionID": session_id, "messageID": assistant_msg_id, "id": txt_part_id, "delta": text }),
-    );
-    emit_event(
-        workspace_dir,
-        "session.next.text.ended",
-        json!({ "sessionID": session_id, "messageID": assistant_msg_id, "id": txt_part_id, "text": text }),
-    );
-    content_parts.push(json!({ "type": "text", "id": txt_part_id, "text": text }));
 }

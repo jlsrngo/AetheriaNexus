@@ -221,7 +221,7 @@ pub async fn compact_overflow_with_model(
         "messages": [
             { "role": "user", "content": format!("{}\n\nConversation:\n{}", compaction_prompt, transcript) }
         ],
-        "stream": false
+        "stream": true
     });
 
     let mut summary_text = String::new();
@@ -234,9 +234,32 @@ pub async fn compact_overflow_with_model(
         .await
     {
         if resp.status().is_success() {
-            if let Ok(val) = resp.json::<Value>().await {
-                if let Some(txt) = val.pointer("/choices/0/message/content").and_then(|v| v.as_str()) {
-                    summary_text = txt.trim().to_string();
+            if let Ok(bytes) = resp.bytes().await {
+                let raw = String::from_utf8_lossy(&bytes);
+                if raw.trim_start().starts_with('{') {
+                    if let Ok(val) = serde_json::from_str::<Value>(&raw) {
+                        if let Some(txt) = val.pointer("/choices/0/message/content").and_then(|v| v.as_str()) {
+                            summary_text = txt.trim().to_string();
+                        }
+                    }
+                } else {
+                    let mut acc = String::new();
+                    for line in raw.lines() {
+                        let trimmed = line.trim();
+                        let Some(rest) = trimmed.strip_prefix("data:") else { continue };
+                        let payload = rest.trim();
+                        if payload.is_empty() || payload == "[DONE]" {
+                            continue;
+                        }
+                        if let Ok(chunk) = serde_json::from_str::<Value>(payload) {
+                            if let Some(frag) = chunk.pointer("/choices/0/delta/content").and_then(|v| v.as_str()) {
+                                acc.push_str(frag);
+                            } else if let Some(txt) = chunk.pointer("/choices/0/message/content").and_then(|v| v.as_str()) {
+                                acc.push_str(txt);
+                            }
+                        }
+                    }
+                    summary_text = acc.trim().to_string();
                 }
             }
         }
