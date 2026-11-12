@@ -111,10 +111,20 @@ pub async fn handle_fallback(req: Request) -> Response {
 #[cfg(test)]
 mod tests {
     use crate::handle_local_request;
+    use crate::server_auth::server_auth_header;
+
+    fn auth_headers() -> Vec<(String, String)> {
+        vec![("authorization".to_string(), server_auth_header())]
+    }
 
     #[tokio::test]
     async fn local_dispatch_reaches_router_without_socket() {
-        let (status, _, body) = handle_local_request("GET", "/api/health", vec![], None).await;
+        let (unauth_status, _, _) =
+            handle_local_request("GET", "/api/health", vec![], None).await;
+        assert_eq!(unauth_status, 401);
+
+        let (status, _, body) =
+            handle_local_request("GET", "/api/health", auth_headers(), None).await;
         assert_eq!(status, 200);
         assert!(String::from_utf8_lossy(&body).contains("\"healthy\":true"));
     }
@@ -133,9 +143,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_nexus_studio_heavy_engine_smoke() {
+        let mut json_headers = auth_headers();
+        json_headers.push(("content-type".to_string(), "application/json".to_string()));
+
         // 1. GPU Telemetry
         let (status, _, body) =
-            handle_local_request("GET", "/api/studio/gpu-telemetry", vec![], None).await;
+            handle_local_request("GET", "/api/studio/gpu-telemetry", auth_headers(), None).await;
         assert_eq!(status, 200);
         let resp: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(resp["success"], true);
@@ -145,7 +158,7 @@ mod tests {
         let (status, _, body) = handle_local_request(
             "POST",
             "/api/studio/generate-subtitles",
-            vec![("content-type".to_string(), "application/json".to_string())],
+            json_headers.clone(),
             Some(
                 r#"{"text":"The secret to viral TikTok video retention"}"#
                     .as_bytes()
@@ -162,7 +175,7 @@ mod tests {
         let (status, _, body) = handle_local_request(
             "POST",
             "/api/studio/generate-script",
-            vec![("content-type".to_string(), "application/json".to_string())],
+            json_headers.clone(),
             Some(
                 r#"{"topic":"Deep Focus Blueprint","autoRegister":false}"#
                     .as_bytes()
@@ -177,7 +190,7 @@ mod tests {
 
         // 4. Voice Presets Studio (/add preset backend E2E: list, save custom tuning, restore)
         let (status, _, body) =
-            handle_local_request("GET", "/api/studio/voice-presets", vec![], None).await;
+            handle_local_request("GET", "/api/studio/voice-presets", auth_headers(), None).await;
         assert_eq!(status, 200);
         let resp: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(resp["success"], true);
@@ -191,7 +204,7 @@ mod tests {
         let (status, _, body) = handle_local_request(
             "POST",
             "/api/studio/voice-presets/test",
-            vec![("content-type".to_string(), "application/json".to_string())],
+            json_headers,
             Some(
                 r#"{"text":"Halo ini tes cepat suara Aetheria.","voice":"id-ID-ArdiNeural","lang":"id","rate":"+10%","pitch":"+14Hz"}"#
                     .as_bytes()

@@ -34,6 +34,7 @@ pub fn run() {
             window_cmds::window_toggle_maximize,
             window_cmds::window_close,
             engine_bridge::tauri_engine_fetch,
+            engine_bridge::get_engine_auth_token,
             // 2. CLI Auth & Status
             cli_auth_cmds::tauri_cli_login,
             cli_auth_cmds::tauri_cli_status,
@@ -71,7 +72,10 @@ pub fn run() {
                         .get(&probe_url)
                         .send()
                         .await
-                        .map(|r| r.status().is_success())
+                        .map(|r| {
+                            r.status().is_success()
+                                || r.status() == reqwest::StatusCode::UNAUTHORIZED
+                        })
                         .unwrap_or(false);
 
                     if !already_up {

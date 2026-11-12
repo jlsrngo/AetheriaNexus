@@ -70,12 +70,57 @@ export function activeDirectory(): string | undefined {
  * When running inside Electron or Tauri IPC, auth is handled by the main process IPC relay
  * and this function returns empty headers. Only used as fallback for dev browser mode.
  */
-export function authHeader(): Record<string, string> {
+let runtimeAuthToken: string | null = null;
+let runtimeAuthTokenPromise: Promise<string | null> | null = null;
+
+function resolveAuthTokenB64(): string | null {
   const creds = desktopCredentials();
   const password = creds?.password ?? import.meta.env.VITE_AETHERIA_SERVER_PASSWORD;
-  if (!password) return {};
-  const user = creds?.user ?? import.meta.env.VITE_AETHERIA_SERVER_USER ?? "aetheria";
-  return { Authorization: `Basic ${btoa(`${user}:${password}`)}` };
+  if (password) {
+    const user = creds?.user ?? import.meta.env.VITE_AETHERIA_SERVER_USER ?? "aetheria";
+    return btoa(`${user}:${password}`);
+  }
+  return runtimeAuthToken;
+}
+
+export async function initEngineMediaAuth(): Promise<string | null> {
+  if (runtimeAuthToken) return runtimeAuthToken;
+  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+    return resolveAuthTokenB64();
+  }
+  if (!runtimeAuthTokenPromise) {
+    runtimeAuthTokenPromise = (async () => {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        const token = await invoke<string | null>("get_engine_auth_token");
+        if (token) {
+          runtimeAuthToken = token;
+          return token;
+        }
+      } catch {}
+      return null;
+    })();
+  }
+  return runtimeAuthTokenPromise;
+}
+
+if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+  void initEngineMediaAuth();
+}
+
+export function appendEngineAuthToken(url: string): string {
+  const token = resolveAuthTokenB64();
+  if (!token || url.includes("auth_token=") || url.includes("token=")) {
+    return url;
+  }
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}auth_token=${encodeURIComponent(token)}`;
+}
+
+export function authHeader(): Record<string, string> {
+  const token = resolveAuthTokenB64();
+  if (!token) return {};
+  return { Authorization: `Basic ${token}` };
 }
 
 /**

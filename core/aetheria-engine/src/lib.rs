@@ -17,6 +17,7 @@ pub mod paths;
 pub mod permission;
 pub mod provider;
 pub mod question;
+pub mod server_auth;
 pub mod session;
 pub mod studio;
 pub mod tasks;
@@ -74,17 +75,9 @@ pub async fn init_engine_and_bind(
     studio::start_scheduler_daemon();
 
     // 4. Write dev-server-password if server password env is provided
-    let srv_user = std::env::var("Aetheria_SERVER_USERNAME")
-        .or_else(|_| std::env::var("AETHERIA_SERVER_USERNAME"))
-        .unwrap_or_else(|_| "aetheria".to_string());
-    if let Ok(srv_pass) = std::env::var("Aetheria_SERVER_PASSWORD")
-        .or_else(|_| std::env::var("AETHERIA_SERVER_PASSWORD"))
-    {
-        if !srv_pass.is_empty() {
-            let pw_file = aetheria_dot_dir().join("dev-server-password");
-            let _ = std::fs::write(pw_file, format!("{}:{}", srv_user, srv_pass));
-        }
-    }
+    // 4. Always initialize per-launch auth credentials and persist password files
+    let creds = crate::server_auth::init_server_credentials();
+    crate::server_auth::persist_dev_server_password_files(creds);
 
     let bind_addr = format!("{}:{}", hostname, port);
     let listener = match tokio::net::TcpListener::bind(&bind_addr).await {

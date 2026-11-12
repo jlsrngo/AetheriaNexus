@@ -5,7 +5,6 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use base64::Engine as _;
 
 /// Browsers always send `Origin` on cross-site requests; the native webview (same-origin),
 /// CLI tools and other local processes do not. Only Aetheria's own UI and local dev servers
@@ -57,59 +56,37 @@ pub async fn cors_and_auth_middleware(req: Request, next: Next) -> Response {
             .unwrap_or_else(|_| StatusCode::NO_CONTENT.into_response());
     }
 
-    // Check Basic Auth only when Aetheria_SERVER_PASSWORD / AETHERIA_SERVER_PASSWORD is set
-    if let Ok(expected_pass) = std::env::var("Aetheria_SERVER_PASSWORD")
-        .or_else(|_| std::env::var("AETHERIA_SERVER_PASSWORD"))
-    {
-        if !expected_pass.is_empty() {
-            let expected_user = std::env::var("Aetheria_SERVER_USERNAME")
-                .or_else(|_| std::env::var("AETHERIA_SERVER_USERNAME"))
-                .unwrap_or_else(|_| "aetheria".to_string());
-            let expected_b64 = base64::engine::general_purpose::STANDARD
-                .encode(format!("{}:{}", expected_user, expected_pass));
-            let expected_hdr = format!("Basic {}", expected_b64);
+    let expected = crate::server_auth::credentials();
 
-            let provided = req
-                .headers()
-                .get(header::AUTHORIZATION)
-                .and_then(|v| v.to_str().ok())
-                .unwrap_or("");
+    let provided = req
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
 
-            let mut authorized = provided == expected_hdr;
-            if !authorized {
-                if let Some(query) = req.uri().query() {
-                    for pair in query.split('&') {
-                        if let Some((k, v)) = pair.split_once('=') {
-                            if k == "auth_token" || k == "token" {
-                                if let Ok(decoded) = base64::engine::general_purpose::STANDARD
-                                    .decode(v)
-                                    .or_else(|_| base64::engine::general_purpose::URL_SAFE.decode(v))
-                                    .or_else(|_| {
-                                        base64::engine::general_purpose::STANDARD_NO_PAD.decode(v)
-                                    })
-                                {
-                                    if let Ok(s) = String::from_utf8(decoded) {
-                                        if s == format!("{}:{}", expected_user, expected_pass) {
-                                            authorized = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
+    let mut authorized = crate::server_auth::verify_basic_auth_header(provided, expected);
+    if !authorized {
+        if let Some(query) = req.uri().query() {
+            for pair in query.split('&') {
+                if let Some((k, v)) = pair.split_once('=') {
+                    if (k == "auth_token" || k == "token")
+                        && crate::server_auth::verify_query_token(v, expected)
+                    {
+                        authorized = true;
+                        break;
                     }
                 }
             }
-
-            if !authorized {
-                return Response::builder()
-                    .status(StatusCode::UNAUTHORIZED)
-                    .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-                    .header(header::CONTENT_TYPE, "application/json")
-                    .body(Body::from(r#"{"error":"Unauthorized"}"#))
-                    .unwrap_or_else(|_| StatusCode::UNAUTHORIZED.into_response());
-            }
         }
+    }
+
+    if !authorized {
+        return Response::builder()
+            .status(StatusCode::UNAUTHORIZED)
+            .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(r#"{"error":"Unauthorized"}"#))
+            .unwrap_or_else(|_| StatusCode::UNAUTHORIZED.into_response());
     }
 
     let mut resp = next.run(req).await;
@@ -160,6 +137,34 @@ mod tests {
         ] {
             assert!(!is_allowed_origin(origin), "{origin} should be blocked");
         }
+    }
+
+    #[tokio::test]
+    async fn rejects_unauthenticated_requests_with_401_by_default() {
+        use axum::{routing::get, Router};
+        use tower::ServiceExt;
+
+        let app = Router::new()
+            .route("/api/health", get(|| async { "ok" }))
+            .layer(axum::middleware::from_fn(super::cors_and_auth_middleware));
+
+        let unauth_req = axum::http::Request::builder()
+            .uri("/api/health")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let unauth_res = app.clone().oneshot(unauth_req).await.unwrap();
+        assert_eq!(unauth_res.status(), axum::http::StatusCode::UNAUTHORIZED);
+
+        let auth_req = axum::http::Request::builder()
+            .uri("/api/health")
+            .header(
+                axum::http::header::AUTHORIZATION,
+                crate::server_auth::server_auth_header(),
+            )
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let auth_res = app.oneshot(auth_req).await.unwrap();
+        assert_eq!(auth_res.status(), axum::http::StatusCode::OK);
     }
 }
 

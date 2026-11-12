@@ -30,7 +30,19 @@ pub async fn tauri_engine_fetch(req: TauriEngineRequest) -> Result<TauriEngineRe
         format!("/{}", req.path)
     };
 
-    let headers: Vec<(String, String)> = req.headers.unwrap_or_default().into_iter().collect();
+    let mut headers: Vec<(String, String)> = req.headers.unwrap_or_default().into_iter().collect();
+    if !headers
+        .iter()
+        .any(|(k, _)| k.eq_ignore_ascii_case("authorization"))
+    {
+        let auth_hdr = if aetheria_engine::server_auth::try_credentials().is_some() {
+            aetheria_engine::server_auth::server_auth_header()
+        } else {
+            aetheria_engine::server_auth::read_persisted_auth_header()
+                .unwrap_or_else(aetheria_engine::server_auth::server_auth_header)
+        };
+        headers.push(("Authorization".to_string(), auth_hdr));
+    }
     let (status, resp_headers, body) = aetheria_engine::handle_local_request(
         &method_str,
         &path,
@@ -50,5 +62,15 @@ pub async fn tauri_engine_fetch(req: TauriEngineRequest) -> Result<TauriEngineRe
         body: String::from_utf8_lossy(&body).into_owned(),
         ok: (200..300).contains(&status),
     })
+}
+
+/// Returns the active engine Basic token in memory for native WebView media tags (`<video>`, `<audio>`, `<img>`).
+#[tauri::command]
+pub fn get_engine_auth_token() -> Option<String> {
+    if aetheria_engine::server_auth::try_credentials().is_some() {
+        Some(aetheria_engine::server_auth::server_auth_token_b64())
+    } else {
+        aetheria_engine::server_auth::read_persisted_auth_token_b64()
+    }
 }
 
