@@ -10,7 +10,7 @@ function repoRootDir() {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 }
 
-function resolveEngineBinary(repoRoot) {
+export function resolveEngineBinary(repoRoot) {
   const exe = process.platform === "win32" ? "aetheria-engine.exe" : "aetheria-engine";
   const candidates = [
     path.join(repoRoot, "target", "debug", exe),
@@ -40,10 +40,14 @@ function killProcessTree(child) {
   }
 }
 
-async function waitForHttpOk(url, check, headers = {}, timeoutMs = 30_000, onCheckFail) {
+async function waitForHttpOk(url, check, headers = {}, timeoutMs = 30_000, onCheckFail, hasExited) {
   const deadline = Date.now() + timeoutMs;
   let lastErr = "no response";
   while (Date.now() < deadline) {
+    if (hasExited && hasExited()) {
+      const extra = onCheckFail ? `\nLogs:\n${onCheckFail()}` : "";
+      throw new Error(`Process exited before ${url} became ready.${extra}`);
+    }
     try {
       const res = await fetch(url, { headers, signal: AbortSignal.timeout(2000) });
       const txt = await res.text();
@@ -252,7 +256,13 @@ async function startMockLlmServer() {
   };
 }
 
-export async function startLiveStack() {
+/**
+ * @param {{ aetheriaConfig?: unknown, startWeb?: boolean }} [options]
+ *   aetheriaConfig: replace the default mock-provider config (parity harness points
+ *   the engine at its own fake provider). startWeb: skip Vite when no UI is needed.
+ */
+export async function startLiveStack(options = {}) {
+  const { aetheriaConfig, startWeb = true } = options;
   const repoRoot = repoRootDir();
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aetheria-e2e-"));
   const homeDir = path.join(tempRoot, "home");
@@ -283,7 +293,11 @@ export async function startLiveStack() {
       },
     },
   };
-  fs.writeFileSync(path.join(configDir, "aetheria.json"), JSON.stringify(aetheriaCfg, null, 2), "utf8");
+  fs.writeFileSync(
+    path.join(configDir, "aetheria.json"),
+    JSON.stringify(aetheriaConfig ?? aetheriaCfg, null, 2),
+    "utf8",
+  );
 
   const authUser = "e2e";
   const authPass = crypto.randomBytes(12).toString("base64url");
@@ -295,48 +309,66 @@ export async function startLiveStack() {
 
   const engineBin = resolveEngineBinary(repoRoot);
   let engineLogBuf = "";
-  const engineChild = spawn(engineBin, ["serve", "--port", "4196"], {
-    cwd: repoRoot,
-    env: {
-      ...process.env,
-      USERPROFILE: homeDir,
-      HOME: homeDir,
-      XDG_CONFIG_HOME: path.join(homeDir, ".config"),
-      XDG_DATA_HOME: path.join(homeDir, ".local", "share"),
-      LOCALAPPDATA: appDataLocal,
-      AETHERIA_ROOT: repoRoot,
-      AETHERIA_HEADLESS: "1",
-      Aetheria_SERVER_USERNAME: authUser,
-      AETHERIA_SERVER_USERNAME: authUser,
-      Aetheria_SERVER_PASSWORD: authPass,
-      AETHERIA_SERVER_PASSWORD: authPass,
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true,
-    shell: false,
-  });
-  engineChild.stdout?.on("data", (d) => {
-    engineLogBuf += d.toString("utf8");
-  });
-  engineChild.stderr?.on("data", (d) => {
-    engineLogBuf += d.toString("utf8");
-  });
+  let engineChild = null;
+  let webChild = null;
+
+  const stop = async () => {
+    if (webChild) killProcessTree(webChild);
+    if (engineChild) killProcessTree(engineChild);
+    llmServer.closeAllConnections?.();
+    await new Promise((resolve) => llmServer.close(() => resolve()));
+    await new Promise((r) => setTimeout(r, 300));
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  };
 
   const engineUrl = "http://127.0.0.1:4196";
-  await waitForHttpOk(
-    `${engineUrl}/api/health`,
-    (res, txt) => res.ok && txt.includes(`"healthy":true`),
-    { Authorization: authHeader },
-    30_000,
-    () => engineLogBuf,
-  );
-
   const webUrl = "http://127.0.0.1:5173";
-  let webLogBuf = "";
-  const webChild =
-    process.platform === "win32"
-      ? spawn("cmd.exe", ["/d", "/s", "/c", "npm run dev:web"], {
-          cwd: repoRoot,
+
+  try {
+    engineChild = spawn(engineBin, ["serve", "--port", "4196"], {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        USERPROFILE: homeDir,
+        HOME: homeDir,
+        XDG_CONFIG_HOME: path.join(homeDir, ".config"),
+        XDG_DATA_HOME: path.join(homeDir, ".local", "share"),
+        LOCALAPPDATA: appDataLocal,
+        AETHERIA_ROOT: repoRoot,
+        AETHERIA_HEADLESS: "1",
+        Aetheria_SERVER_USERNAME: authUser,
+        AETHERIA_SERVER_USERNAME: authUser,
+        Aetheria_SERVER_PASSWORD: authPass,
+        AETHERIA_SERVER_PASSWORD: authPass,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+      shell: false,
+    });
+    engineChild.stdout?.on("data", (d) => {
+      engineLogBuf += d.toString("utf8");
+    });
+    engineChild.stderr?.on("data", (d) => {
+      engineLogBuf += d.toString("utf8");
+    });
+
+    await waitForHttpOk(
+      `${engineUrl}/api/health`,
+      (res, txt) => res.ok && txt.includes(`"healthy":true`),
+      { Authorization: authHeader },
+      30_000,
+      () => engineLogBuf,
+      () => engineChild.exitCode !== null || engineChild.signalCode !== null,
+    );
+
+    let webLogBuf = "";
+    if (startWeb) {
+      const viteEntry = path.join(repoRoot, "node_modules", "vite", "bin", "vite.js");
+      webChild = spawn(
+        process.execPath,
+        [viteEntry, "--host", "127.0.0.1", "--port", "5173", "--strictPort"],
+        {
+          cwd: path.join(repoRoot, "apps"),
           env: {
             ...process.env,
             VITE_AETHERIA_SERVER_USER: authUser,
@@ -345,25 +377,28 @@ export async function startLiveStack() {
           stdio: ["ignore", "pipe", "pipe"],
           windowsHide: true,
           shell: false,
-        })
-      : spawn("npm", ["run", "dev:web"], {
-          cwd: repoRoot,
-          env: {
-            ...process.env,
-            VITE_AETHERIA_SERVER_USER: authUser,
-            VITE_AETHERIA_SERVER_PASSWORD: authPass,
-          },
-          stdio: ["ignore", "pipe", "pipe"],
-          shell: false,
-        });
-  webChild.stdout?.on("data", (d) => {
-    webLogBuf += d.toString("utf8");
-  });
-  webChild.stderr?.on("data", (d) => {
-    webLogBuf += d.toString("utf8");
-  });
+        },
+      );
+      webChild.stdout?.on("data", (d) => {
+        webLogBuf += d.toString("utf8");
+      });
+      webChild.stderr?.on("data", (d) => {
+        webLogBuf += d.toString("utf8");
+      });
 
-  await waitForHttpOk(webUrl, (res) => res.ok, {}, 30_000, () => webLogBuf);
+      await waitForHttpOk(
+        webUrl,
+        (res) => res.ok,
+        {},
+        45_000,
+        () => webLogBuf,
+        () => webChild.exitCode !== null || webChild.signalCode !== null,
+      );
+    }
+  } catch (err) {
+    await stop();
+    throw err;
+  }
 
   const screenshotDir = process.env.AETHERIA_E2E_SCREENSHOT_DIR || null;
   if (screenshotDir) {
@@ -376,18 +411,12 @@ export async function startLiveStack() {
     homeDir,
     workspaceDir,
     engineUrl,
-    webUrl,
+    webUrl: startWeb ? webUrl : null,
     authHeader,
     screenshotDir,
     mockLlm,
     engineLogs: () => engineLogBuf,
-    stop: async () => {
-      killProcessTree(webChild);
-      killProcessTree(engineChild);
-      await new Promise((resolve) => llmServer.close(() => resolve()));
-      await new Promise((r) => setTimeout(r, 300));
-      fs.rmSync(tempRoot, { recursive: true, force: true });
-    },
+    stop,
   };
 }
 

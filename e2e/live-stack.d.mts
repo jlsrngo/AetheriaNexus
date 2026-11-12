@@ -1,3 +1,10 @@
+export interface LiveStackOptions {
+  /** Replace the default mock-provider `aetheria.json` (parity harness uses its own fake provider). */
+  aetheriaConfig?: unknown;
+  /** Skip starting Vite when the test only exercises the engine HTTP API. Default true. */
+  startWeb?: boolean;
+}
+
 export interface MockLlmController {
   url: string;
   setFailNext: (message: string | null) => void;
@@ -16,7 +23,8 @@ export interface LiveStack {
   homeDir: string;
   workspaceDir: string;
   engineUrl: string;
-  webUrl: string;
+  /** null when startLiveStack({ startWeb: false }) was used. */
+  webUrl: string | null;
   authHeader: string;
   screenshotDir: string | null;
   mockLlm: MockLlmController;
@@ -24,5 +32,5 @@ export interface LiveStack {
   stop: () => Promise<void>;
 }
 
-export function startLiveStack(): Promise<LiveStack>;
-
+export function resolveEngineBinary(repoRoot: string): string;
+export function startLiveStack(options?: LiveStackOptions): Promise<LiveStack>;
