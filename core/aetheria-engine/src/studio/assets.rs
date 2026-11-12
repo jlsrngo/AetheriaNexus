@@ -7,7 +7,6 @@ use super::motion::{resolve_active_dir_from_request, resolve_film_html_in_dir};
 use super::types::{
     format_file_size, DeleteFilePayload, NexusStaticFile, ScanMediaPayload, WriteFilePayload,
 };
-use crate::files::resolve_base_dir;
 use crate::paths::{contains_path, gen_id, project_root};
 use axum::{
     extract::{Path as AxumPath, Query},
@@ -182,7 +181,9 @@ pub async fn handle_write_static_file(
         .file_path
         .or(payload.path)
         .unwrap_or_else(|| "public/asset.bin".to_string());
-    let workspace = resolve_base_dir(&q, &headers);
+    let Some(workspace) = resolve_active_dir_from_request(&q, &headers) else {
+        return Json(json!({ "success": false, "error": "No active project workspace is open" }));
+    };
 
     let res = tokio::task::spawn_blocking(move || -> Result<String, String> {
         let target = workspace.join(&rel);
@@ -194,7 +195,9 @@ pub async fn handle_write_static_file(
         }
 
         if let Some(src) = payload.source_path {
-            std::fs::copy(&src, &target).map_err(|e| e.to_string())?;
+            let safe_src = crate::desktop::check_allowed_path(Path::new(&src))?;
+            crate::desktop::check_allowed_path(&target)?;
+            std::fs::copy(&safe_src, &target).map_err(|e| e.to_string())?;
         } else if let Some(b64) = payload.base64_data {
             use base64::Engine;
             let bytes = base64::engine::general_purpose::STANDARD
@@ -224,7 +227,9 @@ pub async fn handle_delete_static_file(
     Json(payload): Json<DeleteFilePayload>,
 ) -> impl IntoResponse {
     let rel = payload.file_path.or(payload.path).unwrap_or_default();
-    let workspace = resolve_base_dir(&q, &headers);
+    let Some(workspace) = resolve_active_dir_from_request(&q, &headers) else {
+        return Json(json!({ "success": false, "error": "No active project workspace is open" }));
+    };
     let target = workspace.join(rel);
     if !contains_path(&workspace, &target) {
         return Json(json!({ "success": false, "error": "Path is outside active project folder" }));
@@ -269,7 +274,15 @@ pub async fn handle_scan_media_vault(
     headers: HeaderMap,
     Json(payload): Json<ScanMediaPayload>,
 ) -> impl IntoResponse {
-    let workspace = resolve_base_dir(&q, &headers);
+    let Some(workspace) = resolve_active_dir_from_request(&q, &headers) else {
+        return Json(json!({
+            "success": false,
+            "error": "No active project workspace is open",
+            "scannedPath": "",
+            "totalFiles": 0,
+            "assets": []
+        }));
+    };
     let (scanned_path, results) = tokio::task::spawn_blocking(move || {
         let target_dir = if let Some(p) = payload.path {
             let candidate = PathBuf::from(&p);
@@ -308,4 +321,49 @@ pub async fn handle_scan_media_vault(
         "totalFiles": results.len(),
         "assets": results
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::handle_write_static_file;
+    use crate::studio::types::WriteFilePayload;
+    use axum::{extract::Query, http::HeaderMap, response::IntoResponse, Json};
+    use std::collections::HashMap;
+
+    #[tokio::test]
+    async fn test_write_static_file_blocks_outside_source_path() {
+        let root = std::env::temp_dir().join(format!("aetheria_assets_test_{}", crate::paths::now_ms()));
+        let ws = root.join("ws");
+        let outside_dir = root.join("outside");
+        let _ = std::fs::create_dir_all(&ws);
+        let _ = std::fs::create_dir_all(&outside_dir);
+        let secret = outside_dir.join("secret.txt");
+        let _ = std::fs::write(&secret, b"top-secret");
+
+        crate::desktop::set_active_workspace_root(&ws.to_string_lossy());
+        let mut q = HashMap::new();
+        q.insert("directory".to_string(), ws.to_string_lossy().to_string());
+
+        let resp = handle_write_static_file(
+            Query(q),
+            HeaderMap::new(),
+            Json(WriteFilePayload {
+                file_path: Some("public/stolen.txt".to_string()),
+                path: None,
+                data: None,
+                contents: None,
+                base64_data: None,
+                source_path: Some(secret.to_string_lossy().to_string()),
+            }),
+        )
+        .await
+        .into_response();
+
+        let body = axum::body::to_bytes(resp.into_body(), 1024 * 64).await.unwrap();
+        let txt = String::from_utf8_lossy(&body);
+        assert!(txt.contains("false"), "Expected outside sourcePath rejection, got: {}", txt);
+        assert!(!ws.join("public").join("stolen.txt").exists());
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }

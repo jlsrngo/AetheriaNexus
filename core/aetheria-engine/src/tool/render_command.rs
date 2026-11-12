@@ -18,8 +18,11 @@ pub fn optimal_render_concurrency() -> usize {
         .unwrap_or(6)
 }
 
-/// Resolves the output MP4 destination path strictly inside `workspace` (falling back to scratch).
-pub fn resolve_render_output_path(workspace: &Path, raw_output: Option<&str>) -> PathBuf {
+/// Resolves the output MP4 destination path strictly inside `workspace`.
+pub fn resolve_render_output_path(
+    workspace: &Path,
+    raw_output: Option<&str>,
+) -> Result<PathBuf, String> {
     match raw_output.map(str::trim).filter(|s| !s.is_empty()) {
         Some(raw) => {
             let mut clean = raw;
@@ -37,14 +40,22 @@ pub fn resolve_render_output_path(workspace: &Path, raw_output: Option<&str>) ->
                 }
             }
             let p = Path::new(clean);
-            if p.is_absolute() {
+            let candidate = if p.is_absolute() {
                 p.to_path_buf()
             } else {
                 workspace.join(p)
+            };
+            if !crate::paths::contains_path(workspace, &candidate) {
+                return Err(format!(
+                    "Access Denied: render output path '{}' escapes active workspace '{}'",
+                    clean,
+                    workspace.display()
+                ));
             }
+            Ok(candidate)
         }
-        None => workspace
+        None => Ok(workspace
             .join("output")
-            .join(format!("nexus-{}.mp4", crate::paths::now_ms())),
+            .join(format!("nexus-{}.mp4", crate::paths::now_ms()))),
     }
 }

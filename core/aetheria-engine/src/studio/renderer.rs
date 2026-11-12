@@ -36,7 +36,18 @@ pub async fn handle_render_media(
     let _ = std::fs::create_dir_all(&output_dir);
 
     let output_file = if let Some(custom) = payload.output_name.filter(|s| !s.trim().is_empty()) {
-        output_dir.join(custom)
+        let candidate = output_dir.join(custom.trim());
+        if !crate::paths::contains_path(&output_dir, &candidate) {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "success": false,
+                    "error": "Access Denied: outputName escapes workspace output folder"
+                })),
+            )
+                .into_response();
+        }
+        candidate
     } else {
         output_dir.join(format!("nexus-{}.mp4", now_ms()))
     };
@@ -154,6 +165,7 @@ pub async fn handle_render_media(
         "status": "rendering",
         "outputPath": output_file_str
     }))
+    .into_response()
 }
 
 /// GET / POST /api/render-progress?renderId=...

@@ -95,7 +95,7 @@ pub fn check_allowed_path(target: &Path) -> Result<PathBuf, String> {
         }
         Ok(resolved)
     } else {
-        Ok(target.to_path_buf())
+        Err("Access Denied: No active project workspace is open".to_string())
     }
 }
 
@@ -147,6 +147,32 @@ mod tests {
         // Engine root guard skips creation
         assert!(ensure_workspace_scaffold(&crate::paths::project_root()).is_empty());
 
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_check_allowed_path_fails_closed_without_workspace_and_isolates_roots() {
+        let lock = ACTIVE_WORKSPACE_ROOT.get_or_init(|| Mutex::new(None));
+        let prev = lock.lock().ok().and_then(|g| g.clone());
+
+        if let Ok(mut g) = lock.lock() {
+            *g = None;
+        }
+        assert!(check_allowed_path(Path::new("C:\\Windows\\win.ini")).is_err());
+
+        let tmp = std::env::temp_dir().join(format!(
+            "aetheria_check_path_ws_{}",
+            crate::paths::now_ms()
+        ));
+        let _ = std::fs::create_dir_all(&tmp);
+        set_active_workspace_root(&tmp.to_string_lossy());
+
+        assert!(check_allowed_path(&tmp.join("inside.txt")).is_ok());
+        assert!(check_allowed_path(&tmp.join("..").join("outside.txt")).is_err());
+
+        if let Ok(mut g) = lock.lock() {
+            *g = prev;
+        }
         let _ = std::fs::remove_dir_all(&tmp);
     }
 }

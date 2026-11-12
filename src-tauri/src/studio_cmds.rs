@@ -27,7 +27,7 @@ pub async fn render_nexus_video(
     let resolved_output = aetheria_engine::tool::render::resolve_render_output_path(
         &effective_ws,
         output_path.as_deref(),
-    );
+    )?;
 
     let codec = parsed_props
         .get("codec")

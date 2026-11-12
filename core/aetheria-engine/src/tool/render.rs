@@ -68,7 +68,14 @@ pub async fn execute_render_video_with_progress(
     };
 
     let output_path =
-        resolve_render_output_path(&effective_ws, arguments["output_path"].as_str());
+        match resolve_render_output_path(&effective_ws, arguments["output_path"].as_str()) {
+            Ok(p) => p,
+            Err(err) => {
+                return json!({
+                    "error": err
+                });
+            }
+        };
     let codec = arguments
         .get("codec")
         .and_then(Value::as_str)
@@ -166,11 +173,19 @@ mod tests {
     #[test]
     fn test_resolve_render_output_path_stays_in_active_workspace() {
         let ws = Path::new("D:\\Projects\\MyVideo");
-        let p1 = resolve_render_output_path(ws, Some("export/final.mp4"));
+        let p1 = resolve_render_output_path(ws, Some("export/final.mp4")).unwrap();
         assert_eq!(p1, ws.join("export").join("final.mp4"));
 
-        let p2 = resolve_render_output_path(ws, None);
+        let p2 = resolve_render_output_path(ws, None).unwrap();
         assert!(p2.starts_with(ws.join("output")));
         assert!(p2.to_string_lossy().ends_with(".mp4"));
+
+        assert!(resolve_render_output_path(ws, Some("../../outside.mp4")).is_err());
+
+        #[cfg(windows)]
+        let abs_evil = "C:\\Windows\\Temp\\evil.mp4";
+        #[cfg(not(windows))]
+        let abs_evil = "/tmp/evil.mp4";
+        assert!(resolve_render_output_path(ws, Some(abs_evil)).is_err());
     }
 }

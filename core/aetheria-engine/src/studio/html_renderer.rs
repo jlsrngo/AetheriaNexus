@@ -261,6 +261,16 @@ where
         ),
     );
 
+    let tmp_output = params.output_path.with_file_name(format!(
+        ".tmp-{}-{}.mp4",
+        params
+            .output_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("render"),
+        now_ms()
+    ));
+
     let mut ff_cmd = build_ffmpeg_command(
         &ffmpeg_bin,
         &meta,
@@ -269,7 +279,7 @@ where
         start_frame as f64 / fps_f,
         (end_frame + 1) as f64 / fps_f,
         &params.codec,
-        &params.output_path,
+        &tmp_output,
     );
     let mut ff_child = ff_cmd
         .spawn()
@@ -281,34 +291,50 @@ where
     let ff_stderr = ff_child.stderr.take();
 
     let mut last_percent = 999u32;
+    let mut pipe_res: Result<(), String> = Ok(());
     for (idx, frame_num) in (start_frame..=end_frame).enumerate() {
         let t = frame_num as f64 / fps_f;
         let eval_expr = format!(
             "(() => {{ window.renderAt({:.6}); return new Promise(r => requestAnimationFrame(() => r(true))); }})()",
             t
         );
-        let _ = cdp
+        if let Err(e) = cdp
             .call("Runtime.evaluate", json!({ "expression": eval_expr, "awaitPromise": true }))
-            .await?;
+            .await
+        {
+            pipe_res = Err(e);
+            break;
+        }
 
-        let shot = cdp
+        let shot = match cdp
             .call(
                 "Page.captureScreenshot",
                 json!({ "format": "jpeg", "quality": 92, "optimizeForSpeed": true }),
             )
-            .await?;
-        let b64 = shot
-            .get("data")
-            .and_then(Value::as_str)
-            .ok_or_else(|| format!("CDP screenshot missing base64 payload at frame {}", frame_num))?;
-        let jpeg_bytes = B64
-            .decode(b64)
-            .map_err(|e| format!("Failed decoding CDP screenshot at frame {}: {}", frame_num, e))?;
-
-        ff_stdin
-            .write_all(&jpeg_bytes)
             .await
-            .map_err(|e| format!("Failed piping frame {} to FFmpeg: {}", frame_num, e))?;
+        {
+            Ok(v) => v,
+            Err(e) => {
+                pipe_res = Err(e);
+                break;
+            }
+        };
+        let Some(b64) = shot.get("data").and_then(Value::as_str) else {
+            pipe_res = Err(format!("CDP screenshot missing base64 payload at frame {}", frame_num));
+            break;
+        };
+        let jpeg_bytes = match B64.decode(b64) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                pipe_res = Err(format!("Failed decoding CDP screenshot at frame {}: {}", frame_num, e));
+                break;
+            }
+        };
+
+        if let Err(e) = ff_stdin.write_all(&jpeg_bytes).await {
+            pipe_res = Err(format!("Failed piping frame {} to FFmpeg: {}", frame_num, e));
+            break;
+        }
 
         let rendered = (idx as u32) + 1;
         let percent = ((rendered as f64 / frames_to_render as f64) * 100.0).round() as u32;
@@ -319,14 +345,32 @@ where
     }
 
     drop(ff_stdin);
+    if let Err(err) = pipe_res {
+        let _ = ff_child.kill().await;
+        let _ = tokio::fs::remove_file(&tmp_output).await;
+        return Err(err);
+    }
+
     let status = ff_child
         .wait()
         .await
         .map_err(|e| format!("FFmpeg wait error: {}", e))?;
 
     if !status.success() {
+        let _ = tokio::fs::remove_file(&tmp_output).await;
         return Err(format_ffmpeg_failure(status, ff_stderr).await);
     }
+
+    tokio::fs::rename(&tmp_output, &params.output_path)
+        .await
+        .map_err(|e| {
+            format!(
+                "Failed moving rendered MP4 from {} to {}: {}",
+                tmp_output.display(),
+                params.output_path.display(),
+                e
+            )
+        })?;
 
     Ok(HtmlRenderResult {
         output_path: params.output_path,

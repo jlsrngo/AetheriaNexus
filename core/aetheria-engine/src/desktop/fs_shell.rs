@@ -67,7 +67,16 @@ pub async fn handle_backup_folder(Json(body): Json<Value>) -> Response {
         .get("sourcePath")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let src_path = Path::new(src);
+    let src_path = match check_allowed_path(Path::new(src)) {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                axum::http::StatusCode::FORBIDDEN,
+                Json(json!({ "error": e })),
+            )
+                .into_response();
+        }
+    };
     if !src_path.exists() {
         return Json(json!({ "error": "Source folder does not exist" })).into_response();
     }
@@ -77,7 +86,7 @@ pub async fn handle_backup_folder(Json(body): Json<Value>) -> Response {
         .and_then(|n| n.to_str())
         .unwrap_or("folder");
     let backup_path = parent.join(format!("{}_backup_{}", base_name, now_ms()));
-    match copy_dir_recursive(src_path, &backup_path) {
+    match copy_dir_recursive(&src_path, &backup_path) {
         Ok(_) => Json(json!({
             "success": true,
             "backupPath": backup_path.to_string_lossy()
