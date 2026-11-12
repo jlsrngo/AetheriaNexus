@@ -190,7 +190,8 @@ async fn run_subagent_loop(
         }),
     );
 
-    let (mut base_url, mut api_key, mut model_id) = resolve_subagent_provider_config().await;
+    let (mut base_url, mut api_key, mut model_id) =
+        resolve_subagent_provider_config(parent_session_id).await;
     let tools = build_subagent_tools(subagent_type, child_depth);
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(15))

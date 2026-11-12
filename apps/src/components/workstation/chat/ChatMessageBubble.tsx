@@ -8,6 +8,7 @@ import { getFileIcon } from "../../workspace/tree-utils";
 import { MessageThoughtBadge, type StepItem } from "../LiveExecutionBadge";
 import { ChatMessageContent } from "./ChatMessageContent";
 import { QuestionPromptCard } from "./QuestionPromptCard";
+import { StudioAgentColumnsBoard } from "./StudioAgentColumnsBoard";
 import { getSubagentMeta } from "./subagentMeta";
 import { Message, QuestionData } from "./types";
 
@@ -340,6 +341,13 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
             {subagentMeta.name}
           </span>
         </div>
+      )}
+      {!isUser && (
+        <StudioAgentColumnsBoard
+          steps={steps}
+          subagentTracks={msg.subagentTracks}
+          isStreaming={isStreaming}
+        />
       )}
       {!isUser && partGroups.length > 0 ? (
         <div className="flex flex-col gap-1.5 w-full min-w-0">

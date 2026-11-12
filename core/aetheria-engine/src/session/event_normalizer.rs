@@ -35,11 +35,13 @@ pub fn normalize_engine_event(event: &Value, current_session_id: &str) -> Option
         .or(inner_payload)
         .unwrap_or(event);
 
-    // Session validation
+    // Session validation (supports both sessionID and parentSessionId for subagents)
     let session_id = payload
         .get("sessionID")
+        .or_else(|| payload.get("parentSessionId"))
         .or_else(|| event.get("sessionID"))
-        .or_else(|| inner_payload.and_then(|p| p.get("sessionID")))
+        .or_else(|| event.get("parentSessionId"))
+        .or_else(|| inner_payload.and_then(|p| p.get("sessionID").or_else(|| p.get("parentSessionId"))))
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
@@ -338,6 +340,22 @@ pub fn normalize_engine_event(event: &Value, current_session_id: &str) -> Option
             }
         }
         "session.idle" => Some(json!({ "type": "done", "data": payload })),
+        "subagent.started" => Some(json!({
+            "type": "subagent_started",
+            "data": payload
+        })),
+        "subagent.tool.called" => Some(json!({
+            "type": "subagent_tool_called",
+            "data": payload
+        })),
+        "subagent.tool.completed" => Some(json!({
+            "type": "subagent_tool_completed",
+            "data": payload
+        })),
+        "subagent.completed" => Some(json!({
+            "type": "subagent_completed",
+            "data": payload
+        })),
         "open_document_app" | "open_app" => Some(json!({ "type": "open_document_app", "data": payload })),
         _ => None,
     }
@@ -415,6 +433,24 @@ mod tests {
         assert_eq!(normalized["data"]["callID"], "call-123");
         assert_eq!(normalized["data"]["toolName"], "edit_document");
         assert_eq!(normalized["data"]["preview"], "rekap_keuangan.xlsx");
+    }
+
+    #[test]
+    fn test_forwards_subagent_events_scoped_to_parent_session() {
+        let sub_evt = json!({
+            "type": "subagent.started",
+            "payload": {
+                "parentSessionId": "ses-1",
+                "subagentSessionId": "sub-abc",
+                "subagentType": "audio-director",
+                "description": "Synthesize 5 scenes"
+            }
+        });
+        let norm = normalize_engine_event(&sub_evt, "ses-1").unwrap();
+        assert_eq!(norm["type"], "subagent_started");
+        assert_eq!(norm["data"]["subagentType"], "audio-director");
+
+        assert_eq!(normalize_engine_event(&sub_evt, "other-ses"), None);
     }
 }
 

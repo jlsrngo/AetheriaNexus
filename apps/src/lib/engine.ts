@@ -492,14 +492,24 @@ export function mapEngineEvent(
   // Fast-path: pre-normalized by Rust event_normalizer engine
   const preNormalized = (event as any)?._ui || innerPayload?._ui;
   if (preNormalized) {
-    const sid = event.sessionID || innerPayload?.sessionID || preNormalized.data?.sessionID;
+    const sid =
+      preNormalized.data?.parentSessionId ||
+      event.sessionID ||
+      innerPayload?.sessionID ||
+      preNormalized.data?.sessionID;
     if (sid && currentSessionID && sid !== currentSessionID) return null;
     return preNormalized;
   }
 
   const rawType = event.type || innerPayload?.type || "";
   const payload = innerPayload?.properties || innerPayload?.data || event.data || event.properties || innerPayload || event;
-  const sessionID = payload?.sessionID || event.sessionID || innerPayload?.sessionID || (event as any)?.sessionID;
+  const sessionID =
+    payload?.parentSessionId ||
+    innerPayload?.parentSessionId ||
+    payload?.sessionID ||
+    event.sessionID ||
+    innerPayload?.sessionID ||
+    (event as any)?.sessionID;
   if (sessionID && sessionID !== currentSessionID) return null;
 
   // Filter out internal compaction events from leaking into chat streams
@@ -706,6 +716,14 @@ export function mapEngineEvent(
     case "open_document_app":
     case "open_app":
       return { type: "open_document_app", data: payload };
+    case "subagent.started":
+      return { type: "subagent_started", data: payload };
+    case "subagent.tool.called":
+      return { type: "subagent_tool_called", data: payload };
+    case "subagent.tool.completed":
+      return { type: "subagent_tool_completed", data: payload };
+    case "subagent.completed":
+      return { type: "subagent_completed", data: payload };
     default:
       return null;
   }

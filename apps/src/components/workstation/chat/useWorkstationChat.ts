@@ -2,7 +2,8 @@ import { resolveActiveSingleModel, getProviderDefaultModels } from "./chatModelR
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Message, MessagePart, QuestionData } from "./types";
+import { Message, MessagePart, QuestionData, SubagentTrackState } from "./types";
+import { applySubagentEventToTracks, resolveSubagentDisplayTitle } from "./studioTrackUtils";
 import { mapEngineMessages } from "./mapper";
 import { LiveStatusData, StepItem, formatToolStepLabel } from "../LiveExecutionBadge";
 import { extractCanvasContent } from "../canvas/canvas";
@@ -710,6 +711,7 @@ export function useWorkstationChat({
     const streamStartTime = Date.now();
     const accumulatedSteps: StepItem[] = [];
     const accumulatedParts: MessagePart[] = [];
+    let accumulatedSubagentTracks: SubagentTrackState[] = [];
 
     const newAssistantMsg: Message = {
       id: assistantMessageId,
@@ -844,6 +846,7 @@ export function useWorkstationChat({
           accumulatedResponseText.trim().length > 0 ||
           accumulatedReasoningText.trim().length > 0 ||
           accumulatedSteps.length > 0 ||
+          accumulatedSubagentTracks.length > 0 ||
           accumulatedParts.length > 0;
 
         if (hasReceivedData) {
@@ -961,6 +964,7 @@ export function useWorkstationChat({
               reasoning: displayReasoning || undefined,
               createdAt: new Date().toISOString(),
               executionSteps: accumulatedSteps.length > 0 ? [...accumulatedSteps] : undefined,
+              subagentTracks: accumulatedSubagentTracks.length > 0 ? [...accumulatedSubagentTracks] : undefined,
               parts: [...accumulatedParts],
             },
           ];
@@ -972,6 +976,7 @@ export function useWorkstationChat({
                 content: displayText,
                 reasoning: displayReasoning || m.reasoning,
                 executionSteps: accumulatedSteps.length > 0 ? [...accumulatedSteps] : m.executionSteps,
+                subagentTracks: accumulatedSubagentTracks.length > 0 ? [...accumulatedSubagentTracks] : m.subagentTracks,
                 parts: [...accumulatedParts],
               }
             : m
@@ -1037,6 +1042,7 @@ export function useWorkstationChat({
                 content: accumulatedResponseText || m.content,
                 reasoning: accumulatedReasoningText || m.reasoning,
                 executionSteps: accumulatedSteps.length > 0 ? [...accumulatedSteps] : undefined,
+                subagentTracks: accumulatedSubagentTracks.length > 0 ? [...accumulatedSubagentTracks] : m.subagentTracks,
                 thoughtSec: elapsedSec,
                 parts: [...accumulatedParts],
               }
@@ -1210,6 +1216,43 @@ export function useWorkstationChat({
               iconType: "thinking",
             });
           }
+        } else if (
+          event.type === "subagent_started" ||
+          event.type === "subagent_tool_called" ||
+          event.type === "subagent_tool_completed" ||
+          event.type === "subagent_completed"
+        ) {
+          flushThrottledUpdate();
+          resetWatchdog(120000);
+          accumulatedSubagentTracks = applySubagentEventToTracks(
+            accumulatedSubagentTracks,
+            { type: event.type, data: (event.data ?? {}) as Record<string, unknown> },
+          );
+          const d = (event.data ?? {}) as Record<string, unknown>;
+          const subRole = resolveSubagentDisplayTitle(
+            typeof d.subagentType === "string" ? d.subagentType : undefined,
+          );
+          const subLabel =
+            typeof d.label === "string" && d.label.trim()
+              ? `${subRole}: ${d.label}`
+              : typeof d.description === "string" && d.description.trim()
+              ? `${subRole}: ${d.description}`
+              : subRole;
+          setLiveStatus({
+            type: event.type === "subagent_completed" ? "tool_done" : "tool_start",
+            toolName: typeof d.tool === "string" ? d.tool : "task",
+            preview: subLabel,
+          });
+          setOptimisticMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId
+                ? {
+                    ...m,
+                    subagentTracks: [...accumulatedSubagentTracks],
+                  }
+                : m
+            )
+          );
         } else if (event.type === "tool_preparing") {
           flushThrottledUpdate();
           if (textEndFinalizeTimeout) {

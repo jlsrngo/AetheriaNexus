@@ -34,6 +34,27 @@ export interface MessageFileAttachment {
   description?: string;
 }
 
+export type StudioColumnRole = "director" | "audio" | "script";
+
+export interface SubagentTrackStep {
+  id: string;
+  label: string;
+  status: "running" | "completed" | "failed";
+  toolName: string;
+}
+
+export interface SubagentTrackState {
+  sessionId: string;
+  subagentType: string;
+  role: StudioColumnRole;
+  title: string;
+  description?: string;
+  status: "running" | "completed" | "failed";
+  tools: SubagentTrackStep[];
+  startedAt?: number;
+  completedAt?: number;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
@@ -41,6 +62,7 @@ export interface Message {
   content: string;
   createdAt?: string;
   executionSteps?: StepItem[];
+  subagentTracks?: SubagentTrackState[];
   thoughtSec?: number;
   thoughtMs?: number;
   metadata?: string | Record<string, any>;

@@ -241,17 +241,34 @@ pub fn format_tool_step_label(tool_name: &str, args_or_target: &Value, is_finish
         return if is_finished { "Searched workspace".to_string() } else { "Searching workspace".to_string() };
     }
 
-    if t.contains("subagent") || t.contains("delegate") {
+    if t == "task" || t.contains("subagent") || t.contains("delegate") {
         let role_val = args_or_target
-            .get("role")
+            .get("subagent_type")
+            .or_else(|| args_or_target.get("role"))
+            .or_else(|| args_or_target.get("type"))
             .and_then(|v| v.as_str())
             .unwrap_or("specialist");
+        let desc_val = args_or_target
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .unwrap_or("");
         let display_role = match role_val {
-            "audio" => "Audio Producer",
+            "audio" | "audio-director" => "Audio Producer",
             "assets" => "Asset Curator",
-            "motion" => "Motion Engineer",
+            "motion" | "motion-designer" => "Motion Engineer",
+            "qa-verifier" => "QA Verifier",
+            "explore" => "Research Assistant",
+            other if !other.is_empty() && other != "specialist" => other,
             _ => "Specialist",
         };
+        if !desc_val.is_empty() {
+            return if is_finished {
+                format!("[{}] {}", display_role, desc_val)
+            } else {
+                format!("[{}] {}...", display_role, desc_val)
+            };
+        }
         return if is_finished {
             format!("Subtask [{}] completed", display_role)
         } else {
@@ -294,6 +311,20 @@ mod tests {
             true,
         );
         assert_eq!(label3, "Rendered video: \"3 Wealth Habits\"");
+
+        let label4 = format_tool_step_label(
+            "task",
+            &json!({ "subagent_type": "audio-director", "description": "Generate scene audio" }),
+            false,
+        );
+        assert_eq!(label4, "[Audio Producer] Generate scene audio...");
+
+        let label5 = format_tool_step_label(
+            "task",
+            &json!({ "subagent_type": "motion-designer", "description": "Build 3D scene scripts" }),
+            true,
+        );
+        assert_eq!(label5, "[Motion Engineer] Build 3D scene scripts");
     }
 }
 

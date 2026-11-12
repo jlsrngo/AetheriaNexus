@@ -265,6 +265,23 @@ export function formatToolStepLabel(
   if (t === "todowrite" || t === "todo") {
     return isFinished ? `Updated studio production plan` : `Updating studio production plan`;
   }
+  if (t === "task" && argsOrTarget && typeof argsOrTarget === "object") {
+    const rawSubType = String(argsOrTarget.subagent_type || argsOrTarget.subagentType || "").trim();
+    const rawDesc = String(argsOrTarget.description || "").trim();
+    const lowerSub = rawSubType.toLowerCase();
+    const roleLabel =
+      lowerSub === "audio-director"
+        ? "Audio Producer"
+        : lowerSub === "motion-designer"
+        ? "Motion Engineer"
+        : lowerSub === "qa-verifier"
+        ? "QA Verifier"
+        : lowerSub === "explore"
+        ? "Research Assistant"
+        : rawSubType || "Specialist";
+    const descSuffix = rawDesc ? `: ${rawDesc}` : "";
+    return isFinished ? `Delegated to ${roleLabel}${descSuffix}` : `Delegating to ${roleLabel}${descSuffix}`;
+  }
 
   // 9. Search / Knowledge
   if (t.includes("knowledge") || t.includes("memory")) {
@@ -317,7 +334,7 @@ export function getActiveActionText(
     }
     if (t.includes("excel")) return "Updating Excel document";
     if (t.includes("read") || t.includes("view")) return "Reading script";
-    if (t.includes("write") || t.includes("edit")) return "Writing React video script";
+    if (t.includes("write") || t.includes("edit")) return "Writing motion script";
     if (t.includes("search") || t.includes("grep")) return "Searching workspace";
     return runningStep.toolName ? `Running ${runningStep.toolName}` : "Executing studio action";
   }
