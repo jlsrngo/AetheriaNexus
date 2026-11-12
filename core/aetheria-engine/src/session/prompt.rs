@@ -325,3 +325,75 @@ pub fn wake_parent_session_after_background(parent_session_id: &str, workspace_d
         .await;
     });
 }
+
+/// Resumes persisted inbox items after engine restart, popping one queued item at a time so
+/// subsequent items continue in strict FIFO turn sequence via `runner.rs`.
+pub fn wake_session_inbox_on_startup(session_id: &str) {
+    let sid = session_id.to_string();
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+        let lock = get_session_lock(&sid);
+        let _turn_guard = lock.lock().await;
+
+        let Some(first_item) = crate::session::coordinator::pop_next_queued_input(&sid) else {
+            return;
+        };
+
+        let (provider_id, model_id, history, resolved_ws, exists) = with_store(|store| {
+            let Some(sess) = store.sessions.get(&sid) else {
+                return (
+                    "local-cli".to_string(),
+                    "kiro/auto".to_string(),
+                    Vec::new(),
+                    crate::paths::project_root().to_string_lossy().to_string(),
+                    false,
+                );
+            };
+            let m = sess
+                .get("model")
+                .cloned()
+                .unwrap_or_else(default_model_ref);
+            let pid = m
+                .get("providerID")
+                .and_then(|v| v.as_str())
+                .unwrap_or("local-cli")
+                .to_string();
+            let mid = m
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("kiro/auto")
+                .to_string();
+            let sws = sess
+                .pointer("/location/directory")
+                .or_else(|| sess.get("directory"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| crate::paths::project_root().to_string_lossy().to_string());
+            let hist = store.messages.get(&sid).cloned().unwrap_or_default();
+            store.messages.entry(sid.clone()).or_default().push(json!({
+                "id": gen_id("msg"),
+                "type": "user",
+                "text": first_item.text,
+                "time": { "created": now_ms() }
+            }));
+            save_store(store);
+            (pid, mid, hist, sws, true)
+        });
+
+        if !exists {
+            return;
+        }
+
+        run_agent_turn(
+            &sid,
+            &resolved_ws,
+            &provider_id,
+            &model_id,
+            &history,
+            &first_item.text,
+            None,
+        )
+        .await;
+    });
+}

@@ -1,2 +1,2 @@
-ORACLE golden OpenCode (4f51455a5da7859e4f1a1b6abcc54b67bf7b7a4b)
-SCORE 0/4 (0.0%)
+ORACLE spec-derived (pass --golden scripts/parity/golden for canonical parity score)
+SCORE 17/17 (100.0%)

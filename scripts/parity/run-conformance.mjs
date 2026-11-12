@@ -110,8 +110,18 @@ try {
   process.exit(passed === total ? 0 : 1);
 }
 
-function buildAetheriaConfig(baseURL, id, defaultModel) {
-  return {
+function buildAetheriaConfig(baseURL, id, defaultModel, extraPatch = null) {
+  const base = {
+    agent: {
+      subGen: { mode: "subagent", description: "General subagent" },
+      agentB: { mode: "subagent", description: "Agent B", model: `${id}/model-b` },
+      capped3: { mode: "all", description: "Max 3 steps agent", steps: 3 },
+      roParent: {
+        mode: "all",
+        description: "Read-only parent",
+        permission: { "*": "allow", write: "deny", edit: "deny" },
+      },
+    },
     provider: {
       [id]: {
         npm: "@ai-sdk/openai-compatible",
@@ -126,28 +136,29 @@ function buildAetheriaConfig(baseURL, id, defaultModel) {
               { tier: { type: "context", size: 200000 }, input: 2, output: 4, cache: { read: 0.2, write: 0.4 } },
             ],
           },
-          "clip-model": { name: "clip-model" },
-          "model-b": { name: "model-b" },
-          "model-c": { name: "model-c" },
+          "clip-model": { name: "clip-model", limit: { context: 25000, output: 2000 } },
+          "model-b": { name: "model-b", limit: { context: 128000, output: 16000 } },
+          "model-c": { name: "model-c", limit: { context: 128000, output: 16000 } },
         },
       },
       "parity-timeout": {
         npm: "@ai-sdk/openai-compatible",
         name: "Parity Timeout Provider",
         options: { baseURL, apiKey: "parity", timeout: 350 },
-        models: { [defaultModel]: { name: defaultModel } },
+        models: { [defaultModel]: { name: defaultModel, limit: { context: 128000, output: 16000 } } },
       },
       "parity-unreachable": {
         npm: "@ai-sdk/openai-compatible",
         name: "Parity Unreachable Provider",
         options: { baseURL: "http://no-such-host-parity.invalid/v1", apiKey: "parity" },
-        models: { [defaultModel]: { name: defaultModel } },
+        models: { [defaultModel]: { name: defaultModel, limit: { context: 128000, output: 16000 } } },
       },
-      "parity-p1": { npm: "@ai-sdk/openai-compatible", options: { baseURL, apiKey: "parity" }, models: { m1: { name: "m1" } } },
-      "parity-p2": { npm: "@ai-sdk/openai-compatible", options: { baseURL, apiKey: "parity" }, models: { m2: { name: "m2" } } },
-      "parity-p3": { npm: "@ai-sdk/openai-compatible", options: { baseURL, apiKey: "parity" }, models: { m3: { name: "m3" } } },
+      "parity-p1": { npm: "@ai-sdk/openai-compatible", options: { baseURL, apiKey: "parity" }, models: { m1: { name: "m1", limit: { context: 128000, output: 16000 } } } },
+      "parity-p2": { npm: "@ai-sdk/openai-compatible", options: { baseURL, apiKey: "parity" }, models: { m2: { name: "m2", limit: { context: 128000, output: 16000 } } } },
+      "parity-p3": { npm: "@ai-sdk/openai-compatible", options: { baseURL, apiKey: "parity" }, models: { m3: { name: "m3", limit: { context: 128000, output: 16000 } } } },
     },
   };
+  return extraPatch ? { ...base, ...extraPatch } : base;
 }
 
 async function runScenario(scenario) {
@@ -185,22 +196,47 @@ async function runScenario(scenario) {
   const targetProvider = scenario.providerId ?? providerId;
   const targetModel = scenario.modelId ?? model;
 
+  let isoStack = null;
+  let activeEngine = engine;
+  let activeAuth = authHeader;
+  let activeWs = scenarioWs;
   let sessionID = null;
   const events = [];
   let abortLatency = null;
   let runnerError = null;
 
   try {
+    if (stack && (scenario.configPatch || scenario.configFlags?.length)) {
+      const patch = {
+        ...(scenario.configFlags?.includes("background_compaction")
+          ? { experimental: { background_compaction: true } }
+          : {}),
+        ...(scenario.configPatch ?? {}),
+      };
+      const isoCfg = buildAetheriaConfig(provider.url, providerId, model, patch);
+      const isoPort = await getFreePort();
+      isoStack = await startLiveStack({ aetheriaConfig: isoCfg, startWeb: false, enginePort: isoPort });
+      activeEngine = isoStack.engineUrl;
+      activeAuth = isoStack.authHeader;
+      activeWs = isoStack.workspaceDir;
+      for (const [relPath, text] of Object.entries(scenario.setupFiles ?? {})) {
+        const abs = path.join(activeWs, relPath);
+        fs.mkdirSync(path.dirname(abs), { recursive: true });
+        fs.writeFileSync(abs, text);
+      }
+      await assertEngineHealthy(activeEngine, activeAuth);
+    }
+
     sessionID = await createSession(
-      engine,
-      authHeader,
-      scenarioWs,
+      activeEngine,
+      activeAuth,
+      activeWs,
       targetProvider,
       targetModel,
       scenario.agentId,
       scenario.permissions,
     );
-    const sse = openEventStream(engine, authHeader, scenarioWs, events, sessionID);
+    const sse = openEventStream(activeEngine, activeAuth, activeWs, events, sessionID);
     await sleep(30);
 
     try {
@@ -210,12 +246,12 @@ async function runScenario(scenario) {
       if (scenario.abortAfterMs) {
         setTimeout(() => {
           sse.noteAbortSent();
-          api(engine, authHeader, `/api/session/${sessionID}/abort`, { method: "POST", body: "{}" }).catch(() => {});
+          api(activeEngine, activeAuth, `/api/session/${sessionID}/abort`, { method: "POST", body: "{}" }).catch(() => {});
         }, scenario.abortAfterMs);
       }
       if (scenario.steer) {
         setTimeout(() => {
-          api(engine, authHeader, `/api/session/${sessionID}/inbox`, {
+          api(activeEngine, activeAuth, `/api/session/${sessionID}/inbox`, {
             method: "POST",
             body: JSON.stringify({ text: scenario.steer.text, delivery: scenario.steer.delivery }),
           }).catch(() => {});
@@ -224,7 +260,7 @@ async function runScenario(scenario) {
 
       if (prompts.length > 1) {
         for (let idx = 0; idx < prompts.length; idx++) {
-          const prompt = await api(engine, authHeader, `/api/session/${sessionID}/message`, {
+          const prompt = await api(activeEngine, activeAuth, `/api/session/${sessionID}/message`, {
             method: "POST",
             body: JSON.stringify({ text: prompts[idx] }),
           });
@@ -234,13 +270,13 @@ async function runScenario(scenario) {
           }
           const idled = await waitForIdleCount(events, idx + 1, timeoutMs);
           if (!idled) {
-            await api(engine, authHeader, `/api/session/${sessionID}/abort`, { method: "POST", body: "{}" }).catch(() => {});
+            await api(activeEngine, activeAuth, `/api/session/${sessionID}/abort`, { method: "POST", body: "{}" }).catch(() => {});
             runnerError = `no turn ${idx + 1} idle within ${timeoutMs}ms`;
             break;
           }
         }
       } else {
-        const prompt = await api(engine, authHeader, `/api/session/${sessionID}/message`, {
+        const prompt = await api(activeEngine, activeAuth, `/api/session/${sessionID}/message`, {
           method: "POST",
           body: JSON.stringify({ text: prompts[0] }),
         });
@@ -255,7 +291,7 @@ async function runScenario(scenario) {
             if (started) {
               await sleep(100);
               sse.noteAbortSent();
-              await api(engine, authHeader, `/api/session/${sessionID}/abort`, { method: "POST", body: "{}" }).catch(() => {});
+              await api(activeEngine, activeAuth, `/api/session/${sessionID}/abort`, { method: "POST", body: "{}" }).catch(() => {});
             }
           }
           if (scenario.interruptOnRetry) {
@@ -264,13 +300,13 @@ async function runScenario(scenario) {
               Math.min(timeoutMs, 10_000),
             );
             if (seenRetry) {
-              await api(engine, authHeader, `/api/session/${sessionID}/abort`, { method: "POST", body: "{}" }).catch(() => {});
+              await api(activeEngine, activeAuth, `/api/session/${sessionID}/abort`, { method: "POST", body: "{}" }).catch(() => {});
             }
           }
           const idled = await waitForIdleCount(events, expectedTurns, timeoutMs);
           abortLatency = sse.abortLatency();
           if (!idled) {
-            await api(engine, authHeader, `/api/session/${sessionID}/abort`, { method: "POST", body: "{}" }).catch(() => {});
+            await api(activeEngine, activeAuth, `/api/session/${sessionID}/abort`, { method: "POST", body: "{}" }).catch(() => {});
             await sleep(150);
             runnerError = `expected ${expectedTurns} terminal idle event(s) within ${timeoutMs}ms`;
           }
@@ -281,13 +317,15 @@ async function runScenario(scenario) {
     }
   } catch (err) {
     runnerError = err instanceof Error ? err.message : String(err);
+  } finally {
+    if (isoStack) await isoStack.stop();
   }
 
   const normalized = normalizeEvents(events);
   const requests = provider.requests();
   writeActual(scenario.id, normalized, requests, runnerError);
 
-  return evaluateScenario(scenario, base, { normalized, requests, events, abortLatency, scenarioWs, runnerError });
+  return evaluateScenario(scenario, base, { normalized, requests, events, abortLatency, scenarioWs: activeWs, runnerError });
 }
 
 async function runIsolatedRestartScenario(scenario, scenarioWs, base) {

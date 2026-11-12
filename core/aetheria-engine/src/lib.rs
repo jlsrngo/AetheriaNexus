@@ -68,6 +68,16 @@ pub async fn init_engine_and_bind(
             recovered_jobs
         );
     }
+    let pending_inboxes = session::inbox::recover_pending_inboxes_on_startup();
+    if !pending_inboxes.is_empty() {
+        println!(
+            "[aetheria-engine] Resuming {} session(s) with persisted inbox items",
+            pending_inboxes.len()
+        );
+        for sid in &pending_inboxes {
+            session::prompt::wake_session_inbox_on_startup(sid);
+        }
+    }
 
     // 3. Start background Telegram bot polling & active folder ingestion watcher
     messaging::start_telegram_worker();

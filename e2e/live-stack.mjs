@@ -257,12 +257,12 @@ async function startMockLlmServer() {
 }
 
 /**
- * @param {{ aetheriaConfig?: unknown, startWeb?: boolean }} [options]
+ * @param {{ aetheriaConfig?: unknown, startWeb?: boolean, enginePort?: number }} [options]
  *   aetheriaConfig: replace the default mock-provider config (parity harness points
  *   the engine at its own fake provider). startWeb: skip Vite when no UI is needed.
  */
 export async function startLiveStack(options = {}) {
-  const { aetheriaConfig, startWeb = true } = options;
+  const { aetheriaConfig, startWeb = true, enginePort = 4196 } = options;
   const repoRoot = repoRootDir();
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aetheria-e2e-"));
   const homeDir = path.join(tempRoot, "home");
@@ -321,11 +321,11 @@ export async function startLiveStack(options = {}) {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   };
 
-  const engineUrl = "http://127.0.0.1:4196";
+  const engineUrl = `http://127.0.0.1:${enginePort}`;
   const webUrl = "http://127.0.0.1:5173";
 
   try {
-    engineChild = spawn(engineBin, ["serve", "--port", "4196"], {
+    engineChild = spawn(engineBin, ["serve", "--port", String(enginePort)], {
       cwd: repoRoot,
       env: {
         ...process.env,

@@ -2,7 +2,9 @@
 pub mod agent_turn;
 pub mod canvas_extractor;
 pub mod compaction;
+pub mod compaction_budget;
 pub mod compaction_emergency;
+pub mod compaction_summary;
 pub mod coordinator;
 pub mod doom_loop;
 pub mod event_normalizer;

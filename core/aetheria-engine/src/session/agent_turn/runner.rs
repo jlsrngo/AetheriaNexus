@@ -5,6 +5,14 @@
 use crate::paths::{gen_id, now_ms};
 use crate::provider::catalog::resolve_model_cost_tiers;
 use crate::provider::read_aetheria_config;
+use crate::session::compaction_budget::{
+    calculate_ceiling, measure_in_turn_tokens, measure_stored_history_tokens,
+    resolve_model_context_limit, should_trigger_background_precompute, total_tokens_from_recorded,
+};
+use crate::session::compaction_summary::{
+    await_pending_precompute, compact_with_budget_ladder, spawn_background_precompute,
+    CompactionOutcome,
+};
 use crate::session::finish_reason::{
     normalize_finish_reason, FinishReason, MAX_LENGTH_CONTINUATION_STREAK,
     OUTPUT_LIMIT_EXHAUSTED_MESSAGE,
@@ -209,8 +217,15 @@ pub async fn run_agent_turn(
     } else {
         Vec::new()
     };
+    let request_timeout_ms = cfg
+        .pointer(&format!("/provider/{}/options/timeout", current_provider_id))
+        .or_else(|| cfg.pointer(&format!("/providers/{}/options/timeout", current_provider_id)))
+        .or_else(|| cfg.pointer(&format!("/providers/{}/settings/timeout", current_provider_id)))
+        .and_then(|v| v.as_u64())
+        .filter(|&ms| ms >= 50)
+        .unwrap_or(180_000);
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(180))
+        .timeout(std::time::Duration::from_millis(request_timeout_ms))
         .build()
         .unwrap_or_default();
 
@@ -226,6 +241,71 @@ pub async fn run_agent_turn(
     let mut last_finish = FinishReason::Stop;
 
     let mut _step = 0usize;
+    let model_limit = resolve_model_context_limit(&cfg, &current_provider_id, &current_model_id);
+    let ceiling = calculate_ceiling(model_limit.context);
+    let compaction_auto = cfg
+        .pointer("/compaction/auto")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let background_compaction_enabled = cfg
+        .pointer("/experimental/background_compaction")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    await_pending_precompute(session_id).await;
+    let (mut cycle_start_tokens, hist_total_tokens) = measure_stored_history_tokens(history);
+    if compaction_auto && ceiling != usize::MAX && hist_total_tokens >= ceiling {
+        match compact_with_budget_ladder(
+            &client,
+            &base_url,
+            &api_key,
+            &current_model_id,
+            session_id,
+            workspace_dir,
+            "auto",
+            &mut chat_messages,
+        )
+        .await
+        {
+            CompactionOutcome::Succeeded => {
+                cycle_start_tokens = 0;
+            }
+            CompactionOutcome::Interrupted => {
+                finalize_interrupted_turn(
+                    &current_provider_id,
+                    &current_model_id,
+                    session_id,
+                    workspace_dir,
+                    &assistant_msg_id,
+                    started_ms,
+                    content_parts,
+                    &usage_acc,
+                    "user",
+                );
+                return;
+            }
+            CompactionOutcome::Failed(err) => {
+                finalize_failed_turn(
+                    &current_provider_id,
+                    &current_model_id,
+                    session_id,
+                    workspace_dir,
+                    &assistant_msg_id,
+                    started_ms,
+                    content_parts,
+                    &usage_acc,
+                    None,
+                    "compaction",
+                    &err,
+                    false,
+                    None,
+                );
+                return;
+            }
+        }
+    }
+
+    let mut overflow_compacted_this_step = false;
     while _step < 35 {
         if let Some(reason) = crate::session::coordinator::is_session_interrupted(session_id) {
             crate::paths::log_engine(
@@ -292,11 +372,65 @@ pub async fn run_agent_turn(
                     .unwrap_or(50)
             })
             .sum();
-        if (_step >= 28 && chat_messages.len() > 65)
+        if _step > 0
+            && compaction_auto
+            && ceiling != usize::MAX
+            && measure_in_turn_tokens(last_step_usage.as_ref(), &chat_messages) >= ceiling
+        {
+            match compact_with_budget_ladder(
+                &client,
+                &base_url,
+                &api_key,
+                &current_model_id,
+                session_id,
+                workspace_dir,
+                "auto",
+                &mut chat_messages,
+            )
+            .await
+            {
+                CompactionOutcome::Succeeded => {
+                    last_step_usage = None;
+                    cycle_start_tokens = 0;
+                }
+                CompactionOutcome::Interrupted => {
+                    finalize_interrupted_turn(
+                        &current_provider_id,
+                        &current_model_id,
+                        session_id,
+                        workspace_dir,
+                        &assistant_msg_id,
+                        started_ms,
+                        content_parts,
+                        &usage_acc,
+                        "user",
+                    );
+                    return;
+                }
+                CompactionOutcome::Failed(err) => {
+                    finalize_failed_turn(
+                        &current_provider_id,
+                        &current_model_id,
+                        session_id,
+                        workspace_dir,
+                        &assistant_msg_id,
+                        started_ms,
+                        content_parts,
+                        &usage_acc,
+                        None,
+                        "compaction",
+                        &err,
+                        false,
+                        None,
+                    );
+                    return;
+                }
+            }
+        } else if (_step >= 28 && chat_messages.len() > 65)
             || total_chars > 220_000
             || crate::session::compaction::should_compact(
                 &chat_messages,
-                crate::session::compaction::DEFAULT_CONTEXT_WINDOW,
+                model_limit.context,
             )
         {
             chat_messages = crate::session::compaction::emergency_compact_messages(&chat_messages);
@@ -332,6 +466,45 @@ pub async fn run_agent_turn(
                 return;
             }
             StepStreamOutcome::Failed(step_err) => {
+                if !overflow_compacted_this_step
+                    && compaction_auto
+                    && step_err.category == "context-overflow"
+                {
+                    overflow_compacted_this_step = true;
+                    match compact_with_budget_ladder(
+                        &client,
+                        &base_url,
+                        &api_key,
+                        &current_model_id,
+                        session_id,
+                        workspace_dir,
+                        "auto",
+                        &mut chat_messages,
+                    )
+                    .await
+                    {
+                        CompactionOutcome::Succeeded => {
+                            last_step_usage = None;
+                            cycle_start_tokens = 0;
+                            continue;
+                        }
+                        CompactionOutcome::Interrupted => {
+                            finalize_interrupted_turn(
+                                &current_provider_id,
+                                &current_model_id,
+                                session_id,
+                                workspace_dir,
+                                &assistant_msg_id,
+                                started_ms,
+                                content_parts,
+                                &usage_acc,
+                                "user",
+                            );
+                            return;
+                        }
+                        CompactionOutcome::Failed(_) => {}
+                    }
+                }
                 finalize_failed_turn(
                     &current_provider_id,
                     &current_model_id,
@@ -465,6 +638,29 @@ pub async fn run_agent_turn(
         let cost_tiers = resolve_model_cost_tiers(&cfg, &current_provider_id, &current_model_id);
         let step_usage = record_step_usage(stream_out.usage.as_ref(), &cost_tiers);
         usage_acc.record_step(step_usage);
+        last_step_usage = step_usage;
+        last_finish = step_finish;
+        overflow_compacted_this_step = false;
+
+        if background_compaction_enabled && compaction_auto {
+            if let Some(total_step_tokens) =
+                step_usage.as_ref().and_then(total_tokens_from_recorded)
+            {
+                if should_trigger_background_precompute(total_step_tokens, cycle_start_tokens, ceiling)
+                {
+                    let mut bg_msgs = chat_messages.clone();
+                    bg_msgs.push(msg.clone());
+                    spawn_background_precompute(
+                        client.clone(),
+                        base_url.clone(),
+                        api_key.clone(),
+                        current_model_id.clone(),
+                        session_id.to_string(),
+                        bg_msgs,
+                    );
+                }
+            }
+        }
 
         let had_streamed_text = step_parts
             .iter()

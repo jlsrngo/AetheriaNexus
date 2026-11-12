@@ -108,7 +108,7 @@ export const scenariosW6toW12 = [
       { kind: "sse", chunks: [{ toolCall: tool('{"path":"a.txt"}', true) }], finish: "tool-calls", usage: { prompt_tokens: 115000, completion_tokens: 50 } },
       { kind: "sse", chunks: [text("lanjut setelah kompak")], finish: "stop", usage },
     ],
-    expect: { calls: 3, events: [{ kind: "session.tool.success" }, { kind: "session.compacted" }, { kind: "llm.text.delta", frag: "lanjut setelah kompak" }] },
+    expect: { calls: 3, events: [{ kind: "llm.tool.success" }, { kind: "session.compacted" }, { kind: "llm.text.delta", frag: "lanjut setelah kompak" }] },
   },
 
   // ---------- W7 inbox ----------

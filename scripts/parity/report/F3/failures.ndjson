@@ -1,0 +1,11 @@
+{"id":"K40","ws":"W8","title":"interrupt saat tool berjalan","ok":false,"status":"FAIL","detail":"missing event {\n  \"kind\": \"llm.tool.failed\"\n}"}
+{"id":"K42","ws":"W9","title":"tanpa konfigurasi batas -> 50 langkah berjalan","ok":false,"status":"FAIL","detail":"calls=36, expected 51; missing event {\n  \"kind\": \"llm.text.delta\",\n  \"frag\": \"stop_51\"\n}"}
+{"id":"K43","ws":"W9","title":"batas 3 mengirim toolChoice none dan prompt batas","ok":false,"status":"FAIL","detail":"expected step 3 toolChoice none, got null"}
+{"id":"K44","ws":"W9","title":"tool call pada langkah terbatas ditolak","ok":false,"status":"FAIL","detail":"calls=4, expected 3; expected max-steps disabled-tools failure event"}
+{"id":"K45","ws":"W10","title":"spawn subagent konteks bersih + balasan sessionID","ok":false,"status":"FAIL","detail":"missing event {\n  \"kind\": \"llm.tool.call\",\n  \"tool\": \"subagent\"\n}"}
+{"id":"K46","ws":"W10","title":"urutan model override C -> agent B -> parent A","ok":false,"status":"FAIL","detail":"expected override model-c, got parity-model"}
+{"id":"K47","ws":"W10","title":"depth default menolak cucu subagent","ok":false,"status":"FAIL","detail":"expected 2 terminal idle event(s) within 25000ms; expected child to observe depth limit rejection error"}
+{"id":"K48","ws":"W10","title":"parent read-only mewariskan blokir write ke anak","ok":false,"status":"FAIL","detail":"The operation was aborted due to timeout; calls=0 < 4"}
+{"id":"K49","ws":"W10","title":"3 subagent beda provider berjalan paralel","ok":false,"status":"FAIL","detail":"The operation was aborted due to timeout; calls=0 < 5; expected 3 parallel child requests, got 0"}
+{"id":"K50","ws":"W10","title":"anak idle 2 ronde -> 2 notifikasi ke parent","ok":false,"status":"FAIL","detail":"The operation was aborted due to timeout; calls=0 < 5; missing round 1 or round 2 child execution"}
+{"id":"K54","ws":"W11","title":"restart saat kompak menandai compaction.interrupted lalu pulih","ok":false,"status":"FAIL","detail":"restart scenario did not settle cleanly within 10000ms; calls=2 < 3; missing event {\n  \"kind\": \"session.error\",\n  \"category\": \"compaction.interrupted\"\n}"}
