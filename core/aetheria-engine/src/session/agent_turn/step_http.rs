@@ -23,6 +23,10 @@ pub(crate) struct StepHttpContext<'a> {
     pub chat_messages: &'a mut Vec<Value>,
 }
 
+fn is_transient_gateway_status(code: u16) -> bool {
+    matches!(code, 408 | 502 | 503 | 504)
+}
+
 pub(crate) async fn execute_step_http_request(
     ctx: &mut StepHttpContext<'_>,
     tools_def: &[Value],
@@ -52,7 +56,7 @@ pub(crate) async fn execute_step_http_request(
         match send_res {
             Ok(ok_r) => {
                 let code = ok_r.status().as_u16();
-                if (code == 502 || code == 503 || code == 504 || code == 408) && net_attempt < 3 {
+                if is_transient_gateway_status(code) && net_attempt < 4 {
                     net_attempt += 1;
                     let retry_after = ok_r
                         .headers()
@@ -62,7 +66,7 @@ pub(crate) async fn execute_step_http_request(
                     crate::paths::log_engine(
                         "ai",
                         &format!(
-                            "⏳ Upstream HTTP {} transient error; backing off {}ms (retry #{}/3)...",
+                            "⏳ Upstream HTTP {} transient error; backing off {}ms (retry #{}/4)...",
                             code, delay_ms, net_attempt
                         ),
                     );
@@ -312,8 +316,18 @@ fn resolve_configured_kenari_key(cfg: &Value) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_configured_kenari_key;
+    use super::{is_transient_gateway_status, resolve_configured_kenari_key};
     use serde_json::json;
+
+    #[test]
+    fn test_transient_gateway_status_classification() {
+        assert!(is_transient_gateway_status(408));
+        assert!(is_transient_gateway_status(502));
+        assert!(is_transient_gateway_status(503));
+        assert!(is_transient_gateway_status(504));
+        assert!(!is_transient_gateway_status(401));
+        assert!(!is_transient_gateway_status(429));
+    }
 
     #[test]
     fn test_resolve_configured_kenari_key_prefers_config_and_ignores_missing() {

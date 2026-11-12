@@ -15,6 +15,121 @@ use crate::paths::gen_id;
 // KIRO (AWS CodeWhisperer Binary EventStream)
 // ============================================================================
 
+use std::error::Error as StdError;
+use std::sync::OnceLock;
+use std::time::Duration;
+
+static KIRO_HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+static KIRO_HTTP1_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+fn kiro_primary_client() -> &'static reqwest::Client {
+    KIRO_HTTP_CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(30))
+            .timeout(Duration::from_secs(240))
+            .tcp_keepalive(Duration::from_secs(30))
+            .pool_idle_timeout(Duration::from_secs(30))
+            .build()
+            .unwrap_or_default()
+    })
+}
+
+fn kiro_http1_client() -> &'static reqwest::Client {
+    KIRO_HTTP1_CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .http1_only()
+            .connect_timeout(Duration::from_secs(30))
+            .timeout(Duration::from_secs(240))
+            .tcp_keepalive(Duration::from_secs(30))
+            .pool_max_idle_per_host(0)
+            .build()
+            .unwrap_or_default()
+    })
+}
+
+fn format_reqwest_error_chain(err: &reqwest::Error) -> String {
+    let mut parts = vec![err.to_string()];
+    let mut cur: Option<&(dyn StdError + 'static)> = err.source();
+    while let Some(src) = cur {
+        let s = src.to_string();
+        if !parts.last().map(|p| p == &s).unwrap_or(false) {
+            parts.push(s);
+        }
+        cur = src.source();
+    }
+    parts.join(" <- ")
+}
+
+async fn send_kiro_post_with_retry(
+    url: &str,
+    access_token: &str,
+    profile_arn: &str,
+    payload: &Value,
+) -> Result<reqwest::Response, String> {
+    const MAX_ATTEMPTS: usize = 3;
+    let mut last_err = String::new();
+
+    for attempt in 0..MAX_ATTEMPTS {
+        let client = if attempt == MAX_ATTEMPTS - 1 {
+            kiro_http1_client()
+        } else {
+            kiro_primary_client()
+        };
+
+        match client
+            .post(url)
+            .header("Content-Type", "application/json")
+            .header("Accept", "text/event-stream")
+            .header("Authorization", format!("Bearer {}", access_token))
+            .header("x-amz-sso-bearer", access_token)
+            .header("x-amzn-kiro-agent-mode", "spec")
+            .header("x-amzn-codewhisperer-machine-id", "kiro-desktop")
+            .header("x-amzn-codewhisperer-profile-arn", profile_arn)
+            .json(payload)
+            .send()
+            .await
+        {
+            Ok(resp) => {
+                let code = resp.status().as_u16();
+                if matches!(code, 502 | 503 | 504) && attempt + 1 < MAX_ATTEMPTS {
+                    let backoff_ms = 800 * (attempt as u64 + 1);
+                    crate::paths::log_engine(
+                        "bridge",
+                        &format!(
+                            "⚠️ Kiro transient HTTP {}; retrying ({}/{}) after {}ms...",
+                            code,
+                            attempt + 1,
+                            MAX_ATTEMPTS - 1,
+                            backoff_ms
+                        ),
+                    );
+                    tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
+                    continue;
+                }
+                return Ok(resp);
+            }
+            Err(e) => {
+                last_err = format_reqwest_error_chain(&e);
+                crate::paths::log_engine(
+                    "bridge",
+                    &format!(
+                        "⚠️ Kiro request transport error (attempt {}/{}): {}",
+                        attempt + 1,
+                        MAX_ATTEMPTS,
+                        last_err
+                    ),
+                );
+                if attempt + 1 < MAX_ATTEMPTS {
+                    let backoff_ms = 800 * (attempt as u64 + 1);
+                    tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
+                }
+            }
+        }
+    }
+
+    Err(last_err)
+}
+
 pub(crate) async fn handle_kiro_request(body: Value, model: &str, is_stream: bool) -> Response {
     let cred = match ensure_fresh_credential("kiro").await {
         Some(c) => c,
@@ -247,29 +362,13 @@ pub(crate) async fn handle_kiro_request(body: Value, model: &str, is_stream: boo
     });
 
     let url = format!("https://q.{}.amazonaws.com/generateAssistantResponse", region);
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(240))
-        .build()
-        .unwrap_or_default();
 
-    let mut resp = match client
-        .post(&url)
-        .header("Content-Type", "application/json")
-        .header("Accept", "text/event-stream")
-        .header("Authorization", format!("Bearer {}", cred.access_token))
-        .header("x-amz-sso-bearer", &cred.access_token)
-        .header("x-amzn-kiro-agent-mode", "spec")
-        .header("x-amzn-codewhisperer-machine-id", "kiro-desktop")
-        .header("x-amzn-codewhisperer-profile-arn", &profile_arn)
-        .json(&payload)
-        .send()
-        .await
-    {
+    let mut resp = match send_kiro_post_with_retry(&url, &cred.access_token, &profile_arn, &payload).await {
         Ok(r) => r,
-        Err(e) => {
+        Err(err_chain) => {
             return (
                 StatusCode::BAD_GATEWAY,
-                Json(json!({ "error": { "message": format!("Kiro request error: {}", e) } })),
+                Json(json!({ "error": { "message": format!("Kiro request error: {}", err_chain) } })),
             )
                 .into_response()
         }
@@ -277,19 +376,7 @@ pub(crate) async fn handle_kiro_request(body: Value, model: &str, is_stream: boo
 
     if resp.status() == StatusCode::UNAUTHORIZED || resp.status() == StatusCode::FORBIDDEN {
         if let Some(refreshed) = refresh_credential_source("kiro", &cred).await {
-            if let Ok(r2) = client
-                .post(&url)
-                .header("Content-Type", "application/json")
-                .header("Accept", "text/event-stream")
-                .header("Authorization", format!("Bearer {}", refreshed.access_token))
-                .header("x-amz-sso-bearer", &refreshed.access_token)
-                .header("x-amzn-kiro-agent-mode", "spec")
-                .header("x-amzn-codewhisperer-machine-id", "kiro-desktop")
-                .header("x-amzn-codewhisperer-profile-arn", &profile_arn)
-                .json(&payload)
-                .send()
-                .await
-            {
+            if let Ok(r2) = send_kiro_post_with_retry(&url, &refreshed.access_token, &profile_arn, &payload).await {
                 resp = r2;
             }
         }
@@ -317,7 +404,7 @@ pub(crate) async fn handle_kiro_request(body: Value, model: &str, is_stream: boo
         Err(e) => {
             return (
                 StatusCode::BAD_GATEWAY,
-                Json(json!({ "error": { "message": format!("Kiro stream read error: {}", e) } })),
+                Json(json!({ "error": { "message": format!("Kiro stream read error: {}", format_reqwest_error_chain(&e)) } })),
             )
                 .into_response()
         }
@@ -328,5 +415,16 @@ pub(crate) async fn handle_kiro_request(body: Value, model: &str, is_stream: boo
         make_sse_response_from_result(model, full_text, tool_calls)
     } else {
         make_completion_response(model, full_text, tool_calls)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn kiro_clients_initialize_cleanly() {
+        let _ = kiro_primary_client();
+        let _ = kiro_http1_client();
     }
 }
