@@ -548,8 +548,8 @@ export function mapEngineEvent(
       return { type: "thinking", data: "Processing..." };
     case "session.next.step.ended": {
       const finish = payload.finish || event.finish;
-      // If the model finished the step with tool-calls, continuation step will follow
-      if (finish === "tool-calls") {
+      // If the model finished the step with tool-calls or a continuing output-limit split, keep streaming
+      if (finish === "tool-calls" || payload.continuing === true) {
         return { type: "step_continuation", data: payload };
       }
       return { type: "done", data: payload };
@@ -703,6 +703,23 @@ export function mapEngineEvent(
           message: payload.error?.message || event.error?.message || "An error occurred while processing your request.",
         },
       };
+    case "session.error":
+    case "error":
+      return {
+        type: "error",
+        data: {
+          category: payload.category || payload.error?.type || payload.type || "unknown",
+          message:
+            payload.error?.message ||
+            payload.message ||
+            event.error?.message ||
+            "An error occurred while processing your request.",
+          retryable: Boolean(payload.retryable),
+          status: payload.status ?? null,
+        },
+      };
+    case "session.execution.failed":
+      return null;
     case "session.status": {
       const statusType = payload.status?.type;
       if (statusType === "busy") {

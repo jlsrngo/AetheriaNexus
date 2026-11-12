@@ -110,7 +110,7 @@ pub fn build_catalog() -> (Vec<Value>, Vec<Value>) {
                     "request": { "headers": {}, "body": {} },
                     "variants": [],
                     "time": { "released": 0 },
-                    "cost": [],
+                    "cost": mval.get("cost").cloned().unwrap_or_else(|| json!([])),
                     "status": "active",
                     "enabled": true,
                     "limit": {
@@ -256,6 +256,18 @@ pub fn build_ui_providers_list() -> Vec<Value> {
         }
     }
     out
+}
+
+/// Resolves model `cost` tiers from `cfg` (`/provider/<pid>/models/<mid>/cost` or `/providers/...`).
+pub fn resolve_model_cost_tiers(
+    cfg: &Value,
+    provider_id: &str,
+    model_id: &str,
+) -> Vec<crate::session::usage::CostTier> {
+    let cost_val = cfg
+        .pointer(&format!("/provider/{}/models/{}/cost", provider_id, model_id))
+        .or_else(|| cfg.pointer(&format!("/providers/{}/models/{}/cost", provider_id, model_id)));
+    crate::session::usage::parse_cost_tiers(cost_val)
 }
 
 pub async fn handle_ui_providers_list() -> Response {

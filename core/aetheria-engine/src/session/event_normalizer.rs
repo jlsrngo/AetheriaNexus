@@ -326,6 +326,31 @@ pub fn normalize_engine_event(event: &Value, current_session_id: &str) -> Option
                 "data": { "message": err_msg }
             }))
         }
+        "session.error" | "error" => {
+            let category = payload
+                .get("category")
+                .or_else(|| payload.pointer("/error/type"))
+                .or_else(|| payload.get("type"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            let err_msg = payload
+                .pointer("/error/message")
+                .or_else(|| payload.get("message"))
+                .or_else(|| event.pointer("/error/message"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("An error occurred while processing your request.");
+            let retryable = payload.get("retryable").and_then(|v| v.as_bool()).unwrap_or(false);
+            let status = payload.get("status").cloned().unwrap_or(Value::Null);
+            Some(json!({
+                "type": "error",
+                "data": {
+                    "category": category,
+                    "message": err_msg,
+                    "retryable": retryable,
+                    "status": status
+                }
+            }))
+        }
         "session.status" => {
             let status_type = payload
                 .pointer("/status/type")

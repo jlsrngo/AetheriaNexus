@@ -83,12 +83,41 @@ export interface SessionJobRecord {
   error?: string | null;
 }
 
+export interface TokenUsage {
+  input: number;
+  output: number;
+  reasoning: number;
+  cache: {
+    read: number;
+    write: number;
+  };
+}
+
+export type FinishReason =
+  | "stop"
+  | "length"
+  | "tool-calls"
+  | "content-filter"
+  | "unknown";
+
+export interface SessionErrorInfo {
+  type?: string;
+  category?: string;
+  message: string;
+  retryable?: boolean;
+  status?: number | null;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
   agent?: string;
   content: string;
   createdAt?: string;
+  finish?: FinishReason | string | null;
+  tokens?: TokenUsage | null;
+  cost?: number | null;
+  error?: SessionErrorInfo | null;
   executionSteps?: StepItem[];
   subagentTracks?: SubagentTrackState[];
   notice?: SubagentNoticeMeta;

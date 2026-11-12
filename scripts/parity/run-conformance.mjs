@@ -118,7 +118,14 @@ function buildAetheriaConfig(baseURL, id, defaultModel) {
         name: "Parity Fake Provider",
         options: { baseURL, apiKey: "parity" },
         models: {
-          [defaultModel]: { name: defaultModel },
+          [defaultModel]: {
+            name: defaultModel,
+            limit: { context: 128000, output: 16000 },
+            cost: [
+              { input: 1, output: 2, cache: { read: 0.1, write: 0.2 } },
+              { tier: { type: "context", size: 200000 }, input: 2, output: 4, cache: { read: 0.2, write: 0.4 } },
+            ],
+          },
           "clip-model": { name: "clip-model" },
           "model-b": { name: "model-b" },
           "model-c": { name: "model-c" },
@@ -551,7 +558,13 @@ function openEventStream(base, auth, dir, sink, sessionID) {
 async function waitForIdleCount(events, count, timeout) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
-    const n = events.filter((e) => e.type === "session.idle" || e.type === "session.execution.succeeded" || e.type === "session.execution.interrupted").length;
+    const n = events.filter(
+      (e) =>
+        e.type === "session.idle" ||
+        e.type === "session.execution.succeeded" ||
+        e.type === "session.execution.failed" ||
+        e.type === "session.execution.interrupted",
+    ).length;
     if (n >= count) return true;
     await sleep(60);
   }

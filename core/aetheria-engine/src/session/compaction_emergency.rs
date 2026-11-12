@@ -178,6 +178,104 @@ pub fn emergency_compact_messages(messages: &[Value]) -> Vec<Value> {
     compacted
 }
 
+/// Runs overflow compaction when a provider returns a context-overflow rejection (HTTP 400).
+/// Calls the model with OpenCode's compaction summary instruction, emits `session.compaction.*`
+/// events, and compacts `messages` down to the summary + latest active turn (falling back to
+/// deterministic emergency compaction if the summary request fails).
+#[allow(clippy::too_many_arguments)]
+pub async fn compact_overflow_with_model(
+    client: &reqwest::Client,
+    base_url: &str,
+    api_key: &str,
+    model_id: &str,
+    session_id: &str,
+    workspace_dir: &str,
+    messages: &mut Vec<Value>,
+) {
+    crate::session::message::emit_event(
+        workspace_dir,
+        "session.compaction.started",
+        json!({ "sessionID": session_id, "reason": "overflow" }),
+    );
+
+    let mut transcript = String::new();
+    for m in messages.iter() {
+        let role = m.get("role").and_then(|v| v.as_str()).unwrap_or("user");
+        let content = m.get("content").and_then(|v| v.as_str()).unwrap_or("");
+        if !content.trim().is_empty() && role != "system" {
+            transcript.push_str(&format!("{}: {}\n", role, content.trim()));
+        }
+    }
+    if transcript.len() > 24_000 {
+        transcript.truncate(24_000);
+    }
+
+    let compaction_prompt = concat!(
+        "You MUST summarize the conversation above so another agent can continue seamlessly.\n",
+        "Your response MUST follow this structure:\n",
+        "## Objective\n## Requirements\n## Decisions\n## Work State\n## Next Move\n## Relevant Files\n## Important Context"
+    );
+
+    let req_body = json!({
+        "model": model_id,
+        "messages": [
+            { "role": "user", "content": format!("{}\n\nConversation:\n{}", compaction_prompt, transcript) }
+        ],
+        "stream": false
+    });
+
+    let mut summary_text = String::new();
+    if let Ok(resp) = client
+        .post(format!("{}/chat/completions", base_url.trim_end_matches('/')))
+        .header("Content-Type", "application/json")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .json(&req_body)
+        .send()
+        .await
+    {
+        if resp.status().is_success() {
+            if let Ok(val) = resp.json::<Value>().await {
+                if let Some(txt) = val.pointer("/choices/0/message/content").and_then(|v| v.as_str()) {
+                    summary_text = txt.trim().to_string();
+                }
+            }
+        }
+    }
+
+    if !summary_text.is_empty() {
+        crate::session::message::emit_event(
+            workspace_dir,
+            "session.compaction.delta",
+            json!({ "sessionID": session_id, "text": summary_text }),
+        );
+    }
+
+    let mut compacted = emergency_compact_messages(messages);
+    if !summary_text.is_empty() {
+        let sys_msg = messages.first().cloned().unwrap_or_else(|| json!({ "role": "system", "content": "" }));
+        let latest_user = messages
+            .iter()
+            .rfind(|m| m.get("role").and_then(|v| v.as_str()) == Some("user"))
+            .cloned()
+            .unwrap_or_else(|| json!({ "role": "user", "content": "Continue." }));
+        compacted = vec![
+            sys_msg,
+            json!({ "role": "assistant", "content": summary_text }),
+            latest_user,
+        ];
+    }
+    *messages = compacted;
+
+    crate::session::message::emit_event(
+        workspace_dir,
+        "session.compacted",
+        json!({
+            "sessionID": session_id,
+            "compactedMessages": messages.len()
+        }),
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

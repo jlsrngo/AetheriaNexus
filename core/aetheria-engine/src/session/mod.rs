@@ -7,6 +7,7 @@ pub mod coordinator;
 pub mod doom_loop;
 pub mod event_normalizer;
 pub mod event_normalizer_route;
+pub mod finish_reason;
 pub mod inbox;
 pub mod inbox_routes;
 pub mod job_registry;
@@ -30,6 +31,7 @@ pub mod title;
 pub mod tool_label_formatter;
 pub mod tools;
 pub mod ui_mapper;
+pub mod usage;
 pub mod watcher;
 pub mod watcher_classifier;
 

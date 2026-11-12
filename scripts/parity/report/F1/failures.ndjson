@@ -1,0 +1,29 @@
+{"id":"K01","ws":"W1","title":"5 fragmen teks, urutan sama","ok":false,"status":"FAIL","detail":"some requests sent stream:false; missing event {\n  \"kind\": \"llm.text.delta\",\n  \"frag\": \"Hello\"\n}"}
+{"id":"K02","ws":"W1","title":"reasoning di-flush sebelum teks","ok":false,"status":"FAIL","detail":"some requests sent stream:false; missing event {\n  \"kind\": \"llm.reasoning\"\n}"}
+{"id":"K03","ws":"W1","title":"tool input dirakit per fragmen","ok":false,"status":"FAIL","detail":"some requests sent stream:false"}
+{"id":"K04","ws":"W1","title":"batching 100 ms","ok":false,"status":"FAIL","detail":"some requests sent stream:false"}
+{"id":"K05","ws":"W1","title":"delta tertahan sebelum blok baru","ok":false,"status":"FAIL","detail":"some requests sent stream:false; missing event {\n  \"kind\": \"llm.text.delta\",\n  \"frag\": \"satu\"\n}"}
+{"id":"K07","ws":"W1","title":"abort tidak meninggalkan part menggantung","ok":false,"status":"FAIL","detail":"missing event {\n  \"kind\": \"turn.interrupted\"\n}"}
+{"id":"K18","ws":"W4","title":"retry-after 3600 dipotong ke 900 s","ok":false,"status":"FAIL","detail":"expected 1 terminal idle event(s) within 25000ms"}
+{"id":"K19","ws":"W4","title":"ENOTFOUND unreachable tetap retry terisolasi","ok":false,"status":"FAIL","detail":"missing event {\n  \"kind\": \"session.retry\",\n  \"attempt\": 2\n}"}
+{"id":"K20","ws":"W4","title":"timeout 4x berhenti setelah 3 retry","ok":false,"status":"FAIL","detail":"expected 1 terminal idle event(s) within 25000ms; calls=1, expected 4; missing event {\n  \"kind\": \"session.retry\",\n  \"attempt\": 2\n}"}
+{"id":"K22","ws":"W4","title":"x-should-retry menimpa keputusan","ok":false,"status":"FAIL","detail":"calls=2, expected 1; missing event {\n  \"kind\": \"session.error\"\n}"}
+{"id":"K29","ws":"W6","title":"konteks 128k terisi 90% -> kompak sebelum langkah","ok":false,"status":"FAIL","detail":"calls=2 < 3; missing event {\n  \"kind\": \"session.compaction.start\"\n}"}
+{"id":"K30","ws":"W6","title":"kompak memakai 1 panggilan LLM bertemplate","ok":false,"status":"FAIL","detail":"calls=2, expected 3; missing event {\n  \"kind\": \"session.compacted\"\n}; expected 1 compaction call, got 0"}
+{"id":"K31","ws":"W6","title":"shrink ladder saat ringkasan 400","ok":false,"status":"FAIL","detail":"calls=2 < 4; missing event {\n  \"kind\": \"session.compacted\"\n}; expected >=2 compaction calls, got 0"}
+{"id":"K32","ws":"W6","title":"precompute berjalan sebelum melewati ceiling","ok":false,"status":"FAIL","detail":"calls=3, expected 4; expected 1 background compaction call, got 0"}
+{"id":"K33","ws":"W6","title":"replay transkrip memotong output >2000 char","ok":false,"status":"FAIL","detail":"calls=2 < 3; missing event {\n  \"kind\": \"session.compacted\"\n}; expected transcript output clipping in compaction"}
+{"id":"K34","ws":"W6","title":"kompak di tengah turn melanjutkan langkah berikutnya","ok":false,"status":"FAIL","detail":"calls=2, expected 3; missing event {\n  \"kind\": \"session.tool.success\"\n}"}
+{"id":"K39","ws":"W8","title":"interrupt menghentikan request < 1 s","ok":false,"status":"FAIL","detail":"missing event {\n  \"kind\": \"turn.interrupted\"\n}"}
+{"id":"K40","ws":"W8","title":"interrupt saat tool berjalan","ok":false,"status":"FAIL","detail":"missing event {\n  \"kind\": \"llm.tool.failed\"\n}"}
+{"id":"K42","ws":"W9","title":"tanpa konfigurasi batas -> 50 langkah berjalan","ok":false,"status":"FAIL","detail":"calls=36, expected 51; missing event {\n  \"kind\": \"llm.text.delta\",\n  \"frag\": \"stop_51\"\n}"}
+{"id":"K43","ws":"W9","title":"batas 3 mengirim toolChoice none dan prompt batas","ok":false,"status":"FAIL","detail":"expected step 3 toolChoice none, got null"}
+{"id":"K44","ws":"W9","title":"tool call pada langkah terbatas ditolak","ok":false,"status":"FAIL","detail":"calls=4, expected 3; expected max-steps disabled-tools failure event"}
+{"id":"K45","ws":"W10","title":"spawn subagent konteks bersih + balasan sessionID","ok":false,"status":"FAIL","detail":"missing event {\n  \"kind\": \"llm.tool.call\",\n  \"tool\": \"subagent\"\n}"}
+{"id":"K46","ws":"W10","title":"urutan model override C -> agent B -> parent A","ok":false,"status":"FAIL","detail":"expected override model-c, got parity-model"}
+{"id":"K47","ws":"W10","title":"depth default menolak cucu subagent","ok":false,"status":"FAIL","detail":"expected 2 terminal idle event(s) within 25000ms; expected child to observe depth limit rejection error"}
+{"id":"K48","ws":"W10","title":"parent read-only mewariskan blokir write ke anak","ok":false,"status":"FAIL","detail":"The operation was aborted due to timeout; calls=0 < 4"}
+{"id":"K49","ws":"W10","title":"3 subagent beda provider berjalan paralel","ok":false,"status":"FAIL","detail":"The operation was aborted due to timeout; calls=0 < 5; expected 3 parallel child requests, got 0"}
+{"id":"K50","ws":"W10","title":"anak idle 2 ronde -> 2 notifikasi ke parent","ok":false,"status":"FAIL","detail":"The operation was aborted due to timeout; calls=0 < 5; missing round 1 or round 2 child execution"}
+{"id":"K54","ws":"W11","title":"restart saat kompak menandai compaction.interrupted lalu pulih","ok":false,"status":"FAIL","detail":"calls=2 < 3; missing event {\n  \"kind\": \"session.error\",\n  \"category\": \"compaction.interrupted\"\n}"}
+{"id":"K56","ws":"W12","title":"satu turn penuh memetakan semua event","ok":false,"status":"FAIL","detail":"missing event {\n  \"kind\": \"llm.reasoning\"\n}"}
