@@ -1,0 +1,9 @@
+{"i":0,"kind":"llm.reasoning.start"}
+{"i":1,"kind":"llm.reasoning","frag":"let me think"}
+{"i":2,"kind":"llm.text.start"}
+{"i":3,"kind":"llm.reasoning.end","text":"let me think"}
+{"i":4,"kind":"llm.text.delta","frag":"jawaban"}
+{"i":5,"kind":"llm.text.end","text":"jawaban"}
+{"i":6,"kind":"llm.finish","reason":"stop","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
+{"i":7,"kind":"turn.idle"}
+{"i":"req-0","kind":"provider.request","stream":true,"model":"parity-model"}

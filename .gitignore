@@ -130,3 +130,6 @@ test-results/
 playwright-report/
 blob-report/
 
+# Parity conformance transient actual outputs
+scripts/parity/actual/
+

@@ -1,0 +1,29 @@
+{"i":0,"kind":"llm.tool.input.start","tool":"subagent"}
+{"i":1,"kind":"llm.tool.input.start","tool":"subagent"}
+{"i":2,"kind":"llm.tool.input.start","tool":"subagent"}
+{"i":3,"kind":"llm.tool.input.end","text":"{\"agent\":\"subGen\",\"model\":\"parity-p1/m1\",\"description\":\"p1\",\"prompt\":\"PAR_TASK_1\"}"}
+{"i":4,"kind":"llm.tool.call","tool":""}
+{"i":5,"kind":"llm.tool.input.end","text":"{\"agent\":\"subGen\",\"model\":\"parity-p2/m2\",\"description\":\"p2\",\"prompt\":\"PAR_TASK_2\"}"}
+{"i":6,"kind":"llm.tool.call","tool":""}
+{"i":7,"kind":"llm.tool.input.end","text":"{\"agent\":\"subGen\",\"model\":\"parity-p3/m3\",\"description\":\"p3\",\"prompt\":\"PAR_TASK_3\"}"}
+{"i":8,"kind":"llm.tool.call","tool":""}
+{"i":9,"kind":"llm.tool.success"}
+{"i":10,"kind":"llm.tool.success"}
+{"i":11,"kind":"llm.tool.success"}
+{"i":12,"kind":"llm.finish","reason":"tool-calls","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
+{"i":13,"kind":"llm.text.start"}
+{"i":14,"kind":"llm.text.delta","frag":"tunggu paralel"}
+{"i":15,"kind":"llm.text.end","text":"tunggu paralel"}
+{"i":16,"kind":"llm.finish","reason":"stop","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
+{"i":17,"kind":"turn.idle"}
+{"i":18,"kind":"llm.text.start"}
+{"i":19,"kind":"llm.text.delta","frag":"selesai paralel"}
+{"i":20,"kind":"llm.text.end","text":"selesai paralel"}
+{"i":21,"kind":"llm.finish","reason":"stop","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
+{"i":22,"kind":"turn.idle"}
+{"i":"req-0","kind":"provider.request","stream":true,"model":"parity-model"}
+{"i":"req-1","kind":"provider.request","stream":true,"model":"m2"}
+{"i":"req-2","kind":"provider.request","stream":true,"model":"m1"}
+{"i":"req-3","kind":"provider.request","stream":true,"model":"parity-model"}
+{"i":"req-4","kind":"provider.request","stream":true,"model":"m3"}
+{"i":"req-5","kind":"provider.request","stream":true,"model":"parity-model"}

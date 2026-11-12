@@ -1,0 +1,20 @@
+{"i":0,"kind":"llm.tool.input.start","tool":"subagent"}
+{"i":1,"kind":"llm.tool.input.end","text":"{\"agent\":\"subGen\",\"description\":\"ro child\",\"prompt\":\"CHILD_WRITE_K48\"}"}
+{"i":2,"kind":"llm.tool.call","tool":""}
+{"i":3,"kind":"llm.tool.success"}
+{"i":4,"kind":"llm.finish","reason":"tool-calls","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
+{"i":5,"kind":"llm.text.start"}
+{"i":6,"kind":"llm.text.delta","frag":"induk tunggu K48"}
+{"i":7,"kind":"llm.text.end","text":"induk tunggu K48"}
+{"i":8,"kind":"llm.finish","reason":"stop","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
+{"i":9,"kind":"turn.idle"}
+{"i":10,"kind":"llm.text.start"}
+{"i":11,"kind":"llm.text.delta","frag":"induk selesai K48"}
+{"i":12,"kind":"llm.text.end","text":"induk selesai K48"}
+{"i":13,"kind":"llm.finish","reason":"stop","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
+{"i":14,"kind":"turn.idle"}
+{"i":"req-0","kind":"provider.request","stream":true,"model":"parity-model"}
+{"i":"req-1","kind":"provider.request","stream":true,"model":"parity-model"}
+{"i":"req-2","kind":"provider.request","stream":true,"model":"parity-model"}
+{"i":"req-3","kind":"provider.request","stream":true,"model":"parity-model"}
+{"i":"req-4","kind":"provider.request","stream":true,"model":"parity-model"}

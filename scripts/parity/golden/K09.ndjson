@@ -1,0 +1,6 @@
+{"i":0,"kind":"llm.text.start"}
+{"i":1,"kind":"llm.text.delta","frag":"ok"}
+{"i":2,"kind":"llm.text.end","text":"ok"}
+{"i":3,"kind":"llm.finish","reason":"stop","tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0}
+{"i":4,"kind":"turn.idle"}
+{"i":"req-0","kind":"provider.request","stream":true,"model":"parity-model"}

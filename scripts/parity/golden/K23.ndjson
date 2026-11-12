@@ -1,0 +1,11 @@
+{"i":0,"kind":"session.compaction.start"}
+{"i":1,"kind":"session.compaction.delta","frag":"## Objective\n- Complete the parity test task\n\n## Requirements\n- (none)\n\n## Decisions\n- (none)\n\n## Work State\n### Completed\n- Initial step\n\n### Active\n- Continuing workflow\n\n### Blocked\n- (none)\n\n## Next Move\n1. Proceed to final answer\n\n## Relevant Files\n- (none)\n\n## Important Context\n- (none)"}
+{"i":2,"kind":"session.compacted"}
+{"i":3,"kind":"llm.text.start"}
+{"i":4,"kind":"llm.text.delta","frag":"pulih"}
+{"i":5,"kind":"llm.text.end","text":"pulih"}
+{"i":6,"kind":"llm.finish","reason":"stop","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
+{"i":7,"kind":"turn.idle"}
+{"i":"req-0","kind":"provider.request","stream":true,"model":"parity-model"}
+{"i":"req-1","kind":"provider.request","stream":true,"model":"parity-model"}
+{"i":"req-2","kind":"provider.request","stream":true,"model":"parity-model"}

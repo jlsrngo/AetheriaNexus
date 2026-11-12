@@ -1,0 +1,8 @@
+{"i":0,"kind":"session.retry","attempt":2}
+{"i":1,"kind":"llm.text.start"}
+{"i":2,"kind":"llm.text.delta","frag":"partiallanjut"}
+{"i":3,"kind":"llm.text.end","text":"partiallanjut"}
+{"i":4,"kind":"llm.finish","reason":"stop","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
+{"i":5,"kind":"turn.idle"}
+{"i":"req-0","kind":"provider.request","stream":true,"model":"parity-model"}
+{"i":"req-1","kind":"provider.request","stream":true,"model":"parity-model"}

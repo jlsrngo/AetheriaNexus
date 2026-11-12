@@ -1,0 +1,3 @@
+{"i":0,"kind":"session.error","category":"provider.rate-limit"}
+{"i":1,"kind":"session.error","category":"provider.rate-limit"}
+{"i":"req-0","kind":"provider.request","stream":true,"model":"parity-model"}

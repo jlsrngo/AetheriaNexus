@@ -1,0 +1,7 @@
+{"i":0,"kind":"llm.tool.input.start","tool":"shell"}
+{"i":1,"kind":"llm.tool.input.end","text":"{\"command\":\"node -e \\\"setTimeout(()=>{},5000)\\\"\"}"}
+{"i":2,"kind":"llm.tool.call","tool":""}
+{"i":3,"kind":"llm.tool.failed"}
+{"i":4,"kind":"session.error","category":"aborted"}
+{"i":5,"kind":"turn.interrupted"}
+{"i":"req-0","kind":"provider.request","stream":true,"model":"parity-model"}
