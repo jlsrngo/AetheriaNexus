@@ -6,7 +6,7 @@ use crate::session::model::default_model_ref;
 use crate::session::session::with_store;
 use serde_json::Value;
 
-fn resolve_parent_model_ref(parent_session_id: &str) -> (String, String) {
+pub(crate) fn resolve_parent_model_ref(parent_session_id: &str) -> (String, String) {
     let parent_model = with_store(|store| {
         store
             .sessions
@@ -68,6 +68,13 @@ pub(crate) async fn resolve_subagent_provider_config(
 ) -> (String, String, String) {
     let cfg = read_aetheria_config();
     let (provider_id, model_id) = resolve_parent_model_ref(parent_session_id);
+    let session_model = with_store(|store| {
+        store
+            .sessions
+            .get(parent_session_id)
+            .and_then(|s| s.get("model"))
+            .cloned()
+    });
 
     let bridge_url = if provider_id == "antigravity" || provider_id == "local-cli" {
         let port = crate::bridge::ensure_bridge_running().await;
@@ -76,7 +83,26 @@ pub(crate) async fn resolve_subagent_provider_config(
         crate::bridge::get_bridge_base_url()
     };
 
-    let (base_url, api_key) = resolve_provider_endpoint_and_key(&cfg, &provider_id, &bridge_url);
+    let (mut base_url, mut api_key) =
+        resolve_provider_endpoint_and_key(&cfg, &provider_id, &bridge_url);
+    if let Some(ref sm) = session_model {
+        if let Some(sess_url) = sm
+            .get("baseURL")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            base_url = sess_url.trim_end_matches('/').to_string();
+        }
+        if let Some(sess_key) = sm
+            .get("apiKey")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            api_key = sess_key.to_string();
+        }
+    }
     (base_url, api_key, model_id)
 }
 

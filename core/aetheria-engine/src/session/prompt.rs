@@ -256,3 +256,72 @@ pub async fn handle_prompt(
 }
 
 pub use super::prompt_sync::{run_direct_prompt, run_session_prompt_sync};
+
+/// Wakes an idle parent session after background subagent(s) complete and deliver
+/// `<subagent-notification>` items into the parent inbox.
+pub fn wake_parent_session_after_background(parent_session_id: &str, workspace_dir: &str) {
+    let sid = parent_session_id.to_string();
+    let ws = workspace_dir.to_string();
+    tokio::spawn(async move {
+        let lock = get_session_lock(&sid);
+        let _turn_guard = lock.lock().await;
+
+        let mut drained = Vec::new();
+        while let Some(item) = crate::session::coordinator::pop_next_queued_input(&sid) {
+            drained.push(item.text);
+        }
+        for steer in crate::session::coordinator::drain_pending_steers(&sid) {
+            drained.push(steer.text);
+        }
+        if drained.is_empty() {
+            return;
+        }
+
+        let consolidated_prompt = drained.join("\n\n");
+        let (provider_id, model_id, history, resolved_ws) = with_store(|store| {
+            let sess = store.sessions.get(&sid);
+            let m = sess
+                .and_then(|s| s.get("model"))
+                .cloned()
+                .unwrap_or_else(default_model_ref);
+            let pid = m
+                .get("providerID")
+                .and_then(|v| v.as_str())
+                .unwrap_or("local-cli")
+                .to_string();
+            let mid = m
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("kiro/auto")
+                .to_string();
+            let sws = sess
+                .and_then(|s| s.pointer("/location/directory").or_else(|| s.get("directory")))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| ws.clone());
+            // Snapshot history BEFORE persisting the synthetic notice so run_agent_turn
+            // appends `consolidated_prompt` once during the turn while keeping future turns consistent.
+            let hist = store.messages.get(&sid).cloned().unwrap_or_default();
+            if crate::session::agent_turn::subagent_store::persist_synthetic_subagent_notice(
+                store,
+                &sid,
+                &consolidated_prompt,
+            ) {
+                save_store(store);
+            }
+            (pid, mid, hist, sws)
+        });
+
+        run_agent_turn(
+            &sid,
+            &resolved_ws,
+            &provider_id,
+            &model_id,
+            &history,
+            &consolidated_prompt,
+            None,
+        )
+        .await;
+    });
+}

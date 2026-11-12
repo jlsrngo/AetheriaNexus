@@ -27,7 +27,7 @@ pub(crate) async fn finalize_agent_turn(
         let synthesis_prompt = if reached_max_steps {
             crate::session::coordinator::MAX_STEPS_PROMPT
         } else {
-            "All requested Remotion video studio and code operations have completed execution. Provide a clear, concise final summary and answer to the user."
+            "All requested Aetheria Studio and code operations have completed execution. Provide a clear, concise final summary and answer to the user."
         };
         chat_messages.push(json!({ "role": "user", "content": synthesis_prompt }));
 
@@ -56,7 +56,7 @@ pub(crate) async fn finalize_agent_turn(
             }
         }
         if final_text.trim().is_empty() {
-            final_text = "All requested Remotion video studio operations have been completed successfully.".to_string();
+            final_text = "All requested operations have been completed successfully.".to_string();
         }
     }
 

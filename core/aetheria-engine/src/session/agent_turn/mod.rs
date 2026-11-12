@@ -9,6 +9,7 @@
 pub mod command_resolvers;
 pub mod context;
 pub mod history;
+pub mod kiro_standby;
 pub mod resilience;
 pub mod retry;
 pub mod runner;
@@ -20,6 +21,8 @@ pub mod subagent;
 pub mod subagent_provider;
 pub mod subagent_store;
 pub mod subagent_tool_batch;
+#[cfg(test)]
+mod subagent_e2e_tests;
 pub mod tool_batch;
 pub mod turn_finalize;
 pub mod vision;

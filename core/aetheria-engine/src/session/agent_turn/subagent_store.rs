@@ -4,7 +4,7 @@
 use serde_json::{json, Value};
 
 use crate::paths::{gen_id, now_ms};
-use crate::session::session::{save_store, with_store};
+use crate::session::session::{save_store, with_store, SessionStoreData};
 
 /// Maximum recursion depth for subagents (`parent = 0`, `child = 1`, `grandchild = 2`).
 pub const MAX_SUBAGENT_DEPTH: usize = 2;
@@ -223,6 +223,82 @@ pub fn persist_child_session_state(
             sess["updatedAt"] = json!(now);
         }
         save_store(store);
+    });
+}
+
+fn extract_xml_attr(tag_header: &str, attr_name: &str) -> Option<String> {
+    let needle = format!("{}=\"", attr_name);
+    let start = tag_header.find(&needle)? + needle.len();
+    let rest = &tag_header[start..];
+    let end = rest.find('"')?;
+    Some(rest[..end].to_string())
+}
+
+/// Parses one or more `<subagent-notification ...>` blocks from a consolidated wakeup payload.
+pub fn parse_subagent_notifications(text: &str) -> Vec<Value> {
+    let mut out = Vec::new();
+    let mut cursor = text;
+    while let Some(pos) = cursor.find("<subagent-notification ") {
+        let after = &cursor[pos..];
+        let header_end = after.find('>').unwrap_or(after.len());
+        let header = &after[..header_end];
+        let child_id = extract_xml_attr(header, "sessionID").unwrap_or_default();
+        let subagent_type = extract_xml_attr(header, "type").unwrap_or_else(|| "general".to_string());
+        let state = extract_xml_attr(header, "state").unwrap_or_else(|| "completed".to_string());
+        let description = extract_xml_attr(header, "description").unwrap_or_default();
+        let remaining = extract_xml_attr(header, "remaining_standby")
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(0);
+        out.push(json!({
+            "childSessionId": child_id,
+            "subagentType": subagent_type,
+            "state": state,
+            "description": description,
+            "remainingStandby": remaining,
+        }));
+        cursor = &after[header_end.min(after.len())..];
+    }
+    out
+}
+
+/// Persists a `synthetic` subagent completion notification into `store.messages` so future
+/// turns retain child results and the UI can render crisp notice rows without raw XML.
+pub fn persist_synthetic_subagent_notice(
+    store: &mut SessionStoreData,
+    parent_session_id: &str,
+    text: &str,
+) -> bool {
+    let notices = parse_subagent_notifications(text);
+    if notices.is_empty() {
+        return false;
+    }
+    let created_ms = now_ms();
+    let msg = json!({
+        "id": gen_id("syn"),
+        "type": "synthetic",
+        "role": "user",
+        "agent": "subagent-notice",
+        "text": text,
+        "metadata": {
+            "source": "subagent",
+            "notices": notices,
+        },
+        "time": { "created": created_ms },
+    });
+    store
+        .messages
+        .entry(parent_session_id.to_string())
+        .or_default()
+        .push(msg);
+    true
+}
+
+/// Persists a synthetic notification directly via global `SESSION_STORE` (e.g. mid-turn steers).
+pub fn persist_synthetic_subagent_notice_in_store(parent_session_id: &str, text: &str) {
+    with_store(|store| {
+        if persist_synthetic_subagent_notice(store, parent_session_id, text) {
+            save_store(store);
+        }
     });
 }
 

@@ -10,6 +10,7 @@ pub use super::subagent_store::{
 use serde_json::{json, Value};
 use std::time::Duration;
 
+use super::kiro_standby::{acquire_subagent_turn_standby, register_subagent_pending};
 use super::resilience::{send_resilient_chat_completion, SYNTHETIC_OUTPUT_LIMIT_PROMPT};
 use super::subagent_provider::resolve_subagent_provider_config;
 use super::subagent_tool_batch::execute_subagent_tool_calls;
@@ -30,7 +31,7 @@ pub fn spawn_subagent_tool_definition() -> Value {
                     "prompt": { "type": "string", "description": "Detailed, self-contained instructions for the subagent, including exact file paths and expected output" },
                     "subagent_type": { "type": "string", "enum": ["general", "explore", "motion-designer", "audio-director", "qa-verifier"], "description": "The specialized persona and toolset for this subagent" },
                     "sessionID": { "type": "string", "description": "Optional child sessionID from a previous `task` result to continue/resume that subagent's conversation instead of starting fresh" },
-                    "background": { "type": "boolean", "description": "Optional. If true, runs the subagent asynchronously in the background without blocking the parent turn and delivers a <subagent-notification> into the parent SessionInbox when complete." }
+                    "background": { "type": "boolean", "description": "Optional (defaults to true, OpenCode pattern). Runs the subagent asynchronously in the background without blocking the parent turn and delivers a <subagent-notification> into the parent SessionInbox when complete. Pass false only when a synchronous blocking wait is strictly required." }
                 },
                 "required": ["description", "prompt", "subagent_type"]
             }
@@ -71,7 +72,7 @@ pub fn execute_subagent<'a>(
         let run_in_background = arguments
             .get("background")
             .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+            .unwrap_or(true);
 
         if prompt.trim().is_empty() {
             return json!({ "ok": false, "state": "error", "error": "Subagent `prompt` is required and cannot be empty." });
@@ -109,6 +110,22 @@ pub fn execute_subagent<'a>(
             description,
             run_in_background,
         );
+        emit_event(
+            workspace_dir,
+            "subagent.started",
+            json!({
+                "parentSessionId": parent_session_id,
+                "subagentSessionId": child_session_id,
+                "subagentType": subagent_type,
+                "description": description,
+                "background": run_in_background,
+                "resumed": is_resumed,
+                "depth": child_depth,
+                "timestamp": now_ms()
+            }),
+        );
+
+        let pending_guard = register_subagent_pending(parent_session_id);
 
         if run_in_background {
             let parent_id_owned = parent_session_id.to_string();
@@ -130,31 +147,53 @@ pub fn execute_subagent<'a>(
                 )
                 .await;
 
+                let remaining = pending_guard.release_now();
                 let state_str = out.get("state").and_then(|v| v.as_str()).unwrap_or("completed");
                 let output_xml = out.get("output").and_then(|v| v.as_str()).unwrap_or("");
+                let safe_desc = desc_owned.replace('"', "'").replace(['<', '>', '\n', '\r'], " ");
+                let standby_note = if remaining > 0 {
+                    format!(
+                        "\n<standby-status pending=\"{}\">Subagent finished above. {} sibling subagent(s) remain queued or active in standby. Report this completed subagent's findings concisely to the user now (e.g. 'Laporan {} (selesai)') and END YOUR TURN cleanly WITHOUT calling tools, sleeping, or polling — the next queued subagent will notify you when it finishes.</standby-status>",
+                        remaining, remaining, sub_type_owned
+                    )
+                } else {
+                    String::from(
+                        "\n<standby-status pending=\"0\">All background subagents have finished. Deliver a clear final summary or synthesis to the user.</standby-status>"
+                    )
+                };
                 let notification = format!(
-                    "<subagent-notification sessionID=\"{}\" type=\"{}\" state=\"{}\">\n{}\n</subagent-notification>",
-                    child_id_owned, sub_type_owned, state_str, output_xml
+                    "<subagent-notification sessionID=\"{}\" type=\"{}\" state=\"{}\" remaining_standby=\"{}\" description=\"{}\">\n{}{}\n</subagent-notification>",
+                    child_id_owned, sub_type_owned, state_str, remaining, safe_desc, output_xml, standby_note
                 );
-                let delivery = if crate::session::session::is_active_run(&parent_id_owned) {
+                let parent_active = crate::session::session::is_active_run(&parent_id_owned);
+                let delivery = if parent_active {
                     crate::session::coordinator::InboxDelivery::Steer
                 } else {
                     crate::session::coordinator::InboxDelivery::Queue
                 };
                 crate::session::coordinator::admit_inbox_item(&parent_id_owned, &notification, delivery);
+
+                // Unconditionally ring the wake doorbell (OpenCode RunCoordinator pattern):
+                // if parent is still busy in `steps`, it drains Steer before idle and wake sees an empty inbox;
+                // if parent was exiting via `finalize_agent_turn` when Steer arrived, wake waits for the lock
+                // and delivers the late notification cleanly so zero completions are ever dropped.
+                crate::session::prompt::wake_parent_session_after_background(
+                    &parent_id_owned,
+                    &ws_owned,
+                );
             });
 
             return json!({
                 "ok": true, "state": "running", "mode": "background",
                 "sessionID": child_session_id, "subagent_type": subagent_type, "description": description,
                 "output": format!(
-                    "<subagent sessionID=\"{}\" type=\"{}\" state=\"running\" mode=\"background\">\nThe subagent is working in the background (sessionID: {}). You will be notified automatically when it finishes. DO NOT sleep or poll.\n</subagent>",
+                    "<subagent sessionID=\"{}\" type=\"{}\" state=\"running\" mode=\"background\">\nThe subagent is working in the background (sessionID: {}). Additional subagents automatically queue in standby one-by-one to prevent rate-limit bursts across any connected provider. Briefly tell the user what you launched and END YOUR RESPONSE NOW cleanly (DO NOT sleep, poll, or call another tool until woken by <subagent-notification>) so you stay responsive if the user asks questions while waiting.\n</subagent>",
                     child_session_id, subagent_type, child_session_id
                 )
             });
         }
 
-        run_subagent_loop(
+        let out = run_subagent_loop(
             parent_session_id,
             workspace_dir,
             &child_session_id,
@@ -164,7 +203,9 @@ pub fn execute_subagent<'a>(
             child_depth,
             chat_messages,
         )
-        .await
+        .await;
+        drop(pending_guard);
+        out
     })
 }
 
@@ -180,16 +221,6 @@ async fn run_subagent_loop(
     mut chat_messages: Vec<Value>,
 ) -> Value {
     let child_session_id = child_session_id.to_string();
-    emit_event(
-        workspace_dir,
-        "subagent.started",
-        json!({
-            "parentSessionId": parent_session_id, "subagentSessionId": child_session_id,
-            "subagentType": subagent_type, "description": description,
-            "resumed": is_resumed, "depth": child_depth, "timestamp": now_ms()
-        }),
-    );
-
     let (mut base_url, mut api_key, mut model_id) =
         resolve_subagent_provider_config(parent_session_id).await;
     let tools = build_subagent_tools(subagent_type, child_depth);
@@ -207,7 +238,27 @@ async fn run_subagent_loop(
     let mut doom_detector = DoomLoopDetector::default();
     let mut exit_outcome = SubagentExitOutcome::Completed;
 
-    while steps_run < max_steps {
+    // Serialize active subagents across ALL connected models/providers so only 1 executes
+    // at a time while sibling subagents wait calmly in standby without sending API requests.
+    let _subagent_turn_permit = match acquire_subagent_turn_standby(
+        parent_session_id,
+        &child_session_id,
+        workspace_dir,
+        subagent_type,
+        &model_id,
+        child_depth,
+    )
+    .await
+    {
+        Ok(permit) => permit,
+        Err(reason) => {
+            exit_outcome = SubagentExitOutcome::Incomplete(reason);
+            None
+        }
+    };
+
+    if matches!(exit_outcome, SubagentExitOutcome::Completed) {
+        while steps_run < max_steps {
         if let Some(reason) = crate::session::coordinator::is_session_interrupted(parent_session_id)
             .or_else(|| crate::session::coordinator::is_session_interrupted(&child_session_id))
         {
@@ -299,7 +350,10 @@ async fn run_subagent_loop(
         }
         exit_outcome = SubagentExitOutcome::Completed;
         break;
+        }
     }
+
+    drop(_subagent_turn_permit);
 
     let (ok_flag, state_str, error_field) = match &exit_outcome {
         SubagentExitOutcome::Completed => {

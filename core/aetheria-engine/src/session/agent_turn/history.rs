@@ -11,7 +11,7 @@ pub fn build_chat_messages(effective_history: &[Value], sys_prompt: &str) -> Vec
         if mtype == "synthetic" {
             let txt = m.get("text").and_then(|v| v.as_str()).unwrap_or("");
             if !txt.is_empty() {
-                chat_messages.push(json!({ "role": "system", "content": txt }));
+                chat_messages.push(json!({ "role": "user", "content": txt }));
             }
         } else if mtype == "user" {
             let txt = m.get("text").and_then(|v| v.as_str()).unwrap_or("");

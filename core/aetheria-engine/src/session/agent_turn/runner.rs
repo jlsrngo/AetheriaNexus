@@ -172,6 +172,27 @@ pub async fn run_agent_turn(
         .unwrap_or("local-cli-bridge")
         .to_string();
 
+    crate::session::session::with_store(|store| {
+        if let Some(sm) = store.sessions.get(session_id).and_then(|s| s.get("model")) {
+            if let Some(u) = sm
+                .get("baseURL")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                base_url = u.trim_end_matches('/').to_string();
+            }
+            if let Some(k) = sm
+                .get("apiKey")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                api_key = k.to_string();
+            }
+        }
+    });
+
     let tools_def = if should_attach_document_tools(prompt_text, history) {
         build_tool_definitions()
     } else {
@@ -206,9 +227,17 @@ pub async fn run_agent_turn(
         }
 
         for steer in crate::session::coordinator::drain_pending_steers(session_id) {
+            super::subagent_store::persist_synthetic_subagent_notice_in_store(
+                session_id,
+                &steer.text,
+            );
             chat_messages.push(json!({
                 "role": "user",
-                "content": format!("[Mid-Turn User Steer]: {}", steer.text)
+                "content": if steer.text.contains("<subagent-notification ") {
+                    steer.text
+                } else {
+                    format!("[Mid-Turn User Steer]: {}", steer.text)
+                }
             }));
         }
 
@@ -343,6 +372,21 @@ pub async fn run_agent_turn(
                     "role": "user",
                     "content": super::resilience::SYNTHETIC_OUTPUT_LIMIT_PROMPT
                 }));
+                continue;
+            }
+            let pending_steers = crate::session::coordinator::drain_pending_steers(session_id);
+            if !pending_steers.is_empty() {
+                chat_messages.push(msg.clone());
+                let combined = pending_steers
+                    .into_iter()
+                    .map(|s| s.text)
+                    .collect::<Vec<_>>()
+                    .join("\n\n");
+                super::subagent_store::persist_synthetic_subagent_notice_in_store(
+                    session_id,
+                    &combined,
+                );
+                chat_messages.push(json!({ "role": "user", "content": combined }));
                 continue;
             }
             if let Some(next_queued) =

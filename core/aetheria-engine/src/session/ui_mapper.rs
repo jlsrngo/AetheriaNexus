@@ -60,6 +60,48 @@ pub fn map_messages_for_ui(raw_messages: &[Value]) -> Vec<Value> {
 
     for (idx, msg) in filtered.iter().enumerate() {
         let raw_type = msg.get("type").or_else(|| msg.get("role")).and_then(|v| v.as_str()).unwrap_or("");
+        if raw_type == "synthetic" {
+            let raw_text = msg
+                .get("text")
+                .or_else(|| msg.get("content"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let notices = msg
+                .pointer("/metadata/notices")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_else(|| {
+                    crate::session::agent_turn::subagent_store::parse_subagent_notifications(
+                        raw_text,
+                    )
+                });
+            if !notices.is_empty() {
+                let summary_text = notices
+                    .iter()
+                    .map(format_subagent_notice_line)
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let mid = msg
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| format!("syn-{}-{}", idx, crate::paths::now_ms()));
+                individual_messages.push(json!({
+                    "id": mid,
+                    "role": "assistant",
+                    "agent": "subagent-notice",
+                    "content": summary_text,
+                    "notice": {
+                        "kind": "subagent",
+                        "notices": notices,
+                    },
+                    "createdAt": msg.get("createdAt").or_else(|| msg.pointer("/time/created")),
+                    "summary": false,
+                    "isRustMapped": true,
+                }));
+            }
+            continue;
+        }
         let role = if raw_type == "user" { "user" } else { "assistant" };
 
         let mut content = String::new();
@@ -306,6 +348,55 @@ pub fn map_messages_for_ui(raw_messages: &[Value]) -> Vec<Value> {
     merged
 }
 
+fn format_subagent_display_name(subagent_type: &str) -> String {
+    let normalized = subagent_type.trim().to_ascii_lowercase();
+    if normalized == "audio-director" || normalized.contains("audio") {
+        return "Audio Producer".to_string();
+    }
+    if normalized == "motion-designer" || normalized.contains("motion") {
+        return "Motion Engineer".to_string();
+    }
+    if normalized == "qa-verifier" || normalized.contains("qa") || normalized.contains("verif") {
+        return "QA Verifier".to_string();
+    }
+    if normalized == "explore" || normalized.contains("research") {
+        return "Research Assistant".to_string();
+    }
+    let trimmed = subagent_type.trim();
+    if trimmed.is_empty() {
+        "Specialist".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn format_subagent_notice_line(notice: &Value) -> String {
+    let subagent_type = notice
+        .get("subagentType")
+        .and_then(|v| v.as_str())
+        .unwrap_or("general");
+    let state = notice
+        .get("state")
+        .and_then(|v| v.as_str())
+        .unwrap_or("completed");
+    let desc = notice
+        .get("description")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
+    let actor = format_subagent_display_name(subagent_type);
+    let verb = match state {
+        "error" | "failed" => "gagal",
+        "incomplete" => "terhenti",
+        _ => "selesai",
+    };
+    if desc.is_empty() {
+        format!("{} {}", actor, verb)
+    } else {
+        format!("{} {} · {}", actor, verb, desc)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -321,6 +412,26 @@ mod tests {
         assert_eq!(mapped.len(), 2);
         assert_eq!(mapped[0]["role"], "user");
         assert_eq!(mapped[1]["content"], "Siap.");
+    }
+
+    #[test]
+    fn maps_synthetic_subagent_notification_without_raw_xml() {
+        let msgs = vec![
+            json!({
+                "id": "syn1",
+                "type": "synthetic",
+                "role": "user",
+                "agent": "subagent-notice",
+                "text": "<subagent-notification sessionID=\"sub_1\" type=\"audio-director\" state=\"completed\" remaining_standby=\"1\" description=\"Generate scene 1 audio\">\n<subagent sessionID=\"sub_1\" type=\"audio-director\" state=\"completed\">Done</subagent>\n</subagent-notification>",
+                "time": { "created": 5 }
+            }),
+        ];
+        let mapped = map_messages_for_ui(&msgs);
+        assert_eq!(mapped.len(), 1);
+        assert_eq!(mapped[0]["agent"], "subagent-notice");
+        assert_eq!(mapped[0]["content"], "Audio Producer selesai · Generate scene 1 audio");
+        assert_eq!(mapped[0]["notice"]["kind"], "subagent");
+        assert!(!mapped[0]["content"].as_str().unwrap().contains("<subagent-notification"));
     }
 }
 
