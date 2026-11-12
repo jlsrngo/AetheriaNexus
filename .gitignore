@@ -125,3 +125,8 @@ apps/public/audio/*.words.json
 apps/public/.voice_lock.json
 public/
 
+# Playwright E2E test outputs
+test-results/
+playwright-report/
+blob-report/
+
