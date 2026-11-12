@@ -7,11 +7,12 @@ import {
 import { LiveExecutionBadge, LiveStatusData } from "./LiveExecutionBadge";
 import { LiveMirrorCard } from "./LiveMirrorCard";
 import { LiveDocumentPreview } from "./LiveDocumentPreview";
-import { Message } from "./chat/types";
+import { Message, SubagentTrackState } from "./chat/types";
 import { ChatMessageBubble } from "./chat/ChatMessageBubble";
 import { ChatInputBox } from "./chat/ChatInputBox";
 import { ChatQueuedPrompts } from "./chat/ChatQueuedPrompts";
 import { ChatImageLightbox } from "./chat/ChatImageLightbox";
+import { SubagentActivityBar } from "./chat/SubagentActivityBar";
 import { WorkstationRightChatHeader, SleekRobotIcon } from "./chat/WorkstationRightChatHeader";
 
 const INITIAL_VISIBLE_CHAT_MESSAGES = 20;
@@ -29,6 +30,7 @@ export interface WorkstationRightChatProps {
   onClose: () => void;
   chatMessages: Message[];
   optimisticMessages: Message[];
+  subagentTracks?: SubagentTrackState[];
   liveStatus: LiveStatusData | null;
   messagesEndRef: RefObject<HTMLDivElement | null>;
   activeWorkspace: Workspace | null;
@@ -63,6 +65,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
   onClose,
   chatMessages,
   optimisticMessages,
+  subagentTracks = [],
   liveStatus,
   messagesEndRef,
   isStreaming,
@@ -278,6 +281,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
 
       {/* Input Prompt Box & Queued Messages Card Area */}
       <div className="p-3 bg-[var(--bg-panel)] border-t border-[var(--border-color)] shrink-0 select-none transition-colors duration-150">
+        <SubagentActivityBar tracks={subagentTracks} />
         <ChatQueuedPrompts
           queuedPrompts={queuedPrompts}
           onRemoveQueuedPrompt={onRemoveQueuedPrompt}

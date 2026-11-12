@@ -39,7 +39,7 @@ export type StudioColumnRole = "director" | "audio" | "script";
 export interface SubagentTrackStep {
   id: string;
   label: string;
-  status: "running" | "completed" | "failed";
+  status: "standby" | "running" | "completed" | "failed";
   toolName: string;
 }
 
@@ -49,10 +49,38 @@ export interface SubagentTrackState {
   role: StudioColumnRole;
   title: string;
   description?: string;
-  status: "running" | "completed" | "failed";
+  status: "standby" | "running" | "completed" | "failed";
+  standbyLabel?: string;
   tools: SubagentTrackStep[];
   startedAt?: number;
   completedAt?: number;
+}
+
+export interface SubagentNoticeItem {
+  sessionId?: string;
+  childSessionId?: string;
+  subagentType: string;
+  state: "completed" | "error" | "failed" | "incomplete" | string;
+  description?: string;
+  remainingStandby?: number;
+}
+
+export interface SubagentNoticeMeta {
+  kind: "subagent";
+  notices: SubagentNoticeItem[];
+}
+
+export interface SessionJobRecord {
+  id: string;
+  parent_session_id: string;
+  child_session_id: string;
+  subagent_type: string;
+  description: string;
+  status: "queued" | "standby" | "running" | "completed" | "failed" | "cancelled";
+  created_at: number;
+  updated_at: number;
+  result_summary?: string | null;
+  error?: string | null;
 }
 
 export interface Message {
@@ -63,6 +91,7 @@ export interface Message {
   createdAt?: string;
   executionSteps?: StepItem[];
   subagentTracks?: SubagentTrackState[];
+  notice?: SubagentNoticeMeta;
   thoughtSec?: number;
   thoughtMs?: number;
   metadata?: string | Record<string, any>;

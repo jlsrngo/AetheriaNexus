@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useMemo, type MouseEvent } from "react";
-import { Check, Copy, RotateCcw, FileText, Send } from "lucide-react";
+import { AlertCircle, Check, Copy, RotateCcw, FileText, Send } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
 import { useTheme } from "../../../lib/theme";
@@ -9,8 +9,9 @@ import { MessageThoughtBadge, type StepItem } from "../LiveExecutionBadge";
 import { ChatMessageContent } from "./ChatMessageContent";
 import { QuestionPromptCard } from "./QuestionPromptCard";
 import { StudioAgentColumnsBoard } from "./StudioAgentColumnsBoard";
+import { resolveSubagentDisplayTitle } from "./studioTrackUtils";
 import { getSubagentMeta } from "./subagentMeta";
-import { Message, QuestionData } from "./types";
+import { Message, QuestionData, SubagentNoticeItem } from "./types";
 
 const MESSAGE_TIME_FORMATTER = new Intl.DateTimeFormat([], {
   hour: "2-digit",
@@ -302,7 +303,8 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
     displayContent.length > 0 ||
     attachedImages.length > 0 ||
     attachedOtherFiles.length > 0 ||
-    Boolean(msg?.question);
+    Boolean(msg?.question) ||
+    Boolean(msg?.notice?.notices?.length);
   const isThinkingActive = !isUser && Boolean(isStreaming && !hasVisibleContent);
 
   const hasThoughtOrSteps =
@@ -313,6 +315,74 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
 
   if (!hasVisibleContent && !hasThoughtOrSteps) {
     return null;
+  }
+
+  const isSubagentNotice =
+    !isUser &&
+    (msg?.notice?.kind === "subagent" || msg?.agent === "subagent-notice");
+
+  if (isSubagentNotice) {
+    const items: SubagentNoticeItem[] =
+      msg?.notice?.notices && msg.notice.notices.length > 0
+        ? msg.notice.notices
+        : [
+            {
+              subagentType: "general",
+              state: "completed",
+              description: displayContent || "Subagent selesai",
+            },
+          ];
+
+    return (
+      <div
+        data-testid="subagent-notice-row"
+        className="w-full min-w-0 px-3 py-2 border-b border-[var(--border-color)] flex flex-col gap-1.5 select-none"
+      >
+        {items.map((item, idx) => {
+          const isErr = item.state === "error" || item.state === "failed";
+          const isIncomplete = item.state === "incomplete";
+          const verb = isErr ? "gagal" : isIncomplete ? "terhenti" : "selesai";
+          const actor = resolveSubagentDisplayTitle(item.subagentType);
+          const summary =
+            msg?.notice?.notices && msg.notice.notices.length > 0
+              ? item.description
+                ? `${actor} ${verb} · ${item.description}`
+                : `${actor} ${verb}`
+              : displayContent || `${actor} ${verb}`;
+          const childId = item.sessionId || item.childSessionId;
+
+          return (
+            <div
+              key={childId ? `${childId}-${idx}` : `notice-${idx}`}
+              className={cn(
+                "w-full min-w-0 px-3 py-1.5 rounded-[var(--radius-pill)] border flex items-center justify-between gap-2 text-[11px] text-[var(--text-primary)]",
+                isErr
+                  ? "bg-rose-500/8 border-rose-500/35"
+                  : isIncomplete
+                  ? "bg-amber-500/8 border-amber-500/40"
+                  : "bg-[var(--bg-card)] border-[var(--border-color)]",
+              )}
+            >
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                {isErr ? (
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                ) : isIncomplete ? (
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                ) : (
+                  <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                )}
+                <span className="truncate font-medium">{summary}</span>
+              </div>
+              {childId && (
+                <span className="px-1.5 py-0.5 rounded-[var(--radius-pill)] bg-[var(--bg-panel)] border border-[var(--border-color)] font-mono text-[9px] text-[var(--text-muted)] shrink-0">
+                  {childId}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
   }
 
   const handleCopy = (e: MouseEvent) => {

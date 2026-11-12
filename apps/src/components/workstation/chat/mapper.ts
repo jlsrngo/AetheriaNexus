@@ -1,5 +1,30 @@
-import { Message, MessagePart } from "./types";
+import { Message, MessagePart, SubagentNoticeItem } from "./types";
+import { resolveSubagentDisplayTitle } from "./studioTrackUtils";
 import { formatToolStepLabel } from "../LiveExecutionBadge";
+
+function parseSubagentNotificationXml(raw: string): SubagentNoticeItem[] {
+  const notices: SubagentNoticeItem[] = [];
+  const tagRegex = /<subagent-notification\b([^>]*)>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = tagRegex.exec(raw)) !== null) {
+    const attrs = match[1] || "";
+    const pick = (name: string): string | undefined => {
+      const m = attrs.match(new RegExp(`${name}="([^"]*)"`, "i"));
+      return m?.[1];
+    };
+    const subagentType = pick("type") || "general";
+    const state = pick("state") || "completed";
+    const description = pick("description");
+    const sessionId = pick("sessionID");
+    notices.push({
+      sessionId,
+      subagentType,
+      state,
+      description,
+    });
+  }
+  return notices;
+}
 
 function isInternalToolPart(p: any): boolean {
   if (!p) return false;
@@ -81,6 +106,35 @@ export function mapEngineMessages(raw: any[]): Message[] {
     });
 
   const individualMessages: Message[] = sortedRaw.map((msg, idx) => {
+    const rawType = msg.type || msg.role;
+    if (rawType === "synthetic") {
+      const rawText = typeof msg.text === "string" ? msg.text : typeof msg.content === "string" ? msg.content : "";
+      const metaNotices = Array.isArray(msg.metadata?.notices)
+        ? (msg.metadata.notices as SubagentNoticeItem[])
+        : [];
+      const notices = metaNotices.length > 0 ? metaNotices : parseSubagentNotificationXml(rawText);
+      const summaryLines =
+        notices.length > 0
+          ? notices
+              .map((n) => {
+                const actor = resolveSubagentDisplayTitle(n.subagentType);
+                const verb = n.state === "error" || n.state === "failed" ? "gagal" : n.state === "incomplete" ? "terhenti" : "selesai";
+                return n.description ? `${actor} ${verb} · ${n.description}` : `${actor} ${verb}`;
+              })
+              .join("\n")
+          : rawText.replace(/<\/?subagent-notification[^>]*>/gi, "").replace(/<\/?subagent[^>]*>/gi, "").trim();
+
+      return {
+        id: msg.id || `syn-${idx}`,
+        role: "assistant",
+        agent: "subagent-notice",
+        content: summaryLines,
+        notice: notices.length > 0 ? { kind: "subagent", notices } : undefined,
+        createdAt: msg.createdAt || (msg.time?.created ? new Date(msg.time.created).toISOString() : undefined),
+        summary: false,
+      };
+    }
+
     const role: "user" | "assistant" = msg.type === "user" || msg.role === "user" ? "user" : "assistant";
     let content = "";
     let reasoning = "";

@@ -1,10 +1,10 @@
 import type { StepItem } from "../LiveExecutionBadge";
-import type { StudioColumnRole, SubagentTrackState, SubagentTrackStep } from "./types";
+import type { SessionJobRecord, StudioColumnRole, SubagentTrackState, SubagentTrackStep } from "./types";
 
 export interface StudioColumnEntry {
   id: string;
   label: string;
-  status: "running" | "completed" | "failed";
+  status: "standby" | "running" | "completed" | "failed";
   source: "subagent" | "main";
 }
 
@@ -12,7 +12,7 @@ export interface StudioColumnData {
   role: StudioColumnRole;
   title: string;
   subtitle: string;
-  status: "idle" | "running" | "completed" | "failed";
+  status: "idle" | "standby" | "running" | "completed" | "failed";
   sourceLabel: string;
   activeLabel: string;
   entries: StudioColumnEntry[];
@@ -92,7 +92,11 @@ export function applySubagentEventToTracks(
     };
     const existingIdx = prev.findIndex((t) => t.sessionId === nextTrack.sessionId);
     if (existingIdx >= 0) {
-      return prev.map((t, i) => (i === existingIdx ? { ...t, ...nextTrack } : t));
+      return prev.map((t, i) =>
+        i === existingIdx
+          ? { ...t, ...nextTrack, standbyLabel: undefined, tools: t.tools }
+          : t,
+      );
     }
     return [...prev, nextTrack];
   }
@@ -105,7 +109,14 @@ export function applySubagentEventToTracks(
       typeof d.label === "string" && d.label.trim() ? d.label : toolName;
     const isCompleted = event.type === "subagent_tool_completed";
     const isOk = d.ok !== false && !d.error;
-    const stepStatus: SubagentTrackStep["status"] = isCompleted
+    const isStandbyTool = toolName.trim().toLowerCase() === "standby";
+    const stepStatus: SubagentTrackStep["status"] = isStandbyTool
+      ? isCompleted
+        ? isOk
+          ? "completed"
+          : "failed"
+        : "standby"
+      : isCompleted
       ? isOk
         ? "completed"
         : "failed"
@@ -113,7 +124,11 @@ export function applySubagentEventToTracks(
 
     const targetIdx = sessionId
       ? prev.findIndex((t) => t.sessionId === sessionId)
-      : prev.findIndex((t) => t.subagentType === subagentType && t.status === "running");
+      : prev.findIndex(
+          (t) =>
+            t.subagentType === subagentType &&
+            (t.status === "running" || t.status === "standby"),
+        );
 
     const upsertTools = (tools: SubagentTrackStep[]): SubagentTrackStep[] => {
       const idx = tools.findIndex((s) => s.id === callId);
@@ -124,9 +139,26 @@ export function applySubagentEventToTracks(
       return [...tools, nextStep];
     };
 
+    const resolveTrackStatus = (current: SubagentTrackState["status"]): SubagentTrackState["status"] => {
+      if (isStandbyTool && !isCompleted) return "standby";
+      if (isStandbyTool && isCompleted) return isOk ? "running" : "failed";
+      if (!isCompleted) return "running";
+      return current === "standby" ? "running" : current;
+    };
+
     if (targetIdx >= 0) {
       return prev.map((t, i) =>
-        i === targetIdx ? { ...t, tools: upsertTools(t.tools) } : t,
+        i === targetIdx
+          ? {
+              ...t,
+              status: resolveTrackStatus(t.status),
+              standbyLabel:
+                isStandbyTool && !isCompleted
+                  ? label
+                  : undefined,
+              tools: upsertTools(t.tools),
+            }
+          : t,
       );
     }
 
@@ -137,7 +169,8 @@ export function applySubagentEventToTracks(
         subagentType,
         role,
         title,
-        status: "running",
+        status: isStandbyTool && !isCompleted ? "standby" : "running",
+        standbyLabel: isStandbyTool && !isCompleted ? label : undefined,
         tools: [{ id: callId, label, status: stepStatus, toolName }],
       },
     ];
@@ -148,16 +181,21 @@ export function applySubagentEventToTracks(
     const isOk = d.ok !== false && !d.error;
     const targetIdx = sessionId
       ? prev.findIndex((t) => t.sessionId === sessionId)
-      : prev.findIndex((t) => t.subagentType === subagentType && t.status === "running");
+      : prev.findIndex(
+          (t) =>
+            t.subagentType === subagentType &&
+            (t.status === "running" || t.status === "standby"),
+        );
     if (targetIdx < 0) return prev;
     return prev.map((t, i) =>
       i === targetIdx
         ? {
             ...t,
             status: isOk ? "completed" : "failed",
+            standbyLabel: undefined,
             completedAt: timestamp,
             tools: t.tools.map((tool) =>
-              tool.status === "running"
+              tool.status === "running" || tool.status === "standby"
                 ? { ...tool, status: isOk ? "completed" : "failed" }
                 : tool,
             ),
@@ -196,13 +234,19 @@ export function shouldShowStudioColumns(
 
 function summarizeColumnStatus(
   entries: StudioColumnEntry[],
-  trackStatuses: Array<"running" | "completed" | "failed">,
+  trackStatuses: Array<SubagentTrackState["status"]>,
 ): StudioColumnData["status"] {
   if (
     trackStatuses.includes("running") ||
     entries.some((e) => e.status === "running")
   ) {
     return "running";
+  }
+  if (
+    trackStatuses.includes("standby") ||
+    entries.some((e) => e.status === "standby")
+  ) {
+    return "standby";
   }
   if (
     trackStatuses.includes("failed") ||
@@ -305,19 +349,19 @@ export function deriveStudioColumns(
   const configs: Array<{ role: StudioColumnRole; title: string; subtitle: string; emptyText: string }> = [
     {
       role: "director",
-      title: "1. Director",
+      title: "delegating",
       subtitle: "Plan, Sync & Render",
       emptyText: "Coordinating production",
     },
     {
       role: "audio",
-      title: "2. Audio",
+      title: "audio",
       subtitle: "Voice & Word Sync",
       emptyText: "Awaiting audio track",
     },
     {
       role: "script",
-      title: "3. Script",
+      title: "script",
       subtitle: "Scenes & Motion JS",
       emptyText: "Awaiting scene scripts",
     },
@@ -331,7 +375,9 @@ export function deriveStudioColumns(
     const hasSubagent =
       roleTracks.length > 0 || entries.some((e) => e.source === "subagent");
     const activeEntry =
-      entries.find((e) => e.status === "running") ?? entries[entries.length - 1];
+      entries.find((e) => e.status === "running") ??
+      entries.find((e) => e.status === "standby") ??
+      entries[entries.length - 1];
 
     return {
       role: cfg.role,
@@ -341,6 +387,8 @@ export function deriveStudioColumns(
       sourceLabel:
         cfg.role === "director"
           ? "Main"
+          : status === "standby"
+          ? "Standby"
           : hasSubagent
           ? "Subagent"
           : entries.length > 0
@@ -350,5 +398,98 @@ export function deriveStudioColumns(
       entries,
     };
   });
+}
+
+function mapJobStatusToTrackStatus(
+  jobStatus: SessionJobRecord["status"],
+): SubagentTrackState["status"] {
+  if (jobStatus === "queued" || jobStatus === "standby") return "standby";
+  if (jobStatus === "running") return "running";
+  if (jobStatus === "failed" || jobStatus === "cancelled") return "failed";
+  return "completed";
+}
+
+/** Merges persisted `/api/session/:id/jobs` records with live SSE subagent tracks without dropping live tool steps. */
+export function reconcileTracksWithJobs(
+  prev: SubagentTrackState[],
+  jobs: SessionJobRecord[],
+): SubagentTrackState[] {
+  if (!jobs || jobs.length === 0) return prev;
+  const bySessionId = new Map<string, SubagentTrackState>();
+  for (const track of prev) {
+    bySessionId.set(track.sessionId, track);
+  }
+
+  for (const job of jobs) {
+    const childId = job.child_session_id;
+    if (!childId) continue;
+    const existing = bySessionId.get(childId);
+    const nextStatus = mapJobStatusToTrackStatus(job.status);
+    const title = resolveSubagentDisplayTitle(job.subagent_type);
+    const role = classifyStudioColumn(job.subagent_type);
+
+    if (existing) {
+      const nextStandbyLabel =
+        nextStatus === "standby"
+          ? existing.standbyLabel || "Standby — menunggu slot provider"
+          : undefined;
+      bySessionId.set(childId, {
+        ...existing,
+        status: nextStatus,
+        standbyLabel: nextStandbyLabel,
+        description: existing.description || job.description,
+        completedAt:
+          nextStatus === "completed" || nextStatus === "failed"
+            ? existing.completedAt ?? job.updated_at
+            : existing.completedAt,
+      });
+    } else {
+      bySessionId.set(childId, {
+        sessionId: childId,
+        subagentType: job.subagent_type,
+        role,
+        title,
+        description: job.description,
+        status: nextStatus,
+        standbyLabel:
+          nextStatus === "standby"
+            ? "Standby — menunggu slot provider"
+            : undefined,
+        tools: [],
+        startedAt: job.created_at,
+        completedAt:
+          nextStatus === "completed" || nextStatus === "failed"
+            ? job.updated_at
+            : undefined,
+      });
+    }
+  }
+
+  return Array.from(bySessionId.values()).sort(
+    (a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0),
+  );
+}
+
+/** Groups tracks for compact composer pill summary (`running`, `standby`, `completed`, `failed`). */
+export function partitionSubagentTracks(tracks: SubagentTrackState[]) {
+  const active: SubagentTrackState[] = [];
+  const standby: SubagentTrackState[] = [];
+  const completed: SubagentTrackState[] = [];
+  const failed: SubagentTrackState[] = [];
+
+  for (const t of tracks) {
+    if (t.status === "running") active.push(t);
+    else if (t.status === "standby") standby.push(t);
+    else if (t.status === "failed") failed.push(t);
+    else completed.push(t);
+  }
+
+  return {
+    active,
+    standby,
+    completed,
+    failed,
+    liveCount: active.length + standby.length,
+  };
 }
 

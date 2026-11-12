@@ -4,6 +4,7 @@
 // this file used to carry its own copy of the first two, and the copy without credentials is how 19
 // call sites would have broken when the engine started requiring a password.
 import { authHeader, engineUrl, isDesktopBundle, apiFetch, normalizeDirectoryPath } from "./api";
+import type { SessionJobRecord } from "../components/workstation/chat/types";
 
 function base(): string {
   // file:// means no Vite proxy in front, so paths have to be absolute.
@@ -762,6 +763,21 @@ export async function listAgents() {
   if (!res.ok) throw new Error(`listAgents failed: ${res.status}`);
   const json = await res.json();
   return json.data;
+}
+
+export async function getSessionJobs(
+  sessionId: string,
+  directory?: string,
+): Promise<SessionJobRecord[]> {
+  if (!sessionId) return [];
+  const q = directory ? `?directory=${encodeURIComponent(directory)}` : "";
+  const res = await engineFetch(`/api/session/${encodeURIComponent(sessionId)}/jobs${q}`);
+  if (!res.ok) {
+    if (res.status === 404) return [];
+    throw new Error(`getSessionJobs failed: ${res.status}`);
+  }
+  const json: { data?: SessionJobRecord[] } = await res.json();
+  return Array.isArray(json.data) ? json.data : [];
 }
 
 // --- Model ---

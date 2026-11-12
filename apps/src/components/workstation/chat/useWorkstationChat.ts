@@ -25,6 +25,7 @@ import {
 import { useChatCompaction } from "./useChatCompaction";
 import { useChatModels } from "./useChatModels";
 import { useExternalChatEvents } from "./useExternalChatEvents";
+import { useSessionSubagents } from "./useSessionSubagents";
 import {
   dispatchCompletionNotification,
   getActiveProviderDiagnostic,
@@ -298,6 +299,18 @@ export function useWorkstationChat({
       cancelled = true;
     };
   }, [activeChatId, chatMessages.length, isStreaming, upsertCanvasTab, setRecentCanvases]);
+
+  const handleSubagentSettled = useCallback(() => {
+    refetchFiles();
+    reloadOpenTabsContent();
+  }, [refetchFiles, reloadOpenTabsContent]);
+
+  const subagentTracks = useSessionSubagents({
+    activeChatId,
+    activeFolder,
+    queryClient,
+    onSubagentSettled: handleSubagentSettled,
+  });
 
   useExternalChatEvents({
     activeChatId,
@@ -1710,6 +1723,7 @@ export function useWorkstationChat({
   return {
     chatMessages,
     optimisticMessages,
+    subagentTracks,
     liveStatus,
     isStreaming,
     reasoningEffort,

@@ -388,6 +388,7 @@ export function UnifiedWorkstationPage() {
             onClose={handleToggleRight}
             chatMessages={chat.chatMessages}
             optimisticMessages={chat.optimisticMessages}
+            subagentTracks={chat.subagentTracks}
             liveStatus={chat.liveStatus}
             messagesEndRef={chat.messagesEndRef}
             activeWorkspace={activeWorkspace}
