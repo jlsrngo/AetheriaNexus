@@ -15,6 +15,10 @@ import {
   loadStoredCompositions,
   saveStoredCompositions,
 } from "./studioStoreStorage";
+import {
+  applyCompositionMutation,
+  mergeBackendCompositions,
+} from "./studioStoreSync";
 
 export { DEFAULT_WORKSPACE_COMPOSITION, isStaleComposition };
 
@@ -33,11 +37,21 @@ interface StudioStoreState {
   redoStack: NexusVideoProps[];
 }
 
+const dirtyCompositionIds = new Set<string>();
+const mutationEpochById = new Map<string, number>();
+
+function bumpMutationEpoch(id: string): number {
+  const next = (mutationEpochById.get(id) ?? 0) + 1;
+  mutationEpochById.set(id, next);
+  dirtyCompositionIds.add(id);
+  return next;
+}
+
 const initialCompositions = loadStoredCompositions();
 
 let state: StudioStoreState = {
   compositions: initialCompositions,
-  activeCompositionId: initialCompositions[0]?.id || "",
+  activeCompositionId: initialCompositions[0]?.id || DEFAULT_WORKSPACE_COMPOSITION.id,
   currentFrame: 0,
   isPlaying: false,
   canvas: {
@@ -118,19 +132,24 @@ export const studioActions = {
   ) {
     const active =
       state.compositions.find((c) => c.id === state.activeCompositionId) ??
-      state.compositions[0];
-    if (!active) return;
+      state.compositions[0] ??
+      DEFAULT_WORKSPACE_COMPOSITION;
     const recordHistory = options?.recordHistory ?? true;
     const prevProps = options?.customPrevProps
       ? (JSON.parse(JSON.stringify(options.customPrevProps)) as NexusVideoProps)
       : (JSON.parse(JSON.stringify(active.props)) as NexusVideoProps);
     const nextProps: NexusVideoProps = { ...active.props, ...partial };
-    const nextComps = state.compositions.map((c) =>
-      c.id === active.id ? { ...c, props: nextProps } : c
+    const { compositions: nextComps, mutatedId } = applyCompositionMutation(
+      state.compositions,
+      active.id,
+      DEFAULT_WORKSPACE_COMPOSITION,
+      (comp) => ({ ...comp, props: { ...comp.props, ...partial } })
     );
+    const epoch = bumpMutationEpoch(mutatedId);
     state = {
       ...state,
       compositions: nextComps,
+      activeCompositionId: mutatedId,
       undoStack: recordHistory
         ? [...state.undoStack.slice(-29), prevProps]
         : state.undoStack,
@@ -143,8 +162,14 @@ export const studioActions = {
       void apiFetch(`${API_BASE}/update-default-props`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ compositionId: active.id, props: nextProps }),
-      }).catch(() => {});
+        body: JSON.stringify({ compositionId: mutatedId, props: nextProps }),
+      })
+        .then((res) => {
+          if (res.ok && mutationEpochById.get(mutatedId) === epoch) {
+            dirtyCompositionIds.delete(mutatedId);
+          }
+        })
+        .catch(() => {});
     }, 300);
   },
 
@@ -158,12 +183,16 @@ export const studioActions = {
   ) {
     const active =
       state.compositions.find((c) => c.id === state.activeCompositionId) ??
-      state.compositions[0];
-    if (!active) return;
-    const nextComps = state.compositions.map((c) =>
-      c.id === active.id ? { ...c, ...partial } : c
+      state.compositions[0] ??
+      DEFAULT_WORKSPACE_COMPOSITION;
+    const { compositions: nextComps, mutatedId } = applyCompositionMutation(
+      state.compositions,
+      active.id,
+      DEFAULT_WORKSPACE_COMPOSITION,
+      (comp) => ({ ...comp, ...partial })
     );
-    state = { ...state, compositions: nextComps };
+    bumpMutationEpoch(mutatedId);
+    state = { ...state, compositions: nextComps, activeCompositionId: mutatedId };
     emit();
   },
 
@@ -173,15 +202,22 @@ export const studioActions = {
 
   undoProps() {
     if (state.undoStack.length === 0) return;
-    const active = state.compositions.find((c) => c.id === state.activeCompositionId);
-    if (!active) return;
+    const active =
+      state.compositions.find((c) => c.id === state.activeCompositionId) ??
+      DEFAULT_WORKSPACE_COMPOSITION;
     const prev = state.undoStack[state.undoStack.length - 1];
     const currentCloned = JSON.parse(JSON.stringify(active.props)) as NexusVideoProps;
+    const { compositions: nextComps, mutatedId } = applyCompositionMutation(
+      state.compositions,
+      active.id,
+      DEFAULT_WORKSPACE_COMPOSITION,
+      (comp) => ({ ...comp, props: prev })
+    );
+    bumpMutationEpoch(mutatedId);
     state = {
       ...state,
-      compositions: state.compositions.map((c) =>
-        c.id === active.id ? { ...c, props: prev } : c
-      ),
+      compositions: nextComps,
+      activeCompositionId: mutatedId,
       undoStack: state.undoStack.slice(0, -1),
       redoStack: [currentCloned, ...state.redoStack.slice(0, 29)],
     };
@@ -190,15 +226,22 @@ export const studioActions = {
 
   redoProps() {
     if (state.redoStack.length === 0) return;
-    const active = state.compositions.find((c) => c.id === state.activeCompositionId);
-    if (!active) return;
+    const active =
+      state.compositions.find((c) => c.id === state.activeCompositionId) ??
+      DEFAULT_WORKSPACE_COMPOSITION;
     const next = state.redoStack[0];
     const currentCloned = JSON.parse(JSON.stringify(active.props)) as NexusVideoProps;
+    const { compositions: nextComps, mutatedId } = applyCompositionMutation(
+      state.compositions,
+      active.id,
+      DEFAULT_WORKSPACE_COMPOSITION,
+      (comp) => ({ ...comp, props: next })
+    );
+    bumpMutationEpoch(mutatedId);
     state = {
       ...state,
-      compositions: state.compositions.map((c) =>
-        c.id === active.id ? { ...c, props: next } : c
-      ),
+      compositions: nextComps,
+      activeCompositionId: mutatedId,
       undoStack: [...state.undoStack, currentCloned],
       redoStack: state.redoStack.slice(1),
     };
@@ -240,6 +283,7 @@ export const studioActions = {
       props: { ...defaultNexusVideoProps },
     };
 
+    bumpMutationEpoch(created.id);
     state = {
       ...state,
       compositions: [...state.compositions, created],
@@ -261,6 +305,7 @@ export const studioActions = {
       name: `${source.name} (Copy)`,
       props: { ...source.props },
     };
+    bumpMutationEpoch(copy.id);
     state = {
       ...state,
       compositions: [...state.compositions, copy],
@@ -330,51 +375,19 @@ export const studioActions = {
       if (res.ok) {
         const json = (await res.json()) as { success?: boolean; data?: StudioComposition[] };
         if (json.success && Array.isArray(json.data)) {
-          const nonWorkspace = state.compositions.filter(
-            (m) =>
-              !isStaleComposition(m) &&
-              m.id !== "HtmlMotionFilm" &&
-              m.folder !== "ACTIVE PROJECT"
-          );
-
-          if (json.data.length > 0) {
-            const incoming = json.data[0];
-            const isHtmlFilm =
-              incoming.id === "HtmlMotionFilm" || incoming.id === "empty-html-stage";
-            const rawProps = incoming.props || {};
-            const baseProps = isHtmlFilm
-              ? {
-                  hookText: incoming.name || "",
-                  bodyText: "",
-                  category: rawProps.category || "HTML MOTION",
-                  subCategory: rawProps.subCategory || "",
-                  authorHandle: "",
-                  editorialTag: "",
-                  themeColor: "emerald",
-                  showText: false,
-                  showBackground: false,
-                }
-              : defaultNexusVideoProps;
-            const activeWorkspace: StudioComposition = {
-              ...incoming,
-              props: {
-                ...baseProps,
-                ...rawProps,
-              },
-            };
-            const merged = [activeWorkspace, ...nonWorkspace];
-            state = {
-              ...state,
-              compositions: merged,
-              activeCompositionId: activeWorkspace.id,
-            };
-          } else {
-            state = {
-              ...state,
-              compositions: nonWorkspace,
-              activeCompositionId: nonWorkspace[0]?.id || "",
-            };
-          }
+          const cleanLocal = state.compositions.filter((m) => !isStaleComposition(m));
+          const cleanBackend = json.data.filter((m) => Boolean(m?.id) && !isStaleComposition(m));
+          const merged = mergeBackendCompositions({
+            local: cleanLocal,
+            backend: cleanBackend,
+            dirtyIds: dirtyCompositionIds,
+            activeCompositionId: state.activeCompositionId,
+          });
+          state = {
+            ...state,
+            compositions: merged.compositions,
+            activeCompositionId: merged.activeCompositionId,
+          };
           emit();
         }
       }
