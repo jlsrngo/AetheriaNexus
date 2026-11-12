@@ -17,6 +17,9 @@ import { useStudioStore } from "../../../hooks/useStudioStore";
 import { apiFetch, API_BASE } from "../../../lib/api";
 import { cn } from "../../../lib/utils";
 import type { StudioSubtitleCue } from "../../../types/studio";
+import { useTimelineFilmMeta } from "../../../hooks/useTimelineFilmMeta";
+import { HtmlFilmCaptionsSection } from "./HtmlFilmCaptionsSection";
+import { isHtmlMotionComposition } from "./htmlFilmInspectorUtils";
 
 interface ElementsCaptionsPanelProps {
   width?: number | string;
@@ -72,10 +75,13 @@ export function ElementsCaptionsPanel({
   const {
     activeComposition,
     durationInFrames,
+    currentFrame,
     subtitleCues,
     captionStyle,
     actions,
   } = useStudioStore();
+  const isHtmlFilm = isHtmlMotionComposition(activeComposition.id);
+  const filmMeta = useTimelineFilmMeta(activeComposition.id);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleAddBullet = () => {
@@ -226,6 +232,16 @@ export function ElementsCaptionsPanel({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-3 min-h-0">
+        {isHtmlFilm ? (
+          <HtmlFilmCaptionsSection
+            filmMeta={filmMeta}
+            currentFrame={currentFrame}
+            fps={activeComposition.fps}
+            subtitleCues={subtitleCues}
+            onSeekFrame={(frame) => actions.setCurrentFrame(frame)}
+          />
+        ) : (
+          <>
         {/* 1. Quick Layer Actions */}
         <div className="p-2.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2">
           <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
@@ -397,6 +413,8 @@ export function ElementsCaptionsPanel({
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
     </aside>
   );

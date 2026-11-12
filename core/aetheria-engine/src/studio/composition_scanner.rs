@@ -75,10 +75,7 @@ pub fn scan_active_workspace_compositions(ws_dir: Option<&Path>) -> Vec<Composit
         props: json!({
             "hookText": meta.title,
             "category": "HTML MOTION",
-            "subCategory": format!("{} SCENES", meta.scenes.len()),
-            "authorHandle": "@aetheria",
-            "bgPrimary": "#0A0A0C",
-            "accentColor": "#10B981"
+            "subCategory": format!("{} SCENES", meta.scenes.len())
         }),
     }]
 }

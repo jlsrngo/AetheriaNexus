@@ -11,13 +11,17 @@ import {
   Code2,
   LayoutList,
   Check,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useStudioStore } from "../../../hooks/useStudioStore";
 import { apiFetch, API_BASE } from "../../../lib/api";
 import { cn } from "../../../lib/utils";
 import type { NexusVideoProps } from "../../../types/video";
+import { useTimelineFilmMeta } from "../../../hooks/useTimelineFilmMeta";
 import { InspectorCustomPropsSection } from "./InspectorCustomPropsSection";
+import { HtmlFilmInspectorSection } from "./HtmlFilmInspectorSection";
+import { isHtmlMotionComposition, sanitizeDurationInput } from "./htmlFilmInspectorUtils";
 
 interface InspectorPanelProps {
   width?: number | string;
@@ -58,11 +62,24 @@ export function InspectorPanel({
   onClose,
   isFloating = false,
 }: InspectorPanelProps) {
-  const { activeComposition, durationInFrames, undoStack, redoStack, actions } =
+  const { activeComposition, durationInFrames, currentFrame, assets, undoStack, redoStack, actions } =
     useStudioStore();
+  const isHtmlFilm = isHtmlMotionComposition(activeComposition.id);
+  const filmMeta = useTimelineFilmMeta(activeComposition.id);
   const [editorMode, setEditorMode] = useState<"schema" | "json">("schema");
   const [jsonDraft, setJsonDraft] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isRefreshingFilm, setIsRefreshingFilm] = useState(false);
+
+  const handleRefreshFilm = async () => {
+    setIsRefreshingFilm(true);
+    try {
+      await actions.syncFromBackend();
+      toast.success("Synced HTML film metadata");
+    } finally {
+      setIsRefreshingFilm(false);
+    }
+  };
 
   const props = activeComposition.props;
   const activeHexColor = toHexColor(props.themeColor);
@@ -197,34 +214,35 @@ export function InspectorPanel({
           </div>
 
           {/* Dimensions & Timing */}
-          <div className="grid grid-cols-2 gap-1.5 text-[10px]">
-            <div>
-              <span className="text-[var(--text-muted)] block mb-0.5">Width × Height</span>
-              <div className="h-6 px-2 rounded-md bg-[var(--bg-input)] border border-[var(--border-color)] flex items-center font-mono text-[var(--text-primary)]">
-                {activeComposition.width} × {activeComposition.height}
+          <div className="grid grid-cols-[0.82fr_1.18fr] gap-1.5 text-[10px]">
+            <div className="min-w-0">
+              <span className="text-[var(--text-muted)] block mb-0.5 truncate">Width × Height</span>
+              <div className="h-6 px-2 rounded-md bg-[var(--bg-input)] border border-[var(--border-color)] flex items-center font-mono text-[10px] text-[var(--text-primary)] truncate">
+                {activeComposition.width}×{activeComposition.height}
               </div>
             </div>
-            <div>
-              <span className="text-[var(--text-muted)] block mb-0.5">Duration ({durationInFrames}f)</span>
+            <div className="min-w-0">
+              <span className="text-[var(--text-muted)] block mb-0.5 truncate">Duration ({durationInFrames}f)</span>
               <div className="flex items-center gap-1">
                 <input
                   type="number"
+                  step="any"
                   min={1}
-                  max={60}
-                  value={activeComposition.duration}
+                  max={600}
+                  value={Math.round(activeComposition.duration * 100) / 100}
                   onChange={(e) =>
                     actions.updateActiveMetadata({
-                      duration: Math.max(1, Math.min(60, Number(e.target.value) || 5)),
+                      duration: sanitizeDurationInput(e.target.value, 600),
                     })
                   }
-                  className="w-full h-6 px-1.5 rounded-md bg-[var(--bg-input)] border border-[var(--border-color)] font-mono text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
+                  className="min-w-[52px] flex-1 h-6 px-1.5 rounded-md bg-[var(--bg-input)] border border-[var(--border-color)] font-mono text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
                 />
                 <select
                   value={activeComposition.fps}
                   onChange={(e) =>
                     actions.updateActiveMetadata({ fps: Number(e.target.value) || 30 })
                   }
-                  className="h-6 px-1 rounded-md bg-[var(--bg-input)] border border-[var(--border-color)] font-mono text-[10px] text-[var(--text-secondary)] outline-none"
+                  className="h-6 px-1 rounded-md bg-[var(--bg-input)] border border-[var(--border-color)] font-mono text-[10px] text-[var(--text-secondary)] outline-none shrink-0"
                 >
                   <option value={24}>24fps</option>
                   <option value={30}>30fps</option>
@@ -235,11 +253,22 @@ export function InspectorPanel({
           </div>
         </div>
 
-        {/* 2. Default Props Header + Mode Switch */}
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-            Default Props (Zod Schema)
-          </span>
+        {isHtmlFilm ? (
+          <HtmlFilmInspectorSection
+            filmMeta={filmMeta}
+            currentFrame={currentFrame}
+            fps={activeComposition.fps}
+            totalFrames={durationInFrames}
+            assets={assets}
+            onSeekFrame={(frame) => actions.setCurrentFrame(frame)}
+          />
+        ) : (
+          <>
+            {/* 2. Default Props Header + Mode Switch */}
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                Default Props (Zod Schema)
+              </span>
           <div className="flex items-center rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] p-0.5">
             <button
               type="button"
@@ -372,44 +401,61 @@ export function InspectorPanel({
               onChange={(e) => setJsonDraft(e.target.value)}
               className="w-full p-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] font-mono text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)] resize-none"
             />
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={handleApplyJson}
-                className="h-7 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-              >
-                <Check className="w-3.5 h-3.5" />
-                Apply JSON Props
-              </button>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleApplyJson}
+                  className="h-7 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  Apply JSON Props
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+          </>
         )}
       </div>
 
       {/* Footer Actions (Compact, Non-Stretching Solid Buttons) */}
       <div className="p-2.5 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-end gap-2 shrink-0">
-        <button
-          type="button"
-          onClick={() => {
-            actions.resetActiveProps();
-            toast.info("Reset composition props to defaults");
-          }}
-          className="h-7 px-2.5 rounded-lg bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-          title="Reset to defaultProps"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Reset</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleSavePropsToDisk}
-          disabled={isSaving}
-          className="h-7 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-          title="Save Default Props to project (Ctrl+S)"
-        >
-          <Save className="w-3.5 h-3.5" />
-          <span>{isSaving ? "Saving..." : "Save Default Props"}</span>
-        </button>
+        {isHtmlFilm ? (
+          <button
+            type="button"
+            onClick={handleRefreshFilm}
+            disabled={isRefreshingFilm}
+            className="h-7 px-3.5 rounded-[var(--radius-control)] bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+            title="Sync film metadata, scenes & audio cues from active folder"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5", isRefreshingFilm && "animate-spin")} />
+            <span>{isRefreshingFilm ? "Syncing..." : "Refresh Film"}</span>
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                actions.resetActiveProps();
+                toast.info("Reset composition props to defaults");
+              }}
+              className="h-7 px-2.5 rounded-lg bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              title="Reset to defaultProps"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleSavePropsToDisk}
+              disabled={isSaving}
+              className="h-7 px-3.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] border border-[#e07b27] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              title="Save Default Props to project (Ctrl+S)"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{isSaving ? "Saving..." : "Save Default Props"}</span>
+            </button>
+          </>
+        )}
       </div>
     </aside>
   );

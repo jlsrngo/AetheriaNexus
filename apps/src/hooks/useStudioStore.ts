@@ -339,11 +339,27 @@ export const studioActions = {
 
           if (json.data.length > 0) {
             const incoming = json.data[0];
+            const isHtmlFilm =
+              incoming.id === "HtmlMotionFilm" || incoming.id === "empty-html-stage";
+            const rawProps = incoming.props || {};
+            const baseProps = isHtmlFilm
+              ? {
+                  hookText: incoming.name || "",
+                  bodyText: "",
+                  category: rawProps.category || "HTML MOTION",
+                  subCategory: rawProps.subCategory || "",
+                  authorHandle: "",
+                  editorialTag: "",
+                  themeColor: "emerald",
+                  showText: false,
+                  showBackground: false,
+                }
+              : defaultNexusVideoProps;
             const activeWorkspace: StudioComposition = {
               ...incoming,
               props: {
-                ...defaultNexusVideoProps,
-                ...(incoming.props || {}),
+                ...baseProps,
+                ...rawProps,
               },
             };
             const merged = [activeWorkspace, ...nonWorkspace];

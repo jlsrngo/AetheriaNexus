@@ -3,12 +3,33 @@ import type { HtmlFilmScene } from "../HtmlFilmStage";
 
 const SCENE_COLORS = ["amber", "sky", "violet", "emerald", "rose", "cyan"] as const;
 
+export interface FilmMetaLintIssue {
+  severity: string;
+  code: string;
+  message: string;
+  line?: number | null;
+}
+
+export interface FilmMetaLintReport {
+  valid: boolean;
+  hasRenderAt: boolean;
+  hasReadyFlag: boolean;
+  hasFilmMeta: boolean;
+  issues: FilmMetaLintIssue[];
+}
+
 export interface FilmMetaResponse {
   exists?: boolean;
+  engine?: string;
+  htmlPath?: string;
   title?: string;
+  width?: number;
+  height?: number;
   fps?: number;
+  duration?: number;
   totalFrames?: number;
   scenes?: HtmlFilmScene[];
+  lint?: FilmMetaLintReport;
 }
 
 export interface TimelineDragOverride {
