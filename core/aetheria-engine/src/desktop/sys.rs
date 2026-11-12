@@ -36,20 +36,104 @@ pub async fn handle_video_render(Json(payload): Json<Value>) -> impl IntoRespons
     Json(res)
 }
 
+/// Validates that an external URL is strictly a well-formed HTTP/HTTPS URL with no control
+/// characters, whitespace, or embedded credentials before passing to OS shell-free launchers.
+pub fn validate_external_url(raw_url: &str) -> Result<String, String> {
+    if raw_url.is_empty() || raw_url.len() > 2048 {
+        return Err("Invalid URL: length out of bounds".to_string());
+    }
+    if raw_url.chars().any(|c| c.is_control() || c.is_whitespace()) {
+        return Err("Invalid URL: whitespace and control characters are not allowed".to_string());
+    }
+    let parsed = reqwest::Url::parse(raw_url)
+        .map_err(|e| format!("Invalid URL: {}", e))?;
+    let scheme = parsed.scheme();
+    if scheme != "http" && scheme != "https" {
+        return Err(format!("Unsupported URL scheme '{}': only http/https allowed", scheme));
+    }
+    if parsed.host_str().is_none_or(|h| h.is_empty()) {
+        return Err("Invalid URL: missing host".to_string());
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("Invalid URL: embedded credentials are not allowed".to_string());
+    }
+    Ok(parsed.as_str().to_string())
+}
+
+#[cfg(windows)]
+fn launch_external_url(url: &str) -> Result<(), String> {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use std::ptr::null;
+
+    #[link(name = "shell32")]
+    extern "system" {
+        fn ShellExecuteW(
+            hwnd: *const std::ffi::c_void,
+            lp_operation: *const u16,
+            lp_file: *const u16,
+            lp_parameters: *const u16,
+            lp_directory: *const u16,
+            n_show_cmd: i32,
+        ) -> isize;
+    }
+
+    let op: Vec<u16> = OsStr::new("open").encode_wide().chain(Some(0)).collect();
+    let target: Vec<u16> = OsStr::new(url).encode_wide().chain(Some(0)).collect();
+    // SAFETY: `op` and `target` are NUL-terminated UTF-16 buffers that live across the
+    // synchronous `ShellExecuteW` call, and optional pointer arguments are passed as null.
+    let rc = unsafe { ShellExecuteW(null(), op.as_ptr(), target.as_ptr(), null(), null(), 1) };
+    if rc > 32 {
+        Ok(())
+    } else {
+        Err(format!("OS URL launcher failed with status {}", rc))
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn launch_external_url(url: &str) -> Result<(), String> {
+    std::process::Command::new("open")
+        .arg(url)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Failed to open URL: {}", e))
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn launch_external_url(url: &str) -> Result<(), String> {
+    std::process::Command::new("xdg-open")
+        .arg(url)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Failed to open URL: {}", e))
+}
+
 pub async fn handle_open_url(Json(body): Json<Value>) -> Response {
     let raw_url = body.get("url").and_then(|v| v.as_str()).unwrap_or("");
-    if raw_url.starts_with("http://") || raw_url.starts_with("https://") {
-        #[cfg(windows)]
-        {
-            let mut cmd = std::process::Command::new("cmd");
-            crate::paths::configure_hidden_std_command(&mut cmd);
-            let _ = cmd
-                .args(["/c", "start", "", raw_url])
-                .spawn();
+    let validated = match validate_external_url(raw_url) {
+        Ok(u) => u,
+        Err(err) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(json!({ "error": err })),
+            )
+                .into_response();
         }
-        return Json(json!({ "success": true, "url": raw_url })).into_response();
+    };
+    let launch_target = validated.clone();
+    match tokio::task::spawn_blocking(move || launch_external_url(&launch_target)).await {
+        Ok(Ok(())) => Json(json!({ "success": true, "url": validated })).into_response(),
+        Ok(Err(err)) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": err })),
+        )
+            .into_response(),
+        Err(err) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": format!("URL launcher task failed: {}", err) })),
+        )
+            .into_response(),
     }
-    Json(json!({ "error": "Invalid URL" })).into_response()
 }
 
 pub async fn handle_quit() -> Response {
@@ -277,5 +361,42 @@ pub async fn handle_check_artcraft_updates() -> Json<Value> {
         "has_artcraft_update": false,
         "apps": []
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_external_url;
+
+    #[test]
+    fn test_validate_external_url_allows_clean_http_and_https() {
+        assert_eq!(
+            validate_external_url("https://aetheria.studio/docs?tab=motion&v=2").unwrap(),
+            "https://aetheria.studio/docs?tab=motion&v=2"
+        );
+        assert_eq!(
+            validate_external_url("http://127.0.0.1:4196/health").unwrap(),
+            "http://127.0.0.1:4196/health"
+        );
+    }
+
+    #[test]
+    fn test_validate_external_url_rejects_dangerous_or_malformed_inputs() {
+        for bad in [
+            "",
+            "javascript:alert(1)",
+            "file:///C:/Windows/System32/cmd.exe",
+            "ms-msdt:/id",
+            "https://example.com & calc.exe",
+            "https://example.com/\ncalc",
+            "https://user:secret@example.com/path",
+            "ftp://example.com/file",
+        ] {
+            assert!(
+                validate_external_url(bad).is_err(),
+                "Expected URL to be rejected: {:?}",
+                bad
+            );
+        }
+    }
 }
 

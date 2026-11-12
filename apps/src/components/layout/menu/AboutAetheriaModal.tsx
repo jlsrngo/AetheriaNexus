@@ -3,6 +3,7 @@ import { Check, RefreshCw, Sparkles, Download, Layers } from "lucide-react";
 import { useI18n } from "../../../lib/i18n";
 import { useTheme } from "../../../lib/theme";
 import { cn } from "../../../lib/utils";
+import { apiFetch, API_BASE } from "../../../lib/api";
 import { Dialog, DialogContent, Button } from "../../ui";
 
 // Substituted by vite `define` at build time; see apps/vite.config.ts.
@@ -318,7 +319,7 @@ export const AboutAetheriaModal = memo(function AboutAetheriaModal({
                   onClick={() => {
                     const target = updateResult.downloadUrl || updateResult.releaseUrl;
                     if (target) {
-                      fetch("/api/desktop/open-url", {
+                      apiFetch(`${API_BASE}/desktop/open-url`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ url: target }),
@@ -410,7 +411,7 @@ export const AboutAetheriaModal = memo(function AboutAetheriaModal({
                     <div
                       key={app.name}
                       onClick={() => {
-                        fetch("/api/desktop/open-url", {
+                        apiFetch(`${API_BASE}/desktop/open-url`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ url: app.repo_url }),
