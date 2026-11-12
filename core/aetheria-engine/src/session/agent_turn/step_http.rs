@@ -9,6 +9,14 @@ use serde_json::{json, Value};
 use super::resilience::{
     compute_retry_backoff_ms, is_unreachable_network_error, sanitize_multimodal_messages_to_text,
 };
+use super::retry::parse_retry_after_ms;
+use crate::session::provider_error::{is_hard_quota_exhausted, is_rate_limit_throttle};
+
+enum StepSendOutcome {
+    Response(reqwest::Response),
+    ErrorBody(u16, String),
+    Transport(reqwest::Error),
+}
 
 pub(crate) struct StepHttpContext<'a> {
     pub client: &'a reqwest::Client,
@@ -41,7 +49,7 @@ pub(crate) async fn execute_step_http_request(
     }
 
     let mut net_attempt = 0usize;
-    let resp = loop {
+    let send_outcome = loop {
         let active_key =
             crate::provider::protocol_adapters::select_healthy_api_key(ctx.api_key);
         let send_res = ctx
@@ -55,25 +63,61 @@ pub(crate) async fn execute_step_http_request(
 
         match send_res {
             Ok(ok_r) => {
+                if ok_r.status().is_success() {
+                    break StepSendOutcome::Response(ok_r);
+                }
                 let code = ok_r.status().as_u16();
-                if is_transient_gateway_status(code) && net_attempt < 4 {
+                let retry_after_ms_hdr = ok_r
+                    .headers()
+                    .get("retry-after-ms")
+                    .and_then(|v| v.to_str().ok())
+                    .map(|s| s.to_string());
+                let retry_after_hdr = ok_r
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .map(|s| s.to_string());
+
+                if code == 429 {
+                    let err_body = ok_r.text().await.unwrap_or_default();
+                    if !is_hard_quota_exhausted(code, &err_body) && net_attempt < 5 {
+                        net_attempt += 1;
+                        let delay_ms = parse_retry_after_ms(
+                            retry_after_ms_hdr.as_deref(),
+                            retry_after_hdr.as_deref(),
+                        )
+                        .unwrap_or_else(|| compute_retry_backoff_ms(net_attempt, false, None));
+                        crate::paths::log_engine(
+                            "ai",
+                            &format!(
+                                "⏳ Upstream HTTP 429 throttle; backing off {}ms (retry #{}/5)...",
+                                delay_ms, net_attempt
+                            ),
+                        );
+                        tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                        continue;
+                    }
+                    break StepSendOutcome::ErrorBody(code, err_body);
+                }
+
+                if is_transient_gateway_status(code) && net_attempt < 5 {
                     net_attempt += 1;
-                    let retry_after = ok_r
-                        .headers()
-                        .get("retry-after")
-                        .and_then(|v| v.to_str().ok());
-                    let delay_ms = compute_retry_backoff_ms(net_attempt, false, retry_after);
+                    let delay_ms = parse_retry_after_ms(
+                        retry_after_ms_hdr.as_deref(),
+                        retry_after_hdr.as_deref(),
+                    )
+                    .unwrap_or_else(|| compute_retry_backoff_ms(net_attempt, false, None));
                     crate::paths::log_engine(
                         "ai",
                         &format!(
-                            "⏳ Upstream HTTP {} transient error; backing off {}ms (retry #{}/4)...",
+                            "⏳ Upstream HTTP {} transient error; backing off {}ms (retry #{}/5)...",
                             code, delay_ms, net_attempt
                         ),
                     );
                     tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
                     continue;
                 }
-                break Ok(ok_r);
+                break StepSendOutcome::Response(ok_r);
             }
             Err(net_e) if net_attempt < 2 && !net_e.is_timeout() => {
                 net_attempt += 1;
@@ -97,13 +141,14 @@ pub(crate) async fn execute_step_http_request(
                 );
                 tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
             }
-            Err(net_e) => break Err(net_e),
+            Err(net_e) => break StepSendOutcome::Transport(net_e),
         }
     };
 
-    let mut r = match resp {
-        Ok(r) => r,
-        Err(e) => {
+    let (mut r, pre_err): (Option<reqwest::Response>, Option<(u16, String)>) = match send_outcome {
+        StepSendOutcome::Response(ok_r) => (Some(ok_r), None),
+        StepSendOutcome::ErrorBody(code, err_body) => (None, Some((code, err_body))),
+        StepSendOutcome::Transport(e) => {
             crate::paths::log_engine(
                 "ai",
                 &format!("⚠️ Connection error to AI endpoint {}: {}", ctx.base_url, e),
@@ -117,14 +162,16 @@ pub(crate) async fn execute_step_http_request(
                 let new_port = crate::bridge::ensure_bridge_running().await;
                 *ctx.base_url = format!("http://127.0.0.1:{}/v1", new_port);
                 tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-                ctx.client
+                let healed = ctx
+                    .client
                     .post(format!("{}/chat/completions", ctx.base_url))
                     .header("Content-Type", "application/json")
                     .header("Authorization", format!("Bearer {}", ctx.api_key))
                     .json(&req_body)
                     .send()
                     .await
-                    .map_err(|re| format!("Error: Failed to reach AI provider ({}).", re))?
+                    .map_err(|re| format!("Error: Failed to reach AI provider ({}).", re))?;
+                (Some(healed), None)
             } else if e.is_timeout() && ctx.chat_messages.len() > 2 {
                 crate::paths::log_engine(
                     "ai",
@@ -154,16 +201,29 @@ pub(crate) async fn execute_step_http_request(
                         err_body
                     ));
                 }
-                retried
+                (Some(retried), None)
             } else {
                 return Err(format!("Error: Failed to reach AI provider ({}).", e));
             }
         }
     };
 
-    if !r.status().is_success() {
-        let status_code = r.status().as_u16();
-        let err_txt = r.text().await.unwrap_or_default();
+    let err_pair = if let Some((code, body)) = pre_err {
+        Some((code, body))
+    } else if let Some(ref resp_ref) = r {
+        if !resp_ref.status().is_success() {
+            let status_code = resp_ref.status().as_u16();
+            let taken = r.take().ok_or_else(|| "Missing response handle".to_string())?;
+            let err_txt = taken.text().await.unwrap_or_default();
+            Some((status_code, err_txt))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    if let Some((status_code, err_txt)) = err_pair {
 
         if crate::session::compaction::is_context_overflow_error(&err_txt)
             && ctx.chat_messages.len() > 2
@@ -195,18 +255,29 @@ pub(crate) async fn execute_step_http_request(
                     final_err
                 ));
             }
-            r = retried;
-        } else if crate::session::compaction::is_quota_or_rate_limit_error(status_code, &err_txt)
+            r = Some(retried);
+        } else if is_hard_quota_exhausted(status_code, &err_txt)
+            || is_rate_limit_throttle(status_code, &err_txt)
             || err_txt.contains("MONTHLY_REQUEST_COUNT")
             || err_txt.contains("insufficient balance")
         {
+            let hard_quota = is_hard_quota_exhausted(status_code, &err_txt)
+                || err_txt.contains("MONTHLY_REQUEST_COUNT")
+                || err_txt.contains("insufficient balance");
             let cur_key = crate::provider::protocol_adapters::select_healthy_api_key(ctx.api_key);
             if let Some(next_key) = crate::provider::protocol_adapters::rotate_api_key_on_quota(
                 ctx.api_key, &cur_key, 60_000,
             ) {
-                r = send_raw_post(ctx.client, ctx.base_url, &next_key, &req_body)
+                let rot_r = send_raw_post(ctx.client, ctx.base_url, &next_key, &req_body)
                     .await
                     .map_err(|e| format!("Error during multi-key rotation retry: {}", e))?;
+                r = Some(rot_r);
+            } else if !hard_quota {
+                return Err(format!(
+                    "Rate limit (RPM/TPM) on '{}' persisted after retries: {}",
+                    ctx.current_provider_id,
+                    err_txt.trim()
+                ));
             } else if *ctx.current_provider_id != "kenari"
                 || *ctx.current_model_id != "llama-3-3-70b-instruct:free"
             {
@@ -245,12 +316,13 @@ pub(crate) async fn execute_step_http_request(
                 if !fo_r.status().is_success() {
                     let final_err = fo_r.text().await.unwrap_or_default();
                     return Err(format!(
-                        "Quota limit reached on '{}'; Kenari failover failed: {}",
+                        "Quota limit reached on '{}' ({}); Kenari failover failed: {}",
                         primary_provider,
+                        err_txt.trim(),
                         final_err.trim()
                     ));
                 }
-                r = fo_r;
+                r = Some(fo_r);
             } else {
                 return Err(format!("Error from AI provider: {}", err_txt));
             }
@@ -265,13 +337,13 @@ pub(crate) async fn execute_step_http_request(
                 let final_err = retried.text().await.unwrap_or_default();
                 return Err(format!("Error from AI provider: {}", final_err));
             }
-            r = retried;
+            r = Some(retried);
         } else {
             return Err(format!("Error from AI provider: {}", err_txt));
         }
     }
 
-    Ok(r)
+    r.ok_or_else(|| "AI response missing after retry".to_string())
 }
 
 async fn send_raw_post(

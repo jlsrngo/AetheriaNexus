@@ -59,19 +59,48 @@ pub fn is_context_overflow_error(error_text: &str) -> bool {
             && (lower.contains("context") || lower.contains("token") || lower.contains("too large")))
 }
 
-/// Detects whether an HTTP status and error body indicate a quota exhaustion or rate-limit error.
-pub fn is_quota_or_rate_limit_error(status_code: u16, error_text: &str) -> bool {
+/// Detects hard monthly/balance/credit exhaustion where retrying the same key cannot succeed.
+/// Mirrors OpenCode `provider-error.ts`: throttling phrases like `rate limit exhausted` or
+/// `token_quota_exceeded` remain retryable `RateLimit` bursts instead of false hard quota failover.
+pub fn is_hard_quota_exhausted(status_code: u16, error_text: &str) -> bool {
+    let lower = error_text.to_lowercase();
+    let is_rate_throttle_phrase = lower.contains("token_quota_exceeded")
+        || lower.contains("rate limit exhausted")
+        || lower.contains("rate_limit_exhausted")
+        || lower.contains("rate-limit exhausted");
+    if is_rate_throttle_phrase {
+        return false;
+    }
+    status_code == 402
+        || lower.contains("insufficient_quota")
+        || lower.contains("monthly_request_count")
+        || lower.contains("insufficient balance")
+        || lower.contains("credit balance is too low")
+        || lower.contains("quota exceeded")
+        || lower.contains("quota limit reached")
+        || lower.contains("billing")
+}
+
+/// Detects temporary per-second/per-minute burst throttling (HTTP 429 / AWS ThrottlingException)
+/// that should be retried with backoff before ever failing over to another provider.
+pub fn is_rate_limit_throttle(status_code: u16, error_text: &str) -> bool {
+    if is_hard_quota_exhausted(status_code, error_text) {
+        return false;
+    }
     let lower = error_text.to_lowercase();
     status_code == 429
-        || status_code == 402
-        || status_code == 403
-        || lower.contains("insufficient_quota")
+        || lower.contains("too many requests")
+        || lower.contains("throttl")
         || lower.contains("rate limit")
         || lower.contains("rate_limit")
-        || lower.contains("quota exceeded")
-        || lower.contains("billing")
-        || lower.contains("credit balance is too low")
         || lower.contains("resource_exhausted")
+        || is_rate_limit_exclusion(error_text)
+}
+
+/// Detects whether an HTTP status and error body indicate a quota exhaustion or rate-limit error.
+pub fn is_quota_or_rate_limit_error(status_code: u16, error_text: &str) -> bool {
+    is_hard_quota_exhausted(status_code, error_text)
+        || is_rate_limit_throttle(status_code, error_text)
 }
 
 #[cfg(test)]
@@ -92,6 +121,28 @@ mod tests {
         assert!(!is_context_overflow_error("Rate limit reached for tokens per minute (TPM)"));
         assert!(!is_context_overflow_error("Error 401: Invalid API Key"));
         assert!(!is_context_overflow_error("Network timeout connecting to server"));
+    }
+
+    #[test]
+    fn test_quota_vs_rate_limit_classification() {
+        // Hard monthly/billing quota exhaustion
+        assert!(is_hard_quota_exhausted(402, ""));
+        assert!(is_hard_quota_exhausted(429, "MONTHLY_REQUEST_COUNT exceeded"));
+        assert!(is_hard_quota_exhausted(429, "Quota limit reached for plan"));
+        assert!(!is_rate_limit_throttle(429, "MONTHLY_REQUEST_COUNT exceeded"));
+
+        // Temporary RPM/RPS burst throttling must be classified as retryable rate limit, not hard quota
+        assert!(!is_hard_quota_exhausted(429, "ThrottlingException: Too many requests"));
+        assert!(is_rate_limit_throttle(429, "ThrottlingException: Too many requests"));
+        assert!(!is_hard_quota_exhausted(429, "Rate limit exhausted for minute window"));
+        assert!(is_rate_limit_throttle(429, "Rate limit exhausted for minute window"));
+        assert!(!is_hard_quota_exhausted(429, "token_quota_exceeded: wait a moment"));
+        assert!(is_rate_limit_throttle(429, "token_quota_exceeded: wait a moment"));
+        assert!(is_rate_limit_throttle(200, "Rate limit exceeded, please retry"));
+
+        // Generic HTTP 403 without quota text must NOT trigger quota failover
+        assert!(!is_hard_quota_exhausted(403, "Forbidden"));
+        assert!(!is_quota_or_rate_limit_error(403, "Forbidden"));
     }
 }
 

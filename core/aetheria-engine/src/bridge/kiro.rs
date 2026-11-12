@@ -18,9 +18,53 @@ use crate::paths::gen_id;
 use std::error::Error as StdError;
 use std::sync::OnceLock;
 use std::time::Duration;
+use tokio::sync::{Mutex as AsyncMutex, Semaphore};
+use tokio::time::Instant;
 
 static KIRO_HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 static KIRO_HTTP1_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+static KIRO_CONCURRENCY_SEMAPHORE: OnceLock<Semaphore> = OnceLock::new();
+static KIRO_NEXT_SLOT: OnceLock<AsyncMutex<Instant>> = OnceLock::new();
+
+const KIRO_MIN_SPACING_MS: u64 = 1_000;
+
+/// Limits concurrent in-flight Kiro upstream calls to strictly 1 at a time across parent & subagents.
+fn kiro_concurrency_guard() -> &'static Semaphore {
+    KIRO_CONCURRENCY_SEMAPHORE.get_or_init(|| Semaphore::new(1))
+}
+
+fn kiro_next_slot_lock() -> &'static AsyncMutex<Instant> {
+    KIRO_NEXT_SLOT.get_or_init(|| AsyncMutex::new(Instant::now()))
+}
+
+/// Spaces outgoing Kiro dispatches by at least `KIRO_MIN_SPACING_MS` and respects any active cooldown.
+async fn wait_for_kiro_pacing_slot() {
+    let wait_until = {
+        let mut next = kiro_next_slot_lock().lock().await;
+        let now = Instant::now();
+        let slot = if *next > now { *next } else { now };
+        *next = slot + Duration::from_millis(KIRO_MIN_SPACING_MS);
+        slot
+    };
+    let now = Instant::now();
+    if wait_until > now {
+        tokio::time::sleep_until(wait_until).await;
+    }
+}
+
+/// Pushes the shared pacing window forward when AWS Kiro asks callers to cool down.
+async fn push_kiro_cooldown(delay_ms: u64) {
+    let target = Instant::now() + Duration::from_millis(delay_ms);
+    let mut next = kiro_next_slot_lock().lock().await;
+    if target > *next {
+        *next = target;
+    }
+}
+
+enum KiroPostResult {
+    Success(reqwest::Response),
+    HttpError(StatusCode, String),
+}
 
 fn kiro_primary_client() -> &'static reqwest::Client {
     KIRO_HTTP_CLIENT.get_or_init(|| {
@@ -65,11 +109,13 @@ async fn send_kiro_post_with_retry(
     access_token: &str,
     profile_arn: &str,
     payload: &Value,
-) -> Result<reqwest::Response, String> {
-    const MAX_ATTEMPTS: usize = 3;
+) -> Result<KiroPostResult, String> {
+    const MAX_ATTEMPTS: usize = 6;
     let mut last_err = String::new();
+    let _permit = kiro_concurrency_guard().acquire().await.ok();
 
     for attempt in 0..MAX_ATTEMPTS {
+        wait_for_kiro_pacing_slot().await;
         let client = if attempt == MAX_ATTEMPTS - 1 {
             kiro_http1_client()
         } else {
@@ -90,9 +136,44 @@ async fn send_kiro_post_with_retry(
             .await
         {
             Ok(resp) => {
-                let code = resp.status().as_u16();
-                if matches!(code, 502 | 503 | 504) && attempt + 1 < MAX_ATTEMPTS {
-                    let backoff_ms = 800 * (attempt as u64 + 1);
+                if resp.status().is_success() {
+                    return Ok(KiroPostResult::Success(resp));
+                }
+                let status = resp.status();
+                let code = status.as_u16();
+                let retry_after_ms_hdr = resp
+                    .headers()
+                    .get("retry-after-ms")
+                    .and_then(|v| v.to_str().ok())
+                    .map(|s| s.to_string());
+                let retry_after_hdr = resp
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .map(|s| s.to_string());
+                let err_txt = resp.text().await.unwrap_or_default();
+
+                // Stop immediately if monthly/billing quota genuinely exhausted (do not sleep repeatedly)
+                if code == 429
+                    && crate::session::provider_error::is_hard_quota_exhausted(code, &err_txt)
+                {
+                    return Ok(KiroPostResult::HttpError(status, err_txt));
+                }
+
+                if (code == 429 || matches!(code, 502 | 503 | 504)) && attempt + 1 < MAX_ATTEMPTS {
+                    let parsed_after = crate::session::agent_turn::retry::parse_retry_after_ms(
+                        retry_after_ms_hdr.as_deref(),
+                        retry_after_hdr.as_deref(),
+                    )
+                    .map(|ms| ms.min(30_000));
+                    let backoff_ms = parsed_after.unwrap_or_else(|| {
+                        crate::session::agent_turn::retry::compute_retry_backoff_ms(
+                            attempt + 1,
+                            false,
+                            None,
+                        )
+                    });
+                    push_kiro_cooldown(backoff_ms).await;
                     crate::paths::log_engine(
                         "bridge",
                         &format!(
@@ -106,7 +187,7 @@ async fn send_kiro_post_with_retry(
                     tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
                     continue;
                 }
-                return Ok(resp);
+                return Ok(KiroPostResult::HttpError(status, err_txt));
             }
             Err(e) => {
                 last_err = format_reqwest_error_chain(&e);
@@ -363,7 +444,7 @@ pub(crate) async fn handle_kiro_request(body: Value, model: &str, is_stream: boo
 
     let url = format!("https://q.{}.amazonaws.com/generateAssistantResponse", region);
 
-    let mut resp = match send_kiro_post_with_retry(&url, &cred.access_token, &profile_arn, &payload).await {
+    let mut post_res = match send_kiro_post_with_retry(&url, &cred.access_token, &profile_arn, &payload).await {
         Ok(r) => r,
         Err(err_chain) => {
             return (
@@ -374,30 +455,34 @@ pub(crate) async fn handle_kiro_request(body: Value, model: &str, is_stream: boo
         }
     };
 
-    if resp.status() == StatusCode::UNAUTHORIZED || resp.status() == StatusCode::FORBIDDEN {
+    if matches!(
+        post_res,
+        KiroPostResult::HttpError(StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN, _)
+    ) {
         if let Some(refreshed) = refresh_credential_source("kiro", &cred).await {
             if let Ok(r2) = send_kiro_post_with_retry(&url, &refreshed.access_token, &profile_arn, &payload).await {
-                resp = r2;
+                post_res = r2;
             }
         }
     }
 
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let err_txt = resp.text().await.unwrap_or_default();
-        if status == StatusCode::FORBIDDEN || status == StatusCode::UNAUTHORIZED {
+    let resp = match post_res {
+        KiroPostResult::Success(r) => r,
+        KiroPostResult::HttpError(status, err_txt) => {
+            if status == StatusCode::FORBIDDEN || status == StatusCode::UNAUTHORIZED {
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({ "error": { "message": "Kiro CLI credentials not found or expired. Please sign in via Settings or Kiro IDE." } })),
+                )
+                    .into_response();
+            }
             return (
-                StatusCode::UNAUTHORIZED,
-                Json(json!({ "error": { "message": "Kiro CLI credentials not found or expired. Please sign in via Settings or Kiro IDE." } })),
+                status,
+                Json(json!({ "error": { "message": format!("Kiro upstream error ({}): {}", status, err_txt) } })),
             )
                 .into_response();
         }
-        return (
-            status,
-            Json(json!({ "error": { "message": format!("Kiro upstream error ({}): {}", status, err_txt) } })),
-        )
-            .into_response();
-    }
+    };
 
     let raw_bytes = match resp.bytes().await {
         Ok(b) => b,

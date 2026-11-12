@@ -39,16 +39,41 @@ pub fn is_timeout_error(err_text: &str) -> bool {
         || lower.contains("http 504")
 }
 
+/// Parses `Retry-After-Ms` or `Retry-After` headers (mirroring OpenCode `executor.ts` & `model-retry.ts`),
+/// clamping waits to at most 15 minutes (900,000 ms).
+pub fn parse_retry_after_ms(
+    retry_after_ms_header: Option<&str>,
+    retry_after_header: Option<&str>,
+) -> Option<u64> {
+    const RETRY_AFTER_MAX_MS: u64 = 900_000;
+
+    if let Some(raw_ms) = retry_after_ms_header {
+        if let Ok(ms) = raw_ms.trim().parse::<f64>() {
+            if ms.is_finite() && ms >= 0.0 {
+                return Some((ms.ceil() as u64).clamp(1_000, RETRY_AFTER_MAX_MS));
+            }
+        }
+    }
+
+    if let Some(raw_secs) = retry_after_header {
+        if let Ok(secs) = raw_secs.trim().parse::<f64>() {
+            if secs.is_finite() && secs >= 0.0 {
+                return Some(((secs * 1000.0).ceil() as u64).clamp(1_000, RETRY_AFTER_MAX_MS));
+            }
+        }
+    }
+
+    None
+}
+
 /// Computes exponential backoff with deterministic pseudo-jitter (mirrors OpenCode `model-retry.ts`).
 pub fn compute_retry_backoff_ms(
     attempt: usize,
     is_unreachable: bool,
     retry_after_header: Option<&str>,
 ) -> u64 {
-    if let Some(raw_header) = retry_after_header {
-        if let Ok(secs) = raw_header.trim().parse::<u64>() {
-            return (secs.saturating_mul(1000)).clamp(1_000, 900_000);
-        }
+    if let Some(ms) = parse_retry_after_ms(None, retry_after_header) {
+        return ms;
     }
 
     let shift = attempt.saturating_sub(1).min(5) as u32;
@@ -58,5 +83,35 @@ pub fn compute_retry_backoff_ms(
 
     let jitter_ms = now_ms() % 450;
     base_ms + jitter_ms
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_retry_after_supports_ms_and_fractional_seconds() {
+        assert_eq!(parse_retry_after_ms(Some("2500"), None), Some(2_500));
+        assert_eq!(parse_retry_after_ms(None, Some("1.5")), Some(1_500));
+        assert_eq!(parse_retry_after_ms(None, Some("1200")), Some(900_000));
+        assert_eq!(parse_retry_after_ms(Some("invalid"), Some("bad")), None);
+    }
+
+    #[test]
+    fn compute_backoff_respects_caps_and_retry_after() {
+        assert_eq!(compute_retry_after_header_passthrough(), 4_000);
+        let d1 = compute_retry_backoff_ms(1, false, None);
+        let d3 = compute_retry_backoff_ms(3, false, None);
+        let d4 = compute_retry_backoff_ms(4, false, None);
+        assert!((2_000..=2_450).contains(&d1));
+        assert!((8_000..=8_450).contains(&d3));
+        assert!((10_000..=10_450).contains(&d4));
+        let u5 = compute_retry_backoff_ms(5, true, None);
+        assert!((30_000..=30_450).contains(&u5));
+    }
+
+    fn compute_retry_after_header_passthrough() -> u64 {
+        compute_retry_backoff_ms(1, false, Some("4"))
+    }
 }
 

@@ -11,9 +11,11 @@ pub use super::stream_parser::{parse_completion_body, sanitize_multimodal_messag
 use serde_json::{json, Value};
 use std::time::Duration;
 
+use super::retry::parse_retry_after_ms;
 use crate::session::compaction::{
-    emergency_compact_messages, is_context_overflow_error, is_quota_or_rate_limit_error,
+    emergency_compact_messages, is_context_overflow_error,
 };
+use crate::session::provider_error::{is_hard_quota_exhausted, is_rate_limit_throttle};
 
 /// Output from a resilient single-step chat completion call.
 pub struct ResilientCompletionOutput {
@@ -107,6 +109,11 @@ pub async fn send_resilient_chat_completion(
             },
             Ok(resp) => {
                 let status_code = resp.status().as_u16();
+                let retry_after_ms_hdr = resp
+                    .headers()
+                    .get("retry-after-ms")
+                    .and_then(|v| v.to_str().ok())
+                    .map(|s| s.to_string());
                 let retry_after = resp
                     .headers()
                     .get("retry-after")
@@ -126,8 +133,9 @@ pub async fn send_resilient_chat_completion(
                     continue;
                 }
 
-                let is_quota = is_quota_or_rate_limit_error(status_code, &err_txt);
-                if is_quota {
+                let is_hard_quota = is_hard_quota_exhausted(status_code, &err_txt);
+                let is_throttle = is_rate_limit_throttle(status_code, &err_txt);
+                if is_hard_quota || is_throttle {
                     let cur_key =
                         crate::provider::protocol_adapters::select_healthy_api_key(api_key);
                     if crate::provider::protocol_adapters::rotate_api_key_on_quota(
@@ -140,7 +148,20 @@ pub async fn send_resilient_chat_completion(
                 }
                 let is_server_err = status_code >= 500 || status_code == 408;
 
-                if (is_quota || (is_server_err && attempt >= 2)) && !did_failover {
+                // Retry transient bursts (429 / throttling) and 5xx on the user's selected model
+                // up to OpenCode retry budget BEFORE considering failover.
+                if (is_server_err || is_throttle) && attempt < max_retries {
+                    attempt += 1;
+                    let delay = parse_retry_after_ms(
+                        retry_after_ms_hdr.as_deref(),
+                        retry_after.as_deref(),
+                    )
+                    .unwrap_or_else(|| compute_retry_backoff_ms(attempt, false, None));
+                    tokio::time::sleep(Duration::from_millis(delay)).await;
+                    continue;
+                }
+
+                if is_hard_quota && !did_failover {
                     did_failover = true;
                     let port = crate::bridge::ensure_bridge_running().await;
                     *base_url = format!("http://127.0.0.1:{}/v1", port);
@@ -149,15 +170,13 @@ pub async fn send_resilient_chat_completion(
                     continue;
                 }
 
-                if (is_server_err || status_code == 429) && attempt < max_retries {
-                    attempt += 1;
-                    let delay =
-                        compute_retry_backoff_ms(attempt, false, retry_after.as_deref());
-                    tokio::time::sleep(Duration::from_millis(delay)).await;
-                    continue;
-                }
-
                 let preview: String = err_txt.chars().take(240).collect();
+                if is_throttle {
+                    return Err(format!(
+                        "Rate limit (RPM/TPM) from provider (HTTP {}): {}",
+                        status_code, preview
+                    ));
+                }
                 return Err(format!("HTTP {} from provider: {}", status_code, preview));
             }
             Err(net_err) => {

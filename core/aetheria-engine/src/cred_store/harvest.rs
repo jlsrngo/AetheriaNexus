@@ -163,6 +163,10 @@ pub fn harvest_kiro() -> Option<CredentialEntry> {
                                 .get("region")
                                 .and_then(|v| v.as_str())
                                 .map(|s| s.to_string()),
+                            profile_arn: data
+                                .get("profileArn")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string()),
                             account_info: None,
                             updated_at: now_iso(),
                             auto_harvested: true,
