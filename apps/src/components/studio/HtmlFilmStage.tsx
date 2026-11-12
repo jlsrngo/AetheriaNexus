@@ -5,7 +5,18 @@ import { SceneAudioSync } from "./SceneAudioSync";
 import {
   type HtmlFilmDescriptor,
   prepareInjectedHtml,
+  resolveWorkspaceAssetUrl,
 } from "./htmlStageBundle";
+import { apiFetch } from "../../lib/api";
+import {
+  STAGE_MSG_ASSET_REQUEST,
+  STAGE_MSG_ASSET_RESPONSE,
+  STAGE_MSG_ERROR,
+  STAGE_MSG_READY,
+  STAGE_MSG_RENDER_AT,
+  isTrustedStageMessageSource,
+  normalizeSandboxedAssetPath,
+} from "./htmlStageBridge";
 
 export {
   type HtmlFilmScene,
@@ -16,27 +27,9 @@ export {
   prepareInjectedHtml,
 } from "./htmlStageBundle";
 
-interface FrameWindow extends Window {
-  renderAt?: (t: number) => void;
-  __ready?: boolean;
-  __aetheriaHostTime?: number;
-  __aetheriaInHostCall?: boolean;
-}
-
 export interface HtmlFilmStageProps {
   film: HtmlFilmDescriptor;
   onRuntimeError?: (err: string | null) => void;
-}
-
-function invokeHostRenderAt(win: FrameWindow, timeSec: number): void {
-  if (typeof win.renderAt !== "function") return;
-  win.__aetheriaHostTime = timeSec;
-  win.__aetheriaInHostCall = true;
-  try {
-    win.renderAt(timeSec);
-  } finally {
-    win.__aetheriaInHostCall = false;
-  }
 }
 
 /**
@@ -84,51 +77,102 @@ export const HtmlFilmStage: React.FC<HtmlFilmStageProps> = ({
     setIframeReady(false);
   }, [srcDoc]);
 
-  useEffect(() => {
-    if (!iframeReady) return;
-    const win = iframeRef.current?.contentWindow as FrameWindow | null;
-    if (!win || typeof win.renderAt !== "function") return;
-    try {
-      invokeHostRenderAt(win, frame / Math.max(1, fps));
-      onRuntimeError?.(null);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      onRuntimeError?.(msg);
-    }
-  }, [frame, fps, iframeReady, onRuntimeError]);
+  const frameRef = useRef(frame);
+  const fpsRef = useRef(fps);
+  frameRef.current = frame;
+  fpsRef.current = fps;
 
-  const handleLoad = () => {
-    const win = iframeRef.current?.contentWindow as FrameWindow | null;
-    const syncFrame = () => {
-      if (win && typeof win.renderAt === "function") {
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent<unknown>) => {
+      const targetWin = iframeRef.current?.contentWindow;
+      if (!isTrustedStageMessageSource(event.source, targetWin)) return;
+      if (!event.data || typeof event.data !== "object") return;
+      const msg = event.data as Record<string, unknown>;
+
+      if (msg.type === STAGE_MSG_READY) {
         setIframeReady(true);
-        try {
-          invokeHostRenderAt(win, frame / Math.max(1, fps));
-          onRuntimeError?.(null);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          onRuntimeError?.(msg);
+        onRuntimeError?.(null);
+        targetWin?.postMessage(
+          {
+            type: STAGE_MSG_RENDER_AT,
+            timeSec: frameRef.current / Math.max(1, fpsRef.current),
+          },
+          "*",
+        );
+        return;
+      }
+
+      if (msg.type === STAGE_MSG_ERROR) {
+        const message = typeof msg.message === "string" ? msg.message : "Stage script error";
+        onRuntimeError?.(message);
+        return;
+      }
+
+      if (msg.type === STAGE_MSG_ASSET_REQUEST) {
+        const requestId = msg.id;
+        const safeRel = normalizeSandboxedAssetPath(msg.path);
+        const resolvedUrl = safeRel ? resolveWorkspaceAssetUrl(safeRel, film.activeDir) : null;
+        if (!resolvedUrl) {
+          targetWin?.postMessage(
+            {
+              type: STAGE_MSG_ASSET_RESPONSE,
+              id: requestId,
+              ok: false,
+              status: 403,
+              contentType: "text/plain",
+              buffer: new ArrayBuffer(0),
+            },
+            "*",
+          );
+          return;
         }
+        void apiFetch(resolvedUrl)
+          .then(async (res) => {
+            const buffer = await res.arrayBuffer();
+            const contentType = res.headers.get("content-type") || "application/octet-stream";
+            targetWin?.postMessage(
+              {
+                type: STAGE_MSG_ASSET_RESPONSE,
+                id: requestId,
+                ok: res.ok,
+                status: res.status,
+                contentType,
+                buffer,
+              },
+              "*",
+              [buffer],
+            );
+          })
+          .catch(() => {
+            targetWin?.postMessage(
+              {
+                type: STAGE_MSG_ASSET_RESPONSE,
+                id: requestId,
+                ok: false,
+                status: 500,
+                contentType: "text/plain",
+                buffer: new ArrayBuffer(0),
+              },
+              "*",
+            );
+          });
       }
     };
 
-    if (win?.__ready && typeof win.renderAt === "function") {
-      syncFrame();
-      return;
-    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [film.activeDir, onRuntimeError]);
 
-    let tries = 0;
-    const timer = window.setInterval(() => {
-      tries += 1;
-      if (win && (win.__ready || typeof win.renderAt === "function")) {
-        window.clearInterval(timer);
-        syncFrame();
-      } else if (tries > 50) {
-        window.clearInterval(timer);
-        setIframeReady(true);
-      }
-    }, 100);
-  };
+  useEffect(() => {
+    if (!iframeReady) return;
+    iframeRef.current?.contentWindow?.postMessage(
+      {
+        type: STAGE_MSG_RENDER_AT,
+        timeSec: frame / Math.max(1, fps),
+      },
+      "*",
+    );
+  }, [frame, fps, iframeReady]);
 
   const safeW = Math.max(1, width);
   const safeH = Math.max(1, height);
@@ -153,8 +197,7 @@ export const HtmlFilmStage: React.FC<HtmlFilmStageProps> = ({
           ref={iframeRef}
           title={film.title || "Aetheria HTML Film"}
           srcDoc={srcDoc}
-          onLoad={handleLoad}
-          sandbox="allow-scripts allow-same-origin"
+          sandbox="allow-scripts"
           style={{
             width: `${safeW}px`,
             height: `${safeH}px`,

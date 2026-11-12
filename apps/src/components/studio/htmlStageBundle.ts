@@ -1,4 +1,5 @@
-import { API_BASE, activeDirectory, apiFetch } from "../../lib/api";
+import { API_BASE, activeDirectory, apiFetch, appendEngineAuthToken } from "../../lib/api";
+import { buildSandboxStageBridgeScript } from "./htmlStageBridge";
 
 export interface HtmlFilmScene {
   id: string;
@@ -71,7 +72,8 @@ export function resolveWorkspaceAssetUrl(
   const clean = trimmed.replace(/^(\.\/|\/)+/, "").replace(/\\/g, "/");
   const dir = dirOverride ?? activeDirectory();
   const baseUrl = `${API_BASE}/studio/ws-asset/${clean}`;
-  return dir ? `${baseUrl}?directory=${encodeURIComponent(dir)}` : baseUrl;
+  const withDir = dir ? `${baseUrl}?directory=${encodeURIComponent(dir)}` : baseUrl;
+  return appendEngineAuthToken(withDir);
 }
 
 /**
@@ -121,84 +123,8 @@ export async function loadWorkspaceHtmlFilm(): Promise<HtmlFilmDescriptor | null
   };
 }
 
-function escapeJsString(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
-
-function buildAssetShimScript(activeDir: string | null): string {
-  const safeApiBase = escapeJsString(API_BASE);
-  const safeDir = escapeJsString(activeDir ?? "");
-  return `<script>
-(function () {
-  var apiBase = "${safeApiBase}";
-  var activeDir = "${safeDir}";
-  function rewriteAssetUrl(url) {
-    if (typeof url !== "string") return url;
-    var trimmed = url.trim();
-    if (!trimmed || /^https?:\\/\\//i.test(trimmed) || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
-      return url;
-    }
-    if (trimmed.startsWith("/api/")) {
-      return apiBase.replace(/\\/api$/, "") + trimmed;
-    }
-    var clean = trimmed.replace(/^(\\.\\/|\\/)+/, "");
-    if (/^(audio|img|public|script|assets|sfx|fonts)\\//i.test(clean)) {
-      var target = apiBase + "/studio/ws-asset/" + clean;
-      return activeDir ? target + "?directory=" + encodeURIComponent(activeDir) : target;
-    }
-    return url;
-  }
-  window.__resolveAssetUrl = rewriteAssetUrl;
-  var origFetch = window.fetch;
-  if (typeof origFetch === "function") {
-    window.fetch = function (input, init) {
-      if (typeof input === "string") {
-        input = rewriteAssetUrl(input);
-      } else if (input && typeof input.url === "string") {
-        input = new Request(rewriteAssetUrl(input.url), input);
-      }
-      return origFetch.call(this, input, init);
-    };
-  }
-  var imgProto = window.HTMLImageElement && window.HTMLImageElement.prototype;
-  if (imgProto) {
-    var desc = Object.getOwnPropertyDescriptor(imgProto, "src");
-    if (desc && typeof desc.set === "function") {
-      Object.defineProperty(imgProto, "src", {
-        configurable: true,
-        enumerable: true,
-        get: function () { return desc.get ? desc.get.call(this) : ""; },
-        set: function (val) { desc.set.call(this, rewriteAssetUrl(String(val))); }
-      });
-    }
-  }
-  var rawRenderAt = null;
-  try {
-    Object.defineProperty(window, "renderAt", {
-      configurable: true,
-      enumerable: true,
-      get: function () {
-        if (typeof rawRenderAt !== "function") return rawRenderAt;
-        return function (t) {
-          var targetT = t;
-          if (
-            !window.__aetheriaInHostCall &&
-            typeof window.__aetheriaHostTime === "number" &&
-            targetT === 0 &&
-            window.__aetheriaHostTime !== 0
-          ) {
-            targetT = window.__aetheriaHostTime;
-          }
-          return rawRenderAt.call(this, targetT);
-        };
-      },
-      set: function (fn) {
-        rawRenderAt = typeof fn === "function" ? fn : null;
-      }
-    });
-  } catch (e) {}
-})();
-</script><style data-aetheria-stage-chrome>
+function buildAssetShimScript(_activeDir: string | null): string {
+  return `${buildSandboxStageBridgeScript()}<style data-aetheria-stage-chrome>
 #loading, #controls, .aetheria-standalone-controls, [data-aetheria-standalone-chrome] {
   display: none !important;
   opacity: 0 !important;
