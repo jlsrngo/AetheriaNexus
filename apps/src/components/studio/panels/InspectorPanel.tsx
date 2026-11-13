@@ -36,7 +36,6 @@ const NAMED_COLOR_TO_HEX: Record<string, string> = {
   rose: "#f43f5e",
   amber: "#f59e0b",
   cyan: "#06b6d4",
-  emerald: "#06b6d4",
 };
 
 function toHexColor(val?: string): string {

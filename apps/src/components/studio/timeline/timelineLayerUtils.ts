@@ -1,7 +1,7 @@
 import type { VideoLayerSpec } from "../../../types/video";
 import type { HtmlFilmScene } from "../HtmlFilmStage";
 
-const SCENE_COLORS = ["amber", "sky", "violet", "emerald", "rose", "cyan"] as const;
+const SCENE_COLORS = ["amber", "sky", "violet", "indigo", "rose", "cyan"] as const;
 
 export interface FilmMetaLintIssue {
   severity: string;
@@ -145,14 +145,6 @@ export const PREMIERE_PALETTES: Record<string, PremiereClipPalette> = {
     dot: "bg-[#CBD5E1]",
     handle: "bg-[#475569] hover:bg-[#64748B]",
   },
-  emerald: {
-    badge: "text-[#A7F3D0] bg-[#064E3B] border-[#059669]",
-    icon: "text-[#34D399]",
-    clip: "bg-[#065F46] border-[#10B981] text-[#ECFDF5]",
-    selected: "ring-1 ring-[#6EE7B7] border-[#6EE7B7] bg-[#047857]",
-    dot: "bg-[#34D399]",
-    handle: "bg-[#059669] hover:bg-[#10B981]",
-  },
 };
 
 export const PALETTE_CYCLE = [
@@ -168,7 +160,6 @@ export const PALETTE_CYCLE = [
   "blue",
   "purple",
   "slate",
-  "emerald",
 ] as const;
 
 const DEFAULT_LAYER_PALETTE_BY_ID: Record<string, keyof typeof PREMIERE_PALETTES> = {
@@ -229,7 +220,7 @@ export function buildDynamicHtmlSceneLayers(
       label: `Audio: ${meta.title || "HTML Motion Voiceover"}`,
       kind: "audio",
       content: `${scenes.length} Scene Audio Tracks`,
-      color: "emerald",
+      color: "cyan",
       from: 0,
       durationInFrames: Math.max(1, meta.totalFrames || totalFrames),
       visible: true,

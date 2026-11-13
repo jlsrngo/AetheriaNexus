@@ -63,7 +63,6 @@ const CAPTION_QUICK_COLORS = [
 const resolveCaptionHex = (styleOrHex: string): string => {
   if (/^#[0-9a-fA-F]{6}$/.test(styleOrHex)) return styleOrHex.toUpperCase();
   if (styleOrHex === "beast-yellow") return "#F59E0B";
-  if (styleOrHex === "neon-green") return "#00F2FE";
   return "#00F2FE";
 };
 

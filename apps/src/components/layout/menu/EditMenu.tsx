@@ -26,7 +26,7 @@ interface EditMenuProps extends BaseMenuProps {
 
 const THEME_ORDER: Array<NexusVideoProps["themeColor"]> = [
   "orange",
-  "emerald",
+  "indigo",
   "violet",
   "rose",
   "amber",

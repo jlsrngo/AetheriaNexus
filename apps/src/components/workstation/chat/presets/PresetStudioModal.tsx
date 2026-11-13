@@ -79,16 +79,16 @@ export function PresetStudioModal({
                 className={cn(
                   "group relative text-left p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between min-h-[210px]",
                   focusedSide === "audio"
-                    ? "bg-emerald-500/[0.08] border-emerald-500/60 shadow-sm"
+                    ? "bg-amber-500/[0.08] border-amber-500/60 shadow-sm"
                     : "bg-[var(--bg-panel)] border-[var(--border-color)] hover:border-[var(--border-strong)]"
                 )}
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
                       <Mic className="w-5 h-5" />
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                       Kiri • Audio
                     </span>
                   </div>
@@ -103,7 +103,7 @@ export function PresetStudioModal({
                   </div>
                 </div>
 
-                <div className="pt-3 mt-3 border-t border-[var(--border-color)] flex items-center justify-between text-[11px] font-medium text-emerald-400">
+                <div className="pt-3 mt-3 border-t border-[var(--border-color)] flex items-center justify-between text-[11px] font-medium text-amber-400">
                   <span className="inline-flex items-center gap-1">
                     <Sliders className="w-3 h-3" />
                     Manual & AI Voice Tuning

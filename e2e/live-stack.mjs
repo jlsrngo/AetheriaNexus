@@ -1,4 +1,5 @@
 import http from "node:http";
+import net from "node:net";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -256,13 +257,38 @@ async function startMockLlmServer() {
   };
 }
 
+async function findAvailablePort(preferredPort) {
+  const tryListen = (port) =>
+    new Promise((resolve) => {
+      const srv = net.createServer();
+      srv.unref();
+      srv.once("error", () => resolve(null));
+      srv.listen(port, "127.0.0.1", () => {
+        const addr = srv.address();
+        const chosen = typeof addr === "object" && addr ? addr.port : port;
+        srv.close(() => resolve(chosen));
+      });
+    });
+
+  if (preferredPort) {
+    const ok = await tryListen(preferredPort);
+    if (ok) return ok;
+  }
+  const fallback = await tryListen(0);
+  if (!fallback) {
+    throw new Error("Could not allocate an ephemeral localhost port for E2E engine");
+  }
+  return fallback;
+}
+
 /**
  * @param {{ aetheriaConfig?: unknown, startWeb?: boolean, enginePort?: number }} [options]
  *   aetheriaConfig: replace the default mock-provider config (parity harness points
  *   the engine at its own fake provider). startWeb: skip Vite when no UI is needed.
  */
 export async function startLiveStack(options = {}) {
-  const { aetheriaConfig, startWeb = true, enginePort = 4196 } = options;
+  const { aetheriaConfig, startWeb = true } = options;
+  const enginePort = options.enginePort ?? (await findAvailablePort(4196));
   const repoRoot = repoRootDir();
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aetheria-e2e-"));
   const homeDir = path.join(tempRoot, "home");
@@ -375,6 +401,7 @@ export async function startLiveStack(options = {}) {
           cwd: path.join(repoRoot, "apps"),
           env: {
             ...process.env,
+            AETHERIA_API: engineUrl,
             VITE_AETHERIA_SERVER_USER: authUser,
             VITE_AETHERIA_SERVER_PASSWORD: authPass,
           },

@@ -369,7 +369,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                 ) : isIncomplete ? (
                   <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 ) : (
-                  <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <Check className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" />
                 )}
                 <span className="truncate font-medium">{summary}</span>
               </div>

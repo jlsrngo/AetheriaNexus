@@ -305,7 +305,7 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
                         {msgCount} messages {s.directory ? `• ${s.directory.split(/[\\/]/).pop()}` : ""}
                       </p>
                     </div>
-                    {isActive && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                    {isActive && <Check className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" />}
                   </button>
                 );
               })

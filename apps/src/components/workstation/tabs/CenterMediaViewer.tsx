@@ -241,7 +241,7 @@ export const CenterMediaViewer = memo(function CenterMediaViewer({
         ) : kind === "audio" ? (
           <div className="max-w-md w-full rounded-[12px] bg-[#121215] border border-[#26262C] p-6 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-[10px] bg-[#1A1A1F] border border-[#26262C] flex items-center justify-center text-emerald-400 shrink-0">
+              <div className="w-11 h-11 rounded-[10px] bg-[#1A1A1F] border border-[#26262C] flex items-center justify-center text-[var(--text-primary)] shrink-0">
                 <Music className="w-5 h-5" />
               </div>
               <div className="min-w-0 flex-1">

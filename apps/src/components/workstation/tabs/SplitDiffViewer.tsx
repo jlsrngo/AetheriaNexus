@@ -216,7 +216,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
                   key={`right-${row.id}`}
                   className={cn(
                     "flex items-stretch min-h-[20px] px-0 relative",
-                    isAdd && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+                    isAdd && "bg-sky-500/15 text-sky-700 dark:text-sky-400",
                     isEmpty && "select-none"
                   )}
                   style={isEmpty ? { backgroundImage: HATCHED_PATTERN } : undefined}
@@ -225,7 +225,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
                   <div
                     className={cn(
                       "w-12 text-right pr-2.5 select-none text-[11px] font-mono shrink-0 border-r border-transparent",
-                      isAdd ? "text-emerald-700 dark:text-emerald-400 font-semibold" : "text-[var(--text-dim)]"
+                      isAdd ? "text-sky-700 dark:text-sky-400 font-semibold" : "text-[var(--text-dim)]"
                     )}
                   >
                     {row.right.lineNumber !== undefined
@@ -237,7 +237,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
                   <pre
                     className={cn(
                       "flex-1 font-mono text-[12px] pl-3 pr-2 whitespace-pre m-0 p-0 overflow-visible",
-                      isAdd ? "text-emerald-800 dark:text-emerald-300" : "text-[var(--text-primary)]"
+                      isAdd ? "text-sky-800 dark:text-sky-300" : "text-[var(--text-primary)]"
                     )}
                   >
                     {row.right.content}

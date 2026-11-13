@@ -1,6 +1,6 @@
 import type { NexusVideoProps } from "./video";
 
-export type StudioThemeColor = "orange" | "emerald" | "violet" | "rose" | "amber" | "cyan";
+export type StudioThemeColor = "orange" | "indigo" | "violet" | "rose" | "amber" | "cyan";
 
 export interface StudioComposition {
   id: string;

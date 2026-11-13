@@ -11,7 +11,7 @@ const buttonVariants = cva(
         default:
           "bg-white text-black border border-white hover:bg-neutral-200 font-semibold shadow-sm",
         brand:
-          "bg-emerald-500 text-black border border-emerald-500 hover:bg-emerald-400 font-semibold shadow-sm",
+          "bg-[var(--text-primary)] text-[var(--bg-app)] border border-[var(--text-primary)] hover:opacity-90 font-semibold shadow-sm",
         destructive:
           "bg-rose-600 text-white border border-rose-600 hover:bg-rose-500 font-semibold shadow-sm",
         outline:

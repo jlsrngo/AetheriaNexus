@@ -23,7 +23,7 @@ export function getSubagentMeta(agent?: string): SubagentBadgeMeta | null {
     return { name: "Motion Engineer", Icon: Film, color: "text-indigo-400" };
   }
   if (lower.includes("asset") || lower.includes("image") || lower.includes("curator")) {
-    return { name: "Asset Curator", Icon: ImageIcon, color: "text-emerald-400" };
+    return { name: "Asset Curator", Icon: ImageIcon, color: "text-[var(--text-primary)]" };
   }
   if (lower.includes("research") || lower.includes("analyst")) {
     return { name: "Research Assistant", Icon: FileSearch, color: "text-sky-400" };

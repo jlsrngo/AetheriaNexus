@@ -24,7 +24,7 @@ function getLatestActivityText(track: SubagentTrackState): string {
 function TrackStatusBadge({ status }: { status: SubagentTrackState["status"] }) {
   if (status === "running") {
     return (
-      <span className="px-1.5 py-0.5 rounded-[var(--radius-pill)] bg-emerald-500/12 border border-emerald-500/35 font-mono text-[9px] text-emerald-500 shrink-0">
+      <span className="px-1.5 py-0.5 rounded-[var(--radius-pill)] bg-[var(--bg-panel)] border border-[var(--border-strong)] font-mono text-[9px] text-[var(--text-primary)] shrink-0">
         aktif
       </span>
     );
@@ -79,18 +79,18 @@ export const SubagentActivityBar: React.FC<SubagentActivityBarProps> = ({ tracks
       className={cn(
         "mb-2 w-full min-w-0 border transition-colors overflow-hidden bg-[var(--bg-card)]",
         expanded ? "rounded-[var(--radius-card)]" : "rounded-[var(--radius-pill)]",
-        hasRunning ? "border-emerald-500/45" : "border-amber-500/40",
+        hasRunning ? "border-[var(--border-strong)]" : "border-amber-500/40",
       )}
     >
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
-        className="w-full px-3 py-1.5 flex items-center justify-between gap-2 text-left hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400/60 transition-colors cursor-pointer min-w-0"
+        className="w-full px-3 py-1.5 flex items-center justify-between gap-2 text-left hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-strong)] transition-colors cursor-pointer min-w-0"
         title={primaryText}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {hasRunning ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400 shrink-0" />
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400 shrink-0" />
           ) : (
             <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
           )}
@@ -122,13 +122,13 @@ export const SubagentActivityBar: React.FC<SubagentActivityBarProps> = ({ tracks
             >
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 {track.status === "running" ? (
-                  <Loader2 className="w-3 h-3 animate-spin text-emerald-400 shrink-0" />
+                  <Loader2 className="w-3 h-3 animate-spin text-amber-400 shrink-0" />
                 ) : track.status === "standby" ? (
                   <Clock className="w-3 h-3 text-amber-500 shrink-0" />
                 ) : track.status === "failed" ? (
                   <X className="w-3 h-3 text-rose-500 shrink-0" />
                 ) : (
-                  <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                  <Check className="w-3 h-3 text-[var(--text-primary)] shrink-0" />
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 min-w-0">

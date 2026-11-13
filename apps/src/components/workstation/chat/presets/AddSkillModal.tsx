@@ -80,7 +80,7 @@ export function AddSkillModal({ open, onClose, onSkillRegistered }: AddSkillModa
               Tambah Skill Baru ke .aetheria
             </h2>
             <p className="text-xs text-[var(--text-secondary)]">
-              Daftarkan file instruksi/brief markdown (.md) ke direktori terisolasi <code className="text-emerald-400">.aetheria/skills/</code>. Skill otomatis terdaftar di menu slash command (/).
+              Daftarkan file instruksi/brief markdown (.md) ke direktori terisolasi <code className="text-[var(--text-primary)] font-mono">.aetheria/skills/</code>. Skill otomatis terdaftar di menu slash command (/).
             </p>
           </div>
 
@@ -91,7 +91,7 @@ export function AddSkillModal({ open, onClose, onSkillRegistered }: AddSkillModa
               <label className="text-xs font-medium text-[var(--text-primary)] flex items-center justify-between">
                 <span>Nama Skill</span>
                 {cleanSlug && (
-                  <span className="font-mono text-[10px] text-emerald-400">/{cleanSlug}</span>
+                  <span className="font-mono text-[10px] text-[var(--text-secondary)]">/{cleanSlug}</span>
                 )}
               </label>
               <input
@@ -150,10 +150,10 @@ export function AddSkillModal({ open, onClose, onSkillRegistered }: AddSkillModa
               onClick={handleRegister}
               disabled={isLoading || !cleanSlug || !filePath}
               className={cn(
-                "inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-lg text-white transition-all shadow-sm",
+                "inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all shadow-sm",
                 isLoading || !cleanSlug || !filePath
-                  ? "bg-emerald-600/50 cursor-not-allowed text-white/60"
-                  : "bg-emerald-600 hover:bg-emerald-500 cursor-pointer active:scale-95"
+                  ? "bg-[var(--text-primary)]/45 cursor-not-allowed text-[var(--bg-app)]/60"
+                  : "bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 cursor-pointer active:scale-95"
               )}
             >
               {isLoading ? (

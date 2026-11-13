@@ -24,7 +24,7 @@ export function LiveDocumentPreview({ status }: LiveDocumentPreviewProps) {
     <div className="my-2 rounded-lg bg-[var(--bg-panel-sub)] border border-[var(--border-color)] overflow-hidden text-[11px] font-mono animate-fade-in max-w-sm">
       <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-panel)] border-b border-[var(--border-color)]">
         {isExcel ? (
-          <FileSpreadsheet size={13} className="text-emerald-500" />
+          <FileSpreadsheet size={13} className="text-[var(--text-primary)]" />
         ) : (
           <FileText size={13} className="text-blue-500" />
         )}

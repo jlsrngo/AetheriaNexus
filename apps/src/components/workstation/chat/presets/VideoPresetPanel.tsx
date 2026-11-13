@@ -247,8 +247,8 @@ ${customNote}`;
         </div>
 
         {extractedReport && (
-          <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2 text-[11px] text-emerald-300">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <div className="p-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-strong)] flex items-center gap-2 text-[11px] text-[var(--text-primary)]">
+            <CheckCircle2 className="w-4 h-4 text-[var(--text-primary)] shrink-0" />
             <span className="truncate">
               Blueprint terekstrak ke <code>workspace/ref/extracted/ref_report.md</code>
             </span>

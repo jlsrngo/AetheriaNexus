@@ -377,7 +377,7 @@ export const ScriptPanel = memo(function ScriptPanel({
             {allScriptFiles.length === 1 ? "script file" : "script files"}
           </span>
           <div className="flex items-center gap-2 font-mono">
-            <span className="text-emerald-400 font-medium">+{totalAdded}</span>
+            <span className="text-[var(--text-primary)] font-medium">+{totalAdded}</span>
             <span className="text-rose-400/80">-{totalRemoved}</span>
           </div>
         </div>
@@ -425,7 +425,7 @@ export const ScriptPanel = memo(function ScriptPanel({
 
                   {/* Monospace Diff Counter (+N -M) */}
                   <div className="flex items-center gap-1 font-mono text-[11px] shrink-0 min-w-[54px]">
-                    <span className="text-emerald-400 font-medium">
+                    <span className="text-[var(--text-primary)] font-medium">
                       +{file.addedLines}
                     </span>
                     <span

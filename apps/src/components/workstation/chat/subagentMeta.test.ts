@@ -25,7 +25,7 @@ describe("getSubagentMeta", () => {
     expect(getSubagentMeta("assets")).toEqual({
       name: "Asset Curator",
       Icon: ImageIcon,
-      color: "text-emerald-400",
+      color: "text-[var(--text-primary)]",
     });
     expect(getSubagentMeta("research")).toEqual({
       name: "Research Assistant",

@@ -157,11 +157,11 @@ export function getFileIcon(name: string) {
     );
   }
 
-  // Images / Media (Soft Teal / Cyan)
+  // Images / Media (Soft Sky)
   if (["jpg", "jpeg", "png", "gif", "svg", "webp", "ico", "bmp", "tiff"].includes(ext)) {
     return (
       <FileImage
-        className="w-3.5 h-3.5 text-teal-600/85 dark:text-teal-400/80 shrink-0"
+        className="w-3.5 h-3.5 text-sky-600/85 dark:text-sky-400/80 shrink-0"
         strokeWidth={1.5}
       />
     );
@@ -177,11 +177,11 @@ export function getFileIcon(name: string) {
     );
   }
 
-  // Audio Files (Emerald)
+  // Audio Files (Amber)
   if (["wav", "mp3", "ogg", "m4a", "aac", "flac", "opus"].includes(ext)) {
     return (
       <FileAudio
-        className="w-3.5 h-3.5 text-emerald-400 shrink-0"
+        className="w-3.5 h-3.5 text-amber-400 shrink-0"
         strokeWidth={1.75}
       />
     );

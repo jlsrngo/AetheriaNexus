@@ -225,7 +225,7 @@ export const EmptyHtmlStage: React.FC<EmptyHtmlStageProps> = ({
   <div className="w-full h-full flex flex-col items-center justify-center bg-[#0A0A0C] text-[#FAFAFA] px-10 text-center select-none border border-[#26262C]">
     <div className="w-16 h-16 rounded-2xl bg-[#121215] border border-[#26262C] flex items-center justify-center mb-5">
       {activeFolder ? (
-        <Film className="w-7 h-7 text-emerald-400" />
+        <Film className="w-7 h-7 text-[#FAFAFA]" />
       ) : (
         <FolderOpen className="w-7 h-7 text-[#8E8E98]" />
       )}

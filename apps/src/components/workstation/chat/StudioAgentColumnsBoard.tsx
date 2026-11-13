@@ -12,7 +12,7 @@ interface StudioAgentColumnsBoardProps {
 }
 
 function ColumnIcon({ role }: { role: StudioColumnRole }) {
-  if (role === "audio") return <Mic className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
+  if (role === "audio") return <Mic className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" />;
   if (role === "script") return <Code2 className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" />;
   return <Clapperboard className="w-3.5 h-3.5 text-amber-400 shrink-0" />;
 }
@@ -51,7 +51,7 @@ export const StudioAgentColumnsBoard: React.FC<StudioAgentColumnsBoardProps> = (
               "w-full min-w-0 rounded-[var(--radius-pill)] border overflow-hidden transition-colors",
               isOpen && "rounded-[var(--radius-card)]",
               isActiveRunning
-                ? "bg-[var(--bg-card)] border-emerald-500/45"
+                ? "bg-[var(--bg-card)] border-[var(--border-strong)]"
                 : isStandby
                 ? "bg-[var(--bg-card)] border-amber-500/40"
                 : isFailed
@@ -62,18 +62,18 @@ export const StudioAgentColumnsBoard: React.FC<StudioAgentColumnsBoardProps> = (
             <button
               type="button"
               onClick={() => toggleRole(col.role)}
-              className="w-full px-3 py-1.5 flex items-center justify-between gap-2 text-left hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400/60 transition-colors cursor-pointer min-w-0"
+              className="w-full px-3 py-1.5 flex items-center justify-between gap-2 text-left hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border-strong)] transition-colors cursor-pointer min-w-0"
               title={col.activeLabel}
             >
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 {isRunning || isActiveRunning ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400 shrink-0" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400 shrink-0" />
                 ) : isStandby ? (
                   <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 ) : isFailed ? (
                   <X className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                 ) : isDone ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <Check className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" />
                 ) : (
                   <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)]/60 mx-1 shrink-0" />
                 )}
@@ -120,12 +120,12 @@ export const StudioAgentColumnsBoard: React.FC<StudioAgentColumnsBoardProps> = (
                           className={cn(
                             "w-1.5 h-1.5 rounded-full shrink-0",
                             entry.status === "running"
-                              ? "bg-emerald-400 animate-pulse"
+                              ? "bg-amber-400 animate-pulse"
                               : entry.status === "standby"
                               ? "bg-amber-500"
                               : entry.status === "failed"
                               ? "bg-rose-400"
-                              : "bg-emerald-500/70",
+                              : "bg-[var(--text-primary)]/70",
                           )}
                         />
                         <span

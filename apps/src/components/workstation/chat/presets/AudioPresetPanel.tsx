@@ -298,13 +298,13 @@ ${note}
             <ArrowLeft className="w-3.5 h-3.5" />
           </button>
           <div className="flex items-center gap-1.5">
-            <Mic className="w-4 h-4 text-emerald-400" />
+            <Mic className="w-4 h-4 text-amber-400" />
             <h3 className="text-sm font-semibold text-[var(--text-primary)]">
               Audio & Voice Preset Studio
             </h3>
           </div>
         </div>
-        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
           Zero-LLM Manual & AI Tuning
         </span>
       </div>
@@ -323,7 +323,7 @@ ${note}
               className={cn(
                 "px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer",
                 !isCreatingNew && selectedId === id
-                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40"
+                  ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
                   : "bg-[var(--bg-panel)] text-[var(--text-secondary)] border-[var(--border-color)] hover:bg-[var(--bg-hover)]"
               )}
             >
@@ -336,7 +336,7 @@ ${note}
             className={cn(
               "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer",
               isCreatingNew
-                ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40"
+                ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
                 : "bg-[var(--bg-panel)] text-[var(--text-muted)] border-dashed border-[var(--border-strong)] hover:text-[var(--text-primary)]"
             )}
           >
@@ -393,7 +393,7 @@ ${note}
             onClick={() => fileInputRef.current?.click()}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-color)] cursor-pointer transition-colors"
           >
-            <Upload className="w-3 h-3 text-emerald-400" />
+            <Upload className="w-3 h-3 text-[var(--text-primary)]" />
             {uploadedFileName ? "Ganti Audio" : "Upload Referensi .WAV"}
           </button>
           <input
@@ -407,7 +407,7 @@ ${note}
 
         <div className="text-[10px] text-[var(--text-muted)] flex items-center gap-1.5">
           <span>File aktif:</span>
-          <code className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] text-emerald-400 font-mono">
+          <code className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] text-[var(--text-primary)] font-mono">
             {uploadedFileName || presets[selectedId]?.sampleFile || "aetheria_id.wav"}
           </code>
           <span>(Ideal: 6–9 detik, berhenti bersih di akhir kalimat)</span>
@@ -431,7 +431,7 @@ ${note}
       <div className="p-3 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <Sliders className="w-3.5 h-3.5 text-emerald-400" />
+            <Sliders className="w-3.5 h-3.5 text-amber-400" />
             <span className="text-[11px] font-medium text-[var(--text-primary)]">
               3. Tuning Intonasi Manual (Per Style)
             </span>
@@ -445,7 +445,7 @@ ${note}
                 className={cn(
                   "px-2 py-0.5 rounded-md text-[10px] font-medium border transition-colors cursor-pointer",
                   selectedStyle === st
-                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                    ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
                     : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)] hover:text-[var(--text-primary)]"
                 )}
               >
@@ -460,7 +460,7 @@ ${note}
           <div className="space-y-1 bg-[var(--bg-card)] p-2 rounded-lg border border-[var(--border-color)]">
             <div className="flex items-center justify-between text-[10px]">
               <span className="text-[var(--text-secondary)]">CFG (Lepas vs Tegas)</span>
-              <span className="font-mono text-emerald-400">{cfgValue.toFixed(2)}</span>
+              <span className="font-mono text-amber-400">{cfgValue.toFixed(2)}</span>
             </div>
             <input
               type="range"
@@ -469,7 +469,7 @@ ${note}
               step={0.02}
               value={cfgValue}
               onChange={(e) => setCfgValue(parseFloat(e.target.value))}
-              className="w-full accent-emerald-400 cursor-pointer"
+              className="w-full accent-amber-400 cursor-pointer"
             />
             <div className="flex justify-between text-[9px] text-[var(--text-dim)]">
               <span>1.20 (Lepas)</span>
@@ -482,7 +482,7 @@ ${note}
           <div className="space-y-1 bg-[var(--bg-card)] p-2 rounded-lg border border-[var(--border-color)]">
             <div className="flex items-center justify-between text-[10px]">
               <span className="text-[var(--text-secondary)]">Tempo Bicara (Rate)</span>
-              <span className="font-mono text-emerald-400">
+              <span className="font-mono text-amber-400">
                 {rate >= 0 ? `+${rate}%` : `${rate}%`}
               </span>
             </div>
@@ -493,7 +493,7 @@ ${note}
               step={1}
               value={rate}
               onChange={(e) => setRate(parseInt(e.target.value, 10))}
-              className="w-full accent-emerald-400 cursor-pointer"
+              className="w-full accent-amber-400 cursor-pointer"
             />
             <div className="flex justify-between text-[9px] text-[var(--text-dim)]">
               <span>-20%</span>
@@ -506,7 +506,7 @@ ${note}
           <div className="space-y-1 bg-[var(--bg-card)] p-2 rounded-lg border border-[var(--border-color)]">
             <div className="flex items-center justify-between text-[10px]">
               <span className="text-[var(--text-secondary)]">Nada Dasar (Pitch)</span>
-              <span className="font-mono text-emerald-400">
+              <span className="font-mono text-amber-400">
                 {pitch >= 0 ? `+${pitch}Hz` : `${pitch}Hz`}
               </span>
             </div>
@@ -517,7 +517,7 @@ ${note}
               step={1}
               value={pitch}
               onChange={(e) => setPitch(parseInt(e.target.value, 10))}
-              className="w-full accent-emerald-400 cursor-pointer"
+              className="w-full accent-amber-400 cursor-pointer"
             />
             <div className="flex justify-between text-[9px] text-[var(--text-dim)]">
               <span>-15Hz</span>
@@ -544,7 +544,7 @@ ${note}
               {isSaving ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
               ) : (
-                <Save className="w-3 h-3 text-emerald-400" />
+                <Save className="w-3 h-3 text-[var(--text-primary)]" />
               )}
               Simpan Preset
             </button>
@@ -553,7 +553,7 @@ ${note}
               type="button"
               onClick={handleTestVoice}
               disabled={isTesting}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium bg-emerald-500 hover:bg-emerald-600 text-black font-semibold cursor-pointer disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-app)] font-semibold cursor-pointer disabled:opacity-50 transition-colors"
             >
               {isTesting ? (
                 <>
@@ -579,10 +579,10 @@ ${note}
         />
 
         {previewAudioUrl && (
-          <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+          <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-strong)]">
             <div className="flex items-center gap-2">
-              <Check className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-[11px] text-emerald-300 font-medium">
+              <Check className="w-3.5 h-3.5 text-[var(--text-primary)]" />
+              <span className="text-[11px] text-[var(--text-primary)] font-medium">
                 Preview Hasil Tuning ({selectedId}:{selectedStyle})
               </span>
             </div>

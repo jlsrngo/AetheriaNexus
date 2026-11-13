@@ -50,7 +50,6 @@ export const COLOR_HEX_MAP: Record<string, string> = {
   sky: "#0EA5E9",
   cyan: "#06B6D4",
   blueprint: "#00E5FF",
-  emerald: "#10B981",
   slate: "#64748B",
 };
 

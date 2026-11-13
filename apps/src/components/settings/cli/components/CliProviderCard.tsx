@@ -31,7 +31,7 @@ const NEO_CLI_COLORS: Record<string, string> = {
   router9: "bg-[#FAF5FF]", // Soft Purple
   "9router": "bg-[#FAF5FF]", // Soft Purple
   claude: "bg-[#FFF1F2]", // Soft Rose
-  codex: "bg-[#ECFDF5]", // Soft Mint
+  codex: "bg-zinc-100", // Soft Neutral
 };
 
 interface CliProviderCardProps {

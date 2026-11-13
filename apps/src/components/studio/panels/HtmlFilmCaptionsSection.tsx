@@ -29,8 +29,8 @@ export const HtmlFilmCaptionsSection: React.FC<HtmlFilmCaptionsSectionProps> = (
       {/* Audio-Synced Subtitles Note */}
       <div className="p-2.5 rounded-[var(--radius-card)] bg-[var(--bg-card)] border border-[var(--border-color)] space-y-1.5">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3" />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-1.5">
+            <Sparkles className="w-3 h-3 text-amber-400" />
             HTML Audio & Word Sync
           </span>
           <span className="font-mono text-[9px] text-[var(--text-muted)]">
@@ -47,7 +47,7 @@ export const HtmlFilmCaptionsSection: React.FC<HtmlFilmCaptionsSectionProps> = (
       <div className="p-2.5 rounded-[var(--radius-card)] bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
-            <Music2 className="w-3 h-3 text-emerald-400" />
+            <Music2 className="w-3 h-3 text-amber-400" />
             Scene Audio Cues
           </span>
           <span className="font-mono text-[9px] text-[var(--text-muted)]">{effectiveFps} fps</span>
@@ -70,13 +70,13 @@ export const HtmlFilmCaptionsSection: React.FC<HtmlFilmCaptionsSectionProps> = (
                   onClick={() => onSeekFrame(scene.startFrame)}
                   className={`w-full text-left p-2 rounded-[var(--radius-control)] border transition-colors cursor-pointer ${
                     isCurrent
-                      ? "bg-emerald-500/10 border-emerald-500/35 text-[var(--text-primary)]"
+                      ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-primary)]"
                       : "bg-[var(--bg-input)] border-[var(--border-color)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2 text-[11px]">
                     <span className="truncate font-medium flex items-center gap-1.5 text-[var(--text-primary)]">
-                      <Play className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                      <Play className="w-2.5 h-2.5 text-[var(--text-primary)] shrink-0" />
                       {idx + 1}. {scene.title || scene.id}
                     </span>
                     <span className="font-mono text-[9px] text-[var(--text-muted)] shrink-0">
@@ -101,7 +101,7 @@ export const HtmlFilmCaptionsSection: React.FC<HtmlFilmCaptionsSectionProps> = (
         <div className="p-2.5 rounded-[var(--radius-card)] bg-[var(--bg-card)] border border-[var(--border-color)] space-y-1.5">
           <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
             <span className="flex items-center gap-1.5">
-              <Captions className="w-3 h-3 text-emerald-400" />
+              <Captions className="w-3 h-3 text-[var(--text-primary)]" />
               Active Word / Caption Cues
             </span>
             <span className="font-mono">{subtitleCues.length}</span>

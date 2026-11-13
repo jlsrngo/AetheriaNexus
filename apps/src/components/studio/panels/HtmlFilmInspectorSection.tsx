@@ -50,7 +50,7 @@ export const HtmlFilmInspectorSection: React.FC<HtmlFilmInspectorSectionProps> =
           onClick={() => setShowMetaJson((v) => !v)}
           className={`flex items-center gap-1 px-2 py-0.5 rounded-[var(--radius-pill)] text-[10px] font-medium border transition-colors ${
             showMetaJson
-              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+              ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-primary)]"
               : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
           }`}
         >
@@ -72,7 +72,7 @@ export const HtmlFilmInspectorSection: React.FC<HtmlFilmInspectorSectionProps> =
                 {readiness.status === "warning" ? (
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 ) : (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" />
                 )}
                 <span className="text-[11px] font-medium text-[var(--text-primary)] truncate">
                   {readiness.label}
@@ -94,7 +94,7 @@ export const HtmlFilmInspectorSection: React.FC<HtmlFilmInspectorSectionProps> =
                     key={chk.label}
                     className={`px-1.5 py-0.5 rounded-[var(--radius-control)] border font-mono text-[9px] ${
                       chk.ok
-                        ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+                        ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-primary)]"
                         : "bg-amber-500/10 border-amber-500/25 text-amber-300"
                     }`}
                   >
@@ -122,10 +122,10 @@ export const HtmlFilmInspectorSection: React.FC<HtmlFilmInspectorSectionProps> =
 
           {/* Now Playing Scene synced with Playhead */}
           {activeEntry ? (
-            <div className="p-2.5 rounded-[var(--radius-card)] bg-[var(--bg-card)] border border-emerald-500/25 space-y-1.5">
+            <div className="p-2.5 rounded-[var(--radius-card)] bg-[var(--bg-card)] border border-[var(--border-strong)] space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
-                  <Sparkles className="w-2.5 h-2.5" />
+                <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5 text-amber-400" />
                   Now Playing · Scene {activeEntry.index + 1}
                 </span>
                 <span className="font-mono text-[9px] text-[var(--text-muted)]">
@@ -137,7 +137,7 @@ export const HtmlFilmInspectorSection: React.FC<HtmlFilmInspectorSectionProps> =
               </p>
               <div className="flex items-center justify-between gap-2 text-[10px] text-[var(--text-muted)]">
                 <span className="flex items-center gap-1 truncate font-mono">
-                  <Music2 className="w-3 h-3 text-emerald-400/80 shrink-0" />
+                  <Music2 className="w-3 h-3 text-amber-400/80 shrink-0" />
                   {formatAudioTrackLabel(activeEntry.scene.audio)}
                 </span>
                 <span className="font-mono shrink-0">
@@ -176,7 +176,7 @@ export const HtmlFilmInspectorSection: React.FC<HtmlFilmInspectorSectionProps> =
                       onClick={() => onSeekFrame(scene.startFrame)}
                       className={`w-full text-left p-2 rounded-[var(--radius-card)] border transition-colors ${
                         isCurrent
-                          ? "bg-emerald-500/10 border-emerald-500/35 text-[var(--text-primary)]"
+                          ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-primary)]"
                           : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                       }`}
                     >

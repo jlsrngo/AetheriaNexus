@@ -405,7 +405,7 @@ function renderStepIcon(step: StepItem) {
     return <Film size={12} className="text-rose-400 shrink-0 mt-0.5" />;
   }
   if (t.includes("voicebox") || t.includes("voiceover") || t.includes("tts")) {
-    return <Volume2 size={12} className="text-emerald-400 shrink-0 mt-0.5" />;
+    return <Volume2 size={12} className="text-amber-400 shrink-0 mt-0.5" />;
   }
   if (t.includes("todo") || t.includes("plan") || t.includes("checklist")) {
     return <ListChecks size={12} className="text-amber-400 shrink-0 mt-0.5" />;
@@ -554,7 +554,7 @@ export function LiveExecutionBadge({ status, active = true }: LiveExecutionBadge
                 ? `Frame ${status.renderedFrames} / ${status.totalFrames} (4-Shard Parallel Engine)`
                 : "Preparing 4 parallel browser shards & audio..."}
             </span>
-            <span className="text-emerald-400 font-medium">LIVE</span>
+            <span className="text-rose-400 font-medium">LIVE</span>
           </div>
         </div>
       )}
@@ -649,11 +649,19 @@ export function MessageThoughtBadge({
     <div className="w-full min-w-0 mb-1 font-sans select-none animate-in fade-in duration-150">
       {/* 1. Live / Completed Function Calling Card */}
       {hasToolExecution && (
-        <div className="mb-2 max-w-full w-full min-w-0 font-mono text-[11px] rounded-lg bg-[var(--bg-panel)] border border-[var(--border-color)] overflow-hidden select-none">
+        <div
+          className={cn(
+            "mb-2 max-w-full w-full min-w-0 font-mono text-[11px] bg-[var(--bg-panel)] border border-[var(--border-color)] overflow-hidden select-none transition-colors",
+            isToolCardOpen ? "rounded-[var(--radius-card)]" : "rounded-[var(--radius-pill)]"
+          )}
+        >
           <button
             type="button"
             onClick={() => setToolCardExpanded(!isToolCardOpen)}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 bg-[var(--bg-panel-sub)] hover:bg-[var(--bg-hover)] transition-colors border-b border-[var(--border-color)] cursor-pointer text-left"
+            className={cn(
+              "w-full flex items-center justify-between px-3 py-1.5 bg-[var(--bg-panel-sub)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer text-left",
+              isToolCardOpen && "border-b border-[var(--border-color)]"
+            )}
           >
             <div className="flex items-center gap-2 min-w-0">
               {hasRunningTool ? (
