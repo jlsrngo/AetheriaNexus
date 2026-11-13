@@ -255,13 +255,18 @@ process.on('SIGTERM', () => { stopAll(); process.exit(0); });
   const servicesStartMs = Date.now();
   const useBunFallback = process.env.AETHERIA_USE_BUN_ENGINE === '1';
   const exeExt = process.platform === 'win32' ? '.exe' : '';
+  const pickNewestExisting = (paths) => {
+    const existing = paths.filter((p) => fs.existsSync(p));
+    existing.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
+    return existing[0] || null;
+  };
   const rustCandidates = [
-    path.join(rootDir, 'apps', 'desktop', 'resources', `engine${exeExt}`),
-    path.join(rootDir, 'target', 'release', `aetheria-engine${exeExt}`),
-    path.join(rootDir, 'target', 'release', `aetheria${exeExt}`),
     path.join(rootDir, 'target', 'debug', `aetheria-engine${exeExt}`),
+    path.join(rootDir, 'target', 'release', `aetheria-engine${exeExt}`),
+    path.join(rootDir, 'apps', 'desktop', 'resources', `engine${exeExt}`),
+    path.join(rootDir, 'target', 'release', `aetheria${exeExt}`),
   ];
-  const rustBin = !useBunFallback ? rustCandidates.find((p) => fs.existsSync(p)) : null;
+  const rustBin = !useBunFallback ? pickNewestExisting(rustCandidates) : null;
 
   let engineChild = null;
   if (rustBin) {
@@ -273,9 +278,9 @@ process.on('SIGTERM', () => { stopAll(); process.exit(0); });
       onRestart: (c) => { engineChild = c; },
     });
   } else {
-    console.log(`[⏱️ +${formatElapsed()}] [dev-app] aetheria-engine belum di-compile, melakukan cargo build --release...`);
-    execSync('cargo build --release -p aetheria-engine -p aetheria-docs', { cwd: rootDir, stdio: 'inherit' });
-    const compiledBin = path.join(rootDir, 'target', 'release', `aetheria-engine${exeExt}`);
+    console.log(`[⏱️ +${formatElapsed()}] [dev-app] aetheria-engine belum di-compile, melakukan cargo build (debug)...`);
+    execSync('cargo build -p aetheria-engine --bin aetheria-engine', { cwd: rootDir, stdio: 'inherit' });
+    const compiledBin = path.join(rootDir, 'target', 'debug', `aetheria-engine${exeExt}`);
     engineChild = start('Engine', compiledBin, ['serve', '--port', '4096'], {
       restartOnCrash: true,
       port: 4096,
@@ -336,11 +341,12 @@ process.on('SIGTERM', () => { stopAll(); process.exit(0); });
   // Start Native Rust Desktop (WebView2)
   console.log(`[⏱️ +${formatElapsed()}] [dev-app] Menjalankan Native Rust Desktop (WebView2)... (0 Electron / Pure Native)`);
   const rustDesktopCandidates = [
+    path.join(rootDir, 'target', 'debug', 'aetheria-desktop' + exeExt),
+    path.join(rootDir, 'target', 'debug', 'aetheria' + exeExt),
     path.join(rootDir, 'target', 'release', 'aetheria' + exeExt),
     path.join(rootDir, 'target', 'release', 'aetheria-engine' + exeExt),
-    path.join(rootDir, 'target', 'debug', 'aetheria' + exeExt),
   ];
-  const desktopBin = rustDesktopCandidates.find((p) => fs.existsSync(p));
+  const desktopBin = pickNewestExisting(rustDesktopCandidates);
   const desktopEnv = {
     ...auth.engineEnv,
     AETHERIA_ENGINE_URL: 'http://127.0.0.1:4096',
@@ -361,7 +367,7 @@ process.on('SIGTERM', () => { stopAll(); process.exit(0); });
       process.exit(0);
     });
   } else {
-    console.error('Binary native desktop tidak ditemukan. Silakan jalankan: cargo build --release -p aetheria-engine');
+    console.error('Binary native desktop tidak ditemukan. Silakan jalankan: npm run tauri:dev atau cargo build --bin aetheria-engine');
   }
 
   // Keep parent alive so child processes aren't killed

@@ -14,6 +14,7 @@ import {
   Scissors,
   Gauge,
   Copy,
+  Volume1,
   Volume2,
   VolumeX,
   Trash2,
@@ -40,6 +41,8 @@ export interface TimelineHeaderToolbarProps {
   fps: number;
   isPlaying: boolean;
   playbackRate: number;
+  volume?: number;
+  isMuted?: boolean;
   timelineZoom: number;
   isSnapping: boolean;
   canUndo: boolean;
@@ -58,6 +61,8 @@ export interface TimelineHeaderToolbarProps {
   onTrimOut?: () => void;
   onSplit: () => void;
   onSpeedChange: (speed: 0.5 | 1 | 1.5 | 2) => void;
+  onVolumeChange?: (volume: number) => void;
+  onToggleMute?: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onToggleSnap: () => void;
@@ -75,6 +80,8 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
   fps,
   isPlaying,
   playbackRate,
+  volume = 1,
+  isMuted = false,
   timelineZoom,
   isSnapping,
   canUndo,
@@ -91,6 +98,8 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
   onTrimIn,
   onSplit,
   onSpeedChange,
+  onVolumeChange,
+  onToggleMute,
   onDuplicate,
   onDelete,
   onToggleSnap,
@@ -109,7 +118,9 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
   const [isRatioOpen, setIsRatioOpen] = useState(false);
   const [isSpeedOpen, setIsSpeedOpen] = useState(false);
   const [isFpsOpen, setIsFpsOpen] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+
+  const clampedVolume = Math.max(0, Math.min(1, Number.isFinite(volume) ? volume : 1));
+  const effectiveVolumePct = isMuted ? 0 : Math.round(clampedVolume * 100);
 
   const ratioRef = useRef<HTMLDivElement>(null);
   const speedRef = useRef<HTMLDivElement>(null);
@@ -520,29 +531,53 @@ export const TimelineHeaderToolbar: React.FC<TimelineHeaderToolbarProps> = ({
           {showToolLabels && <span className={cn("font-medium", toolLabelClass)}>Mirror</span>}
         </button>
 
-        {/* Volume */}
-        <button
-          type="button"
-          onClick={() => setIsMuted((m) => !m)}
-          title={isMuted ? "Unmute Audio" : "Mute Audio"}
+        {/* Volume (Mute Toggle + Gain Slider) */}
+        <div
           className={cn(
-            toolBtnClass,
-            isMuted
-              ? "text-rose-400 hover:text-rose-300 bg-rose-950/20"
-              : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
+            "h-8 px-1.5 flex items-center gap-1.5 border bg-[var(--bg-card)] rounded-[var(--radius-control)] shrink-0",
+            isMuted || effectiveVolumePct === 0
+              ? "border-rose-500/30 bg-rose-950/15"
+              : "border-[var(--border-color)]"
           )}
         >
-          {isMuted ? (
-            <VolumeX className={cn(toolIconClass, "text-rose-400")} />
-          ) : (
-            <Volume2 className={cn(toolIconClass, "transition-colors group-hover:text-white")} />
-          )}
-          {showToolLabels && (
-            <span className={cn("font-medium", toolLabelClass)}>
-              {isMuted ? "Muted" : "Volume"}
-            </span>
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={() => onToggleMute?.()}
+            aria-label={isMuted || effectiveVolumePct === 0 ? "Unmute Audio" : "Mute Audio"}
+            title={isMuted || effectiveVolumePct === 0 ? "Unmute Audio" : "Mute Audio"}
+            className={cn(
+              "p-1 rounded-[var(--radius-control)] transition-colors cursor-pointer",
+              isMuted || effectiveVolumePct === 0
+                ? "text-rose-400 hover:text-rose-300"
+                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+            )}
+          >
+            {isMuted || effectiveVolumePct === 0 ? (
+              <VolumeX className={cn(toolIconClass, "text-rose-400")} />
+            ) : effectiveVolumePct < 50 ? (
+              <Volume1 className={cn(toolIconClass, "transition-colors")} />
+            ) : (
+              <Volume2 className={cn(toolIconClass, "transition-colors")} />
+            )}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={effectiveVolumePct}
+            aria-label="Audio volume percentage"
+            onChange={(e) => {
+              const nextPct = Number(e.target.value);
+              onVolumeChange?.(Math.max(0, Math.min(1, nextPct / 100)));
+            }}
+            className="w-14 sm:w-16 h-1 accent-amber-500 bg-[var(--bg-input)] rounded-lg cursor-ew-resize outline-none"
+            title={`Volume: ${effectiveVolumePct}%`}
+          />
+          <span className="font-mono text-[10px] w-7 text-right text-[var(--text-secondary)] tabular-nums">
+            {effectiveVolumePct}%
+          </span>
+        </div>
 
         {/* Delete */}
         <button

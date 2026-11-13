@@ -72,6 +72,8 @@ export interface StudioCanvasSettings {
   showTimeline: boolean;
   loop: boolean;
   playbackRate: 0.5 | 1 | 1.5 | 2;
+  volume?: number;
+  isMuted?: boolean;
   inFrame: number | null;
   outFrame: number | null;
 }

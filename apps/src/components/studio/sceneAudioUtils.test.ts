@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { HtmlFilmScene } from "./htmlStageBundle";
 import { appendEngineAuthToken } from "../../lib/api";
 import {
+  clampAudioVolume,
   computeAudioTargetSeconds,
+  computeEffectiveAudioVolume,
   formatAudioErrorMessage,
   resolveSceneAudioTracks,
 } from "./sceneAudioUtils";
@@ -71,5 +73,16 @@ describe("sceneAudioUtils", () => {
     expect(out).toBe("/api/studio/ws-asset/audio/scene1.wav?auth_token=ZTJlOm9WLXZEUk04d3NzRmFRdmw");
     expect(out).not.toContain("%3D");
     vi.unstubAllGlobals();
+  });
+
+  it("clamps volume levels to [0, 1] and zeroes output when muted", () => {
+    expect(clampAudioVolume(undefined)).toBe(1);
+    expect(clampAudioVolume(Number.NaN)).toBe(1);
+    expect(clampAudioVolume(-0.4)).toBe(0);
+    expect(clampAudioVolume(1.6)).toBe(1);
+    expect(clampAudioVolume(0.375)).toBe(0.38);
+
+    expect(computeEffectiveAudioVolume(0.65, false)).toBe(0.65);
+    expect(computeEffectiveAudioVolume(0.65, true)).toBe(0);
   });
 });

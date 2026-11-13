@@ -62,6 +62,7 @@ export function useMotionPlayback(opts: UseMotionPlaybackOptions) {
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState(1);
 
   const frameFloatRef = useRef(0);
   const lastEmitFrameRef = useRef(0);
@@ -200,6 +201,8 @@ export function useMotionPlayback(opts: UseMotionPlaybackOptions) {
     isPlaying,
     isMuted,
     setIsMuted,
+    volume,
+    setVolume,
     seekTo,
     play,
     pause,

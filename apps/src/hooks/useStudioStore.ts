@@ -68,6 +68,8 @@ let state: StudioStoreState = {
     showTimeline: true,
     loop: true,
     playbackRate: 1,
+    volume: 1,
+    isMuted: false,
     inFrame: null,
     outFrame: null,
   },

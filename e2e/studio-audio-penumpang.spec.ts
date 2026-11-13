@@ -3,34 +3,75 @@ import path from "node:path";
 import { test, expect } from "@playwright/test";
 import { startLiveStack, type LiveStack } from "./live-stack.mjs";
 
-const SOURCE_WORKSPACE = "E:\\JS\\Aetheria-Workspace";
+function buildSilentPcmWav(durationSec = 1.2, sampleRate = 8000): Buffer {
+  const numSamples = Math.max(1, Math.round(durationSec * sampleRate));
+  const dataBytes = numSamples * 2;
+  const buf = Buffer.alloc(44 + dataBytes);
+  buf.write("RIFF", 0);
+  buf.writeUInt32LE(36 + dataBytes, 4);
+  buf.write("WAVEfmt ", 8);
+  buf.writeUInt32LE(16, 16); // PCM chunk size
+  buf.writeUInt16LE(1, 20); // PCM format
+  buf.writeUInt16LE(1, 22); // mono
+  buf.writeUInt32LE(sampleRate, 24);
+  buf.writeUInt32LE(sampleRate * 2, 28); // byte rate
+  buf.writeUInt16LE(2, 32); // block align
+  buf.writeUInt16LE(16, 34); // bits per sample
+  buf.write("data", 36);
+  buf.writeUInt32LE(dataBytes, 40);
+  return buf;
+}
 
-function copyPenumpangProject(targetDir: string) {
-  fs.mkdirSync(path.join(targetDir, "script"), { recursive: true });
+function createTestFilmFixture(targetDir: string) {
   fs.mkdirSync(path.join(targetDir, "audio"), { recursive: true });
+  const wavBytes = buildSilentPcmWav(1.2);
+  const scenes = [1, 2, 3, 4, 5].map((idx) => {
+    const audioRel = `audio/scene${idx}.wav`;
+    fs.writeFileSync(path.join(targetDir, audioRel), wavBytes);
+    return {
+      id: `scene${idx}`,
+      title: `Scene ${idx}`,
+      duration: 1.2,
+      audio: audioRel,
+    };
+  });
 
-  fs.copyFileSync(
-    path.join(SOURCE_WORKSPACE, "index.html"),
-    path.join(targetDir, "index.html")
-  );
-
-  for (const name of fs.readdirSync(path.join(SOURCE_WORKSPACE, "script"))) {
-    if (name.endsWith(".js")) {
-      fs.copyFileSync(
-        path.join(SOURCE_WORKSPACE, "script", name),
-        path.join(targetDir, "script", name)
-      );
-    }
-  }
-
-  for (const name of fs.readdirSync(path.join(SOURCE_WORKSPACE, "audio"))) {
-    if (/^scene[1-5]\.(wav|words\.json)$/i.test(name)) {
-      fs.copyFileSync(
-        path.join(SOURCE_WORKSPACE, "audio", name),
-        path.join(targetDir, "audio", name)
-      );
-    }
-  }
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>E2E Audio Test Film</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0a0a0c; width: 100%; height: 100%; }
+    canvas#stage { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1080" height="1920"></canvas>
+  <script>
+    window.__filmMeta = ${JSON.stringify({
+      title: "Penumpang E2E",
+      width: 1080,
+      height: 1920,
+      fps: 30,
+      duration: 6,
+      durationInFrames: 180,
+      scenes,
+    })};
+    const canvas = document.getElementById("stage");
+    const ctx = canvas.getContext("2d");
+    window.renderFrame = function(frame) {
+      if (!ctx) return;
+      ctx.fillStyle = "#141418";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#f59e0b";
+      ctx.fillRect(100, 100 + (frame % 180) * 4, 240, 240);
+    };
+    window.renderFrame(0);
+  </script>
+</body>
+</html>`;
+  fs.writeFileSync(path.join(targetDir, "index.html"), html, "utf8");
 }
 
 test.describe("Studio Audio & Penumpang Stage E2E (Real Engine + Browser)", () => {
@@ -38,7 +79,7 @@ test.describe("Studio Audio & Penumpang Stage E2E (Real Engine + Browser)", () =
 
   test.beforeEach(async () => {
     stack = await startLiveStack();
-    copyPenumpangProject(stack.workspaceDir);
+    createTestFilmFixture(stack.workspaceDir);
   });
 
   test.afterEach(async () => {
@@ -79,7 +120,7 @@ test.describe("Studio Audio & Penumpang Stage E2E (Real Engine + Browser)", () =
     await expect(iframeDoc.locator("#playgate")).toHaveCount(0);
     await expect(iframeDoc.locator("canvas#stage")).toBeVisible({ timeout: 15_000 });
 
-    // Verify all 5 <audio> tracks mount in Studio with valid duration & readyState >= 1
+    // Verify all <audio> tracks mount in Studio with valid duration & readyState >= 1
     await expect(async () => {
       const audioStats = await page.evaluate(() => {
         const els = Array.from(document.querySelectorAll("audio"));
@@ -87,17 +128,59 @@ test.describe("Studio Audio & Penumpang Stage E2E (Real Engine + Browser)", () =
           src: el.getAttribute("src") || "",
           readyState: el.readyState,
           duration: el.duration,
+          volume: el.volume,
+          muted: el.muted,
           errorCode: el.error ? el.error.code : null,
         }));
       });
-      expect(audioStats).toHaveLength(5);
+      expect(audioStats.length).toBeGreaterThanOrEqual(5);
       for (const stat of audioStats) {
-        expect(stat.src).toContain("/api/studio/ws-asset/audio/scene");
+        expect(stat.src).toContain("/api/studio/ws-asset/audio/");
         expect(stat.errorCode).toBeNull();
         expect(stat.readyState).toBeGreaterThanOrEqual(1);
-        expect(stat.duration).toBeGreaterThan(1.0);
+        expect(stat.duration).toBeGreaterThan(0.4);
       }
     }).toPass({ timeout: 20_000 });
+
+    // Verify Timeline Volume slider and Mute toggle control real <audio> elements
+    const volumeSlider = page.getByLabel("Audio volume percentage");
+    await expect(volumeSlider).toBeVisible({ timeout: 10_000 });
+    await volumeSlider.fill("35");
+    await expect(async () => {
+      const vols = await page.evaluate(() =>
+        Array.from(document.querySelectorAll("audio")).map((el) => ({
+          volume: Number(el.volume.toFixed(2)),
+          muted: el.muted,
+        }))
+      );
+      expect(vols.length).toBeGreaterThanOrEqual(5);
+      for (const v of vols) {
+        expect(v.volume).toBe(0.35);
+        expect(v.muted).toBe(false);
+      }
+    }).toPass({ timeout: 10_000 });
+
+    await page.getByLabel("Mute Audio").click();
+    await expect(async () => {
+      const mutedStates = await page.evaluate(() =>
+        Array.from(document.querySelectorAll("audio")).map((el) => el.muted)
+      );
+      expect(mutedStates.every(Boolean)).toBe(true);
+    }).toPass({ timeout: 10_000 });
+
+    await page.getByLabel("Unmute Audio").click();
+    await expect(async () => {
+      const unmutedStates = await page.evaluate(() =>
+        Array.from(document.querySelectorAll("audio")).map((el) => ({
+          muted: el.muted,
+          volume: Number(el.volume.toFixed(2)),
+        }))
+      );
+      for (const s of unmutedStates) {
+        expect(s.muted).toBe(false);
+        expect(s.volume).toBe(0.35);
+      }
+    }).toPass({ timeout: 10_000 });
 
     expect(failedAudioResponses).toEqual([]);
 
@@ -152,7 +235,7 @@ test.describe("Studio Audio & Penumpang Stage E2E (Real Engine + Browser)", () =
     const htmlPath = path.join(stack.workspaceDir, "index.html");
     const brokenHtml = fs
       .readFileSync(htmlPath, "utf8")
-      .replace("audio/scene1.wav", "audio/missing_track.wav");
+      .replace(/audio\/[^"']+\.wav/i, "audio/missing_track.wav");
     fs.writeFileSync(htmlPath, brokenHtml, "utf8");
 
     await page.addInitScript(

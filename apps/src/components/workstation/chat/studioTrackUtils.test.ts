@@ -80,6 +80,10 @@ describe("studioTrackUtils", () => {
       { id: "2", label: "Delegated to Audio Producer: Voiceover", status: "completed", iconType: "tool", toolName: "task" },
     ];
     expect(shouldShowStudioColumns(studioSteps, [])).toBe(true);
+    const partialCols = deriveStudioColumns(studioSteps, []);
+    expect(partialCols[2].role).toBe("script");
+    expect(partialCols[2].status).toBe("idle");
+    expect(partialCols[2].sourceLabel).toBe("Idle");
     expect(resolveSubagentDisplayTitle("qa-verifier")).toBe("QA Verifier");
   });
 

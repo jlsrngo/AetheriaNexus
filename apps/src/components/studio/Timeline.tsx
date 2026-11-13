@@ -137,6 +137,8 @@ export const Timeline: React.FC<TimelineProps> = ({
         fps={fps}
         isPlaying={isPlaying}
         playbackRate={canvas.playbackRate}
+        volume={canvas.volume ?? 1}
+        isMuted={Boolean(canvas.isMuted || activeComposition.props.isMuted)}
         timelineZoom={timelineZoom}
         isSnapping={isSnapping}
         canUndo={undoStack.length > 0}
@@ -178,6 +180,22 @@ export const Timeline: React.FC<TimelineProps> = ({
         onSpeedChange={(speed) => {
           actions.updateCanvas({ playbackRate: speed });
           toast.info(`Playback speed: ${speed}x`);
+        }}
+        onVolumeChange={(nextVolume) => {
+          actions.updateCanvas({
+            volume: nextVolume,
+            ...(nextVolume > 0 && canvas.isMuted ? { isMuted: false } : {}),
+          });
+          if (nextVolume > 0 && activeComposition.props.isMuted) {
+            actions.updateActiveProps({ isMuted: false }, { recordHistory: false });
+          }
+        }}
+        onToggleMute={() => {
+          const nextMuted = !Boolean(canvas.isMuted || activeComposition.props.isMuted);
+          actions.updateCanvas({ isMuted: nextMuted });
+          if (activeComposition.props.isMuted) {
+            actions.updateActiveProps({ isMuted: false }, { recordHistory: false });
+          }
         }}
         onDuplicate={timelineActions.handleDuplicateLayer}
         onDelete={timelineActions.handleDeleteSelectedLayer}

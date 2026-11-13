@@ -9,7 +9,7 @@
     "dev:app": "node scripts/dev-app.cjs",
     "start": "cargo run --release -p aetheria-engine --bin aetheria-engine",
     "dev:web": "npm run dev -w apps",
-    "dev:desktop": "cargo run --release -p aetheria-engine --bin aetheria-engine",
+    "dev:desktop": "cargo run -p aetheria-engine --bin aetheria-engine",
     "build": "npm run build -w apps",
     "typecheck": "tsc -b apps/tsconfig.json",
     "test:unit": "cargo test --workspace",
@@ -31,6 +31,7 @@
   "devDependencies": {
     "@jridgewell/trace-mapping": "^0.3.31",
     "@playwright/test": "^1.61.1",
+    "@types/node": "^26.6.6",
     "turbo": "2.10.2"
   },
   "dependencies": {

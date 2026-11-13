@@ -27,6 +27,21 @@ export function resolveSceneAudioTracks(
     .filter((item): item is ResolvedAudioTrack => Boolean(item.src));
 }
 
+/** Clamps a normalized audio volume level cleanly to `[0, 1]`. */
+export function clampAudioVolume(volume: number | undefined): number {
+  if (typeof volume !== "number" || !Number.isFinite(volume)) return 1;
+  return Math.max(0, Math.min(1, Math.round(volume * 100) / 100));
+}
+
+/** Resolves the effective `<audio>` volume applied to playback elements. */
+export function computeEffectiveAudioVolume(
+  volume: number | undefined,
+  isMuted: boolean
+): number {
+  if (isMuted) return 0;
+  return clampAudioVolume(volume);
+}
+
 /** Converts timeline frame offset within a scene into non-negative playback seconds. */
 export function computeAudioTargetSeconds(
   frame: number,

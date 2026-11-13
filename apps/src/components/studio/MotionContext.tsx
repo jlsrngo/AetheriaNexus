@@ -8,6 +8,7 @@ export interface MotionPlaybackConfig {
   height: number;
   isPlaying: boolean;
   playbackRate: number;
+  volume: number;
   isMuted: boolean;
 }
 
@@ -19,6 +20,7 @@ const DEFAULT_CONFIG: MotionPlaybackConfig = {
   height: 1920,
   isPlaying: false,
   playbackRate: 1,
+  volume: 1,
   isMuted: false,
 };
 

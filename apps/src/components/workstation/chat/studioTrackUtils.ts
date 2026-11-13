@@ -393,7 +393,7 @@ export function deriveStudioColumns(
           ? "Subagent"
           : entries.length > 0
           ? "Direct"
-          : "Standby",
+          : "Idle",
       activeLabel: activeEntry?.label ?? cfg.emptyText,
       entries,
     };

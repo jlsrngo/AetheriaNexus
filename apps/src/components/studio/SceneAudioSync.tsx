@@ -9,6 +9,7 @@ import {
 } from "../../lib/api";
 import {
   computeAudioTargetSeconds,
+  computeEffectiveAudioVolume,
   formatAudioErrorMessage,
   resolveSceneAudioTracks,
 } from "./sceneAudioUtils";
@@ -28,7 +29,7 @@ export const SceneAudioSync: React.FC<SceneAudioSyncProps> = ({
   onAudioError,
 }) => {
   const frame = useMotionFrame();
-  const { fps, isPlaying, playbackRate, isMuted } = useMotionConfig();
+  const { fps, isPlaying, playbackRate, volume, isMuted } = useMotionConfig();
   const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
   const failedTracksRef = useRef<Map<string, string>>(new Map());
 
@@ -47,8 +48,8 @@ export const SceneAudioSync: React.FC<SceneAudioSyncProps> = ({
     void initEngineMediaAuth();
   }, []);
 
-  const latestClockRef = useRef({ frame, fps, isPlaying, playbackRate, isMuted });
-  latestClockRef.current = { frame, fps, isPlaying, playbackRate, isMuted };
+  const latestClockRef = useRef({ frame, fps, isPlaying, playbackRate, volume, isMuted });
+  latestClockRef.current = { frame, fps, isPlaying, playbackRate, volume, isMuted };
 
   const resolvedTracks = useMemo(() => {
     // Re-resolve track URLs once Tauri runtimeAuthToken arrives.
@@ -69,7 +70,9 @@ export const SceneAudioSync: React.FC<SceneAudioSyncProps> = ({
   const syncSingleElement = useCallback(
     (scene: HtmlFilmScene, el: HTMLAudioElement) => {
       const clock = latestClockRef.current;
-      el.muted = clock.isMuted;
+      const effectiveVolume = computeEffectiveAudioVolume(clock.volume, clock.isMuted);
+      el.muted = clock.isMuted || effectiveVolume <= 0;
+      el.volume = effectiveVolume;
       el.playbackRate = Math.max(0.25, Math.min(4, clock.playbackRate));
 
       const endFrame = scene.startFrame + scene.durationFrames;
@@ -109,7 +112,7 @@ export const SceneAudioSync: React.FC<SceneAudioSyncProps> = ({
       const el = audioRefs.current.get(scene.id);
       if (el) syncSingleElement(scene, el);
     }
-  }, [frame, fps, isPlaying, playbackRate, isMuted, resolvedTracks, syncSingleElement]);
+  }, [frame, fps, isPlaying, playbackRate, volume, isMuted, resolvedTracks, syncSingleElement]);
 
   useEffect(() => {
     const map = audioRefs.current;

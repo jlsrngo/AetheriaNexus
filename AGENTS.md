@@ -86,9 +86,21 @@ Catatan lingkungan: target resmi adalah Windows. Di Linux, `cargo test` gagal bi
 - [ ] Data uji dibersihkan (direktori sementara, session).
 - [ ] Laporan memuat perintah, hasil, dan commit yang diuji.
 
+**Panduan Build: Debug Harian vs Rilis Penuh (wajib dipatuhi agent)**
+
+`Cargo.toml` mengatur `[profile.release]` dengan `opt-level = 3`, `lto = "thin"`, `codegen-units = 1`, dan `strip = true` (~18 menit build/link). Gunakan jalur yang tepat sesuai tujuannya:
+
+| Kebutuhan | Perintah | Mode & Kapan Dipakai |
+|---|---|---|
+| Compile & tes harian engine (`core/`) | `cargo build --bin aetheria-engine` atau `npm run dev:desktop` / `npm run dev` / `npm run dev:app` | **Debug (tanpa LTO, ~17 detik)**. Pakai ini untuk iterasi coding, bugfix, dan tes API/Playwright (`e2e/live-stack.mjs` otomatis memilih biner terbaru di `target/debug` atau `target/release`). |
+| Verifikasi desktop Tauri harian (`src-tauri/` + UI) | `npm run tauri:dev` | **Debug + Vite HMR**. Menjalankan shell desktop Tauri mode debug tanpa full release link maupun re-embed `apps/dist`. |
+| Full rilis / `.exe` portable & installer | `npm run bundle:prepare` (atau `npm run tauri:build`, `npm run start`) | **Release penuh (`--release`, LTO `thin`, `codegen-units = 1`)**. Hanya dijalankan di akhir saat fitur/perbaikan sudah lolos verifikasi debug dan memang diminta membungkus rilis/portable ke `dist-portable/`. |
+
+* **Aturan keras agent:** Jangan menjalankan `npm run bundle:prepare`, `npm run tauri:build`, atau `cargo build/run --release` untuk testing harian/bugfix kecuali diminta eksplisit oleh user atau saat benar-benar menyiapkan rilis final.
+
 **Catatan engine & lingkungan**
 
-* Hidupkan engine sendiri sebelum menjalankan skrip: `npm run dev:app` (peluncur lokal) atau `npm run start`. Autentikasi memakai Basic auth; kredensial ada di `~/.aetheria/dev-server-password` (format `user:password`).
+* Hidupkan engine sendiri sebelum menjalankan skrip: `npm run dev:desktop` (debug), `npm run dev:app` (peluncur lokal), atau `npm run start` (release). Autentikasi memakai Basic auth; kredensial ada di `~/.aetheria/dev-server-password` (format `user:password`).
 * **Port tidak konsisten di repo:** `scripts/dev-app.cjs` memakai `:4096`, sedangkan proxy Vite dan default skrip smoke/knowledge memakai `:4196`. Set `AETHERIA_HEALTH` dan `AETHERIA_API` bila engine tidak di `:4196`. Jangan mengandalkan auto-start di `scripts/test-knowledge-e2e.ts`: ia menjalankan engine di `:4096` tetapi memeriksa health di `:4196`.
 * `test:knowledge` dan `test:smoke` memanggil model sungguhan (`AETHERIA_TEST_PROVIDER`, `AETHERIA_TEST_MODEL`). Tanpa kredensial provider, statusnya **Terblokir**, bukan lulus.
 * **Belum ada** `playwright.config.ts`, spec Playwright, maupun browser yang terunduh. Tugas UI pertama yang membutuhkan E2E membuat sebagai perubahan terpisah: konfigurasi minimal (`baseURL` `http://127.0.0.1:5173`), spec di `e2e/`, skrip `test:e2e` di `package.json`, dan `npx playwright install chromium`. Laporkan perubahan itu.

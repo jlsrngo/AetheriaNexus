@@ -43,7 +43,12 @@ async function ensureEngineRunning(): Promise<{ proc?: any; startedByUs: boolean
 
   const repoDir = process.cwd()
   const exeName = process.platform === "win32" ? "aetheria-engine.exe" : "aetheria-engine"
-  const engineBin = path.join(repoDir, "target", "release", exeName)
+  const candidates = [
+    path.join(repoDir, "target", "debug", exeName),
+    path.join(repoDir, "target", "release", exeName),
+  ].filter((p) => fs.existsSync(p))
+  candidates.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)
+  const engineBin = candidates[0] ?? path.join(repoDir, "target", "debug", exeName)
   const proc = spawn(
     engineBin,
     [

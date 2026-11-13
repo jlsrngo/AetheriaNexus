@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { AlertTriangle, RotateCcw } from "lucide-react";
 import { MotionProvider } from "./MotionContext";
+import { clampAudioVolume } from "./sceneAudioUtils";
 import {
   type MotionPlayerHandle,
   useMotionPlayback,
@@ -70,6 +71,8 @@ export interface HtmlMotionPlayerProps<
   compositionWidth: number;
   compositionHeight: number;
   playbackRate?: number;
+  volume?: number;
+  isMuted?: boolean;
   inFrame?: number | null;
   outFrame?: number | null;
   loop?: boolean;
@@ -93,6 +96,8 @@ export const HtmlMotionPlayer = forwardRef<
     compositionWidth,
     compositionHeight,
     playbackRate = 1,
+    volume: volumeProp,
+    isMuted: isMutedProp,
     inFrame = null,
     outFrame = null,
     loop = true,
@@ -164,7 +169,8 @@ export const HtmlMotionPlayer = forwardRef<
             height: compositionHeight,
             isPlaying: playback.isPlaying,
             playbackRate,
-            isMuted: playback.isMuted,
+            volume: clampAudioVolume(volumeProp ?? playback.volume),
+            isMuted: isMutedProp ?? playback.isMuted,
           }}
         >
           <div className="w-full h-full relative">

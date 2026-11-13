@@ -240,6 +240,8 @@ export const StudioPreview: React.FC = () => {
                 compositionWidth={workspaceDims?.width ?? activeComposition.width}
                 compositionHeight={workspaceDims?.height ?? activeComposition.height}
                 playbackRate={canvas.playbackRate}
+                volume={canvas.volume ?? 1}
+                isMuted={Boolean(canvas.isMuted || activeComposition.props.isMuted)}
                 inFrame={canvas.inFrame}
                 outFrame={canvas.outFrame}
                 loop={canvas.loop}
