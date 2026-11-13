@@ -1,71 +1,126 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useMotionConfig, useMotionFrame } from "./MotionContext";
-import { type HtmlFilmScene, resolveWorkspaceAssetUrl } from "./htmlStageBundle";
+import { type HtmlFilmScene } from "./htmlStageBundle";
+import {
+  getEngineMediaAuthToken,
+  initEngineMediaAuth,
+  isEngineMediaAuthSettled,
+  subscribeEngineMediaAuth,
+} from "../../lib/api";
+import {
+  computeAudioTargetSeconds,
+  formatAudioErrorMessage,
+  resolveSceneAudioTracks,
+} from "./sceneAudioUtils";
 
 export interface SceneAudioSyncProps {
   scenes: HtmlFilmScene[];
   activeDir: string | null;
+  onAudioError?: (error: string | null) => void;
 }
 
 /**
  * Synchronizes native HTMLAudioElement scene narration tracks with the custom motion clock.
  */
-export const SceneAudioSync: React.FC<SceneAudioSyncProps> = ({ scenes, activeDir }) => {
+export const SceneAudioSync: React.FC<SceneAudioSyncProps> = ({
+  scenes,
+  activeDir,
+  onAudioError,
+}) => {
   const frame = useMotionFrame();
   const { fps, isPlaying, playbackRate, isMuted } = useMotionConfig();
   const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const failedTracksRef = useRef<Map<string, string>>(new Map());
 
-  const resolvedTracks = useMemo(
-    () =>
-      scenes
-        .map((s) => ({
-          scene: s,
-          src: resolveWorkspaceAssetUrl(s.audio, activeDir),
-        }))
-        .filter((item): item is { scene: HtmlFilmScene; src: string } => Boolean(item.src)),
-    [scenes, activeDir]
+  const authToken = useSyncExternalStore(
+    subscribeEngineMediaAuth,
+    getEngineMediaAuthToken,
+    () => null
+  );
+  const authSettled = useSyncExternalStore(
+    subscribeEngineMediaAuth,
+    isEngineMediaAuthSettled,
+    () => true
   );
 
   useEffect(() => {
-    const safeFps = Math.max(1, fps);
-    for (const { scene } of resolvedTracks) {
-      const el = audioRefs.current.get(scene.id);
-      if (!el) continue;
-      el.muted = isMuted;
-      el.playbackRate = Math.max(0.25, Math.min(4, playbackRate));
+    void initEngineMediaAuth();
+  }, []);
+
+  const latestClockRef = useRef({ frame, fps, isPlaying, playbackRate, isMuted });
+  latestClockRef.current = { frame, fps, isPlaying, playbackRate, isMuted };
+
+  const resolvedTracks = useMemo(() => {
+    // Re-resolve track URLs once Tauri runtimeAuthToken arrives.
+    void authToken;
+    return resolveSceneAudioTracks(scenes, activeDir, authSettled);
+  }, [scenes, activeDir, authSettled, authToken]);
+
+  const emitFirstTrackError = useCallback(() => {
+    const first = failedTracksRef.current.values().next();
+    onAudioError?.(first.done ? null : first.value);
+  }, [onAudioError]);
+
+  useEffect(() => {
+    failedTracksRef.current.clear();
+    onAudioError?.(null);
+  }, [resolvedTracks, onAudioError]);
+
+  const syncSingleElement = useCallback(
+    (scene: HtmlFilmScene, el: HTMLAudioElement) => {
+      const clock = latestClockRef.current;
+      el.muted = clock.isMuted;
+      el.playbackRate = Math.max(0.25, Math.min(4, clock.playbackRate));
 
       const endFrame = scene.startFrame + scene.durationFrames;
-      const inRange = frame >= scene.startFrame && frame < endFrame;
+      const inRange = clock.frame >= scene.startFrame && clock.frame < endFrame;
       if (!inRange) {
         if (!el.paused) el.pause();
-        continue;
+        return;
       }
 
-      const targetSec = Math.max(0, (frame - scene.startFrame) / safeFps);
-      if (Math.abs(el.currentTime - targetSec) > (isPlaying ? 0.18 : 0.04)) {
+      const targetSec = computeAudioTargetSeconds(clock.frame, scene.startFrame, clock.fps);
+      if (Math.abs(el.currentTime - targetSec) > (clock.isPlaying ? 0.18 : 0.04)) {
         try {
           el.currentTime = targetSec;
         } catch {
-          // Audio metadata may still be loading
+          // Audio metadata may still be loading; onLoadedMetadata will resync
         }
       }
 
-      if (isPlaying && el.paused) {
-        void el.play().catch(() => {});
-      } else if (!isPlaying && !el.paused) {
+      if (clock.isPlaying && el.paused) {
+        void el.play().catch((err: unknown) => {
+          const errName = err instanceof DOMException ? err.name : err instanceof Error ? err.name : undefined;
+          if (errName === "AbortError") return;
+          const msg = formatAudioErrorMessage(scene.audio, el.error?.code, errName);
+          console.error("[SceneAudioSync] play failed:", msg, err);
+          failedTracksRef.current.set(scene.id, msg);
+          emitFirstTrackError();
+        });
+      } else if (!clock.isPlaying && !el.paused) {
         el.pause();
       }
-    }
-  }, [frame, fps, isPlaying, playbackRate, isMuted, resolvedTracks]);
+    },
+    [emitFirstTrackError]
+  );
 
   useEffect(() => {
-    const mapSnapshot = audioRefs.current;
+    for (const { scene } of resolvedTracks) {
+      const el = audioRefs.current.get(scene.id);
+      if (el) syncSingleElement(scene, el);
+    }
+  }, [frame, fps, isPlaying, playbackRate, isMuted, resolvedTracks, syncSingleElement]);
+
+  useEffect(() => {
+    const map = audioRefs.current;
     return () => {
-      for (const el of mapSnapshot.values()) {
+      for (const el of map.values()) {
         el.pause();
       }
     };
-  }, [resolvedTracks]);
+  }, []);
+
+  if (resolvedTracks.length === 0) return null;
 
   return (
     <div style={{ display: "none" }} aria-hidden="true">
@@ -74,6 +129,21 @@ export const SceneAudioSync: React.FC<SceneAudioSyncProps> = ({ scenes, activeDi
           key={`${scene.id}-${src}`}
           preload="auto"
           src={src}
+          onLoadedMetadata={(e) => {
+            syncSingleElement(scene, e.currentTarget);
+          }}
+          onCanPlay={(e) => {
+            if (failedTracksRef.current.delete(scene.id)) {
+              emitFirstTrackError();
+            }
+            syncSingleElement(scene, e.currentTarget);
+          }}
+          onError={(e) => {
+            const msg = formatAudioErrorMessage(scene.audio, e.currentTarget.error?.code);
+            console.error("[SceneAudioSync] media error:", msg);
+            failedTracksRef.current.set(scene.id, msg);
+            emitFirstTrackError();
+          }}
           ref={(el) => {
             if (el) {
               audioRefs.current.set(scene.id, el);
@@ -86,4 +156,3 @@ export const SceneAudioSync: React.FC<SceneAudioSyncProps> = ({ scenes, activeDi
     </div>
   );
 };
-

@@ -72,6 +72,21 @@ export function activeDirectory(): string | undefined {
  */
 let runtimeAuthToken: string | null = null;
 let runtimeAuthTokenPromise: Promise<string | null> | null = null;
+let runtimeAuthSettled = false;
+const mediaAuthListeners = new Set<() => void>();
+
+function notifyMediaAuthListeners(): void {
+  for (const listener of mediaAuthListeners) {
+    listener();
+  }
+}
+
+export function isTauriEnvironment(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)
+  );
+}
 
 function resolveAuthTokenB64(): string | null {
   const creds = desktopCredentials();
@@ -83,9 +98,28 @@ function resolveAuthTokenB64(): string | null {
   return runtimeAuthToken;
 }
 
+export function getEngineMediaAuthToken(): string | null {
+  return resolveAuthTokenB64();
+}
+
+export function isEngineMediaAuthSettled(): boolean {
+  return !isTauriEnvironment() || Boolean(resolveAuthTokenB64()) || runtimeAuthSettled;
+}
+
+export function subscribeEngineMediaAuth(listener: () => void): () => void {
+  mediaAuthListeners.add(listener);
+  return () => {
+    mediaAuthListeners.delete(listener);
+  };
+}
+
 export async function initEngineMediaAuth(): Promise<string | null> {
-  if (runtimeAuthToken) return runtimeAuthToken;
-  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+  if (runtimeAuthToken) {
+    runtimeAuthSettled = true;
+    return runtimeAuthToken;
+  }
+  if (!isTauriEnvironment()) {
+    runtimeAuthSettled = true;
     return resolveAuthTokenB64();
   }
   if (!runtimeAuthTokenPromise) {
@@ -97,15 +131,27 @@ export async function initEngineMediaAuth(): Promise<string | null> {
           runtimeAuthToken = token;
           return token;
         }
-      } catch {}
+      } catch {
+        // Fallback: engine may run unsecured or auth comes via desktopCredentials()
+      } finally {
+        runtimeAuthSettled = true;
+        notifyMediaAuthListeners();
+      }
       return null;
     })();
   }
   return runtimeAuthTokenPromise;
 }
 
-if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+if (isTauriEnvironment()) {
   void initEngineMediaAuth();
+}
+
+function toQuerySafeAuthToken(token: string): string {
+  if (/^[A-Za-z0-9+/=]+$/.test(token)) {
+    return token.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  return encodeURIComponent(token);
 }
 
 export function appendEngineAuthToken(url: string): string {
@@ -114,7 +160,7 @@ export function appendEngineAuthToken(url: string): string {
     return url;
   }
   const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}auth_token=${encodeURIComponent(token)}`;
+  return `${url}${sep}auth_token=${toQuerySafeAuthToken(token)}`;
 }
 
 export function authHeader(): Record<string, string> {

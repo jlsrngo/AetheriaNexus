@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Film, FolderOpen } from "lucide-react";
 import { useMotionConfig, useMotionFrame } from "./MotionContext";
 import { SceneAudioSync } from "./SceneAudioSync";
@@ -39,6 +39,24 @@ export const HtmlFilmStage: React.FC<HtmlFilmStageProps> = ({
   film,
   onRuntimeError,
 }) => {
+  const stageErrorRef = useRef<string | null>(null);
+  const audioErrorRef = useRef<string | null>(null);
+
+  const reportStageError = useCallback(
+    (err: string | null) => {
+      stageErrorRef.current = err;
+      onRuntimeError?.(stageErrorRef.current ?? audioErrorRef.current);
+    },
+    [onRuntimeError]
+  );
+
+  const reportAudioError = useCallback(
+    (err: string | null) => {
+      audioErrorRef.current = err;
+      onRuntimeError?.(stageErrorRef.current ?? audioErrorRef.current);
+    },
+    [onRuntimeError]
+  );
   const frame = useMotionFrame();
   const { fps, width, height } = useMotionConfig();
   const stageBoxRef = useRef<HTMLDivElement>(null);
@@ -91,7 +109,7 @@ export const HtmlFilmStage: React.FC<HtmlFilmStageProps> = ({
 
       if (msg.type === STAGE_MSG_READY) {
         setIframeReady(true);
-        onRuntimeError?.(null);
+        reportStageError(null);
         targetWin?.postMessage(
           {
             type: STAGE_MSG_RENDER_AT,
@@ -104,7 +122,7 @@ export const HtmlFilmStage: React.FC<HtmlFilmStageProps> = ({
 
       if (msg.type === STAGE_MSG_ERROR) {
         const message = typeof msg.message === "string" ? msg.message : "Stage script error";
-        onRuntimeError?.(message);
+        reportStageError(message);
         return;
       }
 
@@ -161,7 +179,7 @@ export const HtmlFilmStage: React.FC<HtmlFilmStageProps> = ({
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [film.activeDir, onRuntimeError]);
+  }, [film.activeDir, reportStageError]);
 
   useEffect(() => {
     if (!iframeReady) return;
@@ -183,7 +201,11 @@ export const HtmlFilmStage: React.FC<HtmlFilmStageProps> = ({
       ref={stageBoxRef}
       className="relative w-full h-full bg-[#0A0A0C] overflow-hidden select-none flex items-center justify-center"
     >
-      <SceneAudioSync scenes={film.scenes} activeDir={film.activeDir} />
+      <SceneAudioSync
+        scenes={film.scenes}
+        activeDir={film.activeDir}
+        onAudioError={reportAudioError}
+      />
       <div
         style={{
           width: `${safeW}px`,

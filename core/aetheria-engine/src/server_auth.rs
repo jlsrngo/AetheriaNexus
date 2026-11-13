@@ -219,8 +219,30 @@ pub fn verify_basic_auth_header(header_val: &str, expected: &(String, String)) -
     constant_time_eq(user, &expected.0) && constant_time_eq(pass, &expected.1)
 }
 
+fn percent_decode_query_value(input: &str) -> String {
+    let bytes = input.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let (Some(hi), Some(lo)) = (
+                (bytes[i + 1] as char).to_digit(16),
+                (bytes[i + 2] as char).to_digit(16),
+            ) {
+                out.push((hi * 16 + lo) as u8);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 pub fn verify_query_token(token: &str, expected: &(String, String)) -> bool {
-    let trimmed = token.trim();
+    let raw = percent_decode_query_value(token);
+    let trimmed = raw.trim();
     let decoded = base64::engine::general_purpose::STANDARD
         .decode(trimmed)
         .or_else(|_| base64::engine::general_purpose::URL_SAFE.decode(trimmed))
@@ -271,6 +293,16 @@ mod tests {
         let token_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .encode("aetheria:secret-token-123");
         assert!(verify_query_token(&token_b64, &expected));
+        // Percent-encoded standard base64 ending in '=' (%3D) or containing '+'/'/' (%2B/%2F)
+        assert!(verify_query_token(
+            "YWV0aGVyaWE6c2VjcmV0LXRva2VuLTEyMw%3D%3D",
+            &("aetheria".to_string(), "secret-token-123".to_string())
+        ));
+        let e2e_expected = ("e2e".to_string(), "oV-vDRM8wssFaQvl".to_string());
+        assert!(verify_query_token(
+            "ZTJlOm9WLXZEUk04d3NzRmFRdmw%3D",
+            &e2e_expected
+        ));
         assert!(!verify_query_token("secret-token-123", &expected));
         assert!(!verify_query_token("wrong", &expected));
     }
