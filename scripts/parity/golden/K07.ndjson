@@ -1,8 +1,3 @@
-{"i":0,"kind":"llm.text.start"}
-{"i":1,"kind":"llm.text.delta","frag":"a"}
-{"i":2,"kind":"llm.text.delta","frag":"b"}
-{"i":3,"kind":"llm.text.delta","frag":"c"}
-{"i":4,"kind":"llm.text.end","text":"abc"}
-{"i":5,"kind":"llm.finish","reason":"stop","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
-{"i":6,"kind":"turn.idle"}
+{"i":0,"kind":"session.error","category":"aborted"}
+{"i":1,"kind":"turn.interrupted"}
 {"i":"req-0","kind":"provider.request","stream":true,"model":"parity-model"}

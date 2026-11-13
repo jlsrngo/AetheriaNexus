@@ -2,6 +2,10 @@
 // provider frames SSE correctly, normalizers remove volatile fields symmetrically, and assertions work.
 // usage: node scripts/parity/self-test.mjs
 import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { compareScenarioNdjson } from "./diff-report.mjs";
 import { startFakeProvider } from "./fake-provider.mjs";
 import { normalizeEvent as normalizeAetheria, normalizeEvents, stripVolatile } from "./normalize.mjs";
 import { normalizeEvent as normalizeOpenCode } from "./normalize-opencode.mjs";
@@ -176,6 +180,119 @@ await provider.close();
   check("match: event hilang dilaporkan", matchSequence(actual, [{ kind: "llm.tool.call" }]).ok === false);
   check("subset: field parsial cocok", subsetMatch({ a: 1, b: 2 }, { a: 1 }));
   check("subset: nilai beda ditolak", !subsetMatch({ a: 1 }, { a: 2 }));
+}
+
+// ---- diff comparator contracts (K01, K04, K49) & strict fallback ----
+{
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "parity-diff-test-"));
+  const gDir = path.join(tmpDir, "golden");
+  const aDir = path.join(tmpDir, "actual");
+  fs.mkdirSync(gDir);
+  fs.mkdirSync(aDir);
+  const writeNdjson = (dir, id, rows) =>
+    fs.writeFileSync(path.join(dir, `${id}.ndjson`), rows.map((r) => JSON.stringify(r)).join("\n") + "\n");
+
+  const mkTextRows = (deltas, fullText) => [
+    { i: 0, kind: "llm.text.start" },
+    ...deltas.map((frag, idx) => ({ i: idx + 1, kind: "llm.text.delta", frag })),
+    { i: deltas.length + 1, kind: "llm.text.end", text: fullText },
+    { i: deltas.length + 2, kind: "llm.finish", reason: "stop", tokens: { input: 10, output: 5 }, cost: 0 },
+    { i: deltas.length + 3, kind: "turn.idle" },
+    { i: "req-0", kind: "provider.request", stream: true, model: "parity-model" },
+  ];
+
+  writeNdjson(gDir, "K01", mkTextRows(["Hello ", "world", "!", " ok"], "Hello world! ok"));
+  writeNdjson(aDir, "K01", mkTextRows(["Hello", " ", "world", "!", " ok"], "Hello world! ok"));
+  check("diff K01: split batas flush diterima", compareScenarioNdjson("K01", gDir, aDir).length === 0);
+
+  writeNdjson(aDir, "K01", mkTextRows(["Hello world! ok"], "Hello world! ok"));
+  check("diff K01: 1 delta (non-streaming) ditolak", compareScenarioNdjson("K01", gDir, aDir).length > 0);
+
+  const forty = "ba".repeat(20);
+  writeNdjson(gDir, "K04", mkTextRows(["babababababa", "bababababab", "ababababa", "babababa"], forty));
+  writeNdjson(aDir, "K04", mkTextRows(["bababababab", "abababa", "bababababa", "babababab", "aba"], forty));
+  check("diff K04: batching range diterima", compareScenarioNdjson("K04", gDir, aDir).length === 0);
+
+  writeNdjson(aDir, "K04", mkTextRows(Array.from(forty), forty));
+  check("diff K04: 40 delta tanpa batching ditolak", compareScenarioNdjson("K04", gDir, aDir).length > 0);
+
+  const k49Events = [{ i: 0, kind: "turn.idle" }];
+  writeNdjson(gDir, "K49", [
+    ...k49Events,
+    { i: "req-0", kind: "provider.request", stream: true, model: "parity-model" },
+    { i: "req-1", kind: "provider.request", stream: true, model: "m2" },
+    { i: "req-2", kind: "provider.request", stream: true, model: "m1" },
+    { i: "req-3", kind: "provider.request", stream: true, model: "parity-model" },
+    { i: "req-4", kind: "provider.request", stream: true, model: "m3" },
+    { i: "req-5", kind: "provider.request", stream: true, model: "parity-model" },
+  ]);
+  writeNdjson(aDir, "K49", [
+    ...k49Events,
+    { i: "req-0", kind: "provider.request", stream: true, model: "parity-model" },
+    { i: "req-1", kind: "provider.request", stream: true, model: "m1" },
+    { i: "req-2", kind: "provider.request", stream: true, model: "parity-model" },
+    { i: "req-3", kind: "provider.request", stream: true, model: "m3" },
+    { i: "req-4", kind: "provider.request", stream: true, model: "m2" },
+    { i: "req-5", kind: "provider.request", stream: true, model: "parity-model" },
+  ]);
+  check("diff K49: urutan paralel sebagai multiset diterima", compareScenarioNdjson("K49", gDir, aDir).length === 0);
+
+  writeNdjson(aDir, "K49", [
+    ...k49Events,
+    { i: "req-0", kind: "provider.request", stream: true, model: "parity-model" },
+    { i: "req-1", kind: "provider.request", stream: true, model: "m1" },
+    { i: "req-2", kind: "provider.request", stream: true, model: "parity-model" },
+    { i: "req-3", kind: "provider.request", stream: true, model: "m1" },
+    { i: "req-4", kind: "provider.request", stream: true, model: "m2" },
+    { i: "req-5", kind: "provider.request", stream: true, model: "parity-model" },
+  ]);
+  check("diff K49: model paralel duplikat/hilang ditolak", compareScenarioNdjson("K49", gDir, aDir).length > 0);
+
+  writeNdjson(gDir, "K02", mkTextRows(["a", "b"], "ab"));
+  writeNdjson(aDir, "K02", mkTextRows(["ab"], "ab"));
+  check("diff K02: skenario ketat tetap gagal bila delta beda", compareScenarioNdjson("K02", gDir, aDir).length > 0);
+
+  const k46Prefix = Array.from({ length: 18 }, (_, i) => ({ i, kind: i === 13 ? "turn.idle" : "llm.text.delta", frag: `p${i}` }));
+  const k46Mid = [
+    { i: 18, kind: "llm.text.start" },
+    { i: 19, kind: "llm.text.delta", frag: "ok" },
+    { i: 20, kind: "llm.text.end", text: "ok" },
+    { i: 21, kind: "llm.finish", reason: "stop", tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, cost: 0 },
+  ];
+  const k46Tail = [{ i: 22, kind: "turn.idle" }];
+  writeNdjson(gDir, "K46", [
+    ...k46Prefix, ...k46Mid, ...k46Tail,
+    { i: "req-0", kind: "provider.request", stream: true, model: "parity-model" },
+    { i: "req-1", kind: "provider.request", stream: true, model: "parity-model" },
+    { i: "req-2", kind: "provider.request", stream: true, model: "model-c" },
+    { i: "req-3", kind: "provider.request", stream: true, model: "model-b" },
+    { i: "req-4", kind: "provider.request", stream: true, model: "parity-model" },
+    { i: "req-5", kind: "provider.request", stream: true, model: "parity-model" },
+  ]);
+  writeNdjson(aDir, "K46", [
+    ...k46Prefix, { i: 18, kind: "turn.idle" },
+    { i: "req-0", kind: "provider.request", stream: true, model: "parity-model" },
+    { i: "req-1", kind: "provider.request", stream: true, model: "parity-model" },
+    { i: "req-2", kind: "provider.request", stream: true, model: "model-b" },
+    { i: "req-3", kind: "provider.request", stream: true, model: "model-c" },
+    { i: "req-4", kind: "provider.request", stream: true, model: "parity-model" },
+  ]);
+  check("diff K46: 19 event + multiset model-b/model-c diterima", compareScenarioNdjson("K46", gDir, aDir).length === 0);
+
+  writeNdjson(aDir, "K46", [
+    ...k46Prefix, ...k46Mid.slice(0, 3),
+    { i: 21, kind: "llm.finish", reason: "stop", tokens: null, cost: null },
+    ...k46Tail,
+    { i: "req-0", kind: "provider.request", stream: true, model: "parity-model" },
+    { i: "req-1", kind: "provider.request", stream: true, model: "parity-model" },
+    { i: "req-2", kind: "provider.request", stream: true, model: "model-c" },
+    { i: "req-3", kind: "provider.request", stream: true, model: "model-b" },
+    { i: "req-4", kind: "provider.request", stream: true, model: "parity-model" },
+    { i: "req-5", kind: "provider.request", stream: true, model: "parity-model" },
+  ]);
+  check("diff K46: token null pada langkah ok tetap ditolak", compareScenarioNdjson("K46", gDir, aDir).length > 0);
+
+  fs.rmSync(tmpDir, { recursive: true, force: true });
 }
 
 console.log("");

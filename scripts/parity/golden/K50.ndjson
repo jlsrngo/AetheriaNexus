@@ -4,8 +4,8 @@
 {"i":3,"kind":"llm.tool.success"}
 {"i":4,"kind":"llm.finish","reason":"tool-calls","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
 {"i":5,"kind":"llm.text.start"}
-{"i":6,"kind":"llm.text.delta","frag":"parent all done K50"}
-{"i":7,"kind":"llm.text.end","text":"parent all done K50"}
+{"i":6,"kind":"llm.text.delta","frag":"parent wait r1"}
+{"i":7,"kind":"llm.text.end","text":"parent wait r1"}
 {"i":8,"kind":"llm.finish","reason":"stop","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
 {"i":9,"kind":"turn.idle"}
 {"i":10,"kind":"llm.tool.input.start","tool":"subagent"}
@@ -14,14 +14,14 @@
 {"i":13,"kind":"llm.tool.success"}
 {"i":14,"kind":"llm.finish","reason":"tool-calls","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
 {"i":15,"kind":"llm.text.start"}
-{"i":16,"kind":"llm.text.delta","frag":"ok"}
-{"i":17,"kind":"llm.text.end","text":"ok"}
-{"i":18,"kind":"llm.finish","reason":"stop","tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0}
+{"i":16,"kind":"llm.text.delta","frag":"parent wait r2"}
+{"i":17,"kind":"llm.text.end","text":"parent wait r2"}
+{"i":18,"kind":"llm.finish","reason":"stop","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
 {"i":19,"kind":"turn.idle"}
 {"i":20,"kind":"llm.text.start"}
-{"i":21,"kind":"llm.text.delta","frag":"ok"}
-{"i":22,"kind":"llm.text.end","text":"ok"}
-{"i":23,"kind":"llm.finish","reason":"stop","tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0}
+{"i":21,"kind":"llm.text.delta","frag":"parent all done K50"}
+{"i":22,"kind":"llm.text.end","text":"parent all done K50"}
+{"i":23,"kind":"llm.finish","reason":"stop","tokens":{"input":812,"output":140,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0.001092}
 {"i":24,"kind":"turn.idle"}
 {"i":"req-0","kind":"provider.request","stream":true,"model":"parity-model"}
 {"i":"req-1","kind":"provider.request","stream":true,"model":"parity-model"}
@@ -30,5 +30,3 @@
 {"i":"req-4","kind":"provider.request","stream":true,"model":"parity-model"}
 {"i":"req-5","kind":"provider.request","stream":true,"model":"parity-model"}
 {"i":"req-6","kind":"provider.request","stream":true,"model":"parity-model"}
-{"i":"req-7","kind":"provider.request","stream":true,"model":"parity-model"}
-{"i":"req-8","kind":"provider.request","stream":true,"model":"parity-model"}

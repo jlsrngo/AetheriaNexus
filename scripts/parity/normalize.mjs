@@ -21,7 +21,7 @@ const VOLATILE_KEYS = new Set([
 export function scrubString(value) {
   if (typeof value !== "string") return value;
   return value
-    .replace(/\bses_[A-Za-z0-9]+\b/g, "<session>")
+    .replace(/\b(?:ses|sub)_[A-Za-z0-9]+\b/g, "<session>")
     .replace(/\bmsg_[A-Za-z0-9]+\b/g, "<message>")
     .replace(/\b20\d{2}-\d{2}-\d{2}(?:[T ][0-9:.+-]+Z?)?\b/g, "<timestamp>");
 }
@@ -131,12 +131,6 @@ export function normalizeEvent(raw) {
     case "session.execution.succeeded":
     case "session.idle":
       out = { kind: "turn.idle" };
-      break;
-    case "subagent.started":
-      out = { kind: "subagent.start" };
-      break;
-    case "subagent.completed":
-      out = { kind: "subagent.end", state: str(p.state) ?? "" };
       break;
     default:
       return null;

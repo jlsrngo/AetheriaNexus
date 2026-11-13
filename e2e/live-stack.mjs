@@ -318,7 +318,11 @@ export async function startLiveStack(options = {}) {
     llmServer.closeAllConnections?.();
     await new Promise((resolve) => llmServer.close(() => resolve()));
     await new Promise((r) => setTimeout(r, 300));
-    fs.rmSync(tempRoot, { recursive: true, force: true });
+    try {
+      fs.rmSync(tempRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    } catch {
+      // Windows may release engine-owned files after process-tree termination.
+    }
   };
 
   const engineUrl = `http://127.0.0.1:${enginePort}`;

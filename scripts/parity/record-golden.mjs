@@ -161,6 +161,9 @@ async function recordScenario(scenario) {
     await stream.ready;
     await sleep(40);
 
+    let abortedTimer = null;
+    let abortedWatchCancelled = false;
+
     try {
       if (scenario.restartScenario) {
         activeServer = await runRestartFlow({
@@ -178,9 +181,19 @@ async function recordScenario(scenario) {
         const expectedTurns = scenario.expectedTurns ?? prompts.length;
 
         if (scenario.abortAfterMs) {
-          setTimeout(() => {
-            api(activeServer.url, `/api/session/${session}/interrupt`, { method: "POST", body: "{}" }).catch(() => {});
-          }, scenario.abortAfterMs);
+          waitForCondition(
+            () => abortedWatchCancelled || events.some((e) => {
+              const data = e.data ?? e.properties ?? {};
+              return data.sessionID === session && e.type === "session.execution.started";
+            }),
+            timeoutMs,
+            5,
+          ).then((started) => {
+            if (!started || abortedWatchCancelled) return;
+            abortedTimer = setTimeout(() => {
+              api(activeServer.url, `/api/session/${session}/interrupt`, { method: "POST", body: "{}" }).catch(() => {});
+            }, scenario.abortAfterMs);
+          });
         }
         if (scenario.steer) {
           setTimeout(() => {
@@ -239,7 +252,13 @@ async function recordScenario(scenario) {
         }
       }
     } finally {
+      abortedWatchCancelled = true;
+      if (abortedTimer) clearTimeout(abortedTimer);
       stream.abort();
+      if (activeServer === sharedServer && scenario.expectedTurns && scenario.expectedTurns > 1) {
+        await api(activeServer.url, `/api/session/${session}/interrupt`, { method: "POST", body: "{}" }).catch(() => {});
+        await sleep(700);
+      }
     }
 
     const requests = await providerState();

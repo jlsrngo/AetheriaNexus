@@ -1,0 +1,2 @@
+ORACLE golden OpenCode (4f51455a5da7859e4f1a1b6abcc54b67bf7b7a4b)
+SCORE 58/58 (100.0%)

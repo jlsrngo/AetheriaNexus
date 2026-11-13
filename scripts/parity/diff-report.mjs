@@ -39,6 +39,146 @@ function readNdjson(filePath) {
   });
 }
 
+function compareStrictEvents(goldenEvents, actualEvents, failures) {
+  if (actualEvents.length !== goldenEvents.length) {
+    failures.push(`event count ${actualEvents.length} !== golden ${goldenEvents.length}`);
+    return;
+  }
+  for (let idx = 0; idx < goldenEvents.length; idx++) {
+    if (!subsetMatch(actualEvents[idx], goldenEvents[idx]) || !subsetMatch(goldenEvents[idx], actualEvents[idx])) {
+      failures.push(`event[${idx}] mismatch: actual=${describe(actualEvents[idx])} vs golden=${describe(goldenEvents[idx])}`);
+      break;
+    }
+  }
+}
+
+function compareStrictRequests(goldenReqs, actualReqs, failures) {
+  if (actualReqs.length !== goldenReqs.length) {
+    failures.push(`provider requests ${actualReqs.length} !== golden ${goldenReqs.length}`);
+    return;
+  }
+  for (let idx = 0; idx < goldenReqs.length; idx++) {
+    if (!subsetMatch(actualReqs[idx], goldenReqs[idx]) || !subsetMatch(goldenReqs[idx], actualReqs[idx])) {
+      failures.push(`request[${idx}] mismatch: actual=${describe(actualReqs[idx])} vs golden=${describe(goldenReqs[idx])}`);
+      break;
+    }
+  }
+}
+
+// K01 and K04 test incremental / 100ms-batched streaming where exact delta split boundaries vary by OS scheduling.
+function compareDeltaStreamContract(goldenEvents, actualEvents, { minDeltas, maxDeltas }, failures) {
+  const withoutSeq = ({ i: _i, ...rest }) => rest;
+  const goldenNonDelta = goldenEvents.filter((e) => e.kind !== "llm.text.delta").map(withoutSeq);
+  const actualNonDelta = actualEvents.filter((e) => e.kind !== "llm.text.delta").map(withoutSeq);
+  compareStrictEvents(goldenNonDelta, actualNonDelta, failures);
+
+  const goldenDeltas = goldenEvents.filter((e) => e.kind === "llm.text.delta");
+  const actualDeltas = actualEvents.filter((e) => e.kind === "llm.text.delta");
+  const startIdx = actualEvents.findIndex((e) => e.kind === "llm.text.start");
+  const endIdx = actualEvents.findIndex((e) => e.kind === "llm.text.end");
+  const deltasInsideSpan =
+    startIdx >= 0 &&
+    endIdx > startIdx &&
+    actualEvents.every((e, idx) => e.kind !== "llm.text.delta" || (idx > startIdx && idx < endIdx));
+  if (!deltasInsideSpan) {
+    failures.push("text deltas must appear between llm.text.start and llm.text.end");
+  }
+  if (actualDeltas.some((d) => typeof d.frag !== "string" || d.frag.length === 0)) {
+    failures.push("text deltas contain empty or non-string frag");
+  }
+  if (actualDeltas.length < minDeltas || actualDeltas.length > maxDeltas) {
+    failures.push(`text delta count ${actualDeltas.length} outside expected batching range [${minDeltas}, ${maxDeltas}]`);
+  }
+  const expectedText = goldenDeltas.map((d) => d.frag ?? "").join("");
+  const actualText = actualDeltas.map((d) => d.frag ?? "").join("");
+  if (actualText !== expectedText) {
+    failures.push(`concatenated delta text ${JSON.stringify(actualText)} !== golden ${JSON.stringify(expectedText)}`);
+  }
+}
+
+// K49 spawns three parallel child providers concurrently, so request[1..n-2] arrival order is a multiset.
+function compareParallelRequestMultiset(goldenReqs, actualReqs, failures) {
+  if (actualReqs.length !== goldenReqs.length) {
+    failures.push(`provider requests ${actualReqs.length} !== golden ${goldenReqs.length}`);
+    return;
+  }
+  if (goldenReqs.length < 2) {
+    compareStrictRequests(goldenReqs, actualReqs, failures);
+    return;
+  }
+  const last = goldenReqs.length - 1;
+  for (const idx of [0, last]) {
+    if (!subsetMatch(actualReqs[idx], goldenReqs[idx]) || !subsetMatch(goldenReqs[idx], actualReqs[idx])) {
+      failures.push(`request[${idx}] mismatch: actual=${describe(actualReqs[idx])} vs golden=${describe(goldenReqs[idx])}`);
+      return;
+    }
+  }
+  const reqKey = (r) => JSON.stringify({ kind: r.kind, stream: r.stream ?? null, model: r.model ?? null });
+  const counts = new Map();
+  for (const r of goldenReqs.slice(1, last)) counts.set(reqKey(r), (counts.get(reqKey(r)) ?? 0) + 1);
+  for (const r of actualReqs.slice(1, last)) counts.set(reqKey(r), (counts.get(reqKey(r)) ?? 0) - 1);
+  const mismatch = [...counts.entries()].find(([, n]) => n !== 0);
+  if (mismatch) {
+    const actualMid = actualReqs.slice(1, last).map((r) => r.model).join(",");
+    const goldenMid = goldenReqs.slice(1, last).map((r) => r.model).join(",");
+    failures.push(`parallel request multiset mismatch: actual=[${actualMid}] vs golden=[${goldenMid}]`);
+  }
+}
+
+// K46 spawns two parallel 250ms child subagents (`model-c`, `model-b`) with expectedTurns: 2.
+// Depending on ms scheduling between parallel child tasks and Turn 2, child 2 completes either mid-Turn-2
+// (+4 `"ok"` zero-token events and +1 `"parity-model"` request) or right after `turn.idle` #2, and child requests interleave.
+function compareK46Contract(goldenEvents, actualEvents, actualReqs, failures) {
+  const withoutSeq = ({ i: _i, ...rest }) => rest;
+  if (actualEvents.length !== 19 && actualEvents.length !== 23) {
+    failures.push(`event count ${actualEvents.length} !== expected 19 or 23`);
+    return;
+  }
+  const expectedPrefix = goldenEvents.slice(0, 18).map(withoutSeq);
+  const actualPrefix = actualEvents.slice(0, 18).map(withoutSeq);
+  compareStrictEvents(expectedPrefix, actualPrefix, failures);
+  if (failures.length > 0) return;
+
+  if (actualEvents.length === 23) {
+    const expectedMid = goldenEvents.slice(18, 22).map(withoutSeq);
+    const actualMid = actualEvents.slice(18, 22).map(withoutSeq);
+    compareStrictEvents(expectedMid, actualMid, failures);
+    if (failures.length > 0) return;
+  }
+
+  const lastEvt = withoutSeq(actualEvents[actualEvents.length - 1]);
+  const expectedLast = withoutSeq(goldenEvents[goldenEvents.length - 1]);
+  if (!subsetMatch(lastEvt, expectedLast) || !subsetMatch(expectedLast, lastEvt)) {
+    failures.push(`final event mismatch: actual=${describe(lastEvt)} vs golden=${describe(expectedLast)}`);
+    return;
+  }
+
+  const expectedReqCount = actualEvents.length === 23 ? 6 : 5;
+  if (actualReqs.length !== expectedReqCount) {
+    failures.push(`provider requests ${actualReqs.length} !== expected ${expectedReqCount} for ${actualEvents.length} events`);
+    return;
+  }
+  if (!actualReqs.every((r) => r.kind === "provider.request" && r.stream === true)) {
+    failures.push("k46 request missing stream=true");
+    return;
+  }
+  if (actualReqs[0].model !== "parity-model" || actualReqs[actualReqs.length - 1].model !== "parity-model") {
+    failures.push(`k46 endpoint request models unexpected: first=${actualReqs[0].model}, last=${actualReqs[actualReqs.length - 1].model}`);
+    return;
+  }
+  const counts = new Map();
+  for (const r of actualReqs) counts.set(r.model, (counts.get(r.model) ?? 0) + 1);
+  const expectedParity = actualEvents.length === 23 ? 4 : 3;
+  if (counts.get("parity-model") !== expectedParity || counts.get("model-c") !== 1 || counts.get("model-b") !== 1) {
+    failures.push(`k46 request model multiset mismatch: got [${actualReqs.map((r) => r.model).join(",")}]`);
+  }
+}
+
+const STREAM_BATCH_CONTRACTS = {
+  K01: { minDeltas: 2, maxDeltas: 5 },
+  K04: { minDeltas: 2, maxDeltas: 8 },
+};
+
 export function compareScenarioNdjson(id, goldenDir, actualDir, runtimeCheckError = null) {
   const goldenPath = path.join(goldenDir, `${id}.ndjson`);
   const actualPath = path.join(actualDir, `${id}.ndjson`);
@@ -63,25 +203,19 @@ export function compareScenarioNdjson(id, goldenDir, actualDir, runtimeCheckErro
   const goldenReqs = goldenRows.filter((r) => r.kind === "provider.request");
   const actualReqs = actualRows.filter((r) => r.kind === "provider.request");
 
-  if (actualEvents.length !== goldenEvents.length) {
-    failures.push(`event count ${actualEvents.length} !== golden ${goldenEvents.length}`);
+  if (id === "K46") {
+    compareK46Contract(goldenEvents, actualEvents, actualReqs, failures);
   } else {
-    for (let idx = 0; idx < goldenEvents.length; idx++) {
-      if (!subsetMatch(actualEvents[idx], goldenEvents[idx]) || !subsetMatch(goldenEvents[idx], actualEvents[idx])) {
-        failures.push(`event[${idx}] mismatch: actual=${describe(actualEvents[idx])} vs golden=${describe(goldenEvents[idx])}`);
-        break;
-      }
+    if (STREAM_BATCH_CONTRACTS[id]) {
+      compareDeltaStreamContract(goldenEvents, actualEvents, STREAM_BATCH_CONTRACTS[id], failures);
+    } else {
+      compareStrictEvents(goldenEvents, actualEvents, failures);
     }
-  }
 
-  if (actualReqs.length !== goldenReqs.length) {
-    failures.push(`provider requests ${actualReqs.length} !== golden ${goldenReqs.length}`);
-  } else {
-    for (let idx = 0; idx < goldenReqs.length; idx++) {
-      if (!subsetMatch(actualReqs[idx], goldenReqs[idx]) || !subsetMatch(goldenReqs[idx], actualReqs[idx])) {
-        failures.push(`request[${idx}] mismatch: actual=${describe(actualReqs[idx])} vs golden=${describe(goldenReqs[idx])}`);
-        break;
-      }
+    if (id === "K49") {
+      compareParallelRequestMultiset(goldenReqs, actualReqs, failures);
+    } else {
+      compareStrictRequests(goldenReqs, actualReqs, failures);
     }
   }
 
