@@ -97,6 +97,7 @@ pub(crate) struct StepHttpContext<'a> {
     pub session_id: &'a str,
     pub workspace_dir: &'a str,
     pub is_local_bridge: bool,
+    pub step_limit_reached: bool,
     pub current_provider_id: &'a mut String,
     pub current_model_id: &'a mut String,
     pub base_url: &'a mut String,
@@ -185,14 +186,24 @@ pub(crate) async fn execute_step_http_request(
     tools_def: &[Value],
 ) -> Result<reqwest::Response, StepHttpError> {
     let interrupt_rx = subscribe_session_interrupt(ctx.session_id);
+    let mut outbound_messages = ctx.chat_messages.clone();
+    if ctx.step_limit_reached {
+        outbound_messages.push(json!({
+            "role": "assistant",
+            "content": crate::session::coordinator::MAX_STEPS_PROMPT
+        }));
+    }
     let mut req_body = json!({
         "model": *ctx.current_model_id,
-        "messages": *ctx.chat_messages,
+        "messages": outbound_messages,
         "stream": true,
         "stream_options": { "include_usage": true }
     });
     if !tools_def.is_empty() {
         req_body["tools"] = Value::Array(tools_def.to_vec());
+        if ctx.step_limit_reached {
+            req_body["tool_choice"] = json!("none");
+        }
     }
 
     let mut net_attempt = 0usize;

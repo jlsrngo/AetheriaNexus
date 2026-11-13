@@ -285,7 +285,7 @@ async function runScenario(scenario) {
         } else {
           if (scenario.abortOnTool) {
             const started = await waitForCondition(
-              () => events.some((e) => e.type === "session.tool.called" || e.type === "tool.call"),
+              () => events.some((e) => e.type === "session.tool.called" || e.type === "session.next.tool.called" || e.type === "tool.call"),
               Math.min(timeoutMs, 10_000),
             );
             if (started) {

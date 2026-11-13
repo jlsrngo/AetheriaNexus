@@ -305,8 +305,34 @@ pub async fn run_agent_turn(
         }
     }
 
+    let session_agent_id = crate::session::session::with_store(|s| {
+        if let Some(sess) = s.sessions.get_mut(session_id) {
+            sess["activeTurn"] = json!({
+                "workspaceDir": workspace_dir,
+                "startedAt": started_ms,
+            });
+            crate::session::session::save_store(s);
+        }
+        s.sessions
+            .get(session_id)
+            .and_then(|sess| sess.get("agent"))
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+    });
+    let configured_steps = session_agent_id.as_deref().and_then(|agent_id| {
+        cfg.pointer(&format!("/agent/{}/steps", agent_id))
+            .or_else(|| cfg.pointer(&format!("/agent/{}/maxSteps", agent_id)))
+            .or_else(|| cfg.pointer(&format!("/agent/{}/max_steps", agent_id)))
+            .and_then(|v| v.as_u64())
+            .map(|n| n.max(1) as usize)
+    });
+    let max_loop_steps = configured_steps.unwrap_or(51);
+
     let mut overflow_compacted_this_step = false;
-    while _step < 35 {
+    while _step < max_loop_steps {
+        let step_limit_reached = configured_steps
+            .map(|limit| _step + 1 >= limit)
+            .unwrap_or(false);
         if let Some(reason) = crate::session::coordinator::is_session_interrupted(session_id) {
             crate::paths::log_engine(
                 "ai",
@@ -442,6 +468,7 @@ pub async fn run_agent_turn(
             session_id,
             workspace_dir,
             is_local_bridge,
+            step_limit_reached,
             current_provider_id: &mut current_provider_id,
             current_model_id: &mut current_model_id,
             base_url: &mut base_url,
@@ -766,11 +793,12 @@ pub async fn run_agent_turn(
 
         length_continuation_count = 0;
         chat_messages.push(msg.clone());
-        execute_tool_batch(
+        let was_interrupted = execute_tool_batch(
             session_id,
             workspace_dir,
             &assistant_msg_id,
             tool_calls,
+            step_limit_reached,
             &mut doom_loop_detector,
             &mut content_parts,
             &mut chat_messages,
@@ -789,7 +817,31 @@ pub async fn run_agent_turn(
             }),
         );
 
-        if _step == 34 {
+        if was_interrupted {
+            finalize_interrupted_turn(
+                &current_provider_id,
+                &current_model_id,
+                session_id,
+                workspace_dir,
+                &assistant_msg_id,
+                started_ms,
+                content_parts,
+                &usage_acc,
+                "user",
+            );
+            return;
+        }
+
+        if step_limit_reached {
+            reached_max_steps = true;
+            final_text = "Maximum agent steps reached; tool execution disabled.".to_string();
+            final_text_streamed = true;
+            last_step_usage = step_usage;
+            last_finish = step_finish;
+            break;
+        }
+
+        if _step + 1 == max_loop_steps {
             reached_max_steps = true;
         }
         _step += 1;

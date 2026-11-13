@@ -4,7 +4,6 @@
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 
 use super::resolve_isolated_path;
@@ -86,74 +85,9 @@ pub async fn execute_bash(
     let cwd = workdir.clone();
     let session_id_owned = session_id.to_string();
     let workspace_dir_owned = workspace_dir.to_string();
+    let interrupt_rx = crate::session::coordinator::subscribe_session_interrupt(session_id);
 
-    let res = tokio::task::spawn_blocking(move || {
-        #[cfg(windows)]
-        use std::os::windows::process::CommandExt;
-        #[cfg(windows)]
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-
-        let is_powershell_hint = cmd_str.contains("Get-Content")
-            || cmd_str.contains("Select-Object")
-            || cmd_str.contains("Select-String")
-            || cmd_str.contains("Set-Content")
-            || cmd_str.contains("Out-File")
-            || cmd_str.contains("Test-Path")
-            || cmd_str.starts_with("cat ")
-            || cmd_str.starts_with("ls ")
-            || cmd_str == "ls"
-            || cmd_str == "pwd";
-
-        let mut cmd = if cfg!(windows) {
-            if is_powershell_hint {
-                let mut c = Command::new("powershell.exe");
-                c.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &cmd_str]);
-                c
-            } else {
-                let mut c = Command::new("cmd.exe");
-                c.args(["/C", &cmd_str]);
-                c
-            }
-        } else {
-            let mut c = Command::new("/bin/sh");
-            c.args(["-c", &cmd_str]);
-            c
-        };
-
-        #[cfg(windows)]
-        cmd.creation_flags(CREATE_NO_WINDOW);
-
-        cmd.current_dir(&cwd);
-        cmd.env("PYTHONIOENCODING", "utf-8");
-        cmd.env("PYTHONUTF8", "1");
-
-        let initial_output = cmd.output();
-
-        #[cfg(windows)]
-        {
-            if !is_powershell_hint {
-                if let Ok(ref out) = initial_output {
-                    let err_str = String::from_utf8_lossy(&out.stderr);
-                    let out_str = String::from_utf8_lossy(&out.stdout);
-                    if (!out.status.success()) && (err_str.contains("not recognized") || out_str.contains("not recognized")) {
-                        let mut ps_cmd = Command::new("powershell.exe");
-                        ps_cmd.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &cmd_str]);
-                        ps_cmd.creation_flags(CREATE_NO_WINDOW);
-                        ps_cmd.current_dir(&cwd);
-                        ps_cmd.env("PYTHONIOENCODING", "utf-8");
-                        ps_cmd.env("PYTHONUTF8", "1");
-                        if let Ok(ps_out) = ps_cmd.output() {
-                            return Ok(ps_out);
-                        }
-                    }
-                }
-            }
-        }
-
-        initial_output
-    })
-    .await
-    .unwrap_or_else(|e| Err(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())));
+    let res = run_interruptible_shell(&cmd_str, &cwd, &interrupt_rx).await;
 
     // Automatically clean up temporary scratch scripts in .aetheria/scratch after execution
     let _ = std::fs::remove_dir_all(&scratch_dir);
@@ -190,6 +124,141 @@ pub async fn execute_bash(
                 "output": combined_output
             })
         }
+        Err(e) if e.kind() == std::io::ErrorKind::Interrupted => json!({
+            "ok": false,
+            "aborted": true,
+            "error": "Command execution aborted by user"
+        }),
         Err(e) => json!({ "error": format!("Failed to execute command: {}", e) }),
     }
+}
+
+fn kill_child_process_tree(pid: Option<u32>) {
+    let Some(pid) = pid else { return; };
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let _ = std::process::Command::new("taskkill")
+            .creation_flags(CREATE_NO_WINDOW)
+            .args(["/F", "/T", "/PID", &pid.to_string()])
+            .output();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = std::process::Command::new("kill")
+            .args(["-KILL", &pid.to_string()])
+            .output();
+    }
+}
+
+async fn run_command_with_interrupt(
+    program: &str,
+    args: &[&str],
+    raw_cmd_line: Option<&str>,
+    cwd: &Path,
+    interrupt_rx: &tokio::sync::watch::Receiver<bool>,
+) -> std::io::Result<std::process::Output> {
+    let mut cmd = tokio::process::Command::new(program);
+    #[cfg(windows)]
+    {
+        if let Some(raw) = raw_cmd_line {
+            cmd.raw_arg(raw);
+        } else {
+            cmd.args(args);
+        }
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = raw_cmd_line;
+        cmd.args(args);
+    }
+    cmd.current_dir(cwd);
+    cmd.env("PYTHONIOENCODING", "utf-8");
+    cmd.env("PYTHONUTF8", "1");
+    cmd.stdin(std::process::Stdio::null());
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+    cmd.kill_on_drop(true);
+
+    let child = cmd.spawn()?;
+    let pid = child.id();
+
+    tokio::select! {
+        biased;
+        _ = crate::session::coordinator::wait_session_interrupt(interrupt_rx.clone()) => {
+            kill_child_process_tree(pid);
+            Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "Command aborted by user"))
+        }
+        res = child.wait_with_output() => res,
+    }
+}
+
+async fn run_interruptible_shell(
+    cmd_str: &str,
+    cwd: &Path,
+    interrupt_rx: &tokio::sync::watch::Receiver<bool>,
+) -> std::io::Result<std::process::Output> {
+    if *interrupt_rx.borrow() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Interrupted,
+            "Command aborted by user",
+        ));
+    }
+
+    let is_powershell_hint = cmd_str.contains("Get-Content")
+        || cmd_str.contains("Select-Object")
+        || cmd_str.contains("Select-String")
+        || cmd_str.contains("Set-Content")
+        || cmd_str.contains("Out-File")
+        || cmd_str.contains("Test-Path")
+        || cmd_str.starts_with("cat ")
+        || cmd_str.starts_with("ls ")
+        || cmd_str == "ls"
+        || cmd_str == "pwd";
+
+    let initial_output = if cfg!(windows) {
+        if is_powershell_hint {
+            run_command_with_interrupt(
+                "powershell.exe",
+                &["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", cmd_str],
+                None,
+                cwd,
+                interrupt_rx,
+            )
+            .await
+        } else {
+            let raw = format!("/C \"{}\"", cmd_str);
+            run_command_with_interrupt("cmd.exe", &[], Some(&raw), cwd, interrupt_rx).await
+        }
+    } else {
+        run_command_with_interrupt("/bin/sh", &["-c", cmd_str], None, cwd, interrupt_rx).await
+    };
+
+    #[cfg(windows)]
+    if !is_powershell_hint {
+        if let Ok(ref out) = initial_output {
+            let err_str = String::from_utf8_lossy(&out.stderr);
+            let out_str = String::from_utf8_lossy(&out.stdout);
+            if (!out.status.success())
+                && (err_str.contains("not recognized") || out_str.contains("not recognized"))
+            {
+                if let Ok(ps_out) = run_command_with_interrupt(
+                    "powershell.exe",
+                    &["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", cmd_str],
+                    None,
+                    cwd,
+                    interrupt_rx,
+                )
+                .await
+                {
+                    return Ok(ps_out);
+                }
+            }
+        }
+    }
+
+    initial_output
 }

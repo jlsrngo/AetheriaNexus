@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 
 struct PreparedCall {
     call_id: String,
+    display_name: String,
     fn_name: String,
     args_str: String,
     args_val: Value,
@@ -18,16 +19,18 @@ struct PreparedCall {
     tool_start: u64,
 }
 
+/// Returns `true` when execution was aborted/interrupted so `runner` can finalize immediately.
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn execute_tool_batch(
     session_id: &str,
     workspace_dir: &str,
     assistant_msg_id: &str,
     tool_calls: Vec<Value>,
+    tools_disabled: bool,
     doom_loop_detector: &mut DoomLoopDetector,
     content_parts: &mut Vec<Value>,
     chat_messages: &mut Vec<Value>,
-) {
+) -> bool {
     let mut prepared_calls = Vec::with_capacity(tool_calls.len());
     for tc in tool_calls {
         let call_id = tc
@@ -40,6 +43,11 @@ pub(crate) async fn execute_tool_batch(
             .and_then(|v| v.as_str())
             .unwrap_or("tool");
         let fn_name = crate::tool::json_repair::canonicalize_tool_name(raw_fn_name).to_string();
+        let display_name = if raw_fn_name.trim().eq_ignore_ascii_case("subagent") {
+            "subagent".to_string()
+        } else {
+            fn_name.clone()
+        };
         let args_str = tc
             .pointer("/function/arguments")
             .and_then(|v| v.as_str())
@@ -60,18 +68,23 @@ pub(crate) async fn execute_tool_batch(
                 "sessionID": session_id,
                 "messageID": assistant_msg_id,
                 "id": call_id,
-                "name": fn_name,
+                "name": display_name,
                 "input": args_val
             }),
         );
         crate::paths::log_engine(
             "tool",
-            &format!("🔧 Executing tool '{}' with input: {}", fn_name, args_str),
+            &format!("🔧 Executing tool '{}' with input: {}", display_name, args_str),
         );
 
-        let loop_warning = doom_loop_detector.check_and_record(&fn_name, &args_str);
+        let loop_warning = if tools_disabled {
+            None
+        } else {
+            doom_loop_detector.check_and_record(&fn_name, &args_str)
+        };
         prepared_calls.push(PreparedCall {
             call_id,
+            display_name,
             fn_name,
             args_str,
             args_val,
@@ -82,7 +95,10 @@ pub(crate) async fn execute_tool_batch(
     }
 
     let futures_vec = prepared_calls.iter().map(|pc| async move {
-        if let Some(err_msg) = &pc.syntax_error {
+        if tools_disabled {
+            let msg = "Tools are disabled after the maximum agent steps";
+            (json!({ "ok": false, "error": msg, "blocked": true }), true)
+        } else if let Some(err_msg) = &pc.syntax_error {
             crate::paths::log_engine(
                 "tool",
                 &format!(
@@ -110,29 +126,41 @@ pub(crate) async fn execute_tool_batch(
                 workspace_dir,
             )
             .await;
-            (out, false)
+            let failed = out.get("aborted").and_then(|v| v.as_bool()) == Some(true)
+                || out.get("denied").and_then(|v| v.as_bool()) == Some(true)
+                || out.get("type").and_then(|v| v.as_str()) == Some("aborted");
+            (out, failed)
         }
     });
 
     let results = futures_util::future::join_all(futures_vec).await;
+    let mut was_interrupted = crate::session::coordinator::is_session_interrupted(session_id).is_some();
 
-    for (pc, (tool_out, is_blocked)) in prepared_calls.into_iter().zip(results.into_iter()) {
+    for (pc, (tool_out, is_failed)) in prepared_calls.into_iter().zip(results.into_iter()) {
         let call_id = pc.call_id;
+        let display_name = pc.display_name;
         let fn_name = pc.fn_name;
         let args_val = pc.args_val;
         let tool_start = pc.tool_start;
+        if tool_out.get("aborted").and_then(|v| v.as_bool()) == Some(true) {
+            was_interrupted = true;
+        }
 
         let tool_out_str =
             serde_json::to_string_pretty(&tool_out).unwrap_or_else(|_| "{}".to_string());
         let tool_end = now_ms();
         let tool_dur = tool_end.saturating_sub(tool_start);
 
-        if is_blocked {
+        if is_failed {
+            let err_msg = tool_out
+                .get("error")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Execution failed or blocked");
             crate::paths::log_engine(
                 "tool",
                 &format!(
-                    "⚠️ Tool '{}' was halted by DoomLoopDetector in {}ms",
-                    fn_name, tool_dur
+                    "⚠️ Tool '{}' failed in {}ms: {}",
+                    display_name, tool_dur, err_msg
                 ),
             );
             emit_event(
@@ -142,15 +170,15 @@ pub(crate) async fn execute_tool_batch(
                     "sessionID": session_id,
                     "messageID": assistant_msg_id,
                     "id": call_id,
-                    "name": fn_name,
+                    "name": display_name,
                     "content": [{ "type": "text", "text": tool_out_str }],
-                    "error": { "message": "Execution halted: repeated identical invocation detected" }
+                    "error": { "message": err_msg }
                 }),
             );
         } else {
             crate::paths::log_engine(
                 "tool",
-                &format!("✅ Tool '{}' completed in {}ms", fn_name, tool_dur),
+                &format!("✅ Tool '{}' completed in {}ms", display_name, tool_dur),
             );
             emit_event(
                 workspace_dir,
@@ -159,7 +187,7 @@ pub(crate) async fn execute_tool_batch(
                     "sessionID": session_id,
                     "messageID": assistant_msg_id,
                     "id": call_id,
-                    "name": fn_name,
+                    "name": display_name,
                     "content": [{ "type": "text", "text": tool_out_str }],
                     "structured": tool_out
                 }),
@@ -169,9 +197,9 @@ pub(crate) async fn execute_tool_batch(
         content_parts.push(json!({
             "type": "tool",
             "id": call_id,
-            "name": fn_name,
+            "name": display_name,
             "state": {
-                "status": if is_blocked { "error" } else { "completed" },
+                "status": if is_failed { "error" } else { "completed" },
                 "input": args_val,
                 "structured": tool_out,
                 "content": [{ "type": "text", "text": tool_out_str }],
@@ -199,5 +227,7 @@ pub(crate) async fn execute_tool_batch(
             "content": bounded_tool_out_str
         }));
     }
+
+    was_interrupted
 }
 
