@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use super::kiro_standby::{acquire_subagent_turn_standby, register_subagent_pending};
 use super::resilience::{send_resilient_chat_completion, SYNTHETIC_OUTPUT_LIMIT_PROMPT};
-use super::subagent_provider::resolve_subagent_provider_config;
+use super::subagent_provider::resolve_subagent_provider_config_for_call;
 use super::subagent_tool_batch::execute_subagent_tool_calls;
 use crate::paths::now_ms;
 use crate::session::doom_loop::DoomLoopDetector;
@@ -60,10 +60,17 @@ pub fn execute_subagent<'a>(
             .and_then(|v| v.as_str())
             .unwrap_or("");
         let subagent_type = arguments
-            .get("subagent_type")
+            .get("agent")
+            .or_else(|| arguments.get("subagent_type"))
             .or_else(|| arguments.get("type"))
             .and_then(|v| v.as_str())
             .unwrap_or("general");
+        let model_override = arguments
+            .get("model")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
         let requested_session_id = arguments
             .get("sessionID")
             .or_else(|| arguments.get("child_session_id"))
@@ -81,7 +88,7 @@ pub fn execute_subagent<'a>(
         let parent_depth = get_session_depth(parent_session_id);
         if parent_depth >= MAX_SUBAGENT_DEPTH {
             let err_msg = format!(
-                "Maximum subagent recursion depth ({}) reached. Execute the remaining tools directly instead of spawning another subagent.",
+                "Maximum subagent recursion depth limit ({}) reached. Execute the remaining tools directly instead of spawning another subagent.",
                 MAX_SUBAGENT_DEPTH
             );
             return json!({
@@ -133,6 +140,7 @@ pub fn execute_subagent<'a>(
             let child_id_owned = child_session_id.clone();
             let sub_type_owned = subagent_type.to_string();
             let desc_owned = description.to_string();
+            let model_override_owned = model_override.clone();
 
             tokio::spawn(async move {
                 let out = run_subagent_loop(
@@ -141,6 +149,7 @@ pub fn execute_subagent<'a>(
                     &child_id_owned,
                     &sub_type_owned,
                     &desc_owned,
+                    model_override_owned.as_deref(),
                     is_resumed,
                     child_depth,
                     chat_messages,
@@ -173,14 +182,16 @@ pub fn execute_subagent<'a>(
                 };
                 crate::session::coordinator::admit_inbox_item(&parent_id_owned, &notification, delivery);
 
-                // Unconditionally ring the wake doorbell (OpenCode RunCoordinator pattern):
+                // Unconditionally ring the wake doorbell (OpenCode RunCoordinator pattern) for root parents:
                 // if parent is still busy in `steps`, it drains Steer before idle and wake sees an empty inbox;
                 // if parent was exiting via `finalize_agent_turn` when Steer arrived, wake waits for the lock
                 // and delivers the late notification cleanly so zero completions are ever dropped.
-                crate::session::prompt::wake_parent_session_after_background(
-                    &parent_id_owned,
-                    &ws_owned,
-                );
+                if get_session_depth(&parent_id_owned) == 0 {
+                    crate::session::prompt::wake_parent_session_after_background(
+                        &parent_id_owned,
+                        &ws_owned,
+                    );
+                }
             });
 
             return json!({
@@ -199,6 +210,7 @@ pub fn execute_subagent<'a>(
             &child_session_id,
             subagent_type,
             description,
+            model_override.as_deref(),
             is_resumed,
             child_depth,
             chat_messages,
@@ -216,13 +228,21 @@ async fn run_subagent_loop(
     child_session_id: &str,
     subagent_type: &str,
     description: &str,
+    model_override: Option<&str>,
     is_resumed: bool,
     child_depth: usize,
     mut chat_messages: Vec<Value>,
 ) -> Value {
     let child_session_id = child_session_id.to_string();
-    let (mut base_url, mut api_key, mut model_id) =
-        resolve_subagent_provider_config(parent_session_id).await;
+    let (mut base_url, mut api_key, mut model_id, provider_id) =
+        resolve_subagent_provider_config_for_call(parent_session_id, subagent_type, model_override)
+            .await;
+    crate::session::session::with_store(|store| {
+        if let Some(sess) = store.sessions.get_mut(&child_session_id) {
+            sess["model"] = json!({ "providerID": &provider_id, "id": &model_id });
+            crate::session::session::save_store(store);
+        }
+    });
     let tools = build_subagent_tools(subagent_type, child_depth);
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(15))
@@ -238,14 +258,19 @@ async fn run_subagent_loop(
     let mut doom_detector = DoomLoopDetector::default();
     let mut exit_outcome = SubagentExitOutcome::Completed;
 
-    // Serialize active subagents across ALL connected models/providers so only 1 executes
-    // at a time while sibling subagents wait calmly in standby without sending API requests.
+    // Serialize sibling subagents per provider/model lane so rate-limit bursts on a shared model/bridge
+    // enter standby cleanly while distinct providers/models (`K49`) execute in parallel.
+    let standby_lane = if provider_id == "local-cli" || provider_id == "antigravity" {
+        "local-cli".to_string()
+    } else {
+        format!("{}::{}", provider_id, model_id)
+    };
     let _subagent_turn_permit = match acquire_subagent_turn_standby(
         parent_session_id,
         &child_session_id,
         workspace_dir,
         subagent_type,
-        &model_id,
+        &standby_lane,
         child_depth,
     )
     .await

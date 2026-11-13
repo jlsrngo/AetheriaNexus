@@ -63,11 +63,69 @@ fn resolve_provider_endpoint_and_key(cfg: &Value, provider_id: &str, bridge_url:
     (base_url, api_key)
 }
 
-pub(crate) async fn resolve_subagent_provider_config(
+fn parse_model_spec(cfg: &Value, spec: &str, fallback_provider: &str) -> Option<(String, String)> {
+    let trimmed = spec.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if let Some((p, m)) = trimmed.split_once('/') {
+        let p = p.trim();
+        let m = m.trim();
+        if !p.is_empty() && !m.is_empty() {
+            let is_known_provider = cfg.pointer(&format!("/provider/{}", p)).is_some()
+                || cfg.pointer(&format!("/providers/{}", p)).is_some()
+                || matches!(
+                    p,
+                    "local-cli" | "antigravity" | "kenari" | "openai" | "anthropic" | "google" | "parity"
+                )
+                || p.starts_with("parity");
+            if is_known_provider {
+                return Some((p.to_string(), m.to_string()));
+            }
+        }
+    }
+    Some((fallback_provider.to_string(), trimmed.to_string()))
+}
+
+fn resolve_agent_configured_model(
+    cfg: &Value,
+    agent_name: &str,
+    fallback_provider: &str,
+) -> Option<(String, String)> {
+    let agent_model = cfg.pointer(&format!("/agent/{}/model", agent_name))?;
+    if let Some(s) = agent_model.as_str() {
+        return parse_model_spec(cfg, s, fallback_provider);
+    }
+    if let Some(obj) = agent_model.as_object() {
+        let pid = obj
+            .get("providerID")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or(fallback_provider);
+        let mid = obj
+            .get("modelID")
+            .or_else(|| obj.get("id"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())?;
+        return Some((pid.to_string(), mid.to_string()));
+    }
+    None
+}
+
+pub(crate) async fn resolve_subagent_provider_config_for_call(
     parent_session_id: &str,
-) -> (String, String, String) {
+    agent_name: &str,
+    model_override: Option<&str>,
+) -> (String, String, String, String) {
     let cfg = read_aetheria_config();
-    let (provider_id, model_id) = resolve_parent_model_ref(parent_session_id);
+    let (parent_provider_id, parent_model_id) = resolve_parent_model_ref(parent_session_id);
+    let (provider_id, model_id) = model_override
+        .and_then(|spec| parse_model_spec(&cfg, spec, &parent_provider_id))
+        .or_else(|| resolve_agent_configured_model(&cfg, agent_name, &parent_provider_id))
+        .unwrap_or_else(|| (parent_provider_id.clone(), parent_model_id));
+
     let session_model = with_store(|store| {
         store
             .sessions
@@ -85,24 +143,35 @@ pub(crate) async fn resolve_subagent_provider_config(
 
     let (mut base_url, mut api_key) =
         resolve_provider_endpoint_and_key(&cfg, &provider_id, &bridge_url);
-    if let Some(ref sm) = session_model {
-        if let Some(sess_url) = sm
-            .get("baseURL")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-        {
-            base_url = sess_url.trim_end_matches('/').to_string();
-        }
-        if let Some(sess_key) = sm
-            .get("apiKey")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-        {
-            api_key = sess_key.to_string();
+    if provider_id == parent_provider_id {
+        if let Some(ref sm) = session_model {
+            if let Some(sess_url) = sm
+                .get("baseURL")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                base_url = sess_url.trim_end_matches('/').to_string();
+            }
+            if let Some(sess_key) = sm
+                .get("apiKey")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                api_key = sess_key.to_string();
+            }
         }
     }
+    (base_url, api_key, model_id, provider_id)
+}
+
+#[allow(dead_code)]
+pub(crate) async fn resolve_subagent_provider_config(
+    parent_session_id: &str,
+) -> (String, String, String) {
+    let (base_url, api_key, model_id, _provider_id) =
+        resolve_subagent_provider_config_for_call(parent_session_id, "general", None).await;
     (base_url, api_key, model_id)
 }
 

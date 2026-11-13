@@ -7,7 +7,7 @@ use crate::paths::{gen_id, now_ms};
 use crate::session::session::{save_store, with_store, SessionStoreData};
 
 /// Maximum recursion depth for subagents (`parent = 0`, `child = 1`, `grandchild = 2`).
-pub const MAX_SUBAGENT_DEPTH: usize = 2;
+pub const MAX_SUBAGENT_DEPTH: usize = 1;
 
 /// Builds the specialized system prompt for each subagent persona.
 pub fn build_subagent_system_prompt(subagent_type: &str, workspace_dir: &str) -> String {
@@ -184,7 +184,18 @@ pub fn load_or_init_child_session(
             .map(|s| s.to_string())
             .unwrap_or_else(|| gen_id("sub"));
 
-        let session_meta = json!({
+        let parent_model = store
+            .sessions
+            .get(parent_session_id)
+            .and_then(|s| s.get("model"))
+            .cloned();
+        let parent_permissions = store
+            .sessions
+            .get(parent_session_id)
+            .and_then(|s| s.get("permissions"))
+            .cloned();
+
+        let mut session_meta = json!({
             "id": new_id,
             "parentID": parent_session_id,
             "title": format!("[Subagent: {}] {}", subagent_type, description),
@@ -194,6 +205,12 @@ pub fn load_or_init_child_session(
             "createdAt": now,
             "updatedAt": now
         });
+        if let Some(pm) = parent_model {
+            session_meta["model"] = pm;
+        }
+        if let Some(pp) = parent_permissions {
+            session_meta["permissions"] = pp;
+        }
         store.sessions.insert(new_id.clone(), session_meta);
 
         let initial_msgs = vec![

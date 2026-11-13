@@ -10,13 +10,16 @@ use tokio::sync::{Notify, OwnedSemaphorePermit, Semaphore};
 use crate::paths::now_ms;
 use crate::session::message::emit_event;
 
-static SUBAGENT_TURN_LOCK: OnceLock<Arc<Semaphore>> = OnceLock::new();
+static SUBAGENT_LANE_LOCKS: OnceLock<Mutex<HashMap<String, Arc<Semaphore>>>> = OnceLock::new();
 static PENDING_SUBAGENTS: OnceLock<Mutex<HashMap<String, usize>>> = OnceLock::new();
 static PENDING_NOTIFIERS: OnceLock<Mutex<HashMap<String, Arc<Notify>>>> = OnceLock::new();
 
-fn turn_semaphore() -> Arc<Semaphore> {
-    SUBAGENT_TURN_LOCK
-        .get_or_init(|| Arc::new(Semaphore::new(1)))
+fn turn_semaphore_for_lane(lane: &str) -> Arc<Semaphore> {
+    let locks = SUBAGENT_LANE_LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut guard = locks.lock().unwrap_or_else(|e| e.into_inner());
+    guard
+        .entry(lane.to_string())
+        .or_insert_with(|| Arc::new(Semaphore::new(1)))
         .clone()
 }
 
@@ -113,7 +116,12 @@ pub async fn acquire_subagent_turn_standby(
         return Ok(None);
     }
 
-    let sem = turn_semaphore();
+    let lane = if _model_id.trim().is_empty() {
+        "default"
+    } else {
+        _model_id.trim()
+    };
+    let sem = turn_semaphore_for_lane(lane);
     if let Ok(permit) = sem.clone().try_acquire_owned() {
         return Ok(Some(permit));
     }
@@ -229,8 +237,11 @@ mod tests {
         .expect("acquire first")
         .expect("permit 1");
 
-        // Second subagent cannot acquire immediately while first is still working, regardless of model
-        assert!(turn_semaphore().try_acquire_owned().is_err());
+        // Second subagent on the same model/lane cannot acquire immediately while first is still working
+        assert!(turn_semaphore_for_lane("gpt-5.4").try_acquire_owned().is_err());
+
+        // Different provider/model lane runs concurrently without blocking
+        assert!(turn_semaphore_for_lane("parity-p2::m2").try_acquire_owned().is_ok());
 
         // Depth 2 nested call bypasses lock so child wait cannot deadlock parent subagent
         let nested = acquire_subagent_turn_standby(
@@ -246,6 +257,6 @@ mod tests {
         assert!(nested.is_none());
 
         drop(p1);
-        assert!(turn_semaphore().try_acquire_owned().is_ok());
+        assert!(turn_semaphore_for_lane("gpt-5.4").try_acquire_owned().is_ok());
     }
 }

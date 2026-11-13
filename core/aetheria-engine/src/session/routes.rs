@@ -148,8 +148,9 @@ pub(crate) async fn handle_create(
         .get("title")
         .and_then(|v| v.as_str())
         .unwrap_or("New Session");
+    let permissions = body.get("permissions").cloned();
 
-    let session = json!({
+    let mut session = json!({
         "id": id,
         "projectID": "proj_default",
         "agent": agent,
@@ -171,6 +172,9 @@ pub(crate) async fn handle_create(
             "directory": dir
         }
     });
+    if let Some(perms) = permissions {
+        session["permissions"] = perms;
+    }
 
     with_store(|store| {
         store.sessions.insert(id.clone(), session.clone());

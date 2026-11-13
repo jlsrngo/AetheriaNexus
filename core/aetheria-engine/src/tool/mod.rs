@@ -48,6 +48,72 @@ pub use path_guard::resolve_isolated_path;
 
 use serde_json::{json, Value};
 
+fn check_session_tool_permission(session_id: &str, canonical_tool: &str) -> Option<String> {
+    let (sess_perms, agent_name) = crate::session::session::with_store(|store| {
+        let sess = store.sessions.get(session_id);
+        let perms = sess.and_then(|s| s.get("permissions")).cloned();
+        let agent = sess
+            .and_then(|s| s.get("agent"))
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        (perms, agent)
+    });
+
+    if let Some(rules) = sess_perms.as_ref().and_then(|v| v.as_array()) {
+        let mut decision: Option<&str> = None;
+        for rule in rules {
+            let action = rule.get("action").and_then(|v| v.as_str()).unwrap_or("");
+            let matches = action == "*"
+                || action == canonical_tool
+                || (action == "edit" && matches!(canonical_tool, "edit" | "patch" | "multiedit"))
+                || (action == "write" && matches!(canonical_tool, "write" | "write_file" | "create_file"));
+            if matches {
+                if let Some(eff) = rule.get("effect").and_then(|v| v.as_str()) {
+                    decision = Some(eff);
+                }
+            }
+        }
+        if decision == Some("deny") {
+            return Some(format!(
+                "Permission denied: tool '{}' is blocked by session permissions.",
+                canonical_tool
+            ));
+        }
+    } else if let Some(obj) = sess_perms.as_ref().and_then(|v| v.as_object()) {
+        let eff = obj
+            .get(canonical_tool)
+            .or_else(|| obj.get("*"))
+            .and_then(|v| v.as_str());
+        if eff == Some("deny") {
+            return Some(format!(
+                "Permission denied: tool '{}' is blocked by session permissions.",
+                canonical_tool
+            ));
+        }
+    }
+
+    if let Some(agent_id) = agent_name {
+        let cfg = crate::provider::read_aetheria_config();
+        if let Some(perm_obj) = cfg
+            .pointer(&format!("/agent/{}/permission", agent_id))
+            .and_then(|v| v.as_object())
+        {
+            let eff = perm_obj
+                .get(canonical_tool)
+                .or_else(|| perm_obj.get("*"))
+                .and_then(|v| v.as_str());
+            if eff == Some("deny") {
+                return Some(format!(
+                    "Permission denied: tool '{}' is blocked for agent '{}'.",
+                    canonical_tool, agent_id
+                ));
+            }
+        }
+    }
+
+    None
+}
+
 /// Supervised tool execution harness — mirrors OpenCode's `SessionStep.attempt` fiber supervision:
 /// 1. Checks cooperative session interruption before launching.
 /// 2. Catches any internal Rust panic (`catch_unwind`) so a defective tool never crashes the engine.
@@ -69,6 +135,13 @@ pub async fn execute_tool_call(
     }
 
     let canonical = json_repair::canonicalize_tool_name(name);
+    if let Some(deny_reason) = check_session_tool_permission(session_id, canonical) {
+        return json!({
+            "ok": false,
+            "denied": true,
+            "error": deny_reason
+        });
+    }
     let timeout_secs = match canonical {
         "render_video" | "produce_video" | "task" | "question" => 600,
         _ => 180,
