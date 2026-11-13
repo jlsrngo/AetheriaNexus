@@ -20,6 +20,9 @@ fn maybe_update_session_title(
     completed_ms: u64,
 ) {
     if let Some(s) = store.sessions.get_mut(session_id) {
+        if let Some(obj) = s.as_object_mut() {
+            obj.remove("activeTurn");
+        }
         s["time"]["updated"] = json!(completed_ms);
         let cur_title = s.get("title").and_then(|v| v.as_str()).unwrap_or("");
         if cur_title.is_empty()

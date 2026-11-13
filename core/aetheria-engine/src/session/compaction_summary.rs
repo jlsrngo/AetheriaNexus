@@ -404,6 +404,27 @@ pub fn spawn_background_precompute(
         .insert(session_id, handle);
 }
 
+fn clear_pending_compaction(
+    session_id: &str,
+    compaction_job_id: &str,
+    success: bool,
+    err: Option<&str>,
+) {
+    crate::session::session::with_store(|store| {
+        if let Some(sess) = store.sessions.get_mut(session_id) {
+            if let Some(obj) = sess.as_object_mut() {
+                obj.remove("pendingCompaction");
+                crate::session::session::save_store(store);
+            }
+        }
+    });
+    if success {
+        crate::session::job_registry::settle_job_completed(compaction_job_id, None);
+    } else if let Some(msg) = err {
+        crate::session::job_registry::settle_job_error(compaction_job_id, msg);
+    }
+}
+
 /// Runs budget-driven synchronous compaction with shrink ladder `[0.85, 0.70, 0.50, 0.35]` (`K29–K31`, `K33`, `K34`, `K54`).
 #[allow(clippy::too_many_arguments)]
 pub async fn compact_with_budget_ladder(
@@ -417,6 +438,28 @@ pub async fn compact_with_budget_ladder(
     chat_messages: &mut Vec<Value>,
 ) -> CompactionOutcome {
     await_pending_precompute(session_id).await;
+
+    let compaction_job_id = format!("cmp_{}", session_id);
+    crate::session::session::with_store(|store| {
+        if let Some(sess) = store.sessions.get_mut(session_id) {
+            sess["pendingCompaction"] = json!({
+                "reason": reason,
+                "workspaceDir": workspace_dir,
+                "modelId": model_id,
+                "startedAt": crate::paths::now_ms(),
+                "messages": chat_messages.clone(),
+            });
+            crate::session::session::save_store(store);
+        }
+    });
+    crate::session::job_registry::start_job(
+        &compaction_job_id,
+        session_id,
+        None,
+        "compaction",
+        reason,
+        false,
+    );
 
     crate::session::message::emit_event(
         workspace_dir,
@@ -464,6 +507,7 @@ pub async fn compact_with_budget_ladder(
                     if attempt < SHRINK_STEPS.len() {
                         continue;
                     }
+                    clear_pending_compaction(session_id, &compaction_job_id, false, Some(&msg));
                     crate::session::message::emit_event(
                         workspace_dir,
                         "session.compaction.failed",
@@ -475,6 +519,12 @@ pub async fn compact_with_budget_ladder(
                     return CompactionOutcome::Failed(msg);
                 }
                 CompactionCallResult::Interrupted => {
+                    clear_pending_compaction(
+                        session_id,
+                        &compaction_job_id,
+                        false,
+                        Some("Compaction interrupted by user"),
+                    );
                     crate::session::message::emit_event(
                         workspace_dir,
                         "session.compaction.failed",
@@ -486,6 +536,7 @@ pub async fn compact_with_budget_ladder(
                     return CompactionOutcome::Interrupted;
                 }
                 CompactionCallResult::Failed(err) => {
+                    clear_pending_compaction(session_id, &compaction_job_id, false, Some(&err));
                     crate::session::message::emit_event(
                         workspace_dir,
                         "session.compaction.failed",
@@ -525,6 +576,7 @@ pub async fn compact_with_budget_ladder(
         }
     });
 
+    clear_pending_compaction(session_id, &compaction_job_id, true, None);
     crate::session::message::emit_event(
         workspace_dir,
         "session.compacted",

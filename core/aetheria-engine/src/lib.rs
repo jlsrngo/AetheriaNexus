@@ -78,6 +78,22 @@ pub async fn init_engine_and_bind(
             session::prompt::wake_session_inbox_on_startup(sid);
         }
     }
+    let pending_compactions = session::restart::take_pending_compactions_on_startup();
+    if !pending_compactions.is_empty() {
+        println!(
+            "[aetheria-engine] Resuming {} session(s) with interrupted compaction",
+            pending_compactions.len()
+        );
+        for rec in pending_compactions {
+            session::prompt::wake_session_compaction_on_startup(rec);
+        }
+    }
+    let interrupted_turns = session::restart::take_interrupted_turns_on_startup();
+    for rec in interrupted_turns {
+        if !pending_inboxes.contains(&rec.session_id) {
+            session::prompt::wake_interrupted_turn_on_startup(rec);
+        }
+    }
 
     // 3. Start background Telegram bot polling & active folder ingestion watcher
     messaging::start_telegram_worker();

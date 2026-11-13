@@ -70,3 +70,96 @@ pub fn recover_orphaned_jobs_on_startup() -> usize {
     recovered_count
 }
 
+#[derive(Debug, Clone)]
+pub struct PendingCompactionRecovery {
+    pub session_id: String,
+    pub workspace_dir: String,
+    pub reason: String,
+    pub messages: Vec<serde_json::Value>,
+}
+
+/// Extracts and clears any interrupted mid-flight compaction checkpoints from `SESSION_STORE`
+/// so `lib.rs` can emit `compaction.interrupted` and resume cleanly after engine restart (`K54`).
+pub fn take_pending_compactions_on_startup() -> Vec<PendingCompactionRecovery> {
+    let mut recovered = Vec::new();
+    with_store(|store| {
+        let mut modified = false;
+        let session_ids: Vec<String> = store.sessions.keys().cloned().collect();
+        for sid in session_ids {
+            if let Some(sess) = store.sessions.get_mut(&sid) {
+                if let Some(pending) = sess.as_object_mut().and_then(|o| o.remove("pendingCompaction")) {
+                    if let Some(obj) = sess.as_object_mut() {
+                        obj.remove("activeTurn");
+                    }
+                    modified = true;
+                    let workspace_dir = pending
+                        .get("workspaceDir")
+                        .and_then(|v| v.as_str())
+                        .or_else(|| sess.pointer("/location/directory").and_then(|v| v.as_str()))
+                        .or_else(|| sess.get("directory").and_then(|v| v.as_str()))
+                        .unwrap_or("")
+                        .to_string();
+                    let reason = pending
+                        .get("reason")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("auto")
+                        .to_string();
+                    let messages = pending
+                        .get("messages")
+                        .and_then(|v| v.as_array())
+                        .cloned()
+                        .unwrap_or_default();
+                    recovered.push(PendingCompactionRecovery {
+                        session_id: sid,
+                        workspace_dir,
+                        reason,
+                        messages,
+                    });
+                }
+            }
+        }
+        if modified {
+            save_store(store);
+        }
+    });
+    recovered
+}
+
+#[derive(Debug, Clone)]
+pub struct InterruptedTurnRecovery {
+    pub session_id: String,
+    pub workspace_dir: String,
+}
+
+/// Extracts and clears any `activeTurn` markers left behind when the engine exited mid-turn
+/// or mid-tool (`K41`, `K55`) so `lib.rs` can settle and resume them cleanly on startup.
+pub fn take_interrupted_turns_on_startup() -> Vec<InterruptedTurnRecovery> {
+    let mut recovered = Vec::new();
+    with_store(|store| {
+        let mut modified = false;
+        let session_ids: Vec<String> = store.sessions.keys().cloned().collect();
+        for sid in session_ids {
+            if let Some(sess) = store.sessions.get_mut(&sid) {
+                if let Some(active) = sess.as_object_mut().and_then(|o| o.remove("activeTurn")) {
+                    modified = true;
+                    let workspace_dir = active
+                        .get("workspaceDir")
+                        .and_then(|v| v.as_str())
+                        .or_else(|| sess.pointer("/location/directory").and_then(|v| v.as_str()))
+                        .or_else(|| sess.get("directory").and_then(|v| v.as_str()))
+                        .unwrap_or("")
+                        .to_string();
+                    recovered.push(InterruptedTurnRecovery {
+                        session_id: sid,
+                        workspace_dir,
+                    });
+                }
+            }
+        }
+        if modified {
+            save_store(store);
+        }
+    });
+    recovered
+}
+

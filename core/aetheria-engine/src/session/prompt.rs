@@ -397,3 +397,231 @@ pub fn wake_session_inbox_on_startup(session_id: &str) {
         .await;
     });
 }
+
+/// Resumes an interrupted compaction after an engine crash/restart (`K54`): emits
+/// `session.compaction.failed` (`compaction.interrupted`), re-runs compaction, and resumes the turn.
+pub fn wake_session_compaction_on_startup(recovery: crate::session::restart::PendingCompactionRecovery) {
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        let lock = get_session_lock(&recovery.session_id);
+        let _turn_guard = lock.lock().await;
+
+        let (provider_id, model_id, resolved_ws, exists) = with_store(|store| {
+            let Some(sess) = store.sessions.get(&recovery.session_id) else {
+                return (
+                    "local-cli".to_string(),
+                    "kiro/auto".to_string(),
+                    recovery.workspace_dir.clone(),
+                    false,
+                );
+            };
+            let m = sess
+                .get("model")
+                .cloned()
+                .unwrap_or_else(default_model_ref);
+            let pid = m
+                .get("providerID")
+                .and_then(|v| v.as_str())
+                .unwrap_or("local-cli")
+                .to_string();
+            let mid = m
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("kiro/auto")
+                .to_string();
+            let sws = if !recovery.workspace_dir.is_empty() {
+                recovery.workspace_dir.clone()
+            } else {
+                sess.pointer("/location/directory")
+                    .or_else(|| sess.get("directory"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| crate::paths::project_root().to_string_lossy().to_string())
+            };
+            (pid, mid, sws, true)
+        });
+
+        if !exists {
+            return;
+        }
+
+        let cfg = crate::provider::read_aetheria_config();
+        let is_local_bridge = provider_id == "antigravity" || provider_id == "local-cli";
+        let base_url = if is_local_bridge {
+            let port = crate::bridge::ensure_bridge_running().await;
+            format!("http://127.0.0.1:{}/v1", port)
+        } else {
+            cfg.pointer(&format!("/provider/{}/options/baseURL", provider_id))
+                .or_else(|| cfg.pointer(&format!("/provider/{}/api/url", provider_id)))
+                .or_else(|| cfg.pointer(&format!("/provider/{}/api", provider_id)))
+                .or_else(|| cfg.pointer(&format!("/providers/{}/options/baseURL", provider_id)))
+                .or_else(|| cfg.pointer(&format!("/providers/{}/api/url", provider_id)))
+                .and_then(|v| v.as_str())
+                .map(|s| s.trim_end_matches('/').to_string())
+                .unwrap_or_else(|| crate::bridge::get_bridge_base_url())
+        };
+        let api_key = cfg
+            .pointer(&format!("/provider/{}/options/apiKey", provider_id))
+            .or_else(|| cfg.pointer(&format!("/provider/{}/request/body/apiKey", provider_id)))
+            .or_else(|| cfg.pointer(&format!("/providers/{}/options/apiKey", provider_id)))
+            .or_else(|| cfg.pointer(&format!("/providers/{}/request/body/apiKey", provider_id)))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "local-cli-bridge".to_string());
+
+        crate::session::message::emit_event(
+            &resolved_ws,
+            "session.compaction.failed",
+            json!({
+                "sessionID": &recovery.session_id,
+                "error": {
+                    "type": "compaction.interrupted",
+                    "message": "Compaction interrupted by engine restart"
+                }
+            }),
+        );
+
+        let client = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(15))
+            .timeout(std::time::Duration::from_secs(120))
+            .build()
+            .unwrap_or_default();
+
+        let mut chat_messages = recovery.messages;
+        if chat_messages.is_empty() {
+            chat_messages = with_store(|store| {
+                store
+                    .messages
+                    .get(&recovery.session_id)
+                    .cloned()
+                    .unwrap_or_default()
+            });
+        }
+
+        let outcome = crate::session::compaction_summary::compact_with_budget_ladder(
+            &client,
+            &base_url,
+            &api_key,
+            &model_id,
+            &recovery.session_id,
+            &resolved_ws,
+            &recovery.reason,
+            &mut chat_messages,
+        )
+        .await;
+
+        if !matches!(
+            outcome,
+            crate::session::compaction_summary::CompactionOutcome::Succeeded
+        ) {
+            return;
+        }
+
+        let continuation_prompt = crate::session::restart::CONTINUE_AFTER_SERVER_RESTART.to_string();
+        let history = with_store(|store| {
+            let h = store
+                .messages
+                .get(&recovery.session_id)
+                .cloned()
+                .unwrap_or_default();
+            store
+                .messages
+                .entry(recovery.session_id.clone())
+                .or_default()
+                .push(json!({
+                    "id": gen_id("msg"),
+                    "type": "user",
+                    "text": continuation_prompt,
+                    "time": { "created": now_ms() }
+                }));
+            save_store(store);
+            h
+        });
+
+        run_agent_turn(
+            &recovery.session_id,
+            &resolved_ws,
+            &provider_id,
+            &model_id,
+            &history,
+            crate::session::restart::CONTINUE_AFTER_SERVER_RESTART,
+            None,
+        )
+        .await;
+    });
+}
+
+/// Resumes a session turn that was interrupted mid-execution or mid-tool by an engine shutdown/crash (`K41`, `K55`).
+pub fn wake_interrupted_turn_on_startup(recovery: crate::session::restart::InterruptedTurnRecovery) {
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        let lock = get_session_lock(&recovery.session_id);
+        let _turn_guard = lock.lock().await;
+
+        let continuation_prompt = crate::session::restart::CONTINUE_AFTER_SERVER_RESTART.to_string();
+        let (provider_id, model_id, history, resolved_ws, exists) = with_store(|store| {
+            let Some(sess) = store.sessions.get(&recovery.session_id) else {
+                return (
+                    "local-cli".to_string(),
+                    "kiro/auto".to_string(),
+                    Vec::new(),
+                    recovery.workspace_dir.clone(),
+                    false,
+                );
+            };
+            let m = sess
+                .get("model")
+                .cloned()
+                .unwrap_or_else(default_model_ref);
+            let pid = m
+                .get("providerID")
+                .and_then(|v| v.as_str())
+                .unwrap_or("local-cli")
+                .to_string();
+            let mid = m
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("kiro/auto")
+                .to_string();
+            let sws = if !recovery.workspace_dir.is_empty() {
+                recovery.workspace_dir.clone()
+            } else {
+                sess.pointer("/location/directory")
+                    .or_else(|| sess.get("directory"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| crate::paths::project_root().to_string_lossy().to_string())
+            };
+            let hist = store.messages.get(&recovery.session_id).cloned().unwrap_or_default();
+            store
+                .messages
+                .entry(recovery.session_id.clone())
+                .or_default()
+                .push(json!({
+                    "id": gen_id("msg"),
+                    "type": "user",
+                    "text": continuation_prompt,
+                    "time": { "created": now_ms() }
+                }));
+            save_store(store);
+            (pid, mid, hist, sws, true)
+        });
+
+        if !exists {
+            return;
+        }
+
+        run_agent_turn(
+            &recovery.session_id,
+            &resolved_ws,
+            &provider_id,
+            &model_id,
+            &history,
+            crate::session::restart::CONTINUE_AFTER_SERVER_RESTART,
+            None,
+        )
+        .await;
+    });
+}
