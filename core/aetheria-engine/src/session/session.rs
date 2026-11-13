@@ -17,7 +17,21 @@ static SESSION_STORE: OnceLock<Mutex<SessionStoreData>> = OnceLock::new();
 pub static ACTIVE_RUNS: OnceLock<Mutex<HashMap<String, bool>>> = OnceLock::new();
 
 pub fn store_file_path() -> PathBuf {
-    aetheria_data_dir().join("sessions-store.json")
+    #[cfg(test)]
+    {
+        static TEST_STORE_DIR: OnceLock<PathBuf> = OnceLock::new();
+        let dir = TEST_STORE_DIR.get_or_init(|| {
+            let p = std::env::temp_dir()
+                .join(format!("aetheria-test-store-{}", std::process::id()));
+            let _ = std::fs::create_dir_all(&p);
+            p
+        });
+        return dir.join("sessions-store.json");
+    }
+    #[cfg(not(test))]
+    {
+        aetheria_data_dir().join("sessions-store.json")
+    }
 }
 
 pub fn load_store() -> SessionStoreData {
@@ -29,23 +43,29 @@ pub fn load_store() -> SessionStoreData {
             }
         }
     }
-    // Auto-migrate from SQLite Aetheria-local.db if available
-    let db_path = aetheria_data_dir().join("Aetheria-local.db");
-    if db_path.exists() {
-        let mut migrate_cmd = std::process::Command::new("bun");
-        crate::paths::configure_hidden_std_command(&mut migrate_cmd);
-        let _ = migrate_cmd
-            .arg("scripts/migrate-sqlite-to-json.cjs")
-            .output();
-        if let Ok(raw) = std::fs::read_to_string(&p) {
-            if let Ok(parsed) = serde_json::from_str::<SessionStoreData>(&raw) {
-                if !parsed.sessions.is_empty() || !parsed.messages.is_empty() {
-                    return parsed;
+    #[cfg(test)]
+    return SessionStoreData::default();
+
+    #[cfg(not(test))]
+    {
+        // Auto-migrate from SQLite Aetheria-local.db if available
+        let db_path = aetheria_data_dir().join("Aetheria-local.db");
+        if db_path.exists() {
+            let mut migrate_cmd = std::process::Command::new("bun");
+            crate::paths::configure_hidden_std_command(&mut migrate_cmd);
+            let _ = migrate_cmd
+                .arg("scripts/migrate-sqlite-to-json.cjs")
+                .output();
+            if let Ok(raw) = std::fs::read_to_string(&p) {
+                if let Ok(parsed) = serde_json::from_str::<SessionStoreData>(&raw) {
+                    if !parsed.sessions.is_empty() || !parsed.messages.is_empty() {
+                        return parsed;
+                    }
                 }
             }
         }
+        SessionStoreData::default()
     }
-    SessionStoreData::default()
 }
 
 pub fn save_store(store: &SessionStoreData) {

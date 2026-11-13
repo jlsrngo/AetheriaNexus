@@ -211,6 +211,19 @@ pub fn map_messages_for_ui(raw_messages: &[Value]) -> Vec<Value> {
         }
         content = cleaned_content;
 
+        if let Some(err_msg) = msg
+            .pointer("/error/message")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            if content.trim().is_empty() {
+                content = format!("⚠️ {}", err_msg);
+            } else {
+                content = format!("{}\n\n⚠️ {}", content.trim_end(), err_msg);
+            }
+        }
+
         // D. Build parts array
         if role == "assistant" {
             if !reasoning.is_empty() {
