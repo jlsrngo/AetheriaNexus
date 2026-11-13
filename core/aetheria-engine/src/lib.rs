@@ -68,6 +68,10 @@ pub async fn init_engine_and_bind(
             recovered_jobs
         );
     }
+    let interrupted_subagents = session::restart::list_interrupted_subagents_on_startup();
+    for rec in interrupted_subagents {
+        session::agent_turn::subagent::wake_interrupted_subagent_on_startup(rec);
+    }
     let pending_inboxes = session::inbox::recover_pending_inboxes_on_startup();
     if !pending_inboxes.is_empty() {
         println!(

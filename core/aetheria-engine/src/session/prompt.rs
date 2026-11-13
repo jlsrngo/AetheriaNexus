@@ -266,18 +266,22 @@ pub fn wake_parent_session_after_background(parent_session_id: &str, workspace_d
         let lock = get_session_lock(&sid);
         let _turn_guard = lock.lock().await;
 
-        let mut drained = Vec::new();
-        while let Some(item) = crate::session::coordinator::pop_next_queued_input(&sid) {
-            drained.push(item.text);
-        }
-        for steer in crate::session::coordinator::drain_pending_steers(&sid) {
-            drained.push(steer.text);
-        }
-        if drained.is_empty() {
-            return;
-        }
+        let next_prompt = if let Some(item) =
+            crate::session::coordinator::pop_next_queued_input(&sid)
+        {
+            item.text
+        } else {
+            let steers = crate::session::coordinator::drain_pending_steers(&sid);
+            if steers.is_empty() {
+                return;
+            }
+            steers
+                .into_iter()
+                .map(|s| s.text)
+                .collect::<Vec<_>>()
+                .join("\n\n")
+        };
 
-        let consolidated_prompt = drained.join("\n\n");
         let (provider_id, model_id, history, resolved_ws) = with_store(|store| {
             let sess = store.sessions.get(&sid);
             let m = sess
@@ -301,12 +305,12 @@ pub fn wake_parent_session_after_background(parent_session_id: &str, workspace_d
                 .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| ws.clone());
             // Snapshot history BEFORE persisting the synthetic notice so run_agent_turn
-            // appends `consolidated_prompt` once during the turn while keeping future turns consistent.
+            // appends `next_prompt` once during the turn while keeping future turns consistent.
             let hist = store.messages.get(&sid).cloned().unwrap_or_default();
             if crate::session::agent_turn::subagent_store::persist_synthetic_subagent_notice(
                 store,
                 &sid,
-                &consolidated_prompt,
+                &next_prompt,
             ) {
                 save_store(store);
             }
@@ -319,11 +323,23 @@ pub fn wake_parent_session_after_background(parent_session_id: &str, workspace_d
             &provider_id,
             &model_id,
             &history,
-            &consolidated_prompt,
+            &next_prompt,
             None,
         )
         .await;
     });
+}
+
+/// Waits briefly after engine boot so an SSE subscriber (`/api/event`) can attach before
+/// startup recovery tasks emit tool settlement or assistant stream events.
+pub(crate) async fn wait_for_sse_subscriber_or_delay() {
+    tokio::time::sleep(std::time::Duration::from_millis(40)).await;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(800);
+    while crate::session::message::get_event_sender().receiver_count() == 0
+        && std::time::Instant::now() < deadline
+    {
+        tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+    }
 }
 
 /// Resumes persisted inbox items after engine restart, popping one queued item at a time so
@@ -331,7 +347,7 @@ pub fn wake_parent_session_after_background(parent_session_id: &str, workspace_d
 pub fn wake_session_inbox_on_startup(session_id: &str) {
     let sid = session_id.to_string();
     tokio::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+        wait_for_sse_subscriber_or_delay().await;
         let lock = get_session_lock(&sid);
         let _turn_guard = lock.lock().await;
 
@@ -402,7 +418,7 @@ pub fn wake_session_inbox_on_startup(session_id: &str) {
 /// `session.compaction.failed` (`compaction.interrupted`), re-runs compaction, and resumes the turn.
 pub fn wake_session_compaction_on_startup(recovery: crate::session::restart::PendingCompactionRecovery) {
     tokio::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        wait_for_sse_subscriber_or_delay().await;
         let lock = get_session_lock(&recovery.session_id);
         let _turn_guard = lock.lock().await;
 
@@ -555,7 +571,7 @@ pub fn wake_session_compaction_on_startup(recovery: crate::session::restart::Pen
 /// Resumes a session turn that was interrupted mid-execution or mid-tool by an engine shutdown/crash (`K41`, `K55`).
 pub fn wake_interrupted_turn_on_startup(recovery: crate::session::restart::InterruptedTurnRecovery) {
     tokio::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        wait_for_sse_subscriber_or_delay().await;
         let lock = get_session_lock(&recovery.session_id);
         let _turn_guard = lock.lock().await;
 

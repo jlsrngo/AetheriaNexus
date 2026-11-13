@@ -26,15 +26,24 @@ pub fn recover_orphaned_jobs_on_startup() -> usize {
             if job.status == JobStatus::Running {
                 job.resume_attempts += 1;
                 job.updated_at = now;
-                job.settled_at = Some(now);
                 recovered_count += 1;
 
                 if job.resume_attempts > DEFAULT_MAX_RESUME_ATTEMPTS {
                     job.status = JobStatus::Error;
+                    job.settled_at = Some(now);
                     job.error = Some(RESUME_EXHAUSTED_MESSAGE.to_string());
                     exhausted_sessions.push(job.session_id.clone());
+                } else if job.kind == "subagent"
+                    && job.background
+                    && job.child_session_id.is_some()
+                {
+                    // Keep resumable background subagents in Running state so
+                    // `list_interrupted_subagents_on_startup` can resume them cleanly (`K53`).
+                    job.settled_at = None;
+                    job.error = None;
                 } else {
                     job.status = JobStatus::Error;
+                    job.settled_at = Some(now);
                     job.error = Some(
                         "Interrupted by engine restart; settled cleanly on boot.".to_string(),
                     );
@@ -68,6 +77,37 @@ pub fn recover_orphaned_jobs_on_startup() -> usize {
     }
 
     recovered_count
+}
+
+#[derive(Debug, Clone)]
+pub struct InterruptedSubagentRecovery {
+    pub parent_session_id: String,
+    pub child_session_id: String,
+    pub description: String,
+}
+
+/// Lists background subagent jobs still marked `Running` after startup orphan recovery
+/// so `lib.rs` can resume them cleanly up to `DEFAULT_MAX_RESUME_ATTEMPTS` (`K53`).
+pub fn list_interrupted_subagents_on_startup() -> Vec<InterruptedSubagentRecovery> {
+    let mut out = Vec::new();
+    with_job_store(|store| {
+        for job in store.jobs.values() {
+            if job.status == JobStatus::Running
+                && job.kind == "subagent"
+                && job.background
+                && job.resume_attempts <= DEFAULT_MAX_RESUME_ATTEMPTS
+            {
+                if let Some(ref child_id) = job.child_session_id {
+                    out.push(InterruptedSubagentRecovery {
+                        parent_session_id: job.session_id.clone(),
+                        child_session_id: child_id.clone(),
+                        description: job.description.clone(),
+                    });
+                }
+            }
+        }
+    });
+    out
 }
 
 #[derive(Debug, Clone)]

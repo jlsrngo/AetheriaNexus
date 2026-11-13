@@ -39,6 +39,14 @@ pub fn spawn_subagent_tool_definition() -> Value {
     })
 }
 
+struct ChildActiveRunGuard(String);
+
+impl Drop for ChildActiveRunGuard {
+    fn drop(&mut self) {
+        crate::session::session::set_active_run(&self.0, false);
+    }
+}
+
 enum SubagentExitOutcome {
     Completed,
     Incomplete(String),
@@ -97,6 +105,28 @@ pub fn execute_subagent<'a>(
             });
         }
         let child_depth = parent_depth + 1;
+        if let Some(req_cid) = requested_session_id.map(str::trim).filter(|s| !s.is_empty()) {
+            if crate::session::session::is_active_run(req_cid) {
+                crate::session::coordinator::admit_inbox_item(
+                    req_cid,
+                    prompt,
+                    crate::session::coordinator::InboxDelivery::Steer,
+                );
+                return json!({
+                    "ok": true,
+                    "state": "running",
+                    "mode": "background",
+                    "sessionID": req_cid,
+                    "subagent_type": subagent_type,
+                    "description": description,
+                    "resumed": true,
+                    "output": format!(
+                        "<subagent sessionID=\"{}\" type=\"{}\" state=\"running\" mode=\"background\">\nFollow-up instructions queued onto active child session {}.\n</subagent>",
+                        req_cid, subagent_type, req_cid
+                    )
+                });
+            }
+        }
         let sys_prompt = build_subagent_system_prompt(subagent_type, workspace_dir);
         let (child_session_id, chat_messages, is_resumed) = load_or_init_child_session(
             parent_session_id,
@@ -133,66 +163,24 @@ pub fn execute_subagent<'a>(
         );
 
         let pending_guard = register_subagent_pending(parent_session_id);
+        crate::session::session::set_active_run(&child_session_id, true);
 
         if run_in_background {
-            let parent_id_owned = parent_session_id.to_string();
-            let ws_owned = workspace_dir.to_string();
-            let child_id_owned = child_session_id.clone();
-            let sub_type_owned = subagent_type.to_string();
-            let desc_owned = description.to_string();
-            let model_override_owned = model_override.clone();
-
-            tokio::spawn(async move {
-                let out = run_subagent_loop(
-                    &parent_id_owned,
-                    &ws_owned,
-                    &child_id_owned,
-                    &sub_type_owned,
-                    &desc_owned,
-                    model_override_owned.as_deref(),
+            spawn_background_subagent_task(
+                BackgroundSubagentSpec {
+                    parent_id: parent_session_id.to_string(),
+                    ws: workspace_dir.to_string(),
+                    child_id: child_session_id.clone(),
+                    sub_type: subagent_type.to_string(),
+                    desc: description.to_string(),
+                    model_override,
                     is_resumed,
                     child_depth,
                     chat_messages,
-                )
-                .await;
-
-                let remaining = pending_guard.release_now();
-                let state_str = out.get("state").and_then(|v| v.as_str()).unwrap_or("completed");
-                let output_xml = out.get("output").and_then(|v| v.as_str()).unwrap_or("");
-                let safe_desc = desc_owned.replace('"', "'").replace(['<', '>', '\n', '\r'], " ");
-                let standby_note = if remaining > 0 {
-                    format!(
-                        "\n<standby-status pending=\"{}\">Subagent finished above. {} sibling subagent(s) remain queued or active in standby. Report this completed subagent's findings concisely to the user now (e.g. 'Laporan {} (selesai)') and END YOUR TURN cleanly WITHOUT calling tools, sleeping, or polling — the next queued subagent will notify you when it finishes.</standby-status>",
-                        remaining, remaining, sub_type_owned
-                    )
-                } else {
-                    String::from(
-                        "\n<standby-status pending=\"0\">All background subagents have finished. Deliver a clear final summary or synthesis to the user.</standby-status>"
-                    )
-                };
-                let notification = format!(
-                    "<subagent-notification sessionID=\"{}\" type=\"{}\" state=\"{}\" remaining_standby=\"{}\" description=\"{}\">\n{}{}\n</subagent-notification>",
-                    child_id_owned, sub_type_owned, state_str, remaining, safe_desc, output_xml, standby_note
-                );
-                let parent_active = crate::session::session::is_active_run(&parent_id_owned);
-                let delivery = if parent_active {
-                    crate::session::coordinator::InboxDelivery::Steer
-                } else {
-                    crate::session::coordinator::InboxDelivery::Queue
-                };
-                crate::session::coordinator::admit_inbox_item(&parent_id_owned, &notification, delivery);
-
-                // Unconditionally ring the wake doorbell (OpenCode RunCoordinator pattern) for root parents:
-                // if parent is still busy in `steps`, it drains Steer before idle and wake sees an empty inbox;
-                // if parent was exiting via `finalize_agent_turn` when Steer arrived, wake waits for the lock
-                // and delivers the late notification cleanly so zero completions are ever dropped.
-                if get_session_depth(&parent_id_owned) == 0 {
-                    crate::session::prompt::wake_parent_session_after_background(
-                        &parent_id_owned,
-                        &ws_owned,
-                    );
-                }
-            });
+                },
+                pending_guard,
+                false,
+            );
 
             return json!({
                 "ok": true, "state": "running", "mode": "background",
@@ -204,6 +192,7 @@ pub fn execute_subagent<'a>(
             });
         }
 
+        let _active_guard = ChildActiveRunGuard(child_session_id.clone());
         let out = run_subagent_loop(
             parent_session_id,
             workspace_dir,
@@ -216,9 +205,145 @@ pub fn execute_subagent<'a>(
             chat_messages,
         )
         .await;
+        drop(_active_guard);
         drop(pending_guard);
         out
     })
+}
+
+struct BackgroundSubagentSpec {
+    parent_id: String,
+    ws: String,
+    child_id: String,
+    sub_type: String,
+    desc: String,
+    model_override: Option<String>,
+    is_resumed: bool,
+    child_depth: usize,
+    chat_messages: Vec<Value>,
+}
+
+fn spawn_background_subagent_task(
+    spec: BackgroundSubagentSpec,
+    pending_guard: super::kiro_standby::SubagentPendingGuard,
+    wait_for_boot_sse: bool,
+) {
+    tokio::spawn(async move {
+        let active_guard = ChildActiveRunGuard(spec.child_id.clone());
+        if wait_for_boot_sse {
+            crate::session::prompt::wait_for_sse_subscriber_or_delay().await;
+            tokio::time::sleep(Duration::from_millis(45)).await;
+        }
+        let out = run_subagent_loop(
+            &spec.parent_id,
+            &spec.ws,
+            &spec.child_id,
+            &spec.sub_type,
+            &spec.desc,
+            spec.model_override.as_deref(),
+            spec.is_resumed,
+            spec.child_depth,
+            spec.chat_messages,
+        )
+        .await;
+        drop(active_guard);
+
+        let remaining = pending_guard.release_now();
+        let state_str = out.get("state").and_then(|v| v.as_str()).unwrap_or("completed");
+        let output_xml = out.get("output").and_then(|v| v.as_str()).unwrap_or("");
+        let safe_desc = spec.desc.replace('"', "'").replace(['<', '>', '\n', '\r'], " ");
+        let standby_note = if remaining > 0 {
+            format!(
+                "\n<standby-status pending=\"{}\">Subagent finished above. {} sibling subagent(s) remain queued or active in standby. Report this completed subagent's findings concisely to the user now (e.g. 'Laporan {} (selesai)') and END YOUR TURN cleanly WITHOUT calling tools, sleeping, or polling — the next queued subagent will notify you when it finishes.</standby-status>",
+                remaining, remaining, spec.sub_type
+            )
+        } else {
+            String::from(
+                "\n<standby-status pending=\"0\">All background subagents have finished. Deliver a clear final summary or synthesis to the user.</standby-status>"
+            )
+        };
+        let notification = format!(
+            "<subagent-notification sessionID=\"{}\" type=\"{}\" state=\"{}\" remaining_standby=\"{}\" description=\"{}\">\n{}{}\n</subagent-notification>",
+            spec.child_id, spec.sub_type, state_str, remaining, safe_desc, output_xml, standby_note
+        );
+        let parent_active = crate::session::session::is_active_run(&spec.parent_id);
+        let delivery = if parent_active {
+            crate::session::coordinator::InboxDelivery::Steer
+        } else {
+            crate::session::coordinator::InboxDelivery::Queue
+        };
+        crate::session::coordinator::admit_inbox_item(&spec.parent_id, &notification, delivery);
+
+        if get_session_depth(&spec.parent_id) == 0 {
+            crate::session::prompt::wake_parent_session_after_background(
+                &spec.parent_id,
+                &spec.ws,
+            );
+        }
+    });
+}
+
+/// Resumes a persisted background subagent job that was interrupted by an engine crash (`K53`).
+pub fn wake_interrupted_subagent_on_startup(rec: crate::session::restart::InterruptedSubagentRecovery) {
+    let loaded = crate::session::session::with_store(|store| {
+        let msgs = store.messages.get(&rec.child_session_id).cloned().unwrap_or_default();
+        if msgs.is_empty() {
+            return None;
+        }
+        let child_sess = store.sessions.get(&rec.child_session_id);
+        let sub_type = child_sess
+            .and_then(|s| s.get("agent"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("general")
+            .to_string();
+        let child_depth = child_sess
+            .and_then(|s| s.get("subagentDepth"))
+            .and_then(|v| v.as_u64())
+            .map(|n| n as usize)
+            .unwrap_or(1);
+        let model_override = child_sess
+            .and_then(|s| s.get("model"))
+            .and_then(|m| {
+                let pid = m.get("providerID").and_then(|v| v.as_str())?;
+                let mid = m.get("id").and_then(|v| v.as_str())?;
+                Some(format!("{}/{}", pid, mid))
+            });
+        let parent_sess = store.sessions.get(&rec.parent_session_id);
+        let ws = parent_sess
+            .and_then(|s| s.pointer("/location/directory").or_else(|| s.get("directory")))
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| crate::paths::project_root().to_string_lossy().to_string());
+        Some((sub_type, child_depth, model_override, ws, msgs))
+    });
+
+    let Some((sub_type, child_depth, model_override, ws, chat_messages)) = loaded else {
+        crate::session::job_registry::settle_job_error(
+            &rec.child_session_id,
+            "Interrupted subagent session state missing on startup.",
+        );
+        return;
+    };
+
+    crate::session::coordinator::begin_session_turn(&rec.child_session_id);
+    let pending_guard = register_subagent_pending(&rec.parent_session_id);
+    crate::session::session::set_active_run(&rec.child_session_id, true);
+    spawn_background_subagent_task(
+        BackgroundSubagentSpec {
+            parent_id: rec.parent_session_id,
+            ws,
+            child_id: rec.child_session_id,
+            sub_type,
+            desc: rec.description,
+            model_override,
+            is_resumed: true,
+            child_depth,
+            chat_messages,
+        },
+        pending_guard,
+        true,
+    );
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -372,6 +497,13 @@ async fn run_subagent_loop(
 
         if !completion.assistant_text.is_empty() {
             chat_messages.push(json!({ "role": "assistant", "content": completion.assistant_text }));
+        }
+        let late_steers = crate::session::coordinator::drain_pending_steers(&child_session_id);
+        if !late_steers.is_empty() {
+            for steer in late_steers {
+                chat_messages.push(json!({ "role": "user", "content": steer.text }));
+            }
+            continue;
         }
         exit_outcome = SubagentExitOutcome::Completed;
         break;
