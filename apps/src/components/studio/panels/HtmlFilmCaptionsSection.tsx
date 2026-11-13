@@ -38,8 +38,8 @@ export const HtmlFilmCaptionsSection: React.FC<HtmlFilmCaptionsSectionProps> = (
           </span>
         </div>
         <p className="text-[11px] leading-relaxed text-[var(--text-secondary)]">
-          Subtitle & timing kata mengikuti audio <code className="font-mono text-[10px]">*.wav</code> &{" "}
-          <code className="font-mono text-[10px]">*.words.json</code> di folder proyek ini, bukan template bullet Remotion.
+          Subtitles and word timings follow the project <code className="font-mono text-[10px]">*.wav</code> &{" "}
+          <code className="font-mono text-[10px]">*.words.json</code> audio files rather than static templates.
         </p>
       </div>
 
@@ -55,7 +55,7 @@ export const HtmlFilmCaptionsSection: React.FC<HtmlFilmCaptionsSectionProps> = (
 
         {scenes.length === 0 ? (
           <div className="text-[11px] text-[var(--text-muted)] py-2">
-            Belum ada metadata scene audio terdeteksi di <code className="font-mono">index.html</code>.
+            No scene audio metadata detected in <code className="font-mono">index.html</code>.
           </div>
         ) : (
           <div className="space-y-1 max-h-64 overflow-y-auto pr-0.5">

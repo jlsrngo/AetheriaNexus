@@ -79,10 +79,14 @@ pub fn run() {
                         .unwrap_or(false);
 
                     if !already_up {
+                        let creds = aetheria_engine::server_auth::init_server_credentials();
+                        aetheria_engine::server_auth::persist_dev_server_password_files(creds);
+                        engine_bridge::set_engine_auth_mode_embedded();
                         let (listener, _url, actual_port) =
                             aetheria_engine::init_engine_and_bind(&host, port).await;
                         aetheria_engine::run_axum_server(listener, actual_port).await;
                     } else {
+                        engine_bridge::set_engine_auth_mode_external();
                         println!("[aetheria-desktop] Engine already running on port {}, reusing instance.", port);
                         let _ = aetheria_engine::bridge::ensure_bridge_running().await;
                     }

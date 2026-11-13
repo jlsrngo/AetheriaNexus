@@ -45,6 +45,11 @@ pub async fn init_engine_and_bind(
     hostname: &str,
     port: u16,
 ) -> (tokio::net::TcpListener, String, u16) {
+    // 0. Initialize per-launch auth credentials and persist password files immediately
+    // so early WebView/media/IPC callers never read stale credentials from a previous run.
+    let creds = crate::server_auth::init_server_credentials();
+    crate::server_auth::persist_dev_server_password_files(creds);
+
     // 1. Harvest local CLI credentials & start Local-CLI Bridge on :20188
     harvest_all();
     register_local_cli_to_config(LOCAL_CLI_BRIDGE_PORT);
@@ -104,11 +109,7 @@ pub async fn init_engine_and_bind(
     session::watcher::start_folder_watcher_daemon();
     studio::start_scheduler_daemon();
 
-    // 4. Write dev-server-password if server password env is provided
-    // 4. Always initialize per-launch auth credentials and persist password files
-    let creds = crate::server_auth::init_server_credentials();
-    crate::server_auth::persist_dev_server_password_files(creds);
-
+    // 4. Credentials were initialized at step 0; bind TCP listener next
     let bind_addr = format!("{}:{}", hostname, port);
     let listener = match tokio::net::TcpListener::bind(&bind_addr).await {
         Ok(l) => l,

@@ -184,11 +184,14 @@ export function InspectorPanel({
       <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-3 min-h-0">
         {/* 1. Composition Metadata Card */}
         <div className="p-2.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] whitespace-nowrap shrink-0">
               Composition Metadata
             </span>
-            <span className="text-[10px] font-mono text-amber-400 truncate max-w-[110px]">
+            <span
+              title={activeComposition.id}
+              className="text-[10px] font-mono text-amber-400 truncate min-w-0 text-right"
+            >
               {activeComposition.id}
             </span>
           </div>

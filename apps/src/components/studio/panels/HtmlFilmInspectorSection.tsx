@@ -160,8 +160,9 @@ export const HtmlFilmInspectorSection: React.FC<HtmlFilmInspectorSectionProps> =
             </div>
 
             {scenes.length === 0 ? (
-              <div className="p-2.5 rounded-[var(--radius-card)] bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] text-[var(--text-muted)]">
-                Belum ada scene di <code className="font-mono">index.html</code> (`window.__filmMeta`).
+              <div className="p-2.5 rounded-[var(--radius-card)] bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] text-[var(--text-muted)] leading-relaxed">
+                No scenes found in <code className="font-mono">index.html</code> (
+                <code className="font-mono">window.__filmMeta</code>).
               </div>
             ) : (
               <div className="space-y-1 max-h-[240px] overflow-y-auto pr-0.5">

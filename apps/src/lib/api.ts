@@ -113,6 +113,13 @@ export function subscribeEngineMediaAuth(listener: () => void): () => void {
   };
 }
 
+export async function refreshEngineMediaAuth(): Promise<string | null> {
+  runtimeAuthToken = null;
+  runtimeAuthTokenPromise = null;
+  runtimeAuthSettled = false;
+  return initEngineMediaAuth();
+}
+
 export async function initEngineMediaAuth(): Promise<string | null> {
   if (runtimeAuthToken) {
     runtimeAuthSettled = true;
@@ -322,7 +329,25 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
       });
 
       if (ipcRes && typeof (ipcRes as any).status === "number") {
-        return wrapIpcResponse(ipcRes as any);
+        const wrapped = wrapIpcResponse(ipcRes as any);
+        if (wrapped.status === 401 && isTauriEnvironment()) {
+          const freshToken = await refreshEngineMediaAuth();
+          if (freshToken) {
+            h["Authorization"] = `Basic ${freshToken}`;
+            const retryIpc = await tauri.invoke("tauri_engine_fetch", {
+              req: {
+                path: resolved,
+                method: init?.method || "GET",
+                headers: Object.keys(h).length > 0 ? h : undefined,
+                body: typeof init?.body === "string" ? init.body : undefined,
+              },
+            });
+            if (retryIpc && typeof (retryIpc as any).status === "number") {
+              return wrapIpcResponse(retryIpc as any);
+            }
+          }
+        }
+        return wrapped;
       }
     } catch (ipcErr) {
       console.warn("[tauri-ipc] Fallback to direct HTTP:", ipcErr);
@@ -344,7 +369,16 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
     ? `${engineUrl()}${rawUrl}`
     : typeof input === "string" ? enginePath(input) : input;
   const resolved = withDirectory(typeof targetUrl === "string" ? targetUrl : targetUrl.toString());
-  return fetch(resolved, { ...init, headers });
+  const res = await fetch(resolved, { ...init, headers });
+  if (res.status === 401 && isTauriEnvironment()) {
+    const freshToken = await refreshEngineMediaAuth();
+    if (freshToken) {
+      const retryHeaders = new Headers(headers);
+      retryHeaders.set("Authorization", `Basic ${freshToken}`);
+      return fetch(resolved, { ...init, headers: retryHeaders });
+    }
+  }
+  return res;
 }
 
 /**

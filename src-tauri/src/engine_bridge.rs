@@ -1,6 +1,30 @@
 //! In-process IPC bridge routing frontend API requests to the embedded Axum engine router.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::OnceLock;
+use tokio::sync::Notify;
+
+const AUTH_MODE_PENDING: u8 = 0;
+const AUTH_MODE_EMBEDDED: u8 = 1;
+const AUTH_MODE_EXTERNAL: u8 = 2;
+
+static ENGINE_AUTH_MODE: AtomicU8 = AtomicU8::new(AUTH_MODE_PENDING);
+static ENGINE_AUTH_NOTIFY: OnceLock<Notify> = OnceLock::new();
+
+fn auth_notify() -> &'static Notify {
+    ENGINE_AUTH_NOTIFY.get_or_init(Notify::new)
+}
+
+pub fn set_engine_auth_mode_embedded() {
+    ENGINE_AUTH_MODE.store(AUTH_MODE_EMBEDDED, Ordering::Release);
+    auth_notify().notify_waiters();
+}
+
+pub fn set_engine_auth_mode_external() {
+    ENGINE_AUTH_MODE.store(AUTH_MODE_EXTERNAL, Ordering::Release);
+    auth_notify().notify_waiters();
+}
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 pub struct TauriEngineRequest {
@@ -30,19 +54,18 @@ pub async fn tauri_engine_fetch(req: TauriEngineRequest) -> Result<TauriEngineRe
         format!("/{}", req.path)
     };
 
-    let mut headers: Vec<(String, String)> = req.headers.unwrap_or_default().into_iter().collect();
-    if !headers
-        .iter()
-        .any(|(k, _)| k.eq_ignore_ascii_case("authorization"))
-    {
-        let auth_hdr = if aetheria_engine::server_auth::try_credentials().is_some() {
-            aetheria_engine::server_auth::server_auth_header()
-        } else {
-            aetheria_engine::server_auth::read_persisted_auth_header()
-                .unwrap_or_else(aetheria_engine::server_auth::server_auth_header)
-        };
-        headers.push(("Authorization".to_string(), auth_hdr));
-    }
+    let mut headers: Vec<(String, String)> = req
+        .headers
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|(k, _)| !k.eq_ignore_ascii_case("authorization"))
+        .collect();
+    // Trusted in-process IPC bridge: always authenticate directly against the embedded engine's
+    // live credentials so stale WebView-cached tokens can never trigger persistent 401 failures.
+    headers.push((
+        "Authorization".to_string(),
+        aetheria_engine::server_auth::server_auth_header(),
+    ));
     let (status, resp_headers, body) = aetheria_engine::handle_local_request(
         &method_str,
         &path,
@@ -66,11 +89,49 @@ pub async fn tauri_engine_fetch(req: TauriEngineRequest) -> Result<TauriEngineRe
 
 /// Returns the active engine Basic token in memory for native WebView media tags (`<video>`, `<audio>`, `<img>`).
 #[tauri::command]
-pub fn get_engine_auth_token() -> Option<String> {
-    if aetheria_engine::server_auth::try_credentials().is_some() {
-        Some(aetheria_engine::server_auth::server_auth_token_b64())
-    } else {
-        aetheria_engine::server_auth::read_persisted_auth_token_b64()
+pub async fn get_engine_auth_token() -> Option<String> {
+    if ENGINE_AUTH_MODE.load(Ordering::Acquire) == AUTH_MODE_PENDING {
+        let notify = auth_notify();
+        let notified = notify.notified();
+        if ENGINE_AUTH_MODE.load(Ordering::Acquire) == AUTH_MODE_PENDING {
+            let _ = tokio::time::timeout(std::time::Duration::from_secs(2), notified).await;
+        }
+    }
+
+    match ENGINE_AUTH_MODE.load(Ordering::Acquire) {
+        AUTH_MODE_EMBEDDED => Some(aetheria_engine::server_auth::server_auth_token_b64()),
+        AUTH_MODE_EXTERNAL => aetheria_engine::server_auth::read_persisted_auth_token_b64(),
+        _ => {
+            if aetheria_engine::server_auth::try_credentials().is_some() {
+                Some(aetheria_engine::server_auth::server_auth_token_b64())
+            } else {
+                aetheria_engine::server_auth::read_persisted_auth_token_b64()
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn tauri_engine_fetch_overrides_stale_authorization_header() {
+        let mut stale = HashMap::new();
+        stale.insert(
+            "Authorization".to_string(),
+            "Basic c3RhbGU6cGFzc3dvcmQ=".to_string(),
+        );
+        let resp = tauri_engine_fetch(TauriEngineRequest {
+            path: "/api/health".to_string(),
+            method: Some("GET".to_string()),
+            headers: Some(stale),
+            body: None,
+        })
+        .await
+        .expect("ipc fetch succeeds");
+        assert_eq!(resp.status, 200);
+        assert!(resp.ok);
     }
 }
 
