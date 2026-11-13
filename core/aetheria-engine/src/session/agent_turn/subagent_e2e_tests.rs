@@ -1,5 +1,6 @@
-//! End-to-End Integration Test for Non-Blocking Parallel Subagents, Global Standby Lock,
-//! Immediate Per-Subagent Wakeup Doorbell, Synthetic History Persistence, and UI Notice Mapping.
+//! End-to-End Integration Test for Non-Blocking Parallel Subagents (up to 4 concurrent on cloud
+//! providers + standby queue on overflow / local-cli), Per-Subagent Wakeup Doorbell, Synthetic
+//! History Persistence, and UI Notice Mapping.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -50,8 +51,8 @@ async fn handle_mock_chat_completions(
             .fetch_max(cur, Ordering::SeqCst);
         state.subagent_calls.fetch_add(1, Ordering::SeqCst);
 
-        // Hold request slightly so a sibling subagent is forced to enter the global standby queue
-        tokio::time::sleep(Duration::from_millis(160)).await;
+        // Hold request long enough so parallel siblings clearly overlap on the upstream server
+        tokio::time::sleep(Duration::from_millis(220)).await;
         state.active_subagents.fetch_sub(1, Ordering::SeqCst);
 
         let reply = if is_explore {
@@ -115,6 +116,36 @@ async fn handle_mock_chat_completions(
             "choices": [{
                 "finish_reason": "stop",
                 "message": { "role": "assistant", "content": msg }
+            }]
+        }));
+    }
+
+    // Check burst trigger: launch 5 concurrent subagents to verify 4-slot cap + standby overflow
+    if last_content.contains("5 subagent burst") {
+        let tool_calls: Vec<Value> = (1..=5)
+            .map(|idx| {
+                json!({
+                    "id": format!("call_burst_{idx}"),
+                    "type": "function",
+                    "function": {
+                        "name": "task",
+                        "arguments": json!({
+                            "description": format!("Burst subagent {idx}"),
+                            "prompt": format!("Run burst task {idx}"),
+                            "subagent_type": if idx % 2 == 0 { "audio-director" } else { "explore" }
+                        }).to_string()
+                    }
+                })
+            })
+            .collect();
+        return Json(json!({
+            "choices": [{
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": tool_calls
+                }
             }]
         }));
     }
@@ -263,11 +294,6 @@ async fn e2e_parallel_subagents_default_background_standby_wakeup_and_ui_notice(
         e.get("type").and_then(|v| v.as_str()) == Some("subagent.tool.called")
             && e.get("tool").and_then(|v| v.as_str()) == Some("standby")
     });
-    let standby_completed = events.iter().any(|e| {
-        e.get("type").and_then(|v| v.as_str()) == Some("subagent.tool.completed")
-            && e.get("tool").and_then(|v| v.as_str()) == Some("standby")
-            && e.get("ok").and_then(|v| v.as_bool()) == Some(true)
-    });
     let completed_count = events
         .iter()
         .filter(|e| e.get("type").and_then(|v| v.as_str()) == Some("subagent.completed"))
@@ -275,19 +301,15 @@ async fn e2e_parallel_subagents_default_background_standby_wakeup_and_ui_notice(
 
     assert_eq!(started_count, 2, "Expected 2 subagent.started events");
     assert!(
-        standby_called,
-        "Expected 2nd concurrent subagent to emit standby event"
-    );
-    assert!(
-        standby_completed,
-        "Expected queued subagent to emit standby resume completion event"
+        !standby_called,
+        "Expected 2 same-provider cloud subagents to run in parallel without entering standby"
     );
     assert_eq!(completed_count, 2, "Expected 2 subagent.completed events");
 
     assert_eq!(
         state.max_concurrent_subagents.load(Ordering::SeqCst),
-        1,
-        "Standby lock failed: multiple subagents hit upstream simultaneously!"
+        2,
+        "Expected both cloud subagents to execute concurrently against upstream!"
     );
     assert_eq!(state.subagent_calls.load(Ordering::SeqCst), 2);
     assert!(
@@ -347,5 +369,154 @@ async fn e2e_parallel_subagents_default_background_standby_wakeup_and_ui_notice(
     with_job_store(|jstore| {
         jstore.jobs.retain(|_, j| j.session_id != parent_sid);
     });
+    server_handle.abort();
+}
+
+#[tokio::test]
+async fn e2e_five_cloud_subagents_cap_at_four_and_queue_fifth_in_standby() {
+    let state = Arc::new(MockLlmState::default());
+    let app = Router::new()
+        .route("/v1/chat/completions", post(handle_mock_chat_completions))
+        .with_state(state.clone());
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind mock server");
+    let addr = listener.local_addr().expect("mock addr");
+    let mock_base = format!("http://{}/v1", addr);
+    let server_handle = tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+
+    let parent_sid = crate::paths::gen_id("sess_e2e_burst5");
+    let temp_ws = std::env::temp_dir().join(format!("aetheria_burst5_{}", crate::paths::now_ms()));
+    let _ = std::fs::create_dir_all(&temp_ws);
+    let workspace_dir = temp_ws.to_string_lossy().to_string();
+
+    let mut rx = get_event_sender().subscribe();
+
+    let initial_prompt = "Tolong jalankan 5 subagent burst sekarang";
+    let user_msg = json!({
+        "id": crate::paths::gen_id("msg"),
+        "type": "user",
+        "role": "user",
+        "agent": "default",
+        "text": initial_prompt,
+        "time": { "created": crate::paths::now_ms() }
+    });
+    with_store(|store| {
+        store.sessions.insert(
+            parent_sid.clone(),
+            json!({
+                "id": parent_sid,
+                "directory": workspace_dir,
+                "model": {
+                    "providerID": "mock-burst",
+                    "id": "gpt-5.4-burst",
+                    "baseURL": mock_base,
+                    "apiKey": "mock-key"
+                }
+            }),
+        );
+        store
+            .messages
+            .insert(parent_sid.clone(), vec![user_msg.clone()]);
+    });
+
+    run_agent_turn(
+        &parent_sid,
+        &workspace_dir,
+        "mock-burst",
+        "gpt-5.4-burst",
+        &[user_msg],
+        initial_prompt,
+        None,
+    )
+    .await;
+
+    let deadline = Instant::now() + Duration::from_secs(8);
+    loop {
+        let jobs = list_session_jobs(&parent_sid);
+        let sub_jobs: Vec<_> = jobs.iter().filter(|j| j.kind == "subagent").collect();
+        let all_sub_done =
+            sub_jobs.len() == 5 && sub_jobs.iter().all(|j| j.status == JobStatus::Completed);
+        let wakes_done = state.parent_wake_calls.load(Ordering::SeqCst) >= 1
+            && !is_active_run(&parent_sid)
+            && crate::session::coordinator::list_inbox_items(&parent_sid).is_empty();
+        if all_sub_done && wakes_done {
+            tokio::time::sleep(Duration::from_millis(80)).await;
+            if !is_active_run(&parent_sid) {
+                break;
+            }
+        }
+        assert!(
+            Instant::now() < deadline,
+            "Timed out waiting for 5 burst subagents to finish"
+        );
+        tokio::time::sleep(Duration::from_millis(30)).await;
+    }
+
+    let mut events = Vec::new();
+    while let Ok(evt) = rx.try_recv() {
+        let psid = evt
+            .get("parentSessionId")
+            .or_else(|| evt.get("sessionID"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        if psid == parent_sid {
+            events.push(evt);
+        }
+    }
+
+    let started_count = events
+        .iter()
+        .filter(|e| e.get("type").and_then(|v| v.as_str()) == Some("subagent.started"))
+        .count();
+    let standby_called = events.iter().any(|e| {
+        e.get("type").and_then(|v| v.as_str()) == Some("subagent.tool.called")
+            && e.get("tool").and_then(|v| v.as_str()) == Some("standby")
+    });
+    let standby_completed = events.iter().any(|e| {
+        e.get("type").and_then(|v| v.as_str()) == Some("subagent.tool.completed")
+            && e.get("tool").and_then(|v| v.as_str()) == Some("standby")
+            && e.get("ok").and_then(|v| v.as_bool()) == Some(true)
+    });
+    let completed_count = events
+        .iter()
+        .filter(|e| e.get("type").and_then(|v| v.as_str()) == Some("subagent.completed"))
+        .count();
+
+    assert_eq!(started_count, 5, "Expected 5 subagent.started events");
+    assert!(
+        standby_called && standby_completed,
+        "Expected 5th overflow subagent to queue in standby and resume cleanly"
+    );
+    assert_eq!(completed_count, 5, "Expected 5 subagent.completed events");
+
+    let max_conc = state.max_concurrent_subagents.load(Ordering::SeqCst);
+    assert!(
+        (2..=4).contains(&max_conc),
+        "Expected concurrent upstream hits between 2 and 4 slots, got {}",
+        max_conc
+    );
+    assert_eq!(state.subagent_calls.load(Ordering::SeqCst), 5);
+
+    let jobs = list_session_jobs(&parent_sid);
+    let child_ids: Vec<String> = jobs
+        .iter()
+        .filter_map(|j| j.child_session_id.clone())
+        .collect();
+    with_store(|store| {
+        store.sessions.remove(&parent_sid);
+        store.messages.remove(&parent_sid);
+        for cid in &child_ids {
+            store.sessions.remove(cid);
+            store.messages.remove(cid);
+        }
+    });
+    with_job_store(|jstore| {
+        jstore.jobs.retain(|_, j| j.session_id != parent_sid);
+    });
+    let _ = std::fs::remove_dir_all(&temp_ws);
     server_handle.abort();
 }

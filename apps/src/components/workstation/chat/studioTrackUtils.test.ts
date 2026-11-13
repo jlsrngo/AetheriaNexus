@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StepItem } from "../LiveExecutionBadge";
-import type { SessionJobRecord } from "./types";
+import type { SessionJobRecord, SubagentTrackState } from "./types";
 import {
   applySubagentEventToTracks,
   deriveStudioColumns,
@@ -165,6 +165,91 @@ describe("studioTrackUtils", () => {
     expect(parts.standby).toHaveLength(1);
     expect(parts.liveCount).toBe(2);
     expect(parts.standby[0].standbyLabel).toContain("Standby");
+  });
+
+  it("reconciles Rust camelCase JobRecord payloads to recover missed initial SSE tracks", () => {
+    // Simulates subagent 1 starting before /api/event SSE connected while 2..5 arrived over SSE.
+    let sseTracks: SubagentTrackState[] = [];
+    for (const num of [2, 3, 4, 5]) {
+      sseTracks = applySubagentEventToTracks(sseTracks, {
+        type: "subagent_started",
+        data: {
+          subagentSessionId: `sub_burst_${num}`,
+          subagentType: num % 2 === 0 ? "audio-director" : "explore",
+          description: `Burst subagent ${num}`,
+          timestamp: 100 + num,
+        },
+      });
+    }
+    sseTracks = applySubagentEventToTracks(sseTracks, {
+      type: "subagent_tool_called",
+      data: {
+        subagentSessionId: "sub_burst_5",
+        subagentType: "explore",
+        callID: "subagent_standby",
+        tool: "standby",
+        label: "Standby: waiting",
+      },
+    });
+
+    const engineJobs: SessionJobRecord[] = [
+      {
+        id: "sub_burst_1",
+        sessionId: "sess_burst",
+        childSessionId: "sub_burst_1",
+        kind: "subagent",
+        subagentType: "explore",
+        description: "Burst subagent 1",
+        status: "running",
+        standby: false,
+        createdAt: 101,
+        updatedAt: 101,
+      },
+      {
+        id: "sub_burst_2",
+        sessionId: "sess_burst",
+        childSessionId: "sub_burst_2",
+        kind: "subagent",
+        subagentType: "audio-director",
+        description: "Burst subagent 2",
+        status: "running",
+        standby: false,
+        createdAt: 102,
+        updatedAt: 102,
+      },
+      {
+        id: "sub_burst_5",
+        sessionId: "sess_burst",
+        childSessionId: "sub_burst_5",
+        kind: "subagent",
+        subagentType: "explore",
+        description: "Burst subagent 5",
+        status: "running",
+        standby: true,
+        createdAt: 105,
+        updatedAt: 106,
+      },
+      {
+        id: "sub_burst_err",
+        sessionId: "sess_burst",
+        childSessionId: "sub_burst_err",
+        kind: "subagent",
+        subagentType: "explore",
+        description: "Errored subagent",
+        status: "error",
+        standby: false,
+        createdAt: 107,
+        updatedAt: 108,
+      },
+    ];
+
+    const merged = reconcileTracksWithJobs(sseTracks, engineJobs);
+    const parts = partitionSubagentTracks(merged);
+    expect(parts.active).toHaveLength(4);
+    expect(parts.standby).toHaveLength(1);
+    expect(parts.failed).toHaveLength(1);
+    expect(merged[0].sessionId).toBe("sub_burst_1");
+    expect(merged[0].title).toBe("Research Assistant");
   });
 });
 

@@ -1,6 +1,7 @@
-/// Global single-active-subagent lock & standby queue across ALL connected providers/models.
-/// Prevents parallel subagents from bursting rate limits while keeping the main agent free
-/// to answer user questions whenever idle in background mode.
+/// Per-lane concurrent subagent limit & standby queue across connected providers/models.
+/// Cloud APIs & Antigravity allow parallel slots (`DEFAULT_CLOUD_SUBAGENT_CONCURRENCY = 4`)
+/// while `local-cli` (Kiro bridge) remains strictly serialized (`1`) to respect strict upstream limits,
+/// keeping the main agent responsive in background mode.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -10,16 +11,26 @@ use tokio::sync::{Notify, OwnedSemaphorePermit, Semaphore};
 use crate::paths::now_ms;
 use crate::session::message::emit_event;
 
+pub(crate) const DEFAULT_CLOUD_SUBAGENT_CONCURRENCY: usize = 4;
+
 static SUBAGENT_LANE_LOCKS: OnceLock<Mutex<HashMap<String, Arc<Semaphore>>>> = OnceLock::new();
 static PENDING_SUBAGENTS: OnceLock<Mutex<HashMap<String, usize>>> = OnceLock::new();
 static PENDING_NOTIFIERS: OnceLock<Mutex<HashMap<String, Arc<Notify>>>> = OnceLock::new();
+
+pub(crate) fn lane_concurrency_limit(lane: &str) -> usize {
+    if lane.trim() == "local-cli" {
+        1
+    } else {
+        DEFAULT_CLOUD_SUBAGENT_CONCURRENCY
+    }
+}
 
 fn turn_semaphore_for_lane(lane: &str) -> Arc<Semaphore> {
     let locks = SUBAGENT_LANE_LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
     let mut guard = locks.lock().unwrap_or_else(|e| e.into_inner());
     guard
         .entry(lane.to_string())
-        .or_insert_with(|| Arc::new(Semaphore::new(1)))
+        .or_insert_with(|| Arc::new(Semaphore::new(lane_concurrency_limit(lane))))
         .clone()
 }
 
@@ -100,9 +111,8 @@ pub fn pending_subagent_count(parent_session_id: &str) -> usize {
     map.get(parent_session_id).copied().unwrap_or(0)
 }
 
-/// Acquires the single-subagent execution lock across all connected models/providers.
-/// Any additional sibling subagent enters standby with zero upstream requests sent until
-/// the currently active subagent completes.
+/// Acquires a concurrency slot for `lane` (`1` for `local-cli`, `4` for cloud/antigravity lanes).
+/// Siblings beyond lane capacity enter standby cleanly without hitting upstream until a slot frees up.
 pub async fn acquire_subagent_turn_standby(
     parent_session_id: &str,
     child_session_id: &str,
@@ -129,10 +139,14 @@ pub async fn acquire_subagent_turn_standby(
     crate::paths::log_engine(
         "ai",
         &format!(
-            "⏸️ Subagent '{}' ({}) entering STANDBY — waiting for active subagent to finish before sending requests",
-            subagent_type, child_session_id
+            "⏸️ Subagent '{}' ({}) entering STANDBY on lane '{}' (limit {}) — waiting for a free slot",
+            subagent_type,
+            child_session_id,
+            lane,
+            lane_concurrency_limit(lane)
         ),
     );
+    crate::session::job_registry::set_job_standby(child_session_id, true);
     emit_event(
         workspace_dir,
         "subagent.tool.called",
@@ -142,7 +156,7 @@ pub async fn acquire_subagent_turn_standby(
             "subagentType": subagent_type,
             "callID": "subagent_standby",
             "tool": "standby",
-            "label": "Standby: waiting for active subagent to finish...",
+            "label": "Standby: waiting for provider slot to free up...",
             "step": 0,
             "timestamp": now_ms()
         }),
@@ -156,13 +170,17 @@ pub async fn acquire_subagent_turn_standby(
             res = &mut acquire_fut => {
                 match res {
                     Ok(p) => break p,
-                    Err(_) => return Err("Subagent standby queue closed unexpectedly".to_string()),
+                    Err(_) => {
+                        crate::session::job_registry::set_job_standby(child_session_id, false);
+                        return Err("Subagent standby queue closed unexpectedly".to_string());
+                    }
                 }
             }
             _ = tokio::time::sleep(Duration::from_millis(250)) => {
                 if let Some(reason) = crate::session::coordinator::is_session_interrupted(parent_session_id)
                     .or_else(|| crate::session::coordinator::is_session_interrupted(child_session_id))
                 {
+                    crate::session::job_registry::set_job_standby(child_session_id, false);
                     emit_event(
                         workspace_dir,
                         "subagent.tool.completed",
@@ -184,6 +202,7 @@ pub async fn acquire_subagent_turn_standby(
         }
     };
 
+    crate::session::job_registry::set_job_standby(child_session_id, false);
     emit_event(
         workspace_dir,
         "subagent.tool.completed",
@@ -224,39 +243,93 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn serializes_concurrent_subagents_via_standby_lock_for_any_model() {
-        let p1 = acquire_subagent_turn_standby(
-            "p_lock_1",
-            "c_lock_1",
+    async fn enforces_parallel_cloud_slots_and_serial_local_cli_lane() {
+        // Cloud lane allows up to 4 concurrent sibling subagents on the exact same model/provider
+        let mut permits = Vec::new();
+        for idx in 1..=DEFAULT_CLOUD_SUBAGENT_CONCURRENCY {
+            let p = acquire_subagent_turn_standby(
+                "p_cloud_1",
+                &format!("c_cloud_{idx}"),
+                ".",
+                "audio-director",
+                "kenari::gpt-5.4",
+                1,
+            )
+            .await
+            .expect("acquire cloud slot")
+            .expect("cloud permit");
+            permits.push(p);
+        }
+
+        // 5th concurrent subagent on the same cloud lane enters standby until one completes
+        assert!(turn_semaphore_for_lane("kenari::gpt-5.4")
+            .try_acquire_owned()
+            .is_err());
+
+        // Antigravity gets its own 4-slot lane independent from local-cli
+        let agy_p1 = acquire_subagent_turn_standby(
+            "p_agy_1",
+            "c_agy_1",
             ".",
-            "audio-director",
-            "gpt-5.4",
+            "explore",
+            "antigravity::gemini-2.5-pro",
             1,
         )
         .await
-        .expect("acquire first")
-        .expect("permit 1");
+        .expect("acquire antigravity slot 1")
+        .expect("antigravity permit 1");
+        let agy_p2 = acquire_subagent_turn_standby(
+            "p_agy_1",
+            "c_agy_2",
+            ".",
+            "audio-director",
+            "antigravity::gemini-2.5-pro",
+            1,
+        )
+        .await
+        .expect("acquire antigravity slot 2")
+        .expect("antigravity permit 2");
 
-        // Second subagent on the same model/lane cannot acquire immediately while first is still working
-        assert!(turn_semaphore_for_lane("gpt-5.4").try_acquire_owned().is_err());
-
-        // Different provider/model lane runs concurrently without blocking
-        assert!(turn_semaphore_for_lane("parity-p2::m2").try_acquire_owned().is_ok());
+        // Local-CLI (Kiro bridge) remains strictly 1-at-a-time
+        let local_p1 = acquire_subagent_turn_standby(
+            "p_local_1",
+            "c_local_1",
+            ".",
+            "explore",
+            "local-cli",
+            1,
+        )
+        .await
+        .expect("acquire local-cli slot")
+        .expect("local-cli permit");
+        assert!(turn_semaphore_for_lane("local-cli")
+            .try_acquire_owned()
+            .is_err());
 
         // Depth 2 nested call bypasses lock so child wait cannot deadlock parent subagent
         let nested = acquire_subagent_turn_standby(
-            "c_lock_1",
+            "c_local_1",
             "gc_lock_2",
             ".",
             "explore",
-            "opencode/big-pickle",
+            "local-cli",
             2,
         )
         .await
         .expect("depth 2 allowed");
         assert!(nested.is_none());
 
-        drop(p1);
-        assert!(turn_semaphore_for_lane("gpt-5.4").try_acquire_owned().is_ok());
+        drop(permits.pop());
+        assert!(turn_semaphore_for_lane("kenari::gpt-5.4")
+            .try_acquire_owned()
+            .is_ok());
+
+        drop(local_p1);
+        assert!(turn_semaphore_for_lane("local-cli")
+            .try_acquire_owned()
+            .is_ok());
+
+        drop(agy_p1);
+        drop(agy_p2);
     }
 }

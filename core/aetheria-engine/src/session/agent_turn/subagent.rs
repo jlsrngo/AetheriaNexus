@@ -139,11 +139,11 @@ pub fn execute_subagent<'a>(
         );
 
         crate::session::coordinator::begin_session_turn(&child_session_id);
-        crate::session::job_registry::start_job(
+        crate::session::job_registry::start_subagent_job(
             &child_session_id,
             parent_session_id,
             Some(&child_session_id),
-            "subagent",
+            subagent_type,
             description,
             run_in_background,
         );
@@ -186,7 +186,7 @@ pub fn execute_subagent<'a>(
                 "ok": true, "state": "running", "mode": "background",
                 "sessionID": child_session_id, "subagent_type": subagent_type, "description": description,
                 "output": format!(
-                    "<subagent sessionID=\"{}\" type=\"{}\" state=\"running\" mode=\"background\">\nThe subagent is working in the background (sessionID: {}). Additional subagents automatically queue in standby one-by-one to prevent rate-limit bursts across any connected provider. Briefly tell the user what you launched and END YOUR RESPONSE NOW cleanly (DO NOT sleep, poll, or call another tool until woken by <subagent-notification>) so you stay responsive if the user asks questions while waiting.\n</subagent>",
+                    "<subagent sessionID=\"{}\" type=\"{}\" state=\"running\" mode=\"background\">\nThe subagent is running in parallel in the background (sessionID: {}). Up to 4 sibling subagents run concurrently per cloud provider/model while excess siblings or local-cli queue cleanly in standby. Briefly tell the user what you launched and END YOUR RESPONSE NOW cleanly (DO NOT sleep, poll, or call another tool until woken by <subagent-notification>) so you stay responsive if the user asks questions while waiting.\n</subagent>",
                     child_session_id, subagent_type, child_session_id
                 )
             });
@@ -383,9 +383,9 @@ async fn run_subagent_loop(
     let mut doom_detector = DoomLoopDetector::default();
     let mut exit_outcome = SubagentExitOutcome::Completed;
 
-    // Serialize sibling subagents per provider/model lane so rate-limit bursts on a shared model/bridge
-    // enter standby cleanly while distinct providers/models (`K49`) execute in parallel.
-    let standby_lane = if provider_id == "local-cli" || provider_id == "antigravity" {
+    // Only Kiro (`local-cli` + `kiro/*`) stays strictly 1-slot; all other backends (Cloud APIs,
+    // Antigravity/agy, Codex, Claude, OpenCode) allow up to 4 parallel sibling slots per model lane.
+    let standby_lane = if provider_id == "local-cli" && model_id.starts_with("kiro/") {
         "local-cli".to_string()
     } else {
         format!("{}::{}", provider_id, model_id)

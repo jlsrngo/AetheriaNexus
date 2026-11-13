@@ -308,6 +308,7 @@ export function useWorkstationChat({
   const subagentTracks = useSessionSubagents({
     activeChatId,
     activeFolder,
+    isStreaming,
     queryClient,
     onSubagentSettled: handleSubagentSettled,
   });

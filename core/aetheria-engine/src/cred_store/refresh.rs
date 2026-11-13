@@ -5,34 +5,85 @@ use super::store::{decode_jwt_payload, get_credential, is_expired, set_credentia
 use super::types::CredentialEntry;
 use crate::paths::{now_iso, now_ms};
 use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::future::Future;
+use std::sync::{Arc, Mutex as StdMutex, OnceLock};
+use tokio::sync::Mutex as AsyncMutex;
+
+static REFRESH_SOURCE_LOCKS: OnceLock<StdMutex<HashMap<String, Arc<AsyncMutex<()>>>>> =
+    OnceLock::new();
+
+fn refresh_lock_for_source(source: &str) -> Arc<AsyncMutex<()>> {
+    let map = REFRESH_SOURCE_LOCKS.get_or_init(|| StdMutex::new(HashMap::new()));
+    let mut guard = map.lock().unwrap_or_else(|e| e.into_inner());
+    guard
+        .entry(source.to_string())
+        .or_insert_with(|| Arc::new(AsyncMutex::new(())))
+        .clone()
+}
 
 pub async fn ensure_fresh_credential(source: &str) -> Option<CredentialEntry> {
-    let mut entry = get_credential(source);
+    ensure_fresh_with(
+        source,
+        || get_credential(source),
+        || {
+            let _ = harvest_all();
+        },
+        |s, entry| async move { refresh_credential_source(&s, &entry).await },
+    )
+    .await
+}
+
+/// Deduplicates concurrent OAuth refreshes per provider source (`single-flight`) so parallel
+/// subagents never race or invalidate shared refresh tokens.
+async fn ensure_fresh_with<Get, Harv, Ref, Fut>(
+    source: &str,
+    get_cached: Get,
+    harvest_fn: Harv,
+    refresh_fn: Ref,
+) -> Option<CredentialEntry>
+where
+    Get: Fn() -> Option<CredentialEntry>,
+    Harv: Fn(),
+    Ref: Fn(String, CredentialEntry) -> Fut,
+    Fut: Future<Output = Option<CredentialEntry>>,
+{
+    let mut entry = get_cached();
     if entry.is_none() {
-        harvest_all();
-        entry = get_credential(source);
+        harvest_fn();
+        entry = get_cached();
     }
-    let entry = entry?;
+    let initial = entry?;
 
     if source == "opencode" {
-        return Some(entry);
+        return Some(initial);
     }
 
-    if !is_expired(&entry, 5 * 60 * 1000) {
-        return Some(entry);
+    if !is_expired(&initial, 5 * 60 * 1000) {
+        return Some(initial);
     }
 
-    if let Some(refreshed) = refresh_credential_source(source, &entry).await {
+    let source_lock = refresh_lock_for_source(source);
+    let _single_flight = source_lock.lock().await;
+
+    // Re-check after acquiring the per-source lock: a sibling subagent may have refreshed already.
+    let current = get_cached().unwrap_or_else(|| initial.clone());
+    if !is_expired(&current, 5 * 60 * 1000) {
+        return Some(current);
+    }
+
+    if let Some(refreshed) = refresh_fn(source.to_string(), current.clone()).await {
         return Some(refreshed);
     }
 
-    harvest_all();
-    let reharvested = get_credential(source)?;
-    if !is_expired(&reharvested, 0) {
-        return Some(reharvested);
+    harvest_fn();
+    if let Some(reharvested) = get_cached() {
+        if !is_expired(&reharvested, 0) {
+            return Some(reharvested);
+        }
     }
-    if !is_expired(&entry, 0) {
-        Some(entry)
+    if !is_expired(&current, 0) {
+        Some(current)
     } else {
         None
     }
@@ -244,6 +295,64 @@ pub async fn refresh_credential_source(
             Some(updated)
         }
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn single_flight_deduplicates_concurrent_oauth_refreshes() {
+        let state = Arc::new(StdMutex::new(Some(CredentialEntry {
+            source: "single-flight-test".to_string(),
+            access_token: "stale-token".to_string(),
+            expires_at: Some(now_ms().saturating_sub(10_000)),
+            ..Default::default()
+        })));
+        let refresh_calls = Arc::new(AtomicUsize::new(0));
+
+        let spawn_caller = || {
+            let state_get = Arc::clone(&state);
+            let state_ref = Arc::clone(&state);
+            let refresh_calls = Arc::clone(&refresh_calls);
+            async move {
+                ensure_fresh_with(
+                    "single-flight-test",
+                    move || state_get.lock().unwrap().clone(),
+                    || {},
+                    move |src, mut cur| {
+                        let state_inner = Arc::clone(&state_ref);
+                        let refresh_calls = Arc::clone(&refresh_calls);
+                        async move {
+                            refresh_calls.fetch_add(1, Ordering::SeqCst);
+                            tokio::time::sleep(Duration::from_millis(60)).await;
+                            cur.source = src;
+                            cur.access_token = "fresh-token".to_string();
+                            cur.expires_at = Some(now_ms() + 3_600_000);
+                            *state_inner.lock().unwrap() = Some(cur.clone());
+                            Some(cur)
+                        }
+                    },
+                )
+                .await
+            }
+        };
+
+        let (r1, r2, r3, r4) = tokio::join!(
+            spawn_caller(),
+            spawn_caller(),
+            spawn_caller(),
+            spawn_caller()
+        );
+
+        assert_eq!(refresh_calls.load(Ordering::SeqCst), 1);
+        for res in [r1, r2, r3, r4] {
+            let entry = res.expect("fresh token should be returned");
+            assert_eq!(entry.access_token, "fresh-token");
+        }
     }
 }
 

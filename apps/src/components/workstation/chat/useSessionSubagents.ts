@@ -11,6 +11,7 @@ import {
 interface UseSessionSubagentsOptions {
   activeChatId: string;
   activeFolder?: string;
+  isStreaming?: boolean;
   queryClient: QueryClient;
   onSubagentSettled?: () => void;
 }
@@ -22,6 +23,7 @@ interface UseSessionSubagentsOptions {
 export function useSessionSubagents({
   activeChatId,
   activeFolder,
+  isStreaming = false,
   queryClient,
   onSubagentSettled,
 }: UseSessionSubagentsOptions): SubagentTrackState[] {
@@ -36,7 +38,7 @@ export function useSessionSubagents({
     queryKey: ["session-jobs", activeChatId, activeFolder || ""],
     queryFn: () => getSessionJobs(activeChatId, activeFolder || undefined),
     enabled: Boolean(activeChatId),
-    refetchInterval: () => (liveCount > 0 ? 2500 : false),
+    refetchInterval: () => (liveCount > 0 || isStreaming ? 600 : false),
   });
 
   useEffect(() => {
@@ -66,7 +68,11 @@ export function useSessionSubagents({
             }),
           }));
 
-          if (event.type === "subagent_started" || event.type === "subagent_completed") {
+          if (
+            event.type === "subagent_started" ||
+            event.type === "subagent_tool_called" ||
+            event.type === "subagent_completed"
+          ) {
             queryClient.invalidateQueries({ queryKey: jobQueryKey });
           }
 

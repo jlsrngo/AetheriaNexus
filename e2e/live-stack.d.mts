@@ -14,6 +14,8 @@ export interface MockLlmController {
     parentWake: number;
     subagentExplore: number;
     subagentAudio: number;
+    activeSubagents: number;
+    maxConcurrentSubagents: number;
   };
 }
 

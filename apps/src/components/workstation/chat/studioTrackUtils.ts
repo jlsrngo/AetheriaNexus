@@ -402,11 +402,19 @@ export function deriveStudioColumns(
 
 function mapJobStatusToTrackStatus(
   jobStatus: SessionJobRecord["status"],
+  standby?: boolean,
 ): SubagentTrackState["status"] {
+  if (standby && jobStatus === "running") return "standby";
   if (jobStatus === "queued" || jobStatus === "standby") return "standby";
   if (jobStatus === "running") return "running";
-  if (jobStatus === "failed" || jobStatus === "cancelled") return "failed";
+  if (jobStatus === "failed" || jobStatus === "error" || jobStatus === "cancelled") return "failed";
   return "completed";
+}
+
+function hasResolvedStandbyStep(track: SubagentTrackState): boolean {
+  return track.tools.some(
+    (step) => step.toolName.trim().toLowerCase() === "standby" && step.status !== "standby",
+  );
 }
 
 /** Merges persisted `/api/session/:id/jobs` records with live SSE subagent tracks without dropping live tool steps. */
@@ -421,45 +429,55 @@ export function reconcileTracksWithJobs(
   }
 
   for (const job of jobs) {
-    const childId = job.child_session_id;
+    const childId = job.childSessionId ?? job.child_session_id;
     if (!childId) continue;
     const existing = bySessionId.get(childId);
-    const nextStatus = mapJobStatusToTrackStatus(job.status);
-    const title = resolveSubagentDisplayTitle(job.subagent_type);
-    const role = classifyStudioColumn(job.subagent_type);
+    const jobTrackStatus = mapJobStatusToTrackStatus(job.status, job.standby);
+    const subagentType = job.subagentType ?? job.subagent_type ?? existing?.subagentType ?? "general";
+    const createdAt = job.createdAt ?? job.created_at;
+    const updatedAt = job.updatedAt ?? job.updated_at;
+    const title = resolveSubagentDisplayTitle(subagentType);
+    const role = classifyStudioColumn(subagentType);
 
     if (existing) {
+      const sseAlreadyLeftStandby =
+        jobTrackStatus === "standby" && hasResolvedStandbyStep(existing);
+      const nextStatus = sseAlreadyLeftStandby ? existing.status : jobTrackStatus;
       const nextStandbyLabel =
         nextStatus === "standby"
           ? existing.standbyLabel || "Standby — menunggu slot provider"
           : undefined;
       bySessionId.set(childId, {
         ...existing,
+        subagentType,
+        title,
+        role,
         status: nextStatus,
         standbyLabel: nextStandbyLabel,
         description: existing.description || job.description,
+        startedAt: existing.startedAt ?? createdAt,
         completedAt:
           nextStatus === "completed" || nextStatus === "failed"
-            ? existing.completedAt ?? job.updated_at
+            ? existing.completedAt ?? updatedAt
             : existing.completedAt,
       });
     } else {
       bySessionId.set(childId, {
         sessionId: childId,
-        subagentType: job.subagent_type,
+        subagentType,
         role,
         title,
         description: job.description,
-        status: nextStatus,
+        status: jobTrackStatus,
         standbyLabel:
-          nextStatus === "standby"
+          jobTrackStatus === "standby"
             ? "Standby — menunggu slot provider"
             : undefined,
         tools: [],
-        startedAt: job.created_at,
+        startedAt: createdAt,
         completedAt:
-          nextStatus === "completed" || nextStatus === "failed"
-            ? job.updated_at
+          jobTrackStatus === "completed" || jobTrackStatus === "failed"
+            ? updatedAt
             : undefined,
       });
     }

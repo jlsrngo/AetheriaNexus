@@ -12,7 +12,7 @@ test.describe("Subagent Default Background, Standby Queue, and Wakeup E2E (Real 
     await stack?.stop();
   });
 
-  test("executes parallel background subagents with live standby UI across themes and clean wakeup notice", async ({
+  test("executes same-provider parallel subagents simultaneously across themes with clean wakeup notice", async ({
     page,
   }) => {
     const appErrors: string[] = [];
@@ -62,15 +62,15 @@ test.describe("Subagent Default Background, Standby Queue, and Wakeup E2E (Real 
       await page.screenshot({ path: `${stack.screenshotDir}/01-empty-dark.png` });
     }
 
-    // Trigger prompt that launches 2 parallel subagents (default background + standby slot).
+    // Trigger prompt that launches 2 parallel subagents on the same cloud provider/model.
     await textarea.fill("Tolong riset motion dan siapkan audio scene 1 secara paralel.");
     await page.getByTitle("Send message").click();
 
-    // While parent turn finishes early and is idle, floating SubagentActivityBar must show live 1 active + 1 standby.
+    // Both sibling subagents must run concurrently without queuing behind a single-slot standby lock.
     const bar = page.getByTestId("subagent-activity-bar");
     await expect(bar).toBeVisible({ timeout: 20_000 });
-    await expect(bar).toContainText("1 aktif");
-    await expect(bar).toContainText("1 standby");
+    await expect(bar).toContainText("2 aktif");
+    await expect(bar).not.toContainText("standby");
 
     // Expand bar and verify both actors + standby status render cleanly.
     await bar.locator("button").first().click();
@@ -133,7 +133,54 @@ test.describe("Subagent Default Background, Standby Queue, and Wakeup E2E (Real 
     const jobsJson = (await jobsRes.json()) as { data?: Array<{ status: string }> };
     expect((jobsJson.data ?? []).filter((j) => j.status === "completed").length).toBeGreaterThanOrEqual(2);
 
-    expect(stack.mockLlm.getCallCounts().parentWake).toBeGreaterThanOrEqual(1);
+    const counts = stack.mockLlm.getCallCounts();
+    expect(counts.parentWake).toBeGreaterThanOrEqual(1);
+    expect(counts.maxConcurrentSubagents).toBe(2);
+    expect(appErrors).toEqual([]);
+  });
+
+  test("caps same-provider cloud burst of 5 subagents at 4 active slots and queues 5th in live standby UI", async ({
+    page,
+  }) => {
+    const appErrors: string[] = [];
+    page.on("pageerror", (err) => {
+      appErrors.push(`pageerror: ${err.message}`);
+    });
+
+    await page.addInitScript(
+      ({ workspaceDir }: { workspaceDir: string }) => {
+        if (!sessionStorage.getItem("__e2e_init_burst5")) {
+          localStorage.setItem("aetheria_active_folder", workspaceDir);
+          localStorage.setItem("aetheria_active_provider", "e2e-mock");
+          localStorage.setItem("aetheria_active_model", "e2e-fast");
+          localStorage.setItem("aetheria_provider_model_e2e-mock", "e2e-fast");
+          localStorage.setItem("aetheria_provider_models_e2e-mock", "e2e-fast");
+          localStorage.setItem("aetheria_theme", "dark");
+          sessionStorage.setItem("__e2e_init_burst5", "1");
+        }
+      },
+      { workspaceDir: stack.workspaceDir },
+    );
+
+    await page.goto(`/?folder=${encodeURIComponent(stack.workspaceDir)}`);
+
+    const textarea = page.locator("textarea");
+    await expect(textarea).toBeVisible();
+    await textarea.fill("Tolong jalankan 5 subagent burst sekarang.");
+    await page.getByTitle("Send message").click();
+
+    const bar = page.getByTestId("subagent-activity-bar");
+    await expect(bar).toBeVisible({ timeout: 20_000 });
+    await expect(bar).toContainText("4 aktif", { timeout: 15_000 });
+    await expect(bar).toContainText("1 standby", { timeout: 15_000 });
+
+    await expect(bar).toBeHidden({ timeout: 30_000 });
+
+    const counts = stack.mockLlm.getCallCounts();
+    expect(counts.subagentExplore + counts.subagentAudio).toBe(5);
+    expect(counts.maxConcurrentSubagents).toBeGreaterThanOrEqual(2);
+    expect(counts.maxConcurrentSubagents).toBeLessThanOrEqual(4);
+    expect(counts.parentWake).toBeGreaterThanOrEqual(1);
     expect(appErrors).toEqual([]);
   });
 

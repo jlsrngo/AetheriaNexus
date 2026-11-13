@@ -71,6 +71,8 @@ async function startMockLlmServer() {
     parentWake: 0,
     subagentExplore: 0,
     subagentAudio: 0,
+    activeSubagents: 0,
+    maxConcurrentSubagents: 0,
   };
 
   const server = http.createServer((req, res) => {
@@ -151,6 +153,43 @@ async function startMockLlmServer() {
         }
 
         counts.parentInitial += 1;
+        if (lastText.includes("5 subagent burst")) {
+          const toolCalls = Array.from({ length: 5 }, (_, idx) => {
+            const num = idx + 1;
+            const isAudio = num % 2 === 0;
+            return {
+              id: `call_burst_${num}`,
+              type: "function",
+              function: {
+                name: "task",
+                arguments: JSON.stringify({
+                  subagent_type: isAudio ? "audio-director" : "explore",
+                  description: `Burst subagent ${num}`,
+                  prompt: isAudio
+                    ? `Prepare voiceover track for scene ${num}.`
+                    : `Inspect workspace motion setup for scene ${num}.`,
+                }),
+              },
+            };
+          });
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              choices: [
+                {
+                  finish_reason: "tool_calls",
+                  message: {
+                    role: "assistant",
+                    content: "",
+                    tool_calls: toolCalls,
+                  },
+                },
+              ],
+            }),
+          );
+          return;
+        }
+
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(
           JSON.stringify({
@@ -195,9 +234,18 @@ async function startMockLlmServer() {
       }
 
       // Child subagent turn
-      if (joinedMsgs.includes("Prepare voiceover track for scene 1")) {
+      if (joinedMsgs.includes("Prepare voiceover track for scene")) {
         counts.subagentAudio += 1;
-        await new Promise((r) => setTimeout(r, 250));
+        counts.activeSubagents += 1;
+        counts.maxConcurrentSubagents = Math.max(
+          counts.maxConcurrentSubagents,
+          counts.activeSubagents,
+        );
+        try {
+          await new Promise((r) => setTimeout(r, exploreDelayMs));
+        } finally {
+          counts.activeSubagents -= 1;
+        }
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(
           JSON.stringify({
@@ -216,7 +264,16 @@ async function startMockLlmServer() {
       }
 
       counts.subagentExplore += 1;
-      await new Promise((r) => setTimeout(r, exploreDelayMs));
+      counts.activeSubagents += 1;
+      counts.maxConcurrentSubagents = Math.max(
+        counts.maxConcurrentSubagents,
+        counts.activeSubagents,
+      );
+      try {
+        await new Promise((r) => setTimeout(r, exploreDelayMs));
+      } finally {
+        counts.activeSubagents -= 1;
+      }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(
         JSON.stringify({

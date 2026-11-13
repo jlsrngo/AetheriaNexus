@@ -72,13 +72,21 @@ export interface SubagentNoticeMeta {
 
 export interface SessionJobRecord {
   id: string;
-  parent_session_id: string;
-  child_session_id: string;
-  subagent_type: string;
+  sessionId?: string;
+  parent_session_id?: string;
+  childSessionId?: string;
+  child_session_id?: string;
+  kind?: string;
+  subagentType?: string;
+  subagent_type?: string;
   description: string;
-  status: "queued" | "standby" | "running" | "completed" | "failed" | "cancelled";
-  created_at: number;
-  updated_at: number;
+  status: "queued" | "standby" | "running" | "completed" | "failed" | "error" | "cancelled";
+  standby?: boolean;
+  createdAt?: number;
+  created_at?: number;
+  updatedAt?: number;
+  updated_at?: number;
+  output?: string | null;
   result_summary?: string | null;
   error?: string | null;
 }
