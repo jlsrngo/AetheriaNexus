@@ -1,0 +1,2 @@
+ORACLE spec-derived (pass --golden scripts/parity/golden for canonical parity score)
+SCORE 58/58 (100.0%)
