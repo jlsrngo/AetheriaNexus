@@ -89,8 +89,8 @@ pub async fn handle_abort(AxumPath(id): AxumPath<String>) -> Response {
     let was_running = crate::session::session::is_active_run(&id);
     crate::session::coordinator::interrupt_session(&id, "user");
     set_active_run(&id, false);
-    crate::session::agent_turn::resilience::settle_stale_session_state(&id, "global");
     if !was_running {
+        crate::session::agent_turn::resilience::settle_stale_session_state(&id, "global");
         crate::session::message::emit_event(
             "global",
             "session.aborted",

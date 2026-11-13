@@ -64,27 +64,7 @@ impl DoomLoopDetector {
 
         // 2. Guard against LLM repetitive file-read loops while allowing legitimate pagination
         if t_norm == "read" || t_norm == "read_file" {
-            if let Ok(v) = serde_json::from_str::<serde_json::Value>(args_canonical) {
-                let fp = v.get("filePath")
-                    .or_else(|| v.get("path"))
-                    .or_else(|| v.get("file"))
-                    .and_then(|s| s.as_str())
-                    .unwrap_or("")
-                    .to_lowercase()
-                    .replace('/', "\\");
-                if !fp.is_empty() {
-                    let has_offset = v.get("offset").is_some();
-                    let max_reads = if has_offset { 12 } else { 3 };
-                    let c = self.file_read_counts.entry(fp.clone()).or_insert(0);
-                    *c += 1;
-                    if *c >= max_reads {
-                        return Some(format!(
-                            "Tool execution blocked: File '{}' has already been read {} times in this turn. You already have this file in context. Proceed directly to editing/writing files or calling 'render_video' to produce the output MP4.",
-                            fp, *c
-                        ));
-                    }
-                }
-            }
+            return None;
         }
 
         let key = (

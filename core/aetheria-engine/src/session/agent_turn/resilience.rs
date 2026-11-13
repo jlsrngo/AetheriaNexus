@@ -49,7 +49,7 @@ pub async fn send_resilient_chat_completion(
             "messages": *chat_messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
-            "stream": false
+            "stream": true
         });
 
         if !tools.is_empty() {

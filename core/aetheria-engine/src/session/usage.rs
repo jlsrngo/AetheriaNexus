@@ -267,14 +267,14 @@ pub fn record_step_usage(raw_usage: Option<&Value>, tiers: &[CostTier]) -> Optio
 pub fn tokens_to_json(usage: Option<&RecordedUsage>) -> Value {
     match usage {
         Some(u) => serde_json::to_value(u.tokens).unwrap_or(Value::Null),
-        None => Value::Null,
+        None => serde_json::to_value(TokenUsage::default()).unwrap_or(Value::Null),
     }
 }
 
 pub fn cost_to_json(usage: Option<&RecordedUsage>) -> Value {
     match usage {
         Some(u) => json!(u.cost),
-        None => Value::Null,
+        None => json!(0),
     }
 }
 
@@ -334,6 +334,11 @@ mod tests {
     fn test_missing_usage_returns_none() {
         assert_eq!(record_step_usage(None, &parity_tiers()), None);
         assert_eq!(record_step_usage(Some(&Value::Null), &parity_tiers()), None);
+        assert_eq!(
+            tokens_to_json(None),
+            json!({ "input": 0, "output": 0, "reasoning": 0, "cache": { "read": 0, "write": 0 } })
+        );
+        assert_eq!(cost_to_json(None), json!(0));
     }
 
     #[test]

@@ -19,7 +19,10 @@ use crate::session::provider_error::{
 
 pub(crate) enum StepStreamOutcome {
     Completed(StreamStepOutput),
-    Aborted(Vec<Value>),
+    Aborted {
+        partial_parts: Vec<Value>,
+        during_stream: bool,
+    },
     Failed(StepHttpError),
 }
 
@@ -83,6 +86,15 @@ impl StepHttpError {
             retryable: false,
         }
     }
+
+    fn aborted_in_flight() -> Self {
+        Self {
+            status: None,
+            category: "aborted-in-flight".to_string(),
+            message: "Execution interrupted by user.".to_string(),
+            retryable: false,
+        }
+    }
 }
 
 enum StepSendOutcome {
@@ -121,6 +133,38 @@ fn parse_should_retry_header(headers: &reqwest::header::HeaderMap) -> Option<boo
     }
 }
 
+fn retry_delay_from_headers(headers: &reqwest::header::HeaderMap, attempt: usize) -> u64 {
+    let retry_after_ms = headers
+        .get("retry-after-ms")
+        .and_then(|v| v.to_str().ok());
+    let retry_after = headers
+        .get("retry-after")
+        .and_then(|v| v.to_str().ok());
+    parse_retry_after_ms(retry_after_ms, retry_after)
+        .unwrap_or_else(|| compute_retry_backoff_ms(attempt, false, None))
+}
+
+async fn emit_retry_and_sleep(
+    workspace_dir: &str,
+    session_id: &str,
+    attempt: usize,
+    delay_ms: u64,
+    reason: &str,
+    interrupt_rx: &tokio::sync::watch::Receiver<bool>,
+) -> bool {
+    emit_event(
+        workspace_dir,
+        "session.retry.scheduled",
+        json!({
+            "sessionID": session_id,
+            "attempt": attempt,
+            "delayMs": delay_ms,
+            "reason": reason,
+        }),
+    );
+    sleep_interruptible(delay_ms, interrupt_rx).await
+}
+
 pub(crate) async fn execute_step_and_stream(
     ctx: &mut StepHttpContext<'_>,
     tools_def: &[Value],
@@ -131,11 +175,25 @@ pub(crate) async fn execute_step_and_stream(
 
     loop {
         if *interrupt_rx.borrow() {
-            return StepStreamOutcome::Aborted(Vec::new());
+            return StepStreamOutcome::Aborted {
+                partial_parts: Vec::new(),
+                during_stream: false,
+            };
         }
         let resp = match execute_step_http_request(ctx, tools_def).await {
             Ok(r) => r,
-            Err(e) if e.category == "aborted" => return StepStreamOutcome::Aborted(Vec::new()),
+            Err(e) if e.category == "aborted-in-flight" => {
+                return StepStreamOutcome::Aborted {
+                    partial_parts: Vec::new(),
+                    during_stream: true,
+                };
+            }
+            Err(e) if e.category == "aborted" => {
+                return StepStreamOutcome::Aborted {
+                    partial_parts: Vec::new(),
+                    during_stream: false,
+                };
+            }
             Err(e) => return StepStreamOutcome::Failed(e),
         };
         match read_step_response(
@@ -149,7 +207,10 @@ pub(crate) async fn execute_step_and_stream(
         {
             Ok(out) => return StepStreamOutcome::Completed(out),
             Err(StreamReadError::AbortedByUser { content_parts }) => {
-                return StepStreamOutcome::Aborted(content_parts);
+                return StepStreamOutcome::Aborted {
+                    partial_parts: content_parts,
+                    during_stream: true,
+                };
             }
             Err(StreamReadError::ProviderChunkError(c)) => {
                 return StepStreamOutcome::Failed(StepHttpError::from_classified(c));
@@ -163,18 +224,20 @@ pub(crate) async fn execute_step_and_stream(
                 }
                 stream_attempt += 1;
                 let delay_ms = compute_retry_backoff_ms(stream_attempt, false, None);
-                emit_event(
+                if !emit_retry_and_sleep(
                     ctx.workspace_dir,
-                    "session.retry.scheduled",
-                    json!({
-                        "sessionID": ctx.session_id,
-                        "attempt": stream_attempt + 1,
-                        "delayMs": delay_ms,
-                        "reason": reason,
-                    }),
-                );
-                if !sleep_interruptible(delay_ms, &interrupt_rx).await {
-                    return StepStreamOutcome::Aborted(Vec::new());
+                    ctx.session_id,
+                    stream_attempt + 1,
+                    delay_ms,
+                    &reason,
+                    &interrupt_rx,
+                )
+                .await
+                {
+                    return StepStreamOutcome::Aborted {
+                        partial_parts: Vec::new(),
+                        during_stream: false,
+                    };
                 }
             }
         }
@@ -186,6 +249,30 @@ pub(crate) async fn execute_step_http_request(
     tools_def: &[Value],
 ) -> Result<reqwest::Response, StepHttpError> {
     let interrupt_rx = subscribe_session_interrupt(ctx.session_id);
+    let mut req_body = build_step_request_body(ctx, tools_def);
+    let send_outcome = send_step_with_retries(ctx, &req_body, &interrupt_rx).await?;
+
+    let err_pair = match send_outcome {
+        StepSendOutcome::Response(ok_r) if ok_r.status().is_success() => return Ok(ok_r),
+        StepSendOutcome::Response(err_r) => {
+            let status_code = err_r.status().as_u16();
+            (status_code, err_r.text().await.unwrap_or_default())
+        }
+        StepSendOutcome::ErrorBody(code, err_body) => (code, err_body),
+        StepSendOutcome::Transport(e) => {
+            let healed = heal_bridge_or_fail(ctx, &req_body, e).await?;
+            if healed.status().is_success() {
+                return Ok(healed);
+            }
+            let status_code = healed.status().as_u16();
+            (status_code, healed.text().await.unwrap_or_default())
+        }
+    };
+
+    recover_error_response(ctx, &mut req_body, err_pair.0, &err_pair.1).await
+}
+
+fn build_step_request_body(ctx: &StepHttpContext<'_>, tools_def: &[Value]) -> Value {
     let mut outbound_messages = ctx.chat_messages.clone();
     if ctx.step_limit_reached {
         outbound_messages.push(json!({
@@ -205,152 +292,47 @@ pub(crate) async fn execute_step_http_request(
             req_body["tool_choice"] = json!("none");
         }
     }
+    req_body
+}
 
+async fn send_step_with_retries(
+    ctx: &mut StepHttpContext<'_>,
+    req_body: &Value,
+    interrupt_rx: &tokio::sync::watch::Receiver<bool>,
+) -> Result<StepSendOutcome, StepHttpError> {
     let mut net_attempt = 0usize;
     let mut timeout_attempt = 0usize;
-    let send_outcome = loop {
+
+    loop {
         let active_key =
             crate::provider::protocol_adapters::select_healthy_api_key(ctx.api_key);
-        let send_res = match send_post_interruptible(
+        let send_res = send_post_interruptible(
             ctx.client,
             ctx.base_url,
             &active_key,
-            &req_body,
-            &interrupt_rx,
+            req_body,
+            interrupt_rx,
         )
         .await
-        {
-            Ok(res) => res,
-            Err(()) => return Err(StepHttpError::aborted()),
-        };
+        .map_err(|()| StepHttpError::aborted_in_flight())?;
 
         match send_res {
             Ok(ok_r) => {
                 if ok_r.status().is_success() {
-                    break StepSendOutcome::Response(ok_r);
+                    return Ok(StepSendOutcome::Response(ok_r));
                 }
-                let code = ok_r.status().as_u16();
-                let should_retry_hdr = parse_should_retry_header(ok_r.headers());
-                let retry_after_ms_hdr = ok_r
-                    .headers()
-                    .get("retry-after-ms")
-                    .and_then(|v| v.to_str().ok())
-                    .map(|s| s.to_string());
-                let retry_after_hdr = ok_r
-                    .headers()
-                    .get("retry-after")
-                    .and_then(|v| v.to_str().ok())
-                    .map(|s| s.to_string());
-
-                if should_retry_hdr == Some(false) {
-                    let err_body = ok_r.text().await.unwrap_or_default();
-                    break StepSendOutcome::ErrorBody(code, err_body);
+                if let Some(outcome) =
+                    handle_http_error_status(ctx, ok_r, &mut net_attempt, interrupt_rx).await?
+                {
+                    return Ok(outcome);
                 }
-
-                if should_retry_hdr == Some(true) && net_attempt < 5 {
-                    net_attempt += 1;
-                    let delay_ms = parse_retry_after_ms(
-                        retry_after_ms_hdr.as_deref(),
-                        retry_after_hdr.as_deref(),
-                    )
-                    .unwrap_or_else(|| compute_retry_backoff_ms(net_attempt, false, None));
-                    let err_body = ok_r.text().await.unwrap_or_default();
-                    emit_event(
-                        ctx.workspace_dir,
-                        "session.retry.scheduled",
-                        json!({
-                            "sessionID": ctx.session_id,
-                            "attempt": net_attempt + 1,
-                            "delayMs": delay_ms,
-                            "reason": format!("HTTP {} (x-should-retry)", code),
-                        }),
-                    );
-                    if !sleep_interruptible(delay_ms, &interrupt_rx).await {
-                        return Err(StepHttpError::aborted());
-                    }
-                    let _ = err_body;
-                    continue;
-                }
-
-                if code == 429 {
-                    let err_body = ok_r.text().await.unwrap_or_default();
-                    let c429 = classify_provider_failure(Some(code), &err_body);
-                    if c429.kind == ProviderErrorKind::RateLimit && net_attempt < 5 {
-                        net_attempt += 1;
-                        let delay_ms = parse_retry_after_ms(
-                            retry_after_ms_hdr.as_deref(),
-                            retry_after_hdr.as_deref(),
-                        )
-                        .unwrap_or_else(|| compute_retry_backoff_ms(net_attempt, false, None));
-                        crate::paths::log_engine(
-                            "ai",
-                            &format!(
-                                "⏳ Upstream HTTP 429 throttle; backing off {}ms (retry #{}/5)...",
-                                delay_ms, net_attempt
-                            ),
-                        );
-                        emit_event(
-                            ctx.workspace_dir,
-                            "session.retry.scheduled",
-                            json!({
-                                "sessionID": ctx.session_id,
-                                "attempt": net_attempt + 1,
-                                "delayMs": delay_ms,
-                                "reason": c429.message,
-                            }),
-                        );
-                        if !sleep_interruptible(delay_ms, &interrupt_rx).await {
-                            return Err(StepHttpError::aborted());
-                        }
-                        continue;
-                    }
-                    break StepSendOutcome::ErrorBody(code, err_body);
-                }
-
-                if is_transient_gateway_status(code) && net_attempt < 5 {
-                    net_attempt += 1;
-                    let delay_ms = parse_retry_after_ms(
-                        retry_after_ms_hdr.as_deref(),
-                        retry_after_hdr.as_deref(),
-                    )
-                    .unwrap_or_else(|| compute_retry_backoff_ms(net_attempt, false, None));
-                    crate::paths::log_engine(
-                        "ai",
-                        &format!(
-                            "⏳ Upstream HTTP {} transient error; backing off {}ms (retry #{}/5)...",
-                            code, delay_ms, net_attempt
-                        ),
-                    );
-                    emit_event(
-                        ctx.workspace_dir,
-                        "session.retry.scheduled",
-                        json!({
-                            "sessionID": ctx.session_id,
-                            "attempt": net_attempt + 1,
-                            "delayMs": delay_ms,
-                            "reason": format!("HTTP {}", code),
-                        }),
-                    );
-                    if !sleep_interruptible(delay_ms, &interrupt_rx).await {
-                        return Err(StepHttpError::aborted());
-                    }
-                    continue;
-                }
-                break StepSendOutcome::Response(ok_r);
             }
-            Err(net_e) if net_e.is_timeout() && timeout_attempt < crate::session::agent_turn::retry::MAX_TIMEOUT_RETRIES => {
+            Err(net_e)
+                if net_e.is_timeout()
+                    && timeout_attempt < crate::session::agent_turn::retry::MAX_TIMEOUT_RETRIES =>
+            {
                 timeout_attempt += 1;
                 let delay_ms = compute_retry_backoff_ms(timeout_attempt, false, None);
-                emit_event(
-                    ctx.workspace_dir,
-                    "session.retry.scheduled",
-                    json!({
-                        "sessionID": ctx.session_id,
-                        "attempt": timeout_attempt + 1,
-                        "delayMs": delay_ms,
-                        "reason": "Provider request timed out",
-                    }),
-                );
                 crate::paths::log_engine(
                     "ai",
                     &format!(
@@ -360,7 +342,16 @@ pub(crate) async fn execute_step_http_request(
                         crate::session::agent_turn::retry::MAX_TIMEOUT_RETRIES
                     ),
                 );
-                if !sleep_interruptible(delay_ms, &interrupt_rx).await {
+                if !emit_retry_and_sleep(
+                    ctx.workspace_dir,
+                    ctx.session_id,
+                    timeout_attempt + 1,
+                    delay_ms,
+                    "Provider request timed out",
+                    interrupt_rx,
+                )
+                .await
+                {
                     return Err(StepHttpError::aborted());
                 }
             }
@@ -375,17 +366,10 @@ pub(crate) async fn execute_step_http_request(
                     let new_port = crate::bridge::ensure_bridge_running().await;
                     *ctx.base_url = format!("http://127.0.0.1:{}/v1", new_port);
                 }
-                let is_unreach = is_unreachable_network_error(&err_s);
-                let delay_ms = compute_retry_backoff_ms(net_attempt, is_unreach, None);
-                emit_event(
-                    ctx.workspace_dir,
-                    "session.retry.scheduled",
-                    json!({
-                        "sessionID": ctx.session_id,
-                        "attempt": net_attempt + 1,
-                        "delayMs": delay_ms,
-                        "reason": err_s,
-                    }),
+                let delay_ms = compute_retry_backoff_ms(
+                    net_attempt,
+                    is_unreachable_network_error(&err_s),
+                    None,
                 );
                 crate::paths::log_engine(
                     "ai",
@@ -394,148 +378,243 @@ pub(crate) async fn execute_step_http_request(
                         err_s, delay_ms, net_attempt
                     ),
                 );
-                if !sleep_interruptible(delay_ms, &interrupt_rx).await {
+                if !emit_retry_and_sleep(
+                    ctx.workspace_dir,
+                    ctx.session_id,
+                    net_attempt + 1,
+                    delay_ms,
+                    &err_s,
+                    interrupt_rx,
+                )
+                .await
+                {
                     return Err(StepHttpError::aborted());
                 }
             }
-            Err(net_e) => break StepSendOutcome::Transport(net_e),
+            Err(net_e) => return Ok(StepSendOutcome::Transport(net_e)),
         }
-    };
+    }
+}
 
-    let (mut r, pre_err): (Option<reqwest::Response>, Option<(u16, String)>) = match send_outcome {
-        StepSendOutcome::Response(ok_r) => (Some(ok_r), None),
-        StepSendOutcome::ErrorBody(code, err_body) => (None, Some((code, err_body))),
-        StepSendOutcome::Transport(e) => {
+async fn handle_http_error_status(
+    ctx: &StepHttpContext<'_>,
+    resp: reqwest::Response,
+    net_attempt: &mut usize,
+    interrupt_rx: &tokio::sync::watch::Receiver<bool>,
+) -> Result<Option<StepSendOutcome>, StepHttpError> {
+    let code = resp.status().as_u16();
+    let should_retry_hdr = parse_should_retry_header(resp.headers());
+
+    if should_retry_hdr == Some(false) {
+        let err_body = resp.text().await.unwrap_or_default();
+        return Ok(Some(StepSendOutcome::ErrorBody(code, err_body)));
+    }
+
+    if should_retry_hdr == Some(true) && *net_attempt < 5 {
+        *net_attempt += 1;
+        let delay_ms = retry_delay_from_headers(resp.headers(), *net_attempt);
+        let _ = resp.text().await.unwrap_or_default();
+        if !emit_retry_and_sleep(
+            ctx.workspace_dir,
+            ctx.session_id,
+            *net_attempt + 1,
+            delay_ms,
+            &format!("HTTP {} (x-should-retry)", code),
+            interrupt_rx,
+        )
+        .await
+        {
+            return Err(StepHttpError::aborted());
+        }
+        return Ok(None);
+    }
+
+    if code == 429 {
+        let headers = resp.headers().clone();
+        let err_body = resp.text().await.unwrap_or_default();
+        let c429 = classify_provider_failure(Some(code), &err_body);
+        if c429.kind == ProviderErrorKind::RateLimit && *net_attempt < 5 {
+            *net_attempt += 1;
+            let delay_ms = retry_delay_from_headers(&headers, *net_attempt);
             crate::paths::log_engine(
                 "ai",
-                &format!("⚠️ Connection error to AI endpoint {}: {}", ctx.base_url, e),
+                &format!(
+                    "⏳ Upstream HTTP 429 throttle; backing off {}ms (retry #{}/5)...",
+                    delay_ms, *net_attempt
+                ),
             );
-            if ctx.is_local_bridge
-                || ctx
-                    .base_url
-                    .contains(&format!(":{}", LOCAL_CLI_BRIDGE_PORT))
+            if !emit_retry_and_sleep(
+                ctx.workspace_dir,
+                ctx.session_id,
+                *net_attempt + 1,
+                delay_ms,
+                &c429.message,
+                interrupt_rx,
+            )
+            .await
             {
-                crate::paths::log_engine("ai", "🔄 Auto-healing Local-CLI Bridge and retrying turn...");
-                let new_port = crate::bridge::ensure_bridge_running().await;
-                *ctx.base_url = format!("http://127.0.0.1:{}/v1", new_port);
-                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-                let healed = ctx
-                    .client
-                    .post(format!("{}/chat/completions", ctx.base_url))
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", format!("Bearer {}", ctx.api_key))
-                    .json(&req_body)
-                    .send()
-                    .await
-                    .map_err(|re| {
-                        StepHttpError::transport(
-                            "provider.transport",
-                            format!("Failed to reach AI provider ({}).", re),
-                        )
-                    })?;
-                (Some(healed), None)
-            } else {
-                return Err(StepHttpError::transport(
-                    "provider.transport",
-                    format!("Failed to reach AI provider ({}).", e),
-                ));
+                return Err(StepHttpError::aborted());
             }
+            return Ok(None);
         }
-    };
+        return Ok(Some(StepSendOutcome::ErrorBody(code, err_body)));
+    }
 
-    let err_pair = if let Some((code, body)) = pre_err {
-        Some((code, body))
-    } else if let Some(ref resp_ref) = r {
-        if !resp_ref.status().is_success() {
-            let status_code = resp_ref.status().as_u16();
-            let taken = r.take().ok_or_else(|| {
-                StepHttpError::transport("provider.unknown", "Missing response handle".to_string())
-            })?;
-            let err_txt = taken.text().await.unwrap_or_default();
-            Some((status_code, err_txt))
-        } else {
-            None
+    if is_transient_gateway_status(code) && *net_attempt < 5 {
+        *net_attempt += 1;
+        let delay_ms = retry_delay_from_headers(resp.headers(), *net_attempt);
+        crate::paths::log_engine(
+            "ai",
+            &format!(
+                "⏳ Upstream HTTP {} transient error; backing off {}ms (retry #{}/5)...",
+                code, delay_ms, *net_attempt
+            ),
+        );
+        if !emit_retry_and_sleep(
+            ctx.workspace_dir,
+            ctx.session_id,
+            *net_attempt + 1,
+            delay_ms,
+            &format!("HTTP {}", code),
+            interrupt_rx,
+        )
+        .await
+        {
+            return Err(StepHttpError::aborted());
         }
-    } else {
-        None
-    };
+        return Ok(None);
+    }
 
-    if let Some((status_code, err_txt)) = err_pair {
-        let classified = classify_provider_failure(Some(status_code), &err_txt);
+    Ok(Some(StepSendOutcome::Response(resp)))
+}
 
-        if classified.kind == ProviderErrorKind::ContextOverflow && !ctx.chat_messages.is_empty() {
-            crate::paths::log_engine(
-                "ai",
-                "🩹 Context window overflow detected! Triggering compaction recovery...",
-            );
-            crate::session::compaction_emergency::compact_overflow_with_model(
+async fn heal_bridge_or_fail(
+    ctx: &mut StepHttpContext<'_>,
+    req_body: &Value,
+    net_err: reqwest::Error,
+) -> Result<reqwest::Response, StepHttpError> {
+    crate::paths::log_engine(
+        "ai",
+        &format!(
+            "⚠️ Connection error to AI endpoint {}: {}",
+            ctx.base_url, net_err
+        ),
+    );
+    let is_bridge = ctx.is_local_bridge
+        || ctx
+            .base_url
+            .contains(&format!(":{}", LOCAL_CLI_BRIDGE_PORT));
+    if !is_bridge {
+        return Err(StepHttpError::transport(
+            "provider.transport",
+            format!("Failed to reach AI provider ({}).", net_err),
+        ));
+    }
+
+    crate::paths::log_engine("ai", "🔄 Auto-healing Local-CLI Bridge and retrying turn...");
+    let new_port = crate::bridge::ensure_bridge_running().await;
+    *ctx.base_url = format!("http://127.0.0.1:{}/v1", new_port);
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    send_raw_post(ctx.client, ctx.base_url, ctx.api_key, req_body)
+        .await
+        .map_err(|re| {
+            StepHttpError::transport(
+                "provider.transport",
+                format!("Failed to reach AI provider ({}).", re),
+            )
+        })
+}
+
+async fn post_recovery_request(
+    client: &reqwest::Client,
+    base_url: &str,
+    api_key: &str,
+    req_body: &Value,
+    err_ctx: &str,
+    classify_timeout: bool,
+) -> Result<reqwest::Response, StepHttpError> {
+    let resp = send_raw_post(client, base_url, api_key, req_body)
+        .await
+        .map_err(|e| {
+            let category = if classify_timeout && e.is_timeout() {
+                "provider.timeout"
+            } else {
+                "provider.transport"
+            };
+            StepHttpError::transport(category, format!("{}: {}", err_ctx, e))
+        })?;
+    if !resp.status().is_success() {
+        let st = resp.status().as_u16();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(StepHttpError::from_classified(classify_provider_failure(
+            Some(st),
+            &body,
+        )));
+    }
+    Ok(resp)
+}
+
+async fn recover_error_response(
+    ctx: &mut StepHttpContext<'_>,
+    req_body: &mut Value,
+    status_code: u16,
+    err_txt: &str,
+) -> Result<reqwest::Response, StepHttpError> {
+    let classified = classify_provider_failure(Some(status_code), err_txt);
+
+    if classified.kind == ProviderErrorKind::ContextOverflow && !ctx.chat_messages.is_empty() {
+        crate::paths::log_engine(
+            "ai",
+            "🩹 Context window overflow detected! Triggering compaction recovery...",
+        );
+        crate::session::compaction_emergency::compact_overflow_with_model(
+            ctx.client,
+            ctx.base_url,
+            ctx.api_key,
+            ctx.current_model_id,
+            ctx.session_id,
+            ctx.workspace_dir,
+            ctx.chat_messages,
+        )
+        .await;
+        req_body["messages"] = Value::Array(ctx.chat_messages.clone());
+        return post_recovery_request(
+            ctx.client,
+            ctx.base_url,
+            ctx.api_key,
+            req_body,
+            "Error reaching AI provider during overflow retry",
+            true,
+        )
+        .await;
+    }
+
+    if matches!(
+        classified.kind,
+        ProviderErrorKind::QuotaExceeded | ProviderErrorKind::RateLimit
+    ) {
+        let hard_quota = classified.kind == ProviderErrorKind::QuotaExceeded;
+        let cur_key = crate::provider::protocol_adapters::select_healthy_api_key(ctx.api_key);
+        if let Some(next_key) = crate::provider::protocol_adapters::rotate_api_key_on_quota(
+            ctx.api_key,
+            &cur_key,
+            60_000,
+        ) {
+            return post_recovery_request(
                 ctx.client,
                 ctx.base_url,
-                ctx.api_key,
-                ctx.current_model_id,
-                ctx.session_id,
-                ctx.workspace_dir,
-                ctx.chat_messages,
+                &next_key,
+                req_body,
+                "Error during multi-key rotation retry",
+                false,
             )
             .await;
-            req_body["messages"] = Value::Array(ctx.chat_messages.clone());
-
-            let retried = send_raw_post(ctx.client, ctx.base_url, ctx.api_key, &req_body)
-                .await
-                .map_err(|e| {
-                    StepHttpError::transport(
-                        if e.is_timeout() {
-                            "provider.timeout"
-                        } else {
-                            "provider.transport"
-                        },
-                        format!("Error reaching AI provider during overflow retry: {}", e),
-                    )
-                })?;
-            if !retried.status().is_success() {
-                let st = retried.status().as_u16();
-                let final_err = retried.text().await.unwrap_or_default();
-                return Err(StepHttpError::from_classified(classify_provider_failure(
-                    Some(st),
-                    &final_err,
-                )));
-            }
-            r = Some(retried);
-        } else if matches!(
-            classified.kind,
-            ProviderErrorKind::QuotaExceeded | ProviderErrorKind::RateLimit
-        ) {
-            let hard_quota = classified.kind == ProviderErrorKind::QuotaExceeded;
-            let cur_key = crate::provider::protocol_adapters::select_healthy_api_key(ctx.api_key);
-            if let Some(next_key) = crate::provider::protocol_adapters::rotate_api_key_on_quota(
-                ctx.api_key, &cur_key, 60_000,
-            ) {
-                let rot_r = send_raw_post(ctx.client, ctx.base_url, &next_key, &req_body)
-                    .await
-                    .map_err(|e| {
-                        StepHttpError::transport(
-                            "provider.transport",
-                            format!("Error during multi-key rotation retry: {}", e),
-                        )
-                    })?;
-                if !rot_r.status().is_success() {
-                    let st = rot_r.status().as_u16();
-                    let body = rot_r.text().await.unwrap_or_default();
-                    return Err(StepHttpError::from_classified(classify_provider_failure(
-                        Some(st),
-                        &body,
-                    )));
-                }
-                r = Some(rot_r);
-            } else if !hard_quota {
-                return Err(StepHttpError::from_classified(classified));
-            } else if *ctx.current_provider_id != "kenari"
-                || *ctx.current_model_id != "llama-3-3-70b-instruct:free"
-            {
-                let Some(resolved_key) = resolve_configured_kenari_key(ctx.cfg) else {
-                    return Err(StepHttpError::from_classified(classified));
-                };
-
+        }
+        if hard_quota
+            && (*ctx.current_provider_id != "kenari"
+                || *ctx.current_model_id != "llama-3-3-70b-instruct:free")
+        {
+            if let Some(resolved_key) = resolve_configured_kenari_key(ctx.cfg) {
                 crate::paths::log_engine(
                     "ai",
                     "Provider quota/balance limit reached. Failing over to Kenari free model...",
@@ -557,58 +636,35 @@ pub(crate) async fn execute_step_http_request(
                 *ctx.base_url = "https://kenari.id/v1".to_string();
                 *ctx.api_key = resolved_key;
                 req_body["model"] = json!(*ctx.current_model_id);
-                let fo_r = send_raw_post(ctx.client, ctx.base_url, ctx.api_key, &req_body)
-                    .await
-                    .map_err(|e| {
-                        StepHttpError::transport(
-                            "provider.transport",
-                            format!("Error reaching AI provider during failover: {}", e),
-                        )
-                    })?;
-                if !fo_r.status().is_success() {
-                    let st = fo_r.status().as_u16();
-                    let final_err = fo_r.text().await.unwrap_or_default();
-                    return Err(StepHttpError::from_classified(classify_provider_failure(
-                        Some(st),
-                        &final_err,
-                    )));
-                }
-                r = Some(fo_r);
-            } else {
-                return Err(StepHttpError::from_classified(classified));
+                return post_recovery_request(
+                    ctx.client,
+                    ctx.base_url,
+                    ctx.api_key,
+                    req_body,
+                    "Error reaching AI provider during failover",
+                    false,
+                )
+                .await;
             }
-        } else if err_txt.contains("upstream_rejected")
-            && sanitize_multimodal_messages_to_text(ctx.chat_messages)
-        {
-            req_body["messages"] = Value::Array(ctx.chat_messages.clone());
-            let retried = send_raw_post(ctx.client, ctx.base_url, ctx.api_key, &req_body)
-                .await
-                .map_err(|e| {
-                    StepHttpError::transport(
-                        "provider.transport",
-                        format!("Error reaching AI provider during retry: {}", e),
-                    )
-                })?;
-            if !retried.status().is_success() {
-                let st = retried.status().as_u16();
-                let final_err = retried.text().await.unwrap_or_default();
-                return Err(StepHttpError::from_classified(classify_provider_failure(
-                    Some(st),
-                    &final_err,
-                )));
-            }
-            r = Some(retried);
-        } else {
-            return Err(StepHttpError::from_classified(classified));
         }
+        return Err(StepHttpError::from_classified(classified));
     }
 
-    r.ok_or_else(|| {
-        StepHttpError::transport(
-            "provider.unknown",
-            "AI response missing after retry".to_string(),
+    if err_txt.contains("upstream_rejected") && sanitize_multimodal_messages_to_text(ctx.chat_messages)
+    {
+        req_body["messages"] = Value::Array(ctx.chat_messages.clone());
+        return post_recovery_request(
+            ctx.client,
+            ctx.base_url,
+            ctx.api_key,
+            req_body,
+            "Error reaching AI provider during retry",
+            false,
         )
-    })
+        .await;
+    }
+
+    Err(StepHttpError::from_classified(classified))
 }
 
 async fn send_raw_post(

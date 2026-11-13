@@ -212,6 +212,7 @@ pub fn normalize_engine_event(event: &Value, current_session_id: &str) -> Option
                 .or_else(|| event.get("name"))
                 .or_else(|| payload.get("tool"))
                 .or_else(|| event.get("tool"))
+                .or_else(|| payload.get("toolName"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("action");
             let input = payload

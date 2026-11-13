@@ -61,17 +61,6 @@ pub(crate) async fn execute_tool_batch(
             };
 
         let tool_start = now_ms();
-        emit_event(
-            workspace_dir,
-            "session.next.tool.called",
-            json!({
-                "sessionID": session_id,
-                "messageID": assistant_msg_id,
-                "id": call_id,
-                "name": display_name,
-                "input": args_val
-            }),
-        );
         crate::paths::log_engine(
             "tool",
             &format!("🔧 Executing tool '{}' with input: {}", display_name, args_str),
@@ -128,7 +117,8 @@ pub(crate) async fn execute_tool_batch(
             .await;
             let failed = out.get("aborted").and_then(|v| v.as_bool()) == Some(true)
                 || out.get("denied").and_then(|v| v.as_bool()) == Some(true)
-                || out.get("type").and_then(|v| v.as_str()) == Some("aborted");
+                || out.get("type").and_then(|v| v.as_str()) == Some("aborted")
+                || out.get("ok").and_then(|v| v.as_bool()) == Some(false);
             (out, failed)
         }
     });
@@ -149,13 +139,20 @@ pub(crate) async fn execute_tool_batch(
         let tool_out_str =
             serde_json::to_string_pretty(&tool_out).unwrap_or_else(|_| "{}".to_string());
         let tool_end = now_ms();
+        let tool_failed_event = is_failed;
         let tool_dur = tool_end.saturating_sub(tool_start);
 
         if is_failed {
             let err_msg = tool_out
                 .get("error")
                 .and_then(|v| v.as_str())
+                .or_else(|| tool_out.get("message").and_then(|v| v.as_str()))
                 .unwrap_or("Execution failed or blocked");
+            let event_kind = if tool_failed_event {
+                "session.next.tool.failed"
+            } else {
+                "session.next.tool.success"
+            };
             crate::paths::log_engine(
                 "tool",
                 &format!(
@@ -165,7 +162,7 @@ pub(crate) async fn execute_tool_batch(
             );
             emit_event(
                 workspace_dir,
-                "session.next.tool.failed",
+                event_kind,
                 json!({
                     "sessionID": session_id,
                     "messageID": assistant_msg_id,

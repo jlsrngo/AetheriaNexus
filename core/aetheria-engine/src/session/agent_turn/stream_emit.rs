@@ -379,6 +379,7 @@ where
             } else {
                 tc.name.clone()
             };
+            let input = serde_json::from_str::<Value>(&tc.args).unwrap_or_else(|_| json!({}));
             if !tc.started_emitted {
                 tc.started_emitted = true;
                 (self.emit)(
@@ -402,6 +403,17 @@ where
                     "id": tc.call_id,
                     "name": final_name,
                     "text": tc.args,
+                }),
+            );
+            (self.emit)(
+                &self.workspace_dir,
+                "session.next.tool.called",
+                json!({
+                    "sessionID": self.session_id,
+                    "messageID": self.assistant_msg_id,
+                    "id": tc.call_id,
+                    "toolName": final_name,
+                    "input": input,
                 }),
             );
             tc_values.push(json!({
@@ -454,6 +466,23 @@ where
             .unwrap_or(false)
         {
             self.close_text();
+        }
+        for (_, tc) in &self.tool_calls {
+            if !tc.started_emitted {
+                continue;
+            }
+            let name = if tc.name.is_empty() { "tool" } else { &tc.name };
+            (self.emit)(
+                &self.workspace_dir,
+                "session.next.tool.input.failed",
+                json!({
+                    "sessionID": self.session_id,
+                    "messageID": self.assistant_msg_id,
+                    "id": tc.call_id,
+                    "name": name,
+                    "error": { "message": "Tool execution was interrupted before completion." }
+                }),
+            );
         }
         self.content_parts
     }
@@ -509,11 +538,14 @@ mod tests {
         let out = em.finish_all();
 
         let events = log.borrow();
-        assert_eq!(events.len(), 2);
+        assert_eq!(events.len(), 3);
         assert_eq!(events[0].0, "session.next.tool.input.started");
         assert_eq!(events[0].1["tool"], "read");
         assert_eq!(events[1].0, "session.next.tool.input.ended");
         assert_eq!(events[1].1["text"], "{\"path\":\"a.txt\"}");
+        assert_eq!(events[2].0, "session.next.tool.called");
+        assert_eq!(events[2].1["toolName"], "read");
+        assert_eq!(events[2].1["input"], json!({ "path": "a.txt" }));
         assert_eq!(out.tool_calls[0]["function"]["name"], "read");
         assert_eq!(
             out.tool_calls[0]["function"]["arguments"],

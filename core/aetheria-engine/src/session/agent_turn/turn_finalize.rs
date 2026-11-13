@@ -14,6 +14,100 @@ use crate::session::usage::{
 };
 use serde_json::{json, Value};
 
+fn save_assistant_message(
+    store: &mut crate::session::session::SessionStoreData,
+    session_id: &str,
+    message: Value,
+) {
+    let messages = store.messages.entry(session_id.to_string()).or_default();
+    let message_id = message.get("id").and_then(|v| v.as_str());
+    if let Some(index) = message_id.and_then(|id| {
+        messages.iter().position(|m| m.get("id").and_then(|v| v.as_str()) == Some(id))
+    }) {
+        messages[index] = message;
+    } else {
+        messages.push(message);
+    }
+}
+
+fn save_checkpoint_message(
+    session_id: &str,
+    assistant_msg_id: &str,
+    provider_id: &str,
+    model_id: &str,
+    started_ms: u64,
+    content: Vec<Value>,
+) {
+    let message = json!({
+        "id": assistant_msg_id,
+        "type": "assistant",
+        "role": "assistant",
+        "agent": "default",
+        "model": { "providerID": provider_id, "id": model_id },
+        "content": content,
+        "time": { "created": started_ms }
+    });
+    with_store(|store| {
+        save_assistant_message(store, session_id, message);
+        save_store(store);
+    });
+}
+
+pub(crate) fn persist_tool_checkpoint(
+    session_id: &str,
+    assistant_msg_id: &str,
+    provider_id: &str,
+    model_id: &str,
+    started_ms: u64,
+    tool_calls: &[Value],
+) {
+    let content = tool_calls
+        .iter()
+        .map(|call| {
+            let name = call.pointer("/function/name").and_then(|v| v.as_str()).unwrap_or("tool");
+            let id = call.get("id").cloned().unwrap_or(Value::Null);
+            let input = call
+                .pointer("/function/arguments")
+                .and_then(|v| v.as_str())
+                .and_then(|s| serde_json::from_str::<Value>(s).ok())
+                .unwrap_or_else(|| json!({}));
+            json!({
+                "type": "tool",
+                "id": id,
+                "name": name,
+                "state": { "status": "running", "input": input },
+                "time": { "created": started_ms }
+            })
+        })
+        .collect::<Vec<_>>();
+    save_checkpoint_message(
+        session_id,
+        assistant_msg_id,
+        provider_id,
+        model_id,
+        started_ms,
+        content,
+    );
+}
+
+pub(crate) fn settle_completed_tool_checkpoint(
+    session_id: &str,
+    assistant_msg_id: &str,
+    provider_id: &str,
+    model_id: &str,
+    started_ms: u64,
+    content_parts: &[Value],
+) {
+    save_checkpoint_message(
+        session_id,
+        assistant_msg_id,
+        provider_id,
+        model_id,
+        started_ms,
+        content_parts.to_vec(),
+    );
+}
+
 fn maybe_update_session_title(
     store: &mut crate::session::session::SessionStoreData,
     session_id: &str,
@@ -162,25 +256,23 @@ pub(crate) async fn finalize_agent_turn(
 
     with_store(|store| {
         maybe_update_session_title(store, session_id, completed_ms);
-        store
-            .messages
-            .entry(session_id.to_string())
-            .or_default()
-            .push(assistant_msg);
+        save_assistant_message(store, session_id, assistant_msg);
         save_store(store);
     });
 
-    emit_event(
-        workspace_dir,
-        "session.next.step.ended",
-        json!({
-            "sessionID": session_id,
-            "messageID": assistant_msg_id,
-            "finish": last_finish.as_str(),
-            "cost": cost_to_json(last_step_usage.as_ref()),
-            "tokens": tokens_to_json(last_step_usage.as_ref()),
-        }),
-    );
+    if last_finish != FinishReason::ToolCalls {
+        emit_event(
+            workspace_dir,
+            "session.next.step.ended",
+            json!({
+                "sessionID": session_id,
+                "messageID": assistant_msg_id,
+                "finish": last_finish.as_str(),
+                "cost": cost_to_json(last_step_usage.as_ref()),
+                "tokens": tokens_to_json(last_step_usage.as_ref()),
+            }),
+        );
+    }
     crate::session::job_registry::settle_job_completed(&assistant_msg_id, Some(final_text));
     crate::session::session::set_active_run(session_id, false);
     emit_event(workspace_dir, "session.idle", json!({ "sessionID": session_id }));
@@ -220,11 +312,7 @@ pub(crate) fn finalize_interrupted_turn(
 
     with_store(|store| {
         maybe_update_session_title(store, session_id, completed_ms);
-        store
-            .messages
-            .entry(session_id.to_string())
-            .or_default()
-            .push(assistant_msg);
+        save_assistant_message(store, session_id, assistant_msg);
         save_store(store);
     });
 
@@ -240,7 +328,6 @@ pub(crate) fn finalize_interrupted_turn(
             "reason": reason,
         }),
     );
-    emit_event(workspace_dir, "session.idle", json!({ "sessionID": session_id }));
     emit_event(
         workspace_dir,
         "session.status",
@@ -366,11 +453,7 @@ fn finalize_failed_turn_with_opts(
 
     with_store(|store| {
         maybe_update_session_title(store, session_id, completed_ms);
-        store
-            .messages
-            .entry(session_id.to_string())
-            .or_default()
-            .push(assistant_msg);
+        save_assistant_message(store, session_id, assistant_msg);
         save_store(store);
     });
 
