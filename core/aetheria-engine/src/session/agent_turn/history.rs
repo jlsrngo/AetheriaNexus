@@ -57,7 +57,22 @@ pub fn build_chat_messages(effective_history: &[Value], sys_prompt: &str) -> Vec
                                 .or_else(|| input_val.get("path"))
                                 .and_then(|v| v.as_str())
                                 .unwrap_or("");
-                            json!({ "filePath": fp, "_note": "historical content omitted" }).to_string()
+                            if fn_name == "write" {
+                                let preview: String = input_val
+                                    .get("content")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .chars()
+                                    .take(160)
+                                    .collect();
+                                json!({
+                                    "filePath": fp,
+                                    "content": format!("{} ... [historical content omitted ({} chars)]", preview, args_raw.len())
+                                })
+                                .to_string()
+                            } else {
+                                json!({ "filePath": fp, "_note": "[historical content omitted]" }).to_string()
+                            }
                         } else {
                             args_raw
                         };

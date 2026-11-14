@@ -119,7 +119,8 @@ pub(crate) async fn execute_tool_batch(
             let failed = out.get("aborted").and_then(|v| v.as_bool()) == Some(true)
                 || out.get("denied").and_then(|v| v.as_bool()) == Some(true)
                 || out.get("type").and_then(|v| v.as_str()) == Some("aborted")
-                || out.get("ok").and_then(|v| v.as_bool()) == Some(false);
+                || out.get("ok").and_then(|v| v.as_bool()) == Some(false)
+                || out.get("error").is_some();
             (out, failed)
         }
     });

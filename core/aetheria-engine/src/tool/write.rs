@@ -78,15 +78,39 @@ pub fn execute_write(session_id: &str, workspace_dir: &str, arguments: &Value) -
         .or_else(|| arguments.get("target"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let content = arguments
+    let Some(content) = arguments
         .get("content")
         .and_then(|v| v.as_str())
-        .unwrap_or("");
+    else {
+        return json!({
+            "ok": false,
+            "empty": true,
+            "skipped": true,
+            "error": format!(
+                "Parameter 'content' is required when calling 'write' on '{}'. Never omit 'content' or pass historical summary placeholders.",
+                fp
+            )
+        });
+    };
+    if arguments.get("_note").is_some()
+        || content.contains("[historical content omitted")
+        || (content.trim().is_empty() && resolve_isolated_path(workspace_dir, fp).map(|p| p.is_file()).unwrap_or(false))
+    {
+        return json!({
+            "ok": false,
+            "empty": true,
+            "skipped": true,
+            "error": format!(
+                "Refusing to overwrite '{}' with empty or omitted historical content. Provide the complete file text in 'content'.",
+                fp
+            )
+        });
+    }
 
     match resolve_isolated_path(workspace_dir, fp) {
         Ok(p) => {
             if let Err(val_err) = validate_root_tsx_imports(&p, content) {
-                return json!({ "error": val_err });
+                return json!({ "ok": false, "error": val_err });
             }
             let before_content = std::fs::read_to_string(&p).unwrap_or_default();
             if let Some(parent) = p.parent() {
@@ -110,9 +134,36 @@ pub fn execute_write(session_id: &str, workspace_dir: &str, arguments: &Value) -
                     super::film_feedback::attach_post_write_feedback(&mut res, workspace_dir, &p);
                     res
                 }
-                Err(e) => json!({ "error": format!("Write error: {}", e) }),
+                Err(e) => json!({ "ok": false, "error": format!("Write error: {}", e) }),
             }
         }
-        Err(e) => json!({ "error": e }),
+        Err(e) => json!({ "ok": false, "error": e }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn write_rejects_missing_content_and_historical_omitted_placeholder() {
+        let dir = std::env::temp_dir().join(format!("aetheria_write_guard_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("script")).unwrap();
+        let scene_path = dir.join("script").join("scene1.js");
+        std::fs::write(&scene_path, "window.AM.registerScene('scene1', function() {});").unwrap();
+
+        let dir_str = dir.to_string_lossy().to_string();
+        let res_missing = execute_write(
+            "ses_test",
+            &dir_str,
+            &json!({ "filePath": "script/scene1.js", "_note": "historical content omitted" }),
+        );
+        assert_eq!(res_missing.get("ok").and_then(|v| v.as_bool()), Some(false));
+        assert!(res_missing.get("error").is_some());
+        let preserved = std::fs::read_to_string(&scene_path).unwrap();
+        assert!(preserved.contains("registerScene"), "existing file must not be wiped to 0 bytes");
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

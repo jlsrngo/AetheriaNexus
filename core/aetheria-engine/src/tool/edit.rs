@@ -145,7 +145,7 @@ pub fn execute_edit(session_id: &str, workspace_dir: &str, arguments: &Value) ->
         .unwrap_or(false);
 
     if target.is_empty() {
-        return json!({ "error": "oldString (target) cannot be empty." });
+        return json!({ "ok": false, "error": "oldString (target) cannot be empty." });
     }
 
     match resolve_isolated_path(workspace_dir, fp) {
@@ -160,7 +160,7 @@ pub fn execute_edit(session_id: &str, workspace_dir: &str, arguments: &Value) ->
                     Ok((norm_updated, count)) => {
                         let updated = convert_to_line_ending(&norm_updated, ending);
                         if let Err(val_err) = super::write::validate_root_tsx_imports(&p, &updated) {
-                            return json!({ "error": val_err });
+                            return json!({ "ok": false, "error": val_err });
                         }
                         crate::files::record_document_change(workspace_dir, fp, &content_old, &updated);
                         match std::fs::write(&p, &updated) {
@@ -187,17 +187,18 @@ pub fn execute_edit(session_id: &str, workspace_dir: &str, arguments: &Value) ->
                                 );
                                 res
                             }
-                            Err(e) => json!({ "error": format!("Write error: {}", e) }),
+                            Err(e) => json!({ "ok": false, "error": format!("Write error: {}", e) }),
                         }
                     }
                     Err(err_msg) => json!({
+                        "ok": false,
                         "error": format!("{} (file: '{}')", err_msg, fp)
                     }),
                 }
             }
-            Err(e) => json!({ "error": format!("Read error on '{}': {}", fp, e) }),
+            Err(e) => json!({ "ok": false, "error": format!("Read error on '{}': {}", fp, e) }),
         },
-        Err(e) => json!({ "error": e }),
+        Err(e) => json!({ "ok": false, "error": e }),
     }
 }
 
