@@ -130,6 +130,7 @@ pub fn build_subagent_tools(subagent_type: &str, current_depth: usize) -> Vec<Va
                     | "websearch"
                     | "bash"
                     | "codemode"
+                    | "capture_film_preview"
             ),
             _ => true,
         }

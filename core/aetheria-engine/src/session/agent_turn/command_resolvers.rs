@@ -21,9 +21,9 @@ pub fn resolve_reference_report(workspace_dir: &str) -> Option<String> {
         "[Active Video Reference Blueprint (Requested by user)]:\n\"\"\"\n{}\n\"\"\"\n\
         GUIDELINES WHEN PRODUCING FROM REFERENCE:\n\
         1. VISUAL FIDELITY: Maintain stylistic harmony (color palette, typography hierarchy, visual layouts).\n\
-        2. SEQUENTIAL AUDIO: Voiceover narration must be sequential (never overlap speech tracks).\n\
-        3. PRONUNCIATION: When calling `voicebox_speak`, supply `spokenText` for foreign names or acronyms.\n\
-        4. DETERMINISTIC HTML ENGINE: Write the motion film using modular scene scripts (`script/scene1.js`..`script/sceneN.js`) and `index.html` driven by `window.renderAt(t)` and `window.AM`.",
+        2. 3-TRACK SUBAGENT DELEGATION: Delegate voiceover/SFX synthesis to `task(subagent_type: \"audio-director\")` (with `spokenText` for foreign names/acronyms) and delegate modular scene scripts (`script/scene1.js`..`script/sceneN.js` + `index.html`) to `task(subagent_type: \"motion-designer\")` instead of executing all steps inline in the main coordinator turn.\n\
+        3. SEQUENTIAL AUDIO & SFX: Voiceover narration must be sequential (`audio: \"audio/sceneK.wav\"`), with optional per-scene sound effects linked via `sfx: \"audio/sfx_K.wav\"` in `SCENES`.\n\
+        4. DETERMINISTIC HTML ENGINE: Drive all motion via `window.renderAt(t)` and `window.AM`, then verify with `capture_film_preview`.",
         bp_text.trim()
     ))
 }
@@ -123,7 +123,7 @@ pub fn resolve_dynamic_style_or_skill_command(_workspace_dir: &str, prompt_text:
                                 {brief_section}\
                                 \"\"\"\n\
                                 MANDATORY RULES FOR THIS GENERATION:\n\
-                                1. Write modular per-scene scripts (`script/scene1.js`..`script/sceneN.js`) orchestrated by `index.html` using the Aetheria Modular HTML Motion Engine (`window.__filmMeta`, `window.renderAt(t)`, `window.AM`).\n\
+                                1. Coordinate via the 3-Track Subagent Pipeline: delegate voiceover/SFX synthesis to `task(subagent_type: \"audio-director\")` and delegate modular per-scene scripts (`script/scene1.js`..`script/sceneN.js`) + `index.html` to `task(subagent_type: \"motion-designer\")`.\n\
                                 2. Strictly apply these exact colors, fonts, camera movement rules, scale law (`u(refPx)`), and motion curves (`AM.spring`, `AM.anticipation`, `AM.stagger`).\n\
                                 3. Follow the Do's and Don'ts from the skill guidelines and exact brief specifications.",
                                 path_display = path.display()
