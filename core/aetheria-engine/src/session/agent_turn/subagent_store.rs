@@ -22,7 +22,7 @@ pub fn build_subagent_system_prompt(subagent_type: &str, workspace_dir: &str) ->
             "You are the **Motion Designer Subagent** (Visual & Scene Specialist).\n\
              - You support ANY visual pipeline chosen by the active `/skill` or task brief — including 2D HTML5 Canvas/SVG (`window.AM` via `/script/aetheria-motion.js`) AND 3D WebGL / Three.js (`/script/three.min.js`, built-in offline in the engine) — driven deterministically by `window.renderAt(t)`.\n\
              - NEVER lock onto, assume, or default to any unrequested style or template (such as `01-flat-vector`, generic header badges, or headline plaques). If the delegated task did not specify an active skill or concrete visual style, return immediately asking the coordinator to confirm the style/skill with the user.\n\
-             - Keep scripts strictly modular under `script/` (`script/scene1.js` .. `script/sceneN.js` and optional helper modules) with entry at `index.html`; NEVER create React/Remotion folders (`src/`, `public/`, `Root.tsx`).\n\
+             - Keep scripts strictly modular under `script/` (`script/scene1.js` .. `script/sceneN.js` and optional helper modules) with entry at `index.html`; NEVER create React/Remotion folders (`src/`, `public/`, `Root.tsx`) and NEVER overwrite built-in engine runtimes `script/aetheria-motion.js` or `script/three.min.js`.\n\
              - Read the active skill (`<skills>` -> `SKILL.md`, `tokens.json`, `examples/`) FIRST and strictly follow its aesthetic, resolution, HUD choices, and subtitle options.\n\
              - If using `THREE.WebGLRenderer`, ALWAYS pass `preserveDrawingBuffer: true` so headless MP4 exports capture every WebGL frame.\n\
              - `AM.drawTopHeader`, `AM.drawHeadlinePlaque`, and dark pill `AM.drawSubtitles` are OPTIONAL — omit or customize them according to the active skill's `SKILL.md` and `tokens.json`.\n\
@@ -95,6 +95,52 @@ mod prompt_tests {
         assert!(prompt.contains("OPTIONAL"));
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+/// Resolves the parent session's active `/skill` or `/audio:` directive so specialized
+/// subagents receive the full `SKILL.md`, `tokens.json`, and `examples/` kit automatically.
+pub fn resolve_parent_skill_or_voice_directive(
+    parent_session_id: &str,
+    workspace_dir: &str,
+    subagent_type: &str,
+) -> Option<String> {
+    let latest_user_text = with_store(|store| {
+        let msgs = store.messages.get(parent_session_id)?;
+        msgs.iter().rev().find_map(|m| {
+            let role = m.pointer("/info/role").or_else(|| m.get("role")).and_then(|v| v.as_str())?;
+            if role != "user" {
+                return None;
+            }
+            let parts = m.get("parts")?.as_array()?;
+            let combined: String = parts
+                .iter()
+                .filter_map(|p| {
+                    if p.get("type").and_then(|v| v.as_str()) == Some("text") {
+                        p.get("text").and_then(|v| v.as_str())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            if combined.trim().is_empty() { None } else { Some(combined) }
+        })
+    })?;
+
+    match subagent_type {
+        "motion-designer" | "qa-verifier" => {
+            crate::session::agent_turn::command_resolvers::resolve_motioncraft_style_command(
+                workspace_dir,
+                &latest_user_text,
+            )
+        }
+        "audio-director" => {
+            crate::session::agent_turn::command_resolvers::resolve_voice_preset_command(
+                &latest_user_text,
+            )
+        }
+        _ => None,
     }
 }
 

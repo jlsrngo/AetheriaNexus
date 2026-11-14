@@ -4,7 +4,8 @@
 
 pub use super::subagent_store::{
     build_subagent_system_prompt, build_subagent_tools, get_session_depth,
-    load_or_init_child_session, persist_child_session_state, MAX_SUBAGENT_DEPTH,
+    load_or_init_child_session, persist_child_session_state,
+    resolve_parent_skill_or_voice_directive, MAX_SUBAGENT_DEPTH,
 };
 
 use serde_json::{json, Value};
@@ -127,7 +128,15 @@ pub fn execute_subagent<'a>(
                 });
             }
         }
-        let sys_prompt = build_subagent_system_prompt(subagent_type, workspace_dir);
+        let mut sys_prompt = build_subagent_system_prompt(subagent_type, workspace_dir);
+        if let Some(active_directive) = resolve_parent_skill_or_voice_directive(
+            parent_session_id,
+            workspace_dir,
+            subagent_type,
+        ) {
+            sys_prompt.push_str("\n\n");
+            sys_prompt.push_str(&active_directive);
+        }
         let (child_session_id, chat_messages, is_resumed) = load_or_init_child_session(
             parent_session_id,
             requested_session_id,
