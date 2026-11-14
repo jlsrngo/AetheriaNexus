@@ -62,7 +62,8 @@ packages/aetheria-poe-auth/dist/*.map
 
 # Ignored agent and tooling configuration folders
 .agents/
-.github/
+.github/*
+!.github/workflows/
 .hallmark/
 .kiro/
 .opencode/
