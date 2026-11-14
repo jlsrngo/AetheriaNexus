@@ -48,15 +48,6 @@ scratch/
 .aetheria-backup/
 **/.aetheria-backup/
 
-# Root-level local business files
-9ROUTER-DEEPDIVE-REPORT.txt
-*DEEPDIVE-REPORT.txt
-REKAPAN TERBARU*.txt
-TABEL REKAPAN*.xlsm
-testing.xlsx
-testing.csv
-test_excel.csv
-
 # Engine dev-server runtime artifacts
 scripts/engine-serve.out.log
 scripts/engine-serve.err.log
@@ -69,17 +60,12 @@ packages/aetheria-gitlab-auth/dist/*.map
 packages/aetheria-poe-auth/dist/*.map
 
 
-aetheria.json
-
 # Ignored agent and tooling configuration folders
 .agents/
 .github/
 .hallmark/
 .kiro/
 .opencode/
-
-# scratch: throwaway launcher probe scripts
-.launch-test*.ts
 
 # Desktop native deliverables
 dist-exe/
@@ -100,8 +86,6 @@ crates/**/target/
 docs/
 demo/
 demo-workspace/
-ARTCRAFT_DOCUMENTS_INTEGRATION.txt
-WORKFLOW.md
 
 
 
