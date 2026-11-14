@@ -1,51 +1,28 @@
 # Aetheria Nexus
 
-Local-first Windows desktop AI video studio built with **Tauri v2**, **Rust**, **React 19**, and a modular **HTML5 / Three.js** motion engine.
+Local-first Windows desktop AI video studio built with **Tauri v2**, **Rust**, **React 19**, and an **HTML5 / Three.js** motion engine.
 
-## Highlights
+## Architecture & Core Modules
 
-- **Local Motion Rendering:** Deterministic HTML5 Canvas / Three.js WebGL films rendered locally via pure-Rust headless Chromium CDP + FFmpeg (no cloud render fees).
-- **3-Track AI Pipeline:** Coordinated agent workflow for voiceover & word-level timestamps, SFX cues, modular per-scene scripts (`script/scene1..N.js`), and visual QA.
-- **Isolated Video Projects:** Each video is organized into its own workspace subfolder (`projects/<slug>/`) with dedicated `index.html`, `script/`, `audio/`, `output/`, and previews.
-- **TikTok-First Studio:** 9:16 canvas stage, timeline, stock vault, post scheduling, and account analytics.
-
-## Repository Layout
-
-```text
-apps/                   React + Vite + Tailwind frontend
-core/aetheria-engine/   Rust backend engine (Axum HTTP API, agents, CDP/FFmpeg renderer)
-src-tauri/              Tauri v2 desktop shell
-scripts/                Dev, smoke, and bundle helpers
-.aetheria/skills/       Motion & visual style skills (e.g. mg-soft-clay-story)
-e2e/                    Playwright end-to-end tests
-```
-
-## Prerequisites
-
-- **Node.js** 20+ & **npm**
-- **Rust** toolchain (`cargo`, `rustc`)
-- **FFmpeg** & **Microsoft Edge / Google Chrome** (for local headless rendering and preview capture)
+- **`core/aetheria-engine/src/studio/`** — Motion & rendering backend:
+  - `project_registry.rs`: Isolates each video in `projects/<slug>/` (`index.html`, `script/`, `audio/`, `output/`) and tracks the active project.
+  - `motion.rs`, `film_inspector.rs`, `motion_linter.rs`: Parses `window.__filmMeta`, validates determinism, and serves film bundles.
+  - `film_static_server.rs`, `preview_capture.rs`, `html_renderer.rs`, `ffmpeg_pipeline.rs`: Serves isolated project assets to headless Chromium CDP and encodes frames + audio via FFmpeg.
+- **`core/aetheria-engine/src/session/agent_turn/`** — Multi-agent orchestration:
+  - `runner.rs`, `subagent_store.rs`: Coordinates `audio-director`, `motion-designer`, and `qa-verifier`.
+  - `command_resolvers.rs`: Resolves `/mg-*` skill & `/audio:*` directives and seeds skill kits into the active project.
+- **`apps/src/`** — React + Vite + Tailwind UI:
+  - `components/studio/`: Canvas stage (`StudioPreview`, `HtmlMotionPlayer`, `StudioProjectSelector`), timeline, and audio sync.
+  - `components/workstation/`, `hooks/`, `lib/`: Chat workstation, TanStack Query / `apiFetch` engine client, and workspace stores.
+- **`src-tauri/`** — Tauri v2 desktop shell, window management, and native IPC commands.
+- **`.aetheria/skills/`** — Modular motion style skills (e.g. `mg-soft-clay-story`) with tokens and starter kits.
 
 ## Quick Start
 
 ```bash
-# Install JS dependencies
 npm install
-
-# Build the Rust engine (debug incremental)
-npm run build:engine
-
-# Run the desktop app (Tauri + Vite HMR)
-npm run tauri:dev
-
-# Or run web + engine dev server
-npm run dev:app
-```
-
-For a production desktop installer/executable:
-
-```bash
-npm run tauri:build
+npm run build:engine   # Debug Rust engine build
+npm run tauri:dev      # Desktop shell + Vite HMR
 ```
 
 ## Verification
