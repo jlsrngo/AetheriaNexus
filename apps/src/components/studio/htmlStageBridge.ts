@@ -6,6 +6,7 @@
 
 export const STAGE_MSG_READY = "aetheria:ready" as const;
 export const STAGE_MSG_RENDER_AT = "aetheria:renderAt" as const;
+export const STAGE_MSG_HOT_SWAP_SCRIPT = "aetheria:hotSwapScript" as const;
 export const STAGE_MSG_ERROR = "aetheria:error" as const;
 export const STAGE_MSG_ASSET_REQUEST = "aetheria:assetRequest" as const;
 export const STAGE_MSG_ASSET_RESPONSE = "aetheria:assetResponse" as const;
@@ -86,8 +87,30 @@ export function buildSandboxStageBridgeScript(): string {
 (function(){
   if (window.__aetheriaStageBridgeInstalled) return;
   window.__aetheriaStageBridgeInstalled = true;
+  // Block rogue free-running requestAnimationFrame loops inside film HTML so the canvas
+  // never advances on its own while the Studio timeline playhead is paused.
+  window.requestAnimationFrame = function() { return 0; };
+  window.cancelAnimationFrame = function() {};
   var pendingAssets = Object.create(null);
   var reqCounter = 0;
+  var repaintTimer = null;
+
+  function scheduleHostRepaint() {
+    if (repaintTimer) clearTimeout(repaintTimer);
+    repaintTimer = setTimeout(function() {
+      repaintTimer = null;
+      if (typeof window.renderAt === "function") {
+        var t = typeof window.__aetheriaHostTime === "number" ? window.__aetheriaHostTime : 0;
+        window.__aetheriaInHostCall = true;
+        try {
+          window.renderAt(t);
+        } catch (_) {
+        } finally {
+          window.__aetheriaInHostCall = false;
+        }
+      }
+    }, 24);
+  }
 
   function toCleanRelPath(raw) {
     if (!raw || typeof raw !== "string") return null;
@@ -151,6 +174,7 @@ export function buildSandboxStageBridgeScript(): string {
       pendingAssets[id] = function(payload) {
         clearTimeout(timer);
         resolve(payload);
+        setTimeout(scheduleHostRepaint, 16);
       };
       window.parent.postMessage({ type: "${STAGE_MSG_ASSET_REQUEST}", id: id, path: relPath }, "*");
     });
@@ -255,6 +279,30 @@ export function buildSandboxStageBridgeScript(): string {
       if (cb) {
         delete pendingAssets[ev.data.id];
         cb(ev.data);
+      }
+      return;
+    }
+    if (ev.data.type === "${STAGE_MSG_HOT_SWAP_SCRIPT}") {
+      try {
+        var scriptCode = String(ev.data.code || "");
+        if (scriptCode.trim()) {
+          var runner = new Function(scriptCode);
+          runner();
+        }
+        if (typeof window.renderAt === "function") {
+          var swapTime = typeof ev.data.timeSec === "number"
+            ? ev.data.timeSec
+            : (typeof window.__aetheriaHostTime === "number" ? window.__aetheriaHostTime : 0);
+          window.__aetheriaHostTime = swapTime;
+          window.__aetheriaInHostCall = true;
+          try {
+            window.renderAt(swapTime);
+          } finally {
+            window.__aetheriaInHostCall = false;
+          }
+        }
+      } catch (_) {
+        // Ignore transient syntax errors while the user is mid-keystroke in the editor
       }
       return;
     }

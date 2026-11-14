@@ -5,6 +5,7 @@ import {
   resolveWorkspaceAssetUrl,
   type HtmlFilmDescriptor,
 } from "./HtmlFilmStage";
+import { isFilmSourceFile } from "../../hooks/useStudioFilmLoader";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -106,6 +107,15 @@ describe("HtmlFilmStage utilities", () => {
 
     expect(html).not.toContain("cdnjs.cloudflare.com");
     expect(html).toContain('data-script="three.min.js"');
+  });
+
+  it("matches only film source edits for live Studio reload", () => {
+    expect(isFilmSourceFile("index.html")).toBe(true);
+    expect(isFilmSourceFile("script/scene3.js")).toBe(true);
+    expect(isFilmSourceFile("E:\\JS\\Aetheria-Workspace\\script\\scene1.js")).toBe(true);
+    expect(isFilmSourceFile("audio/scene1.words.json")).toBe(true);
+    expect(isFilmSourceFile("audio/sfx_wind.wav")).toBe(false);
+    expect(isFilmSourceFile("ref/ref_screenshot.png")).toBe(false);
   });
 });
 

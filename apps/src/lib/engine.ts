@@ -292,11 +292,40 @@ export async function sendPrompt(
 
 // --- SSE event stream with auto-reconnect ---
 
+function broadcastFileEditedDomEvent(rawEvent: unknown): void {
+  if (typeof window === "undefined" || !rawEvent || typeof rawEvent !== "object") return;
+  const evt = rawEvent as {
+    type?: string;
+    file?: string;
+    after?: string;
+    data?: { file?: string; after?: string };
+    properties?: { file?: string; after?: string };
+    payload?: { type?: string; data?: { file?: string; after?: string } };
+  };
+  const eventType = evt.type || evt.payload?.type;
+  if (eventType !== "file.edited") return;
+  const file =
+    evt.file || evt.data?.file || evt.properties?.file || evt.payload?.data?.file;
+  const after =
+    evt.after ?? evt.data?.after ?? evt.properties?.after ?? evt.payload?.data?.after;
+  if (file) {
+    window.dispatchEvent(
+      new CustomEvent("aetheria:sse-file-edited", {
+        detail: { file, after },
+      })
+    );
+  }
+}
+
 export function subscribeEvents(
   onEvent: (event: { type: string; data?: any }) => void,
   signal?: AbortSignal,
   directory?: string,
 ) {
+  const notifySubscriber = (ev: { type: string; data?: any }) => {
+    broadcastFileEditedDomEvent(ev);
+    onEvent(ev);
+  };
   const controller = new AbortController();
   const finalSignal = signal
     ? (() => {
@@ -328,7 +357,7 @@ export function subscribeEvents(
     import("@tauri-apps/api/event")
       .then(({ listen }) =>
         listen("aetheria-event", (event: any) => {
-          if (!finalSignal.aborted) onEvent(event.payload);
+          if (!finalSignal.aborted) notifySubscriber(event.payload);
         }),
       )
       .then((un) => {
@@ -363,7 +392,7 @@ export function subscribeEvents(
       if (parsed.type !== "text_delta" && parsed.type !== "reasoning_delta") {
         console.log("[SSE-IPC-RCVD]", parsed.type, parsed.data?.sessionID || parsed.sessionID);
       }
-      onEvent(parsed);
+      notifySubscriber(parsed);
     });
 
     d.startEngineSSE(channel, `/api/event${query}`, extraHeaders).catch((err: any) => {
@@ -447,7 +476,7 @@ export function subscribeEvents(
                 if (parsed.type !== "text_delta" && parsed.type !== "reasoning_delta") {
                   console.log("[SSE-EVENT-RCVD]", parsed.type, parsed.data?.sessionID || parsed.sessionID);
                 }
-                onEvent(parsed);
+                notifySubscriber(parsed);
               } catch {
                 // Fallback for single data line parse
                 for (const line of lines) {
@@ -455,7 +484,7 @@ export function subscribeEvents(
                   if (trimmed.startsWith("data:")) {
                     try {
                       const single = JSON.parse(trimmed.slice(5).trim());
-                      onEvent(single);
+                      notifySubscriber(single);
                     } catch {}
                   }
                 }

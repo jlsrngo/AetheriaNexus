@@ -1,6 +1,23 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createHtmlFilmComponent, loadWorkspaceHtmlFilm } from "../components/studio/HtmlFilmStage";
 
+export function isFilmSourceFile(filePath: unknown): boolean {
+  if (typeof filePath !== "string") return false;
+  const clean = filePath
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^(\.\/|\/)+/, "")
+    .toLowerCase();
+  if (!clean) return false;
+  return (
+    clean === "index.html" ||
+    clean.endsWith("/index.html") ||
+    clean.startsWith("script/") ||
+    clean.includes("/script/") ||
+    clean.endsWith(".words.json")
+  );
+}
+
 export interface LoadedFilmDimensions {
   width: number;
   height: number;
@@ -33,12 +50,24 @@ export function useStudioFilmLoader(activeCompositionId: string): UseStudioFilmL
   }, []);
 
   useEffect(() => {
+    const handleFileEditedEvent = (e: Event) => {
+      const detail = (e as CustomEvent<{ file?: string; after?: string }>).detail;
+      if (isFilmSourceFile(detail?.file)) {
+        reloadFilm();
+        window.dispatchEvent(new CustomEvent("aetheria-film-updated", { detail }));
+      }
+    };
+
     window.addEventListener("aetheria-folder-change", reloadFilm);
     window.addEventListener("aetheria-film-updated", reloadFilm);
+    window.addEventListener("aetheria:file.edited", handleFileEditedEvent);
+    window.addEventListener("aetheria:sse-file-edited", handleFileEditedEvent);
     window.addEventListener("focus", reloadFilm);
     return () => {
       window.removeEventListener("aetheria-folder-change", reloadFilm);
       window.removeEventListener("aetheria-film-updated", reloadFilm);
+      window.removeEventListener("aetheria:file.edited", handleFileEditedEvent);
+      window.removeEventListener("aetheria:sse-file-edited", handleFileEditedEvent);
       window.removeEventListener("focus", reloadFilm);
     };
   }, [reloadFilm]);

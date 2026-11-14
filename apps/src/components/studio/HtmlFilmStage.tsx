@@ -12,6 +12,7 @@ import {
   STAGE_MSG_ASSET_REQUEST,
   STAGE_MSG_ASSET_RESPONSE,
   STAGE_MSG_ERROR,
+  STAGE_MSG_HOT_SWAP_SCRIPT,
   STAGE_MSG_READY,
   STAGE_MSG_RENDER_AT,
   isTrustedStageMessageSource,
@@ -191,6 +192,43 @@ export const HtmlFilmStage: React.FC<HtmlFilmStageProps> = ({
       "*",
     );
   }, [frame, fps, iframeReady]);
+
+  useEffect(() => {
+    const pushHotSwap = (rawFile: unknown, code: unknown) => {
+      if (typeof rawFile !== "string" || typeof code !== "string") return;
+      const clean = rawFile.replace(/\\/g, "/").toLowerCase();
+      if (!clean.endsWith(".js") || clean.endsWith("aetheria-motion.js") || clean.endsWith("three.min.js")) {
+        return;
+      }
+      reportStageError(null);
+      iframeRef.current?.contentWindow?.postMessage(
+        {
+          type: STAGE_MSG_HOT_SWAP_SCRIPT,
+          name: clean.split("/").pop() || clean,
+          code,
+          timeSec: frameRef.current / Math.max(1, fpsRef.current),
+        },
+        "*",
+      );
+    };
+
+    const onLiveCodeChange = (e: Event) => {
+      const detail = (e as CustomEvent<{ file?: string; content?: string }>).detail;
+      pushHotSwap(detail?.file, detail?.content);
+    };
+
+    const onSseFileEdited = (e: Event) => {
+      const detail = (e as CustomEvent<{ file?: string; after?: string }>).detail;
+      pushHotSwap(detail?.file, detail?.after);
+    };
+
+    window.addEventListener("aetheria:live-code-change", onLiveCodeChange);
+    window.addEventListener("aetheria:sse-file-edited", onSseFileEdited);
+    return () => {
+      window.removeEventListener("aetheria:live-code-change", onLiveCodeChange);
+      window.removeEventListener("aetheria:sse-file-edited", onSseFileEdited);
+    };
+  }, [reportStageError]);
 
   const safeW = Math.max(1, width);
   const safeH = Math.max(1, height);

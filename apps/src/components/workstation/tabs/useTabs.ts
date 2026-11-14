@@ -497,7 +497,18 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
 
   const handleUpdateTabContent = useCallback((tabId: string, newContent: string) => {
     setTabs((prev) =>
-      prev.map((t) => (t.id === tabId ? { ...t, content: newContent } : t))
+      prev.map((t) => {
+        if (t.id !== tabId) return t;
+        const filePath = t.path || t.title;
+        if (typeof window !== "undefined" && filePath) {
+          window.dispatchEvent(
+            new CustomEvent("aetheria:live-code-change", {
+              detail: { file: filePath, content: newContent },
+            })
+          );
+        }
+        return { ...t, content: newContent };
+      })
     );
   }, []);
 
