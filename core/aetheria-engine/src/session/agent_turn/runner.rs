@@ -145,7 +145,7 @@ pub async fn run_agent_turn(
     } = resolve_provider_connection(session_id, provider_id, &current_provider_id, &cfg).await;
 
     let tools_def = if should_attach_document_tools(prompt_text, history) {
-        build_tool_definitions()
+        build_main_coordinator_tools()
     } else {
         Vec::new()
     };
@@ -1288,6 +1288,19 @@ fn handle_no_tool_calls(
     }
 }
 
+/// Filters main-coordinator tools so voiceover/SFX synthesis must go through `audio-director`.
+fn build_main_coordinator_tools() -> Vec<Value> {
+    let mut defs = build_tool_definitions();
+    defs.retain(|t| {
+        let name = t
+            .pointer("/function/name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        !matches!(name, "voicebox_speak" | "generate_smart_sfx")
+    });
+    defs
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1377,5 +1390,16 @@ mod tests {
         assert!(text.contains("brightness"));
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn main_coordinator_tools_delegate_audio_synthesis_to_subagent() {
+        let names: Vec<String> = build_main_coordinator_tools()
+            .into_iter()
+            .filter_map(|t| t.pointer("/function/name").and_then(|v| v.as_str()).map(String::from))
+            .collect();
+        assert!(!names.iter().any(|n| n == "voicebox_speak"));
+        assert!(!names.iter().any(|n| n == "generate_smart_sfx"));
+        assert!(names.iter().any(|n| n == "task"));
     }
 }
