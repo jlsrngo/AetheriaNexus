@@ -11,6 +11,7 @@ import { Message, SubagentTrackState } from "./chat/types";
 import { ChatMessageBubble } from "./chat/ChatMessageBubble";
 import { ChatInputBox } from "./chat/ChatInputBox";
 import { ChatQueuedPrompts } from "./chat/ChatQueuedPrompts";
+import type { QueuedPromptItem } from "./chat/queuedPrompts";
 import { ChatImageLightbox } from "./chat/ChatImageLightbox";
 import { SubagentActivityBar } from "./chat/SubagentActivityBar";
 import { WorkstationRightChatHeader, SleekRobotIcon } from "./chat/WorkstationRightChatHeader";
@@ -37,12 +38,14 @@ export interface WorkstationRightChatProps {
   isStreaming: boolean;
   onSendMessage: (
     prompt?: string,
-    files?: Array<{ name: string; uri: string; mime?: string }>
+    files?: Array<{ name: string; uri: string; mime?: string }>,
+    mode?: "queue" | "inject"
   ) => void;
   width?: string | number;
   files?: Array<{ name: string }>;
-  queuedPrompts?: string[];
+  queuedPrompts?: QueuedPromptItem[];
   onRemoveQueuedPrompt?: (index: number) => void;
+  onInjectQueuedPrompt?: (index: number) => void;
   onSearchSection?: () => void;
   reasoningEffort?: string;
   setReasoningEffort?: (effort: string) => void;
@@ -74,6 +77,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
   files = [],
   queuedPrompts = [],
   onRemoveQueuedPrompt,
+  onInjectQueuedPrompt,
   onSearchSection,
   reasoningEffort = "",
   setReasoningEffort,
@@ -285,6 +289,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
         <ChatQueuedPrompts
           queuedPrompts={queuedPrompts}
           onRemoveQueuedPrompt={onRemoveQueuedPrompt}
+          onInjectQueuedPrompt={onInjectQueuedPrompt}
         />
 
         <ChatInputBox

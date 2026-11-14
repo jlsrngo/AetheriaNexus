@@ -253,6 +253,7 @@ export async function sendPrompt(
   opts?: {
     files?: Array<{ name?: string; uri: string; mime?: string; description?: string }>;
     variant?: string;
+    delivery?: "steer" | "queue";
     signal?: AbortSignal;
     directory?: string;
   }
@@ -277,6 +278,7 @@ export async function sendPrompt(
     body: JSON.stringify({
       prompt: promptPayload,
       ...(opts?.variant ? { variant: opts.variant } : {}),
+      ...(opts?.delivery ? { delivery: opts.delivery } : {}),
     }),
     signal: opts?.signal,
   });

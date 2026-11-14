@@ -27,6 +27,11 @@ import { useChatModels } from "./useChatModels";
 import { useExternalChatEvents } from "./useExternalChatEvents";
 import { useSessionSubagents } from "./useSessionSubagents";
 import {
+  createQueuedPromptItem,
+  insertBeforeStreamingAssistant,
+  type QueuedPromptItem,
+} from "./queuedPrompts";
+import {
   dispatchCompletionNotification,
   getActiveProviderDiagnostic,
 } from "./chatDiagnostics";
@@ -91,8 +96,8 @@ export function useWorkstationChat({
     setPendingQuestion(q);
   }, []);
   const [liveStatus, setLiveStatus] = useState<LiveStatusData | null>(null);
-  const [queuedPrompts, setQueuedPrompts] = useState<string[]>([]);
-  const queuedPromptsRef = useRef<string[]>([]);
+  const [queuedPrompts, setQueuedPrompts] = useState<QueuedPromptItem[]>([]);
+  const queuedPromptsRef = useRef<QueuedPromptItem[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -101,6 +106,16 @@ export function useWorkstationChat({
   const resetWatchdogRef = useRef<((timeoutMs?: number) => void) | null>(null);
   const currentTurnIdRef = useRef<string>("");
   const isLocalSendingRef = useRef(false);
+  const activeChatIdRef = useRef(activeChatId);
+  activeChatIdRef.current = activeChatId;
+  const handleSendMessageRef = useRef<
+    ((
+      textToSend?: string,
+      filesToSend?: Array<{ name: string; uri: string; mime?: string }>,
+      mode?: "queue" | "inject",
+      preferredChatId?: string
+    ) => Promise<void>) | null
+  >(null);
 
   const clearWatchdog = useCallback(() => {
     if (watchdogRef.current) {
@@ -169,12 +184,18 @@ export function useWorkstationChat({
   const prevChatIdRef = useRef(activeChatId);
   const prevFolderRef = useRef(activeFolder);
   useEffect(() => {
-    const chatChanged = prevChatIdRef.current !== activeChatId;
+    const prevChatId = prevChatIdRef.current;
+    const chatChanged = prevChatId !== activeChatId;
     const folderChanged = prevFolderRef.current !== activeFolder;
     prevChatIdRef.current = activeChatId;
     prevFolderRef.current = activeFolder;
 
-    if (chatChanged || folderChanged) {
+    // A brand-new local prompt creates a session ("" -> "ses_...") while its SSE stream is already live;
+    // do not abort/reset that first turn as if the user navigated away.
+    const isInitialSessionCreation =
+      !folderChanged && !prevChatId && Boolean(activeChatId) && isLocalSendingRef.current;
+
+    if ((chatChanged || folderChanged) && !isInitialSessionCreation) {
       if (abortControllerRef.current) {
         try {
           abortControllerRef.current.abort();
@@ -666,16 +687,76 @@ export function useWorkstationChat({
     ]
   );
 
+  const injectMidTurnPrompt = async (
+    targetChatId: string,
+    promptText: string,
+    filesToSend?: Array<{ name: string; uri: string; mime?: string }>
+  ) => {
+    const normalizedText = promptText.trim();
+    if (!normalizedText && (!filesToSend || filesToSend.length === 0)) return;
+    const injectedMsg: Message = {
+      id: `user-${Date.now()}-${Math.random()}`,
+      role: "user",
+      content: normalizedText,
+      files: filesToSend && filesToSend.length > 0 ? filesToSend : undefined,
+      createdAt: new Date().toISOString(),
+    };
+    setOptimisticMessages((prev) => insertBeforeStreamingAssistant(prev, injectedMsg));
+    setLiveStatus({ type: "thinking", preview: "Injecting mid-turn instruction..." });
+    try {
+      const activeModel = resolveActiveSingleModel();
+      const tiers = tiersFor(activeModel.providerID, activeModel.id);
+      const effectiveVariant = tiers.length
+        ? tiers.includes(reasoningEffort)
+          ? reasoningEffort
+          : tiers[0]
+        : undefined;
+      await sendPrompt(targetChatId, normalizedText, {
+        files: filesToSend,
+        variant: effectiveVariant,
+        delivery: "steer",
+        directory: activeFolder || undefined,
+      });
+      toast.info("Injected into active turn");
+      queryClient.invalidateQueries({ queryKey: ["chat-messages", targetChatId] });
+    } catch (err: any) {
+      toast.error(`Failed to inject message: ${err?.message || err}`);
+    }
+  };
+
+  const handleInjectQueuedPrompt = (index: number) => {
+    const target = queuedPromptsRef.current[index];
+    if (!target) return;
+    queuedPromptsRef.current = queuedPromptsRef.current.filter((_, i) => i !== index);
+    setQueuedPrompts([...queuedPromptsRef.current]);
+    const currentChatId = activeChatIdRef.current;
+    if (isStreamingRef.current && currentChatId) {
+      void injectMidTurnPrompt(currentChatId, target.text, target.files);
+    } else {
+      void handleSendMessage(target.text, target.files, "queue", currentChatId);
+    }
+  };
+
   const handleSendMessage = async (
     textToSend?: string,
-    filesToSend?: Array<{ name: string; uri: string; mime?: string }>
+    filesToSend?: Array<{ name: string; uri: string; mime?: string }>,
+    mode: "queue" | "inject" = "queue",
+    preferredChatId?: string
   ) => {
     const userText = (textToSend !== undefined ? textToSend : "").trim();
     if ((!userText && (!filesToSend || filesToSend.length === 0)) || isStreamingRef.current) {
-      if (textToSend) {
-        queuedPromptsRef.current.push(userText);
-        setQueuedPrompts([...queuedPromptsRef.current]);
-        toast.info("Message queued and will be processed automatically");
+      if (isStreamingRef.current) {
+        const injectTargetId = preferredChatId || activeChatIdRef.current;
+        if (mode === "inject" && injectTargetId) {
+          await injectMidTurnPrompt(injectTargetId, userText, filesToSend);
+          return;
+        }
+        const queuedItem = createQueuedPromptItem(userText, filesToSend);
+        if (queuedItem) {
+          queuedPromptsRef.current.push(queuedItem);
+          setQueuedPrompts([...queuedPromptsRef.current]);
+          toast.info("Message queued (press Ctrl+Enter to inject mid-turn)");
+        }
       }
       return;
     }
@@ -743,7 +824,7 @@ export function useWorkstationChat({
 
     const activeModel = resolveActiveSingleModel();
 
-    let chatIdToUse = activeChatId;
+    let chatIdToUse = preferredChatId || activeChatIdRef.current;
     const effectiveVariant = (() => {
       const tiers = tiersFor(activeModel.providerID, activeModel.id);
       // No tiers on this model means no variant on the request: the bridge rewrites an id that has
@@ -774,6 +855,7 @@ export function useWorkstationChat({
           model: { ...activeModel, variant: effectiveVariant },
         });
         chatIdToUse = session.id;
+        activeChatIdRef.current = chatIdToUse;
         setActiveChatId(chatIdToUse);
         localStorage.setItem("aetheria_active_chat_id", chatIdToUse);
         if (activeFolder) {
@@ -824,7 +906,9 @@ export function useWorkstationChat({
         const nextPrompt = queuedPromptsRef.current.shift()!;
         setQueuedPrompts([...queuedPromptsRef.current]);
         setTimeout(() => {
-          handleSendMessage(nextPrompt);
+          const targetId = activeChatIdRef.current || chatIdToUse;
+          const sendFn = handleSendMessageRef.current ?? handleSendMessage;
+          void sendFn(nextPrompt.text, nextPrompt.files, "queue", targetId);
         }, 300);
       }
     };
@@ -914,7 +998,17 @@ export function useWorkstationChat({
     resetWatchdog(90000);
 
     let textEndFinalizeTimeout: any = null;
+    let postAcceptPollTimeout: ReturnType<typeof setTimeout> | null = null;
+    let hasReceivedStreamEvent = false;
     let rafUpdateId: number | null = null;
+
+    const clearPostAcceptPoll = () => {
+      if (postAcceptPollTimeout) {
+        clearTimeout(postAcceptPollTimeout);
+        postAcceptPollTimeout = null;
+      }
+    };
+    abortCtrl.signal.addEventListener("abort", clearPostAcceptPoll, { once: true });
 
     const flushThrottledUpdate = () => {
       if (rafUpdateId !== null) {
@@ -1016,6 +1110,7 @@ export function useWorkstationChat({
       }
       flushThrottledUpdate();
       clearWatchdog();
+      clearPostAcceptPoll();
       if (textEndFinalizeTimeout) {
         clearTimeout(textEndFinalizeTimeout);
         textEndFinalizeTimeout = null;
@@ -1144,6 +1239,7 @@ export function useWorkstationChat({
         }
         const event = mapEngineEvent(rawEvent, chatIdToUse);
         if (!event) return;
+        hasReceivedStreamEvent = true;
 
         if (event.type === "reasoning_delta" && event.data) {
           resetWatchdog(90000);
@@ -1667,6 +1763,7 @@ export function useWorkstationChat({
           if (currentTurnIdRef.current !== assistantMessageId) return;
           if (textEndFinalizeTimeout) clearTimeout(textEndFinalizeTimeout);
           clearWatchdog();
+          clearPostAcceptPoll();
           isLocalSendingRef.current = false;
           setStreamingState(false);
           setLiveStatus(null);
@@ -1699,6 +1796,34 @@ export function useWorkstationChat({
         variant: reasoningEffort || "low",
         signal: abortCtrl.signal,
       });
+      // Fast turns (<100ms) can finish before /api/event finishes handshaking and miss the
+      // broadcast `done` event. Poll session activity once settled so UI never hangs in streaming.
+      const schedulePostAcceptSettlementCheck = (delayMs: number) => {
+        clearPostAcceptPoll();
+        postAcceptPollTimeout = setTimeout(async () => {
+          if (
+            currentTurnIdRef.current !== assistantMessageId ||
+            !isStreamingRef.current ||
+            abortCtrl.signal.aborted
+          ) {
+            return;
+          }
+          const active = await isSessionActive(chatIdToUse).catch(() => true);
+          if (
+            currentTurnIdRef.current !== assistantMessageId ||
+            !isStreamingRef.current ||
+            abortCtrl.signal.aborted
+          ) {
+            return;
+          }
+          if (!active) {
+            finalizeDone();
+          } else {
+            schedulePostAcceptSettlementCheck(hasReceivedStreamEvent ? 2500 : 1200);
+          }
+        }, delayMs);
+      };
+      schedulePostAcceptSettlementCheck(600);
       // Prompt was accepted by the engine. Streaming is now in progress over SSE.
       // Finalization is handled by the SSE listener (done / error events) or watchdog.
     } catch (err: any) {
@@ -1708,6 +1833,7 @@ export function useWorkstationChat({
       }
       if (currentTurnIdRef.current !== assistantMessageId) return;
       clearWatchdog();
+      clearPostAcceptPoll();
       console.error("[useWorkstationChat] sendPrompt error:", err);
       toast.error(`Error sending message: ${err?.message || err}`);
       isLocalSendingRef.current = false;
@@ -1720,6 +1846,8 @@ export function useWorkstationChat({
       processNext();
     }
   };
+
+  handleSendMessageRef.current = handleSendMessage;
 
   return {
     chatMessages,
@@ -1741,6 +1869,7 @@ export function useWorkstationChat({
     handleCancelStream,
     handleNewChat,
     handleRemoveQueuedPrompt,
+    handleInjectQueuedPrompt,
     handleCompactSession,
     isCompacting,
     isCompacted,

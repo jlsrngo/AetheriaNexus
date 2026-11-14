@@ -3,8 +3,8 @@
 //! and re-exports `inbox`, `max_steps`, and `session_error` for seamless module access.
 
 pub use super::inbox::{
-    admit_inbox_item, drain_pending_steers, list_inbox_items, pop_next_queued_input, InboxDelivery,
-    InboxItem,
+    admit_inbox_item, admit_inbox_item_with_files, drain_pending_steers, list_inbox_items,
+    pop_next_queued_input, InboxDelivery, InboxItem,
 };
 pub use super::max_steps::MAX_STEPS_PROMPT;
 pub use super::session_error::classify_session_error;

@@ -22,6 +22,7 @@ import {
   Sparkles,
   Film,
   Volume2,
+  Zap,
 } from "lucide-react";
 import { AetheriaLogo } from "../../common/AetheriaLogo";
 import { toast } from "sonner";
@@ -49,7 +50,8 @@ interface ChatInputBoxProps {
   isStreaming: boolean;
   onSendMessage: (
     text: string,
-    files?: Array<{ name: string; uri: string; mime?: string }>
+    files?: Array<{ name: string; uri: string; mime?: string }>,
+    mode?: "queue" | "inject"
   ) => void;
   onCancelStream?: () => void;
   onSearchSection?: () => void;
@@ -315,7 +317,7 @@ export const ChatInputBox = memo(function ChatInputBox({
     }
   };
 
-  const submitPrompt = () => {
+  const submitPrompt = (mode: "queue" | "inject" = "queue") => {
     const promptTrimmed = localPrompt.trim();
     const promptLower = promptTrimmed.toLowerCase();
     if (
@@ -373,7 +375,7 @@ export const ChatInputBox = memo(function ChatInputBox({
         ? "Please review and analyze this attached image."
         : "Please review and analyze the attached file.");
 
-    onSendMessage(finalPrompt, filesToSend.length > 0 ? filesToSend : undefined);
+    onSendMessage(finalPrompt, filesToSend.length > 0 ? filesToSend : undefined, mode);
     setLocalPrompt("");
     clearAttachedFiles();
   };
@@ -505,7 +507,7 @@ export const ChatInputBox = memo(function ChatInputBox({
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      submitPrompt();
+      submitPrompt(isStreaming && (e.ctrlKey || e.metaKey) ? "inject" : "queue");
     }
   };
 
@@ -642,14 +644,26 @@ export const ChatInputBox = memo(function ChatInputBox({
           {isStreaming ? (
             <>
               {(localPrompt.trim() || attachedFiles.length > 0) && (
-                <button
-                  type="button"
-                  onClick={submitPrompt}
-                  className="w-7 h-7 rounded-full flex items-center justify-center transition-colors cursor-pointer bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)]"
-                  title={t("addToQueue", "Add to queue")}
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => submitPrompt("inject")}
+                    aria-label="Inject mid-turn (Ctrl+Enter)"
+                    className="w-7 h-7 rounded-full flex items-center justify-center transition-colors cursor-pointer bg-amber-500/15 hover:bg-amber-500/25 text-amber-500 border border-amber-500/40"
+                    title="Inject mid-turn now (Ctrl+Enter)"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => submitPrompt("queue")}
+                    aria-label={t("addToQueue", "Add to queue")}
+                    className="w-7 h-7 rounded-full flex items-center justify-center transition-colors cursor-pointer bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)]"
+                    title={`${t("addToQueue", "Add to queue")} (Enter)`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                  </button>
+                </>
               )}
 
               <button
@@ -665,7 +679,7 @@ export const ChatInputBox = memo(function ChatInputBox({
           ) : (
             <button
               type="button"
-              onClick={submitPrompt}
+              onClick={() => submitPrompt()}
               disabled={!localPrompt.trim() && attachedFiles.length === 0}
               className={cn(
                 "w-7 h-7 rounded-full flex items-center justify-center transition-colors cursor-pointer disabled:opacity-30",

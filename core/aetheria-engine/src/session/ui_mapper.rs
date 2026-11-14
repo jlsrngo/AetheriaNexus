@@ -269,6 +269,8 @@ pub fn map_messages_for_ui(raw_messages: &[Value]) -> Vec<Value> {
             "thoughtSec": thought_sec,
             "thoughtMs": thought_ms,
             "parts": if parts.is_empty() { Value::Null } else { json!(parts) },
+            "files": msg.get("files").cloned().unwrap_or(Value::Null),
+            "delivery": msg.get("delivery").cloned().unwrap_or(Value::Null),
             "createdAt": msg.get("createdAt").or_else(|| msg.pointer("/time/created")),
             "summary": false,
             "isRustMapped": true,
@@ -445,6 +447,23 @@ mod tests {
         assert_eq!(mapped[0]["content"], "Audio Producer selesai · Generate scene 1 audio");
         assert_eq!(mapped[0]["notice"]["kind"], "subagent");
         assert!(!mapped[0]["content"].as_str().unwrap().contains("<subagent-notification"));
+    }
+
+    #[test]
+    fn preserves_user_attached_files() {
+        let msgs = vec![
+            json!({
+                "id": "u1",
+                "role": "user",
+                "content": [{ "type": "text", "text": "buat gini visualnya bisa ga?" }],
+                "files": [{ "name": "ref.png", "uri": "data:image/png;base64,AAAA", "mime": "image/png" }],
+                "time": { "created": 10 }
+            }),
+        ];
+        let mapped = map_messages_for_ui(&msgs);
+        assert_eq!(mapped.len(), 1);
+        assert_eq!(mapped[0]["files"][0]["name"], "ref.png");
+        assert_eq!(mapped[0]["files"][0]["mime"], "image/png");
     }
 }
 

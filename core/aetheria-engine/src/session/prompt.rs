@@ -104,6 +104,14 @@ pub async fn handle_prompt(
 
     let user_msg_id = gen_id("msg");
     let created_ms = now_ms();
+    let wants_steer = body
+        .get("delivery")
+        .and_then(|v| v.as_str())
+        .map(|s| s.eq_ignore_ascii_case("steer"))
+        .unwrap_or(false)
+        || body.get("steer").and_then(|v| v.as_bool()).unwrap_or(false);
+    let is_mid_turn_steer = wants_steer && crate::session::session::is_active_run(&session_id);
+
     let mut user_msg = json!({
         "id": user_msg_id,
         "type": "user",
@@ -117,6 +125,9 @@ pub async fn handle_prompt(
         "content": [{ "type": "text", "text": prompt_text }],
         "time": { "created": created_ms }
     });
+    if is_mid_turn_steer {
+        user_msg["delivery"] = json!("steer");
+    }
     if let Some(ref f) = files_val {
         user_msg["files"] = f.clone();
     }
@@ -188,20 +199,25 @@ pub async fn handle_prompt(
     );
 
     let files_c = files_val.clone();
-    let wants_steer = body
-        .get("delivery")
-        .and_then(|v| v.as_str())
-        .map(|s| s.eq_ignore_ascii_case("steer"))
-        .unwrap_or(false)
-        || body.get("steer").and_then(|v| v.as_bool()).unwrap_or(false);
 
     // If the session is already running a turn and the caller requested a mid-turn steer,
     // admit it into the SessionInbox so the active runner promotes it at the next step boundary!
-    if wants_steer && crate::session::session::is_active_run(&session_id) {
-        let item = crate::session::coordinator::admit_inbox_item(
+    if is_mid_turn_steer {
+        let files_vec = files_val.as_ref().and_then(|v| v.as_array().cloned());
+        let item = crate::session::coordinator::admit_inbox_item_with_files(
             &session_id,
             &prompt_text,
             crate::session::coordinator::InboxDelivery::Steer,
+            files_vec,
+        );
+        emit_event(
+            &workspace_dir,
+            "session.steer.admitted",
+            json!({
+                "sessionID": session_id,
+                "messageID": user_msg_id,
+                "inboxID": item.id,
+            }),
         );
         return Json(json!({
             "data": {
@@ -210,7 +226,7 @@ pub async fn handle_prompt(
                 "sessionID": session_id,
                 "prompt": {
                     "text": prompt_text,
-                    "files": [],
+                    "files": files_val.unwrap_or_else(|| json!([])),
                     "agents": []
                 },
                 "delivery": "steer",

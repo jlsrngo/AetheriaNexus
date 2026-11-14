@@ -265,18 +265,25 @@ export function useExternalChatEvents({
       activeFolder || undefined
     );
 
-    isSessionActive(activeChatId)
-      .then((active) => {
-        if (active && !isStreamingRef.current && !isLocalSendingRef.current) {
-          setStreamingState(true);
-          extStartTime = Date.now();
-          setLiveStatus({
-            type: "thinking",
-            preview: "Processing document tasks...",
-          });
-        }
-      })
-      .catch(() => {});
+    if (!isLocalSendingRef.current && !isStreamingRef.current) {
+      isSessionActive(activeChatId)
+        .then((active) => {
+          if (
+            active &&
+            !abortCtrl.signal.aborted &&
+            !isStreamingRef.current &&
+            !isLocalSendingRef.current
+          ) {
+            setStreamingState(true);
+            extStartTime = Date.now();
+            setLiveStatus({
+              type: "thinking",
+              preview: "Processing document tasks...",
+            });
+          }
+        })
+        .catch(() => {});
+    }
 
     return () => {
       abortCtrl.abort();
@@ -337,7 +344,7 @@ export function useExternalChatEvents({
     )
       return;
     const lastMsg = chatMessages[chatMessages.length - 1];
-    if (lastMsg && lastMsg.role === "user") {
+    if (lastMsg && lastMsg.role === "user" && lastMsg.delivery !== "steer") {
       const now = Date.now();
       const msgTime = lastMsg.createdAt ? new Date(lastMsg.createdAt).getTime() : 0;
       if (msgTime && now - msgTime < 120000) {

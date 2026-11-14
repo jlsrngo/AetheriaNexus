@@ -122,17 +122,19 @@ pub async fn run_agent_turn(
         }),
     );
 
+    let cfg = read_aetheria_config();
     let (mut chat_messages, is_greeting) = prepare_initial_chat_messages(
         session_id,
         workspace_dir,
         history,
         prompt_text,
         files,
+        provider_id,
         model_id,
+        &cfg,
     )
     .await;
 
-    let cfg = read_aetheria_config();
     let mut current_provider_id = provider_id.to_string();
     let mut current_model_id = model_id.to_string();
     let TurnConnection {
@@ -235,7 +237,14 @@ pub async fn run_agent_turn(
             return;
         }
 
-        inject_pending_steers(session_id, &mut chat_messages);
+        inject_pending_steers(
+            session_id,
+            workspace_dir,
+            &current_provider_id,
+            &current_model_id,
+            &cfg,
+            &mut chat_messages,
+        );
         emit_step_started_event(&target, step, is_greeting);
 
         {
@@ -460,6 +469,7 @@ pub async fn run_agent_turn(
                 &target,
                 &current_provider_id,
                 &current_model_id,
+                &cfg,
                 step_finish,
                 step_usage.as_ref(),
                 msg_text,
@@ -584,7 +594,9 @@ async fn prepare_initial_chat_messages(
     history: &[Value],
     prompt_text: &str,
     files: Option<&Value>,
+    provider_id: &str,
     model_id: &str,
+    cfg: &Value,
 ) -> (Vec<Value>, bool) {
     let sys_prompt = assemble_system_prompt(workspace_dir);
     let (effective_history, was_compacted) = crate::session::compaction::compact_session_history(
@@ -612,24 +624,19 @@ async fn prepare_initial_chat_messages(
 
     let mut chat_messages = build_chat_messages(&effective_history, &sys_prompt);
     let ffmpeg_bin = find_ffmpeg_bin();
-    let (file_transcriptions, mut image_urls) =
-        process_attached_files(workspace_dir, files, ffmpeg_bin.as_deref());
     let (social_transcriptions, social_images) =
         process_social_links(workspace_dir, prompt_text, ffmpeg_bin.as_deref()).await;
-    image_urls.extend(social_images);
 
-    let mut context_additions = file_transcriptions;
-    context_additions.extend(social_transcriptions);
-
+    let mut extra_context = social_transcriptions;
     let lower_prompt = prompt_text.trim().to_lowercase();
     let is_greeting = is_greeting_prompt(prompt_text);
     if !is_greeting {
-        context_additions.extend(resolve_mentioned_files(workspace_dir, prompt_text));
+        extra_context.extend(resolve_mentioned_files(workspace_dir, prompt_text));
         if let Some(style_ctx) = resolve_motioncraft_style_command(workspace_dir, prompt_text) {
-            context_additions.push(style_ctx);
+            extra_context.push(style_ctx);
         }
         if let Some(audio_ctx) = resolve_voice_preset_command(prompt_text) {
-            context_additions.push(audio_ctx);
+            extra_context.push(audio_ctx);
         }
         if lower_prompt.contains("/ref")
             || lower_prompt.contains("reference")
@@ -639,9 +646,50 @@ async fn prepare_initial_chat_messages(
             || lower_prompt.contains("pakai referensi")
         {
             if let Some(ref_report) = resolve_reference_report(workspace_dir) {
-                context_additions.push(ref_report);
+                extra_context.push(ref_report);
             }
         }
+    }
+
+    let user_msg = build_user_message_with_attachments(
+        workspace_dir,
+        provider_id,
+        model_id,
+        cfg,
+        prompt_text,
+        files,
+        ffmpeg_bin.as_deref(),
+        extra_context,
+        social_images,
+    );
+    chat_messages.push(user_msg);
+
+    (chat_messages, is_greeting)
+}
+
+fn build_user_message_with_attachments(
+    workspace_dir: &str,
+    provider_id: &str,
+    model_id: &str,
+    cfg: &Value,
+    prompt_text: &str,
+    files: Option<&Value>,
+    ffmpeg_bin: Option<&std::path::Path>,
+    extra_context: Vec<String>,
+    extra_image_urls: Vec<String>,
+) -> Value {
+    let (file_transcriptions, mut image_urls) =
+        process_attached_files(workspace_dir, files, ffmpeg_bin);
+    image_urls.extend(extra_image_urls);
+    let mut context_additions = file_transcriptions;
+    context_additions.extend(extra_context);
+
+    let model_supports_vision = model_supports_vision_from_config(Some(cfg), provider_id, model_id);
+
+    if !image_urls.is_empty() && !model_supports_vision {
+        context_additions.push(format!(
+            "[SYSTEM NOTICE: Active model '{model_id}' is text-only and CANNOT inspect image pixels directly. Do NOT call `read` on binary image files in ref/ (they are not UTF-8 text). Tell the user clearly that '{model_id}' does not support image/vision analysis, and ask them to switch to a vision-capable model (e.g. Gemini, Claude, GPT-4o/5, GLM-4.6V, Kimi, Qwen-VL) or describe the desired visual style in text.]"
+        ));
     }
 
     let enriched_user_text = if context_additions.is_empty() {
@@ -650,24 +698,89 @@ async fn prepare_initial_chat_messages(
         format!("{}\n\n{}", prompt_text, context_additions.join("\n\n"))
     };
 
-    let model_supports_vision = model_id.contains("vl")
-        || model_id.contains("vision")
-        || model_id.contains("gemini")
-        || model_id.contains("claude")
-        || model_id.contains("gpt-4")
-        || model_id.contains("4o");
-
     if !image_urls.is_empty() && model_supports_vision {
         let mut user_parts = vec![json!({ "type": "text", "text": enriched_user_text })];
         for img_url in &image_urls {
             user_parts.push(json!({ "type": "image_url", "image_url": { "url": img_url } }));
         }
-        chat_messages.push(json!({ "role": "user", "content": user_parts }));
+        json!({ "role": "user", "content": user_parts })
     } else {
-        chat_messages.push(json!({ "role": "user", "content": enriched_user_text }));
+        json!({ "role": "user", "content": enriched_user_text })
+    }
+}
+
+fn find_model_config<'a>(cfg: &'a Value, provider_id: &str, model_id: &str) -> Option<&'a Value> {
+    if !provider_id.is_empty() {
+        if let Some(m) = cfg
+            .pointer("/provider")
+            .and_then(|p| p.get(provider_id))
+            .and_then(|p| p.get("models"))
+            .and_then(|ms| ms.get(model_id))
+        {
+            return Some(m);
+        }
+    }
+    cfg.pointer("/provider")
+        .and_then(|p| p.as_object())
+        .and_then(|providers| {
+            providers.values().find_map(|p| {
+                p.get("models")
+                    .and_then(|ms| ms.get(model_id))
+            })
+        })
+}
+
+pub(crate) fn model_supports_vision_from_config(
+    cfg: Option<&Value>,
+    provider_id: &str,
+    model_id: &str,
+) -> bool {
+    if let Some(model_cfg) = cfg.and_then(|c| find_model_config(c, provider_id, model_id)) {
+        if let Some(v) = model_cfg
+            .get("vision")
+            .or_else(|| model_cfg.pointer("/capabilities/vision"))
+            .or_else(|| model_cfg.pointer("/capabilities/image"))
+            .and_then(|v| v.as_bool())
+        {
+            return v;
+        }
+        if let Some(inputs) = model_cfg
+            .pointer("/modalities/input")
+            .or_else(|| model_cfg.get("input"))
+            .and_then(|v| v.as_array())
+        {
+            return inputs
+                .iter()
+                .filter_map(|v| v.as_str())
+                .any(|m| m.eq_ignore_ascii_case("image"));
+        }
     }
 
-    (chat_messages, is_greeting)
+    let lower = model_id.trim().to_ascii_lowercase();
+    let has_openai_reasoning_vision = ["o1", "o3", "o4"].iter().any(|prefix| {
+        lower == *prefix
+            || lower.starts_with(&format!("{prefix}-"))
+            || lower.contains(&format!("/{prefix}-"))
+            || lower.ends_with(&format!("/{prefix}"))
+    });
+
+    lower.contains("vl")
+        || lower.contains("vision")
+        || lower.contains("gemini")
+        || lower.contains("claude")
+        || lower.contains("gpt-4")
+        || lower.contains("gpt-5")
+        || lower.contains("4o")
+        || lower.contains("glm-4v")
+        || lower.contains("glm-4.5v")
+        || lower.contains("glm-4.6v")
+        || lower.contains("glm-5v")
+        || lower.contains("kimi")
+        || lower.contains("pixtral")
+        || lower.contains("llava")
+        || lower.contains("qvq")
+        || lower.contains("minicpm-v")
+        || has_openai_reasoning_vision
 }
 
 async fn resolve_provider_connection(
@@ -868,17 +981,65 @@ async fn maybe_compact_in_turn(
     true
 }
 
-fn inject_pending_steers(session_id: &str, chat_messages: &mut Vec<Value>) {
-    for steer in crate::session::coordinator::drain_pending_steers(session_id) {
+fn push_steer_items_to_chat(
+    session_id: &str,
+    workspace_dir: &str,
+    provider_id: &str,
+    model_id: &str,
+    cfg: &Value,
+    steers: Vec<crate::session::coordinator::InboxItem>,
+    chat_messages: &mut Vec<Value>,
+) {
+    let ffmpeg_bin = find_ffmpeg_bin();
+    for steer in steers {
         super::subagent_store::persist_synthetic_subagent_notice_in_store(session_id, &steer.text);
-        chat_messages.push(json!({
-            "role": "user",
-            "content": if steer.text.contains("<subagent-notification ") {
-                steer.text
-            } else {
-                format!("[Mid-Turn User Steer]: {}", steer.text)
-            }
-        }));
+        if steer.text.contains("<subagent-notification ") && steer.files.is_none() {
+            chat_messages.push(json!({
+                "role": "user",
+                "content": steer.text
+            }));
+            continue;
+        }
+        let formatted_text = if steer.text.contains("<subagent-notification ") {
+            steer.text
+        } else {
+            format!("[Mid-Turn User Steer]: {}", steer.text)
+        };
+        let files_val = steer.files.map(Value::Array);
+        let msg = build_user_message_with_attachments(
+            workspace_dir,
+            provider_id,
+            model_id,
+            cfg,
+            &formatted_text,
+            files_val.as_ref(),
+            ffmpeg_bin.as_deref(),
+            Vec::new(),
+            Vec::new(),
+        );
+        chat_messages.push(msg);
+    }
+}
+
+fn inject_pending_steers(
+    session_id: &str,
+    workspace_dir: &str,
+    provider_id: &str,
+    model_id: &str,
+    cfg: &Value,
+    chat_messages: &mut Vec<Value>,
+) {
+    let steers = crate::session::coordinator::drain_pending_steers(session_id);
+    if !steers.is_empty() {
+        push_steer_items_to_chat(
+            session_id,
+            workspace_dir,
+            provider_id,
+            model_id,
+            cfg,
+            steers,
+            chat_messages,
+        );
     }
 }
 
@@ -1037,6 +1198,7 @@ fn handle_no_tool_calls(
     target: &TurnTarget<'_>,
     provider_id: &str,
     model_id: &str,
+    cfg: &Value,
     step_finish: FinishReason,
     step_usage: Option<&RecordedUsage>,
     msg_text: String,
@@ -1080,16 +1242,15 @@ fn handle_no_tool_calls(
     if !pending_steers.is_empty() {
         emit_step_ended_event(target, step_finish, Some(true), step_usage);
         chat_messages.push(msg.clone());
-        let combined = pending_steers
-            .into_iter()
-            .map(|s| s.text)
-            .collect::<Vec<_>>()
-            .join("\n\n");
-        super::subagent_store::persist_synthetic_subagent_notice_in_store(
+        push_steer_items_to_chat(
             target.session_id,
-            &combined,
+            target.workspace_dir,
+            provider_id,
+            model_id,
+            cfg,
+            pending_steers,
+            chat_messages,
         );
-        chat_messages.push(json!({ "role": "user", "content": combined }));
         return NoToolCallAction::Continue;
     }
 
@@ -1097,12 +1258,92 @@ fn handle_no_tool_calls(
     {
         emit_step_ended_event(target, step_finish, Some(true), step_usage);
         chat_messages.push(msg.clone());
-        chat_messages.push(json!({ "role": "user", "content": next_queued.text }));
+        let files_val = next_queued.files.map(Value::Array);
+        let ffmpeg_bin = find_ffmpeg_bin();
+        let next_msg = build_user_message_with_attachments(
+            target.workspace_dir,
+            provider_id,
+            model_id,
+            cfg,
+            &next_queued.text,
+            files_val.as_ref(),
+            ffmpeg_bin.as_deref(),
+            Vec::new(),
+            Vec::new(),
+        );
+        chat_messages.push(next_msg);
         return NoToolCallAction::Continue;
     }
 
     NoToolCallAction::Break {
         final_text: msg_text,
         final_text_streamed: had_streamed_text,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recognizes_vision_and_text_only_models_accurately() {
+        assert!(!model_supports_vision_from_config(
+            None,
+            "kenari-cloud",
+            "glm-4-7-flash:free"
+        ));
+        assert!(!model_supports_vision_from_config(
+            None,
+            "kenari-cloud",
+            "llama-3-3-70b-instruct:free"
+        ));
+        assert!(model_supports_vision_from_config(
+            None,
+            "google",
+            "gemini-2.5-flash"
+        ));
+        assert!(model_supports_vision_from_config(
+            None,
+            "zai",
+            "GLM-4.6V"
+        ));
+        assert!(model_supports_vision_from_config(
+            None,
+            "openai",
+            "gpt-5"
+        ));
+        assert!(model_supports_vision_from_config(
+            None,
+            "moonshot",
+            "kimi-k2.5"
+        ));
+    }
+
+    #[test]
+    fn config_modalities_and_vision_flag_override_heuristics() {
+        let cfg = json!({
+            "provider": {
+                "custom": {
+                    "models": {
+                        "custom-multimodal": {
+                            "modalities": { "input": ["text", "image"] }
+                        },
+                        "gemini-text-override": {
+                            "vision": false
+                        }
+                    }
+                }
+            }
+        });
+        assert!(model_supports_vision_from_config(
+            Some(&cfg),
+            "custom",
+            "custom-multimodal"
+        ));
+        assert!(!model_supports_vision_from_config(
+            Some(&cfg),
+            "custom",
+            "gemini-text-override"
+        ));
     }
 }

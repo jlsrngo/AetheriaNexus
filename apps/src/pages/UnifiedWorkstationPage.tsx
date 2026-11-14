@@ -398,6 +398,7 @@ export function UnifiedWorkstationPage() {
             files={mentionFiles}
             queuedPrompts={chat.queuedPrompts}
             onRemoveQueuedPrompt={chat.handleRemoveQueuedPrompt}
+            onInjectQueuedPrompt={chat.handleInjectQueuedPrompt}
             onSearchSection={handleOpenSearchModal}
             reasoningEffort={chat.reasoningEffort}
             setReasoningEffort={chat.setReasoningEffort}

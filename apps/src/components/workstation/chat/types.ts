@@ -122,6 +122,7 @@ export interface Message {
   agent?: string;
   content: string;
   createdAt?: string;
+  delivery?: "steer" | "queue" | null;
   finish?: FinishReason | string | null;
   tokens?: TokenUsage | null;
   cost?: number | null;

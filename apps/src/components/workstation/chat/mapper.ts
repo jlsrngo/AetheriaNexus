@@ -423,6 +423,7 @@ export function mapEngineMessages(raw: any[]): Message[] {
       id: msg.id || `${role}-${idx}-${Date.now()}`,
       role,
       content,
+      delivery: msg.delivery === "steer" || msg.delivery === "queue" ? msg.delivery : undefined,
       reasoning: reasoning.trim() || undefined,
       executionSteps: executionSteps || undefined,
       thoughtSec: thoughtSec,

@@ -2,6 +2,7 @@
 //! Isolated into its own single-purpose file so editing inbox queueing never affects cancellation or error logic.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -26,6 +27,8 @@ pub struct InboxItem {
     pub created_at: u64,
     #[serde(default)]
     pub enqueued_seq: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub files: Option<Vec<Value>>,
 }
 
 static SESSION_INBOX: OnceLock<Mutex<HashMap<String, Vec<InboxItem>>>> = OnceLock::new();
@@ -116,7 +119,18 @@ fn ensure_session_loaded<'a>(
 
 /// Admits a new item into a session's inbox (`Steer` for mid-turn injection, `Queue` for next turn).
 pub fn admit_inbox_item(session_id: &str, text: &str, delivery: InboxDelivery) -> InboxItem {
+    admit_inbox_item_with_files(session_id, text, delivery, None)
+}
+
+/// Admits a new item with optional file/image attachments into a session's inbox.
+pub fn admit_inbox_item_with_files(
+    session_id: &str,
+    text: &str,
+    delivery: InboxDelivery,
+    files: Option<Vec<Value>>,
+) -> InboxItem {
     let seq = NEXT_ENQUEUED_SEQ.fetch_add(1, Ordering::Relaxed);
+    let normalized_files = files.filter(|f| !f.is_empty());
     let item = InboxItem {
         id: gen_id("inbox"),
         session_id: session_id.to_string(),
@@ -124,6 +138,7 @@ pub fn admit_inbox_item(session_id: &str, text: &str, delivery: InboxDelivery) -
         delivery,
         created_at: now_ms(),
         enqueued_seq: seq,
+        files: normalized_files,
     };
     let mut guard = inbox_map().lock().unwrap_or_else(|e| e.into_inner());
     let items = ensure_session_loaded(&mut guard, session_id);
