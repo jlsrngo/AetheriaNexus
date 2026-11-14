@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getDistanceFromBottom,
   isNearChatBottom,
+  resolveChatScrollState,
   shouldAutoScrollChat,
 } from "./chatScrollUtils";
 
@@ -49,5 +50,19 @@ describe("chatScrollUtils", () => {
         forceScroll: true,
       })
     ).toBe(true);
+  });
+
+  it("stays pinned when message growth increases scrollHeight without upward user scroll, and unpins on upward scroll", () => {
+    const pinnedAfterGrowth = resolveChatScrollState(
+      { isPinned: true, scrollTop: 1550, scrollHeight: 2000 },
+      { scrollHeight: 3200, scrollTop: 1550, clientHeight: 450 }
+    );
+    expect(pinnedAfterGrowth.isPinned).toBe(true);
+
+    const unpinnedAfterScrollUp = resolveChatScrollState(
+      pinnedAfterGrowth,
+      { scrollHeight: 3200, scrollTop: 900, clientHeight: 450 }
+    );
+    expect(unpinnedAfterScrollUp.isPinned).toBe(false);
   });
 });

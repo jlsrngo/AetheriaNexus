@@ -26,6 +26,7 @@ pub(crate) async fn execute_subagent_tool_calls(
     workspace_dir: &str,
     subagent_type: &str,
     steps_run: usize,
+    model_supports_vision: bool,
     tool_calls: &[Value],
     doom_detector: &mut DoomLoopDetector,
     tools_executed: &mut Vec<String>,
@@ -114,12 +115,14 @@ pub(crate) async fn execute_subagent_tool_calls(
     let results = futures_util::future::join_all(futures).await;
 
     let mut aborted_reason: Option<String> = None;
-    for (pc, (tool_result, was_executed)) in prepared.into_iter().zip(results.into_iter()) {
+    let mut collected_vision_images = Vec::new();
+    for (pc, (mut tool_result, was_executed)) in prepared.into_iter().zip(results.into_iter()) {
         if let Some(reason) = pc.loop_error {
             if aborted_reason.is_none() {
                 aborted_reason = Some(reason);
             }
         }
+        super::vision::extract_tool_vision_images(&mut tool_result, &mut collected_vision_images);
         if was_executed {
             let is_err = tool_result.get("error").is_some()
                 || tool_result.get("ok").and_then(|v| v.as_bool()) == Some(false);
@@ -149,6 +152,10 @@ pub(crate) async fn execute_subagent_tool_calls(
             "name": pc.fn_name,
             "content": bounded_content
         }));
+    }
+
+    if model_supports_vision && !collected_vision_images.is_empty() {
+        super::vision::append_tool_vision_message(chat_messages, collected_vision_images);
     }
 
     aborted_reason

@@ -37,9 +37,10 @@ import {
 } from "./chatDiagnostics";
 import {
   getDistanceFromBottom,
-  isNearChatBottom,
+  resolveChatScrollState,
   shouldAutoScrollChat,
   type ChatScrollMetrics,
+  type ChatScrollState,
 } from "./chatScrollUtils";
 
 
@@ -107,9 +108,16 @@ export function useWorkstationChat({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isPinnedToBottomRef = useRef(true);
+  const chatScrollStateRef = useRef<ChatScrollState>({
+    isPinned: true,
+    scrollTop: 0,
+    scrollHeight: 0,
+  });
   const forceScrollToBottomRef = useRef(true);
   const handleChatScrollPosition = useCallback((metrics: ChatScrollMetrics) => {
-    isPinnedToBottomRef.current = isNearChatBottom(metrics);
+    const next = resolveChatScrollState(chatScrollStateRef.current, metrics);
+    chatScrollStateRef.current = next;
+    isPinnedToBottomRef.current = next.isPinned;
   }, []);
   const abortControllerRef = useRef<AbortController | null>(null);
   const producedFilesRef = useRef<string[]>([]);
@@ -259,7 +267,13 @@ export function useWorkstationChat({
           forceScroll,
         })
       ) {
-        el.scrollIntoView({ behavior: "auto" });
+        container.scrollTop = container.scrollHeight;
+        isPinnedToBottomRef.current = true;
+        chatScrollStateRef.current = {
+          isPinned: true,
+          scrollTop: container.scrollTop,
+          scrollHeight: container.scrollHeight,
+        };
       }
     });
   }, [chatMessages, optimisticMessages, isStreaming]);

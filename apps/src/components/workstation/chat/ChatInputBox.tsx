@@ -100,7 +100,6 @@ export const ChatInputBox = memo(function ChatInputBox({
   const {
     attachedFiles,
     fileInputRef,
-    handleAddImageDataUrl,
     handleFileInputChange,
     handlePaste,
     handleDragOver,
@@ -490,21 +489,6 @@ export const ChatInputBox = memo(function ChatInputBox({
       }
     }
 
-    if ((e.ctrlKey || e.metaKey) && (e.key === "v" || e.key === "V")) {
-      const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
-      if (typeof desktop?.readClipboardImage === "function") {
-        desktop
-          .readClipboardImage()
-          .then((dataUrl: string | null) => {
-            if (dataUrl && typeof dataUrl === "string" && dataUrl.startsWith("data:image/")) {
-              e.preventDefault();
-              handleAddImageDataUrl(dataUrl, "screenshot");
-            }
-          })
-          .catch(() => { });
-      }
-    }
-
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       submitPrompt(isStreaming && (e.ctrlKey || e.metaKey) ? "inject" : "queue");
@@ -515,7 +499,6 @@ export const ChatInputBox = memo(function ChatInputBox({
     <div
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      onPaste={handlePaste}
       className="relative bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--border-strong)] rounded-2xl p-2.5 transition-[border-color] duration-150"
     >
       {/* File Mentions Popup */}

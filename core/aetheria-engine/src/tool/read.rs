@@ -1,8 +1,20 @@
 //! Document Read Tool — mirrors `packages/opencode/src/tool/read.ts`.
 //! Reads text files or lists directory entries within the isolated active project folder.
 
+use base64::prelude::*;
 use serde_json::{json, Value};
 use std::path::{Component, Path, PathBuf};
+
+fn image_mime_for_path(p: &Path) -> Option<&'static str> {
+    let ext = p.extension()?.to_str()?.to_ascii_lowercase();
+    match ext.as_str() {
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "webp" => Some("image/webp"),
+        "gif" => Some("image/gif"),
+        _ => None,
+    }
+}
 
 use super::resolve_isolated_path;
 
@@ -83,6 +95,26 @@ pub fn execute_read(workspace_dir: &str, arguments: &Value) -> Value {
                     }
                     Err(e) => json!({ "error": format!("Directory read error: {}", e) }),
                 }
+            } else if let Some(mime) = image_mime_for_path(&p) {
+                const MAX_READ_IMAGE_BYTES: usize = 4 * 1024 * 1024;
+                match std::fs::read(&p) {
+                    Ok(bytes) if bytes.len() <= MAX_READ_IMAGE_BYTES => {
+                        let b64 = BASE64_STANDARD.encode(&bytes);
+                        let data_url = format!("data:{};base64,{}", mime, b64);
+                        json!({
+                            "ok": true,
+                            "content": format!("Binary image file '{}' ({}, {} bytes) attached to vision context for direct visual inspection.", fp, mime, bytes.len()),
+                            "isImage": true,
+                            "mime": mime,
+                            "bytes": bytes.len(),
+                            "_vision_images": [data_url]
+                        })
+                    }
+                    Ok(bytes) => json!({
+                        "error": format!("Image file '{}' is too large ({} bytes, max 4 MB) to attach directly.", fp, bytes.len())
+                    }),
+                    Err(e) => json!({ "error": format!("Image read error: {}", e) }),
+                }
             } else {
                 match std::fs::read_to_string(&p) {
                     Ok(content) => {
@@ -136,5 +168,27 @@ mod tests {
                 resolve_builtin_skill_read_path(skill_md.to_string_lossy().as_ref()).is_some()
             );
         }
+    }
+
+    #[test]
+    fn test_read_image_attaches_vision_data_url() {
+        let dir = std::env::temp_dir().join(format!("aetheria_read_img_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let img_path = dir.join("sample.png");
+        let tiny_png = [0x89u8, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        std::fs::write(&img_path, tiny_png).unwrap();
+
+        let res = execute_read(&dir.to_string_lossy(), &json!({ "filePath": "sample.png" }));
+        assert_eq!(res.get("ok"), Some(&json!(true)));
+        assert_eq!(res.get("isImage"), Some(&json!(true)));
+        let imgs = res
+            .get("_vision_images")
+            .and_then(|v| v.as_array())
+            .expect("vision images array");
+        assert_eq!(imgs.len(), 1);
+        assert!(imgs[0].as_str().unwrap().starts_with("data:image/png;base64,"));
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

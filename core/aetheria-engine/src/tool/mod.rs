@@ -15,6 +15,7 @@ pub mod json_repair;
 pub mod json_syntax_helpers;
 pub mod lsp;
 pub mod path_guard;
+pub mod preview_film;
 pub mod question;
 pub mod read;
 pub mod ref_extractor;
@@ -228,6 +229,9 @@ async fn execute_tool_call_inner(
                 arguments,
             )
             .await
+        }
+        "capture_film_preview" | "preview_film" | "screenshot_film" => {
+            preview_film::execute_capture_film_preview(workspace_dir, arguments).await
         }
         "voicebox_speak" | "voicebox" | "generate_speech" | "tts" => {
             voicebox::execute_voicebox(workspace_dir, arguments).await

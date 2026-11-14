@@ -10,7 +10,10 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { normalizeAttachmentName, isImageFile } from "../attachmentUtils";
+import { markPasteEventOnce, shouldProbeDesktopClipboardImage } from "./clipboardPasteUtils";
 import { AttachedFileItem } from "./types";
+
+const processedPasteEvents = new WeakSet<Event>();
 
 interface UseChatInputClipboardOptions {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
@@ -152,29 +155,31 @@ export function useChatInputClipboard({ textareaRef }: UseChatInputClipboardOpti
 
   const processPaste = useCallback(
     async (clipboardData?: DataTransfer | null): Promise<boolean> => {
-      // 1. First priority: Check desktop native clipboard bridge (Electron Win32 GetClipboardData)
-      const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
-      if (typeof desktop?.readClipboardImage === "function") {
-        try {
-          const nativeDataUrl = await desktop.readClipboardImage();
-          if (
-            nativeDataUrl &&
-            typeof nativeDataUrl === "string" &&
-            nativeDataUrl.startsWith("data:image/")
-          ) {
-            handleAddImageDataUrl(nativeDataUrl, "screenshot");
-            return true;
-          }
-        } catch (e) {
-          console.warn("[useChatInputClipboard] desktop.readClipboardImage error:", e);
-        }
-      }
-
-      // 2. Second priority: Standard web clipboard files / items from the native ClipboardEvent
+      // 1. Standard web clipboard files / items from the native ClipboardEvent
       const fileList = extractClipboardFiles(clipboardData);
       if (fileList.length > 0) {
         await handleAddFiles(fileList);
         return true;
+      }
+
+      // 2. Fallback: Desktop native Win32 clipboard image when WebView2 omits image items
+      if (shouldProbeDesktopClipboardImage(clipboardData, fileList.length)) {
+        const desktop = typeof window !== "undefined" && (window as any).aetheriaDesktop;
+        if (typeof desktop?.readClipboardImage === "function") {
+          try {
+            const nativeDataUrl = await desktop.readClipboardImage();
+            if (
+              nativeDataUrl &&
+              typeof nativeDataUrl === "string" &&
+              nativeDataUrl.startsWith("data:image/")
+            ) {
+              handleAddImageDataUrl(nativeDataUrl, "screenshot");
+              return true;
+            }
+          } catch (e) {
+            console.warn("[useChatInputClipboard] desktop.readClipboardImage error:", e);
+          }
+        }
       }
 
       return false;
@@ -183,16 +188,23 @@ export function useChatInputClipboard({ textareaRef }: UseChatInputClipboardOpti
   );
 
   const handlePaste = async (e: ClipboardEvent<HTMLElement>) => {
-    const handled = await processPaste(e.clipboardData);
-    if (handled) {
+    if (!markPasteEventOnce(processedPasteEvents, e.nativeEvent)) {
+      return;
+    }
+    const hasWebFiles = extractClipboardFiles(e.clipboardData).length > 0;
+    if (hasWebFiles) {
       e.preventDefault();
       e.stopPropagation();
     }
+    await processPaste(e.clipboardData);
   };
 
   // Window-level paste listener so user can paste a screenshot right after capturing with Snipping Tool
   useEffect(() => {
     const onWindowPaste = async (e: globalThis.ClipboardEvent) => {
+      if (!markPasteEventOnce(processedPasteEvents, e)) {
+        return;
+      }
       const activeEl = document.activeElement;
       if (
         activeEl &&
@@ -203,10 +215,13 @@ export function useChatInputClipboard({ textareaRef }: UseChatInputClipboardOpti
         return;
       }
 
-      const handled = await processPaste(e.clipboardData);
-      if (handled) {
+      const hasWebFiles = extractClipboardFiles(e.clipboardData).length > 0;
+      if (hasWebFiles) {
         e.preventDefault();
         e.stopPropagation();
+      }
+      const handled = await processPaste(e.clipboardData);
+      if (handled) {
         textareaRef.current?.focus();
       }
     };

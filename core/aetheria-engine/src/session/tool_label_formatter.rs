@@ -81,6 +81,14 @@ pub fn format_tool_step_label(tool_name: &str, args_or_target: &Value, is_finish
 
     let file_name = if is_internal { "" } else { &raw_file_name };
 
+    if t == "capture_film_preview" || t == "preview_film" || t == "screenshot_film" {
+        return if is_finished {
+            "Captured visual film preview".to_string()
+        } else {
+            "Capturing visual film preview...".to_string()
+        };
+    }
+
     if t.contains("voicebox") || t.contains("speak") || t.contains("tts") {
         return if is_finished {
             "Synthesized voiceover audio (Voicebox)".to_string()

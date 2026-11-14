@@ -27,6 +27,7 @@ pub(crate) async fn execute_tool_batch(
     assistant_msg_id: &str,
     tool_calls: Vec<Value>,
     tools_disabled: bool,
+    model_supports_vision: bool,
     doom_loop_detector: &mut DoomLoopDetector,
     content_parts: &mut Vec<Value>,
     chat_messages: &mut Vec<Value>,
@@ -126,7 +127,8 @@ pub(crate) async fn execute_tool_batch(
     let results = futures_util::future::join_all(futures_vec).await;
     let mut was_interrupted = crate::session::coordinator::is_session_interrupted(session_id).is_some();
 
-    for (pc, (tool_out, is_failed)) in prepared_calls.into_iter().zip(results.into_iter()) {
+    let mut collected_vision_images = Vec::new();
+    for (pc, (mut tool_out, is_failed)) in prepared_calls.into_iter().zip(results.into_iter()) {
         let call_id = pc.call_id;
         let display_name = pc.display_name;
         let fn_name = pc.fn_name;
@@ -135,6 +137,7 @@ pub(crate) async fn execute_tool_batch(
         if tool_out.get("aborted").and_then(|v| v.as_bool()) == Some(true) {
             was_interrupted = true;
         }
+        super::vision::extract_tool_vision_images(&mut tool_out, &mut collected_vision_images);
 
         let tool_out_str =
             serde_json::to_string_pretty(&tool_out).unwrap_or_else(|_| "{}".to_string());
@@ -223,6 +226,10 @@ pub(crate) async fn execute_tool_batch(
             "name": fn_name,
             "content": bounded_tool_out_str
         }));
+    }
+
+    if model_supports_vision && !collected_vision_images.is_empty() {
+        super::vision::append_tool_vision_message(chat_messages, collected_vision_images);
     }
 
     was_interrupted

@@ -6,8 +6,8 @@
 use serde_json::{json, Value};
 
 use super::{
-    apply_patch, bash, codemode, edit, fetch_web_image, glob, grep, lsp, question, read,
-    ref_extractor, render, sfx, skill_manager, snapshot, storyboard, tasks, todo, voicebox,
+    apply_patch, bash, codemode, edit, fetch_web_image, glob, grep, lsp, preview_film, question,
+    read, ref_extractor, render, sfx, skill_manager, snapshot, storyboard, tasks, todo, voicebox,
     webfetch, websearch, write,
 };
 
@@ -63,6 +63,7 @@ pub fn build_tool_definitions() -> Vec<Value> {
     let mut tools = vec![
         storyboard::produce_video_tool_definition(),
         render::render_video_tool_definition(),
+        preview_film::capture_film_preview_tool_definition(),
         voicebox::voicebox_tool_definition(),
         sfx::sfx_tool_definition(),
         ref_extractor::ref_extractor_tool_definition(),

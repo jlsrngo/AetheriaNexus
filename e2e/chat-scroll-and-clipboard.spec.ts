@@ -154,10 +154,18 @@ test.describe("Chat Scroll-Up Lock & Non-Blocking Clipboard E2E", () => {
     const chatBox = page.locator("textarea").first();
     await expect(chatBox).toBeVisible({ timeout: 20_000 });
 
-    // 1. Verify Ctrl+V is NOT defaultPrevented by useGlobalShortcuts and triggers 0 async clipboard reads
+    // 1. Verify Ctrl+V is NOT defaultPrevented by useGlobalShortcuts, triggers 0 async clipboard reads,
+    // and pasting an image via desktop clipboard bridge attaches EXACTLY ONE image (never 2x/4x duplicates)
+    await page.evaluate(() => {
+      const tinyPng =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a8m0AAAAASUVORK5CYII=";
+      (window as unknown as { aetheriaDesktop?: unknown }).aetheriaDesktop = {
+        readClipboardImage: async () => tinyPng,
+      };
+    });
     await chatBox.focus();
     await page.keyboard.press("Control+v");
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(200);
 
     const clipCounters = await page.evaluate(() => {
       const win = window as unknown as {
@@ -171,6 +179,12 @@ test.describe("Chat Scroll-Up Lock & Non-Blocking Clipboard E2E", () => {
     });
     expect(clipCounters.asyncReads).toBe(0);
     expect(clipCounters.nativeAllowed).toBeGreaterThanOrEqual(1);
+    await expect(page.locator('button[title="Remove file"]')).toHaveCount(1);
+    await page.locator('button[title="Remove file"]').first().click();
+    await expect(page.locator('button[title="Remove file"]')).toHaveCount(0);
+    await page.evaluate(() => {
+      delete (window as unknown as { aetheriaDesktop?: unknown }).aetheriaDesktop;
+    });
 
     // 2. Send two turns to create a genuinely scrollable chat container
     await chatBox.fill("Pesan uji scroll 1");

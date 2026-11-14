@@ -453,12 +453,18 @@ async fn run_subagent_loop(
                 "tool_calls": completion.tool_calls
             }));
 
+            let subagent_vision_enabled = super::runner::model_supports_vision_from_config(
+                None,
+                &provider_id,
+                &model_id,
+            );
             if let Some(doom_reason) = execute_subagent_tool_calls(
                 parent_session_id,
                 &child_session_id,
                 workspace_dir,
                 subagent_type,
                 steps_run,
+                subagent_vision_enabled,
                 &completion.tool_calls,
                 &mut doom_detector,
                 &mut tools_executed,

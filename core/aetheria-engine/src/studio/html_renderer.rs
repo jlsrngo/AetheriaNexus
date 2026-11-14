@@ -29,7 +29,7 @@ pub struct HtmlRenderResult {
     pub fps: u32,
 }
 
-struct ChromeProcessGuard {
+pub(super) struct ChromeProcessGuard {
     child: Option<Child>,
     profile_dir: Option<PathBuf>,
 }
@@ -46,7 +46,7 @@ impl Drop for ChromeProcessGuard {
     }
 }
 
-fn spawn_headless_browser(
+pub(super) fn spawn_headless_browser(
     browser_exe: &Path,
     cdp_port: u16,
     width: u32,
@@ -98,7 +98,7 @@ fn spawn_headless_browser(
     })
 }
 
-async fn wait_for_cdp_ws_url(cdp_port: u16) -> Result<String, String> {
+pub(super) async fn wait_for_cdp_ws_url(cdp_port: u16) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .no_proxy()
         .build()
@@ -128,7 +128,7 @@ async fn wait_for_cdp_ws_url(cdp_port: u16) -> Result<String, String> {
     Err("Timed out waiting for headless browser DevTools WebSocket".to_string())
 }
 
-async fn wait_for_film_ready(cdp: &mut CdpWebSocket, meta: &mut FilmMeta) -> Result<(), String> {
+pub(super) async fn wait_for_film_ready(cdp: &mut CdpWebSocket, meta: &mut FilmMeta) -> Result<(), String> {
     for attempt in 0..150 {
         let probe = cdp
             .call(

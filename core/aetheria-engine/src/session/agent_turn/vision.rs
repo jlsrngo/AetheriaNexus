@@ -201,5 +201,72 @@ pub fn process_attached_files(
     (ocr_transcriptions, image_urls)
 }
 
+/// Removes `_vision_images` from a tool result before serialization and appends valid image data URLs.
+pub(crate) fn extract_tool_vision_images(tool_out: &mut Value, collected: &mut Vec<String>) {
+    let imgs = tool_out
+        .as_object_mut()
+        .and_then(|obj| obj.remove("_vision_images"))
+        .and_then(|v| match v {
+            Value::Array(arr) => Some(arr),
+            _ => None,
+        })
+        .unwrap_or_default();
+    for item in imgs {
+        if let Some(url) = item.as_str() {
+            if url.starts_with("data:image/") {
+                collected.push(url.to_string());
+            }
+        }
+    }
+}
+
+/// Appends a multimodal user inspection message containing images returned by tools (e.g. `capture_film_preview`).
+pub(crate) fn append_tool_vision_message(chat_messages: &mut Vec<Value>, images: Vec<String>) {
+    if images.is_empty() {
+        return;
+    }
+    let mut parts = vec![serde_json::json!({
+        "type": "text",
+        "text": "[Visual Inspection Images attached from tool execution. Examine composition, colors, lighting, typography, and layout, and compare against any user reference images/links before finalizing or making edits.]"
+    })];
+    for url in images {
+        parts.push(serde_json::json!({
+            "type": "image_url",
+            "image_url": { "url": url }
+        }));
+    }
+    chat_messages.push(serde_json::json!({
+        "role": "user",
+        "content": parts
+    }));
+}
+
 pub use super::social_links::process_social_links;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extracts_and_strips_tool_vision_images() {
+        let mut tool_out = serde_json::json!({
+            "ok": true,
+            "output": "Captured preview",
+            "_vision_images": ["data:image/jpeg;base64,AAAA"]
+        });
+        let mut collected = Vec::new();
+        extract_tool_vision_images(&mut tool_out, &mut collected);
+        assert!(tool_out.get("_vision_images").is_none());
+        assert_eq!(collected, vec!["data:image/jpeg;base64,AAAA".to_string()]);
+
+        let mut msgs = Vec::new();
+        append_tool_vision_message(&mut msgs, collected);
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].get("role").and_then(|v| v.as_str()), Some("user"));
+        assert_eq!(
+            msgs[0].pointer("/content/1/image_url/url").and_then(|v| v.as_str()),
+            Some("data:image/jpeg;base64,AAAA")
+        );
+    }
+}
 

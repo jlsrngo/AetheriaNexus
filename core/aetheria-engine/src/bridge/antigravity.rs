@@ -40,6 +40,76 @@ pub(crate) async fn handle_antigravity_request(body: Value, model: &str, is_stre
     handle_antigravity_with_cred(cred, body, model, is_stream, &url).await
 }
 
+fn parse_data_image_url(url: &str) -> Option<(String, String)> {
+    let trimmed = url.trim();
+    let rest = trimmed.strip_prefix("data:")?;
+    let (meta, b64) = rest.split_once(";base64,")?;
+    let mime = meta.trim();
+    let clean_b64: String = b64.chars().filter(|c| !c.is_whitespace()).collect();
+    if mime.is_empty() || clean_b64.is_empty() {
+        return None;
+    }
+    Some((mime.to_string(), clean_b64))
+}
+
+fn build_gemini_user_parts(content: Option<&Value>) -> Vec<Value> {
+    let mut parts = Vec::new();
+    match content {
+        Some(Value::String(s)) => {
+            if !s.is_empty() {
+                parts.push(json!({ "text": s }));
+            }
+        }
+        Some(Value::Array(arr)) => {
+            for item in arr {
+                if let Some(s) = item.as_str() {
+                    if !s.is_empty() {
+                        parts.push(json!({ "text": s }));
+                    }
+                    continue;
+                }
+                let item_type = item.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                if item_type == "image_url" || item.get("image_url").is_some() {
+                    let raw_url = item
+                        .pointer("/image_url/url")
+                        .or_else(|| item.get("image_url"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    if let Some((mime, b64)) = parse_data_image_url(raw_url) {
+                        parts.push(json!({
+                            "inlineData": {
+                                "mimeType": mime,
+                                "data": b64
+                            }
+                        }));
+                    }
+                    continue;
+                }
+                if let Some(txt) = item
+                    .get("text")
+                    .or_else(|| item.get("input_text"))
+                    .or_else(|| item.get("content"))
+                    .and_then(|v| v.as_str())
+                {
+                    if !txt.is_empty() {
+                        parts.push(json!({ "text": txt }));
+                    }
+                }
+            }
+        }
+        _ => {
+            let txt = extract_content_text(content);
+            if !txt.is_empty() {
+                parts.push(json!({ "text": txt }));
+            }
+        }
+    }
+    if parts.is_empty() {
+        parts.push(json!({ "text": " " }));
+    }
+    parts
+}
+
 async fn handle_antigravity_with_cred(
     mut cred: CredentialEntry,
     body: Value,
@@ -191,10 +261,20 @@ async fn handle_antigravity_with_cred(
             continue;
         }
 
-        let txt = extract_content_text(m.get("content"));
+        let user_parts = build_gemini_user_parts(m.get("content"));
+        // Merge consecutive "user" turns (e.g. functionResponse followed by visual inspection frames)
+        // so upstream Gemini payloads strictly alternate between "user" and "model".
+        if let Some(last) = contents.last_mut() {
+            if last.get("role").and_then(|v| v.as_str()) == Some("user") {
+                if let Some(existing_parts) = last.get_mut("parts").and_then(|v| v.as_array_mut()) {
+                    existing_parts.extend(user_parts);
+                    continue;
+                }
+            }
+        }
         contents.push(json!({
             "role": "user",
-            "parts": [{ "text": if txt.is_empty() { " ".to_string() } else { txt } }]
+            "parts": user_parts
         }));
     }
 
@@ -561,6 +641,75 @@ mod tests {
         let r2 = handle_antigravity_with_cred(cred, body, "gemini-2.5-flash", false, &url).await;
         assert_eq!(r2.status(), StatusCode::TOO_MANY_REQUESTS);
         assert_eq!(hits.load(Ordering::SeqCst), 1);
+
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn forwards_user_image_url_as_inline_data() {
+        let captured: Arc<StdMutex<Vec<Value>>> = Arc::new(StdMutex::new(Vec::new()));
+        let captured_srv = Arc::clone(&captured);
+
+        let app = Router::new().route(
+            "/v1internal:streamGenerateContent",
+            post(move |Json(payload): Json<Value>| {
+                let cap = Arc::clone(&captured_srv);
+                async move {
+                    cap.lock().expect("lock captured").push(payload);
+                    (
+                        StatusCode::OK,
+                        "data: {\"response\":{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"I see the image.\"}]},\"finishReason\":\"STOP\"}]}}\n\n",
+                    )
+                }
+            }),
+        );
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind mock listener");
+        let addr = listener.local_addr().expect("mock addr");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let cred = CredentialEntry {
+            source: "antigravity".to_string(),
+            access_token: "test-token".to_string(),
+            account_id: Some("mock-proj-img".to_string()),
+            account_email: Some("test-vision@example.com".to_string()),
+            ..Default::default()
+        };
+        let b64_png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+        let body = json!({
+            "messages": [{
+                "role": "user",
+                "content": [
+                    { "type": "text", "text": "Match this style" },
+                    { "type": "image_url", "image_url": { "url": format!("data:image/png;base64,{}", b64_png) } }
+                ]
+            }]
+        });
+        let url = format!("http://{}/v1internal:streamGenerateContent?alt=sse", addr);
+
+        let resp = handle_antigravity_with_cred(cred, body, "gemini-3.8-flash-high", false, &url).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let sent = captured.lock().expect("lock captured").pop().expect("captured payload");
+        let parts = sent
+            .pointer("/request/contents/0/parts")
+            .and_then(|v| v.as_array())
+            .expect("user parts");
+        assert_eq!(parts.len(), 2);
+        assert_eq!(parts[0], json!({ "text": "Match this style" }));
+        assert_eq!(
+            parts[1],
+            json!({
+                "inlineData": {
+                    "mimeType": "image/png",
+                    "data": b64_png
+                }
+            })
+        );
 
         server.abort();
     }

@@ -30,6 +30,7 @@ pub mod motion_linter;
 pub mod native_canvas;
 pub mod native_renderer;
 pub mod presets;
+pub mod preview_capture;
 pub mod renderer;
 pub mod scheduler;
 pub mod script_generator;

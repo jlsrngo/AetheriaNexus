@@ -506,12 +506,15 @@ pub async fn run_agent_turn(
             &tool_calls,
         );
         chat_messages.push(msg);
+        let step_vision_enabled =
+            model_supports_vision_from_config(Some(&cfg), &current_provider_id, &current_model_id);
         let was_interrupted = execute_tool_batch(
             session_id,
             workspace_dir,
             &assistant_msg_id,
             tool_calls,
             step_limit_reached,
+            step_vision_enabled,
             &mut doom_loop_detector,
             &mut content_parts,
             &mut chat_messages,
