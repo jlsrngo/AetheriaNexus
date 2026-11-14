@@ -115,17 +115,20 @@ pub fn resolve_dynamic_style_or_skill_command(_workspace_dir: &str, prompt_text:
                             } else {
                                 String::new()
                             };
+                            let examples_section = collect_skill_examples(&path);
 
                             return Some(format!(
                                 "[Active Motion Skill Triggered: /{name}]:\n\"\"\"\n\
                                 SKILL DIRECTIVES (from {path_display}/SKILL.md):\n{skill_md}\n\n\
                                 DESIGN TOKENS (from {path_display}/tokens.json):\n{tokens_json}\n\
                                 {brief_section}\
+                                {examples_section}\
                                 \"\"\"\n\
                                 MANDATORY RULES FOR THIS GENERATION:\n\
                                 1. Coordinate via the 3-Track Subagent Pipeline: delegate voiceover/SFX synthesis to `task(subagent_type: \"audio-director\")` and delegate modular per-scene scripts (`script/scene1.js`..`script/sceneN.js`) + `index.html` to `task(subagent_type: \"motion-designer\")`.\n\
-                                2. Strictly apply these exact colors, fonts, camera movement rules, scale law (`u(refPx)`), and motion curves (`AM.spring`, `AM.anticipation`, `AM.stagger`).\n\
-                                3. Follow the Do's and Don'ts from the skill guidelines and exact brief specifications.",
+                                2. Pass the active skill path (`{path_display}`) and its `examples/` kit instructions directly in your prompt to `motion-designer`. The active skill's rendering architecture (e.g., 3D Three.js + `ClayKit` dual-canvas, smooth outlines, Neobrutalism subtitles) is NON-NEGOTIABLE — adapt storyboard mood/props *inside* the skill's architecture rather than falling back to plain 2D Canvas.\n\
+                                3. Strictly apply these exact colors, fonts, camera movement rules, scale law (`u(refPx)`), and motion curves (`AM.spring`, `AM.anticipation`, `AM.stagger`).\n\
+                                4. Follow the Do's and Don'ts from the skill guidelines and exact brief specifications.",
                                 path_display = path.display()
                             ));
                         }
@@ -195,5 +198,75 @@ pub fn resolve_voice_preset_command(prompt_text: &str) -> Option<String> {
     }
 
     None
+}
+
+fn collect_skill_examples(skill_dir: &Path) -> String {
+    let examples_dir = skill_dir.join("examples");
+    if !examples_dir.is_dir() {
+        return String::new();
+    }
+
+    let mut files: Vec<std::path::PathBuf> = Vec::new();
+    let mut stack = vec![examples_dir.clone()];
+    while let Some(dir) = stack.pop() {
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    stack.push(p);
+                } else if p.is_file() {
+                    files.push(p);
+                }
+            }
+        }
+    }
+    files.sort();
+
+    let mut out = String::new();
+    let mut total_chars = 0usize;
+    const MAX_TOTAL_CHARS: usize = 35_000;
+
+    for file in files.into_iter().take(6) {
+        let Ok(content) = std::fs::read_to_string(&file) else {
+            continue;
+        };
+        let rel = file
+            .strip_prefix(skill_dir)
+            .unwrap_or(&file)
+            .to_string_lossy()
+            .replace('\\', "/");
+        if total_chars + content.len() > MAX_TOTAL_CHARS {
+            out.push_str(&format!(
+                "\nREFERENCE EXAMPLE FILE ({rel} at {}): [omitted due to size — read directly with `read` tool if needed]\n",
+                file.display()
+            ));
+            continue;
+        }
+        total_chars += content.len();
+        out.push_str(&format!(
+            "\nREFERENCE EXAMPLE ({rel} — copy/adapt into workspace):\n```\n{content}\n```\n"
+        ));
+    }
+
+    if out.is_empty() {
+        String::new()
+    } else {
+        format!("\nREFERENCE EXAMPLE KIT (from {}/examples):\n{out}", skill_dir.display())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slash_skill_command_injects_examples_kit_for_soft_clay_story() {
+        let resolved = resolve_dynamic_style_or_skill_command("", "/mg-soft-clay-story /audio:mystery")
+            .expect("mg-soft-clay-story should resolve");
+        assert!(resolved.contains("SKILL DIRECTIVES"));
+        assert!(resolved.contains("DESIGN TOKENS"));
+        assert!(resolved.contains("REFERENCE EXAMPLE (examples/script/clay-kit.js"));
+        assert!(resolved.contains("ClayKit"));
+    }
 }
 
