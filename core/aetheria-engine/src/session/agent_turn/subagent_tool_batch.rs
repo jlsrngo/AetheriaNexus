@@ -154,9 +154,11 @@ pub(crate) async fn execute_subagent_tool_calls(
         }));
     }
 
-    if model_supports_vision && !collected_vision_images.is_empty() {
-        super::vision::append_tool_vision_message(chat_messages, collected_vision_images);
-    }
+    super::vision::append_tool_vision_message(
+        chat_messages,
+        model_supports_vision,
+        collected_vision_images,
+    );
 
     aborted_reason
 }

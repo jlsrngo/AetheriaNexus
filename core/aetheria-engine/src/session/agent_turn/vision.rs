@@ -221,9 +221,14 @@ pub(crate) fn extract_tool_vision_images(tool_out: &mut Value, collected: &mut V
     }
 }
 
-/// Appends a multimodal user inspection message containing images returned by tools (e.g. `capture_film_preview`).
-pub(crate) fn append_tool_vision_message(chat_messages: &mut Vec<Value>, images: Vec<String>) {
-    if images.is_empty() {
+/// Appends a multimodal user inspection message containing images returned by tools (e.g. `capture_film_preview`)
+/// only when `model_supports_vision` is true.
+pub(crate) fn append_tool_vision_message(
+    chat_messages: &mut Vec<Value>,
+    model_supports_vision: bool,
+    images: Vec<String>,
+) {
+    if !model_supports_vision || images.is_empty() {
         return;
     }
     let mut parts = vec![serde_json::json!({
@@ -261,13 +266,17 @@ mod tests {
         assert_eq!(collected, vec!["data:image/jpeg;base64,AAAA".to_string()]);
 
         let mut msgs = Vec::new();
-        append_tool_vision_message(&mut msgs, collected);
+        append_tool_vision_message(&mut msgs, true, collected.clone());
         assert_eq!(msgs.len(), 1);
         assert_eq!(msgs[0].get("role").and_then(|v| v.as_str()), Some("user"));
         assert_eq!(
             msgs[0].pointer("/content/1/image_url/url").and_then(|v| v.as_str()),
             Some("data:image/jpeg;base64,AAAA")
         );
+
+        let mut text_only_msgs = Vec::new();
+        append_tool_vision_message(&mut text_only_msgs, false, collected);
+        assert!(text_only_msgs.is_empty());
     }
 }
 

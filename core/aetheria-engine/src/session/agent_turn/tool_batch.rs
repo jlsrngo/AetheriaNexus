@@ -228,10 +228,85 @@ pub(crate) async fn execute_tool_batch(
         }));
     }
 
-    if model_supports_vision && !collected_vision_images.is_empty() {
-        super::vision::append_tool_vision_message(chat_messages, collected_vision_images);
-    }
+    super::vision::append_tool_vision_message(
+        chat_messages,
+        model_supports_vision,
+        collected_vision_images,
+    );
 
     was_interrupted
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn tool_batch_attaches_image_url_for_vision_model_and_skips_for_text_only() {
+        let dir = std::env::temp_dir().join(format!("aetheria_tb_g6_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let tiny_png = [0x89u8, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        std::fs::write(dir.join("ref_test.png"), tiny_png).unwrap();
+
+        let tc = vec![json!({
+            "id": "call_read_1",
+            "function": {
+                "name": "read",
+                "arguments": "{\"filePath\":\"ref_test.png\"}"
+            }
+        })];
+
+        let mut detector1 = DoomLoopDetector::default();
+        let mut parts1 = Vec::new();
+        let mut msgs_vision = Vec::new();
+        execute_tool_batch(
+            "ses_test_g6",
+            &dir.to_string_lossy(),
+            "msg_test_g6",
+            tc.clone(),
+            false,
+            true,
+            &mut detector1,
+            &mut parts1,
+            &mut msgs_vision,
+        )
+        .await;
+
+        assert_eq!(msgs_vision.len(), 2);
+        assert_eq!(msgs_vision[0].get("role").and_then(|v| v.as_str()), Some("tool"));
+        assert!(!msgs_vision[0]
+            .get("content")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .contains("_vision_images"));
+        assert_eq!(msgs_vision[1].get("role").and_then(|v| v.as_str()), Some("user"));
+        let img_url = msgs_vision[1]
+            .pointer("/content/1/image_url/url")
+            .and_then(|v| v.as_str())
+            .expect("image_url present for vision model");
+        assert!(img_url.starts_with("data:image/png;base64,"));
+
+        let mut detector2 = DoomLoopDetector::default();
+        let mut parts2 = Vec::new();
+        let mut msgs_text_only = Vec::new();
+        execute_tool_batch(
+            "ses_test_g6_txt",
+            &dir.to_string_lossy(),
+            "msg_test_g6_txt",
+            tc,
+            false,
+            false,
+            &mut detector2,
+            &mut parts2,
+            &mut msgs_text_only,
+        )
+        .await;
+
+        assert_eq!(msgs_text_only.len(), 1);
+        assert_eq!(msgs_text_only[0].get("role").and_then(|v| v.as_str()), Some("tool"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
 
