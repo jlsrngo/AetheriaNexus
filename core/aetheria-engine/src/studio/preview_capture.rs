@@ -40,6 +40,31 @@ pub(crate) fn compute_relative_ratio(timestamp: f64, duration: f64) -> f64 {
     (((timestamp / duration).clamp(0.0, 1.0)) * 100.0).round() / 100.0
 }
 
+pub(crate) fn validate_render_at_eval_response(
+    eval_resp: &Value,
+    timestamp: f64,
+) -> Result<(), String> {
+    if let Some(exc) = eval_resp.get("exceptionDetails") {
+        let desc = exc
+            .pointer("/exception/description")
+            .or_else(|| exc.get("text"))
+            .and_then(Value::as_str)
+            .unwrap_or("JavaScript runtime exception");
+        return Err(format!(
+            "Film threw exception during window.renderAt({:.2}): {}",
+            timestamp, desc
+        ));
+    }
+    if eval_resp.pointer("/result/value/ok").and_then(Value::as_bool) == Some(false) {
+        let msg = eval_resp
+            .pointer("/result/value/error")
+            .and_then(Value::as_str)
+            .unwrap_or("Film does not expose window.renderAt(t)");
+        return Err(msg.to_string());
+    }
+    Ok(())
+}
+
 pub(crate) fn normalize_preview_timestamps(raw: &[f64], duration: f64) -> Vec<f64> {
     let safe_dur = if duration.is_finite() && duration > 0.0 {
         duration
@@ -132,14 +157,16 @@ pub async fn capture_film_preview_frames(
     let mut frames = Vec::with_capacity(timestamps.len());
     for (idx, ts) in timestamps.iter().enumerate() {
         let eval_expr = format!(
-            "(() => {{ window.renderAt({:.6}); return new Promise(r => requestAnimationFrame(() => r(true))); }})()",
+            "(() => {{ if (typeof window.renderAt !== 'function') {{ return {{ ok: false, error: 'HTML film does not expose window.renderAt(t)' }}; }} window.renderAt({:.6}); return new Promise(r => requestAnimationFrame(() => r({{ ok: true }}))); }})()",
             ts
         );
-        cdp.call(
-            "Runtime.evaluate",
-            json!({ "expression": eval_expr, "awaitPromise": true }),
-        )
-        .await?;
+        let eval_resp = cdp
+            .call(
+                "Runtime.evaluate",
+                json!({ "expression": eval_expr, "awaitPromise": true, "returnByValue": true }),
+            )
+            .await?;
+        validate_render_at_eval_response(&eval_resp, *ts)?;
 
         let shot = cdp
             .call(
@@ -190,5 +217,36 @@ mod tests {
 
         let custom = normalize_preview_timestamps(&[-1.0, 0.25, 0.255, 99.0, 2.0, 3.0, 4.0], 6.0);
         assert_eq!(custom, vec![0.25, 5.95, 2.0]);
+    }
+
+    #[test]
+    fn rejects_missing_or_throwing_render_at_in_eval_response() {
+        let missing = json!({
+            "result": {
+                "type": "object",
+                "value": {
+                    "ok": false,
+                    "error": "HTML film does not expose window.renderAt(t)"
+                }
+            }
+        });
+        let err1 = validate_render_at_eval_response(&missing, 1.0).unwrap_err();
+        assert!(err1.contains("renderAt"));
+
+        let thrown = json!({
+            "exceptionDetails": {
+                "text": "Uncaught TypeError: window.renderAt is not a function"
+            }
+        });
+        let err2 = validate_render_at_eval_response(&thrown, 2.5).unwrap_err();
+        assert!(err2.contains("window.renderAt(2.50)"));
+
+        let ok_resp = json!({
+            "result": {
+                "type": "object",
+                "value": { "ok": true }
+            }
+        });
+        assert!(validate_render_at_eval_response(&ok_resp, 1.0).is_ok());
     }
 }
