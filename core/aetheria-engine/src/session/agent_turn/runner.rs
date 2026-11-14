@@ -691,7 +691,11 @@ fn build_user_message_with_attachments(
 
     if !image_urls.is_empty() && !model_supports_vision {
         context_additions.push(format!(
-            "[SYSTEM NOTICE: Active model '{model_id}' is text-only and CANNOT inspect image pixels directly. Do NOT call `read` on binary image files in ref/ (they are not UTF-8 text). Tell the user clearly that '{model_id}' does not support image/vision analysis, and ask them to switch to a vision-capable model (e.g. Gemini, Claude, GPT-4o/5, GLM-4.6V, Kimi, Qwen-VL) or describe the desired visual style in text.]"
+            "[SYSTEM NOTICE: Active model '{model_id}' is text-only and CANNOT receive raw image attachments directly. \
+             Instead of giving up or guessing, use `codemode` to numerically inspect the saved reference image(s) in `ref/` \
+             (extract dimensions, 5 dominant hex colors, and average brightness/contrast) and report the measured palette \
+             before translating it into procedural Canvas/WebGL code. Also inform the user they can switch to a vision-capable model \
+             (e.g. Gemini, Claude, GPT-4o/5, GLM-4.6V, Kimi, Qwen-VL) for full semantic visual inspection.]"
         ));
     }
 
@@ -1348,5 +1352,30 @@ mod tests {
             "custom",
             "gemini-text-override"
         ));
+    }
+
+    #[test]
+    fn text_only_model_attachment_includes_codemode_palette_fallback_notice() {
+        let dir = std::env::temp_dir().join(format!("aetheria_runner_g7_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let msg = build_user_message_with_attachments(
+            &dir.to_string_lossy(),
+            "deepseek",
+            "deepseek-chat",
+            &json!({}),
+            "Samakan warnanya",
+            None,
+            None,
+            vec![],
+            vec!["data:image/png;base64,AAAA".to_string()],
+        );
+        let text = msg.get("content").and_then(|v| v.as_str()).expect("string content");
+        assert!(text.contains("codemode"));
+        assert!(text.contains("5 dominant hex colors"));
+        assert!(text.contains("brightness"));
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
