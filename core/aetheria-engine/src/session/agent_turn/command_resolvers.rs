@@ -57,7 +57,29 @@ pub fn resolve_mentioned_files(workspace_dir: &str, prompt_text: &str) -> Vec<St
 }
 
 pub fn resolve_motioncraft_style_command(workspace_dir: &str, prompt_text: &str) -> Option<String> {
-    resolve_dynamic_style_or_skill_command(workspace_dir, prompt_text)
+    resolve_dynamic_style_or_skill_command_inner(workspace_dir, prompt_text, true)
+}
+
+/// Read-only variant for subagents inside an already-started turn (reuses active project subfolder).
+pub fn resolve_motioncraft_style_readonly(workspace_dir: &str, prompt_text: &str) -> Option<String> {
+    resolve_dynamic_style_or_skill_command_inner(workspace_dir, prompt_text, false)
+}
+
+/// Returns the active `projects/<slug>/` instruction block for subagents (e.g. `audio-director`).
+pub fn resolve_active_project_note(workspace_dir: &str) -> Option<String> {
+    if workspace_dir.trim().is_empty() {
+        return None;
+    }
+    let state = crate::studio::project_registry::list_studio_projects(Path::new(workspace_dir));
+    let slug = state.active_project?;
+    let proj = state.projects.into_iter().find(|p| p.id == slug)?;
+    Some(format!(
+        "ACTIVE VIDEO PROJECT SUBFOLDER: {rel}/ (Title: \"{title}\")\n\
+        - Write ALL files for this video inside `{rel}/` (e.g. `{rel}/audio/scene1.wav`, `{rel}/audio/scene1.words.json`, `{rel}/audio/sfx_*.json`, `{rel}/index.html`, `{rel}/script/scene1.js`).\n\
+        - Do NOT write scene or audio files into the workspace root.",
+        rel = proj.relative_path,
+        title = proj.title
+    ))
 }
 
 /// Seeds non-scene kit scripts (e.g. `examples/script/clay-kit.js`) into `workspace/script/`
@@ -106,6 +128,14 @@ fn seed_skill_kit_scripts(workspace_dir: &str, skill_dir: &Path) -> Vec<String> 
 
 /// Dynamically detects and resolves style or design skill slash commands from `.aetheria/skills/*`.
 pub fn resolve_dynamic_style_or_skill_command(workspace_dir: &str, prompt_text: &str) -> Option<String> {
+    resolve_dynamic_style_or_skill_command_inner(workspace_dir, prompt_text, true)
+}
+
+fn resolve_dynamic_style_or_skill_command_inner(
+    workspace_dir: &str,
+    prompt_text: &str,
+    create_project: bool,
+) -> Option<String> {
     let root = crate::paths::project_root();
 
     let mut slash_tags: Vec<String> = Vec::new();
@@ -160,13 +190,59 @@ pub fn resolve_dynamic_style_or_skill_command(workspace_dir: &str, prompt_text: 
                                 String::new()
                             };
                             let examples_section = collect_skill_examples(&path);
-                            let seeded_kits = seed_skill_kit_scripts(workspace_dir, &path);
+                            let active_project = if !workspace_dir.trim().is_empty() {
+                                if create_project {
+                                    crate::studio::project_registry::ensure_project_for_prompt(
+                                        Path::new(workspace_dir),
+                                        prompt_text,
+                                    )
+                                    .ok()
+                                } else {
+                                    let state = crate::studio::project_registry::list_studio_projects(
+                                        Path::new(workspace_dir),
+                                    );
+                                    state.active_project.and_then(|slug| {
+                                        state.projects.into_iter().find(|p| p.id == slug)
+                                    })
+                                }
+                            } else {
+                                None
+                            };
+                            let (seed_target_dir, project_rel_prefix, project_note) =
+                                match active_project.as_ref() {
+                                    Some(proj) => {
+                                        let full = Path::new(workspace_dir)
+                                            .join(&proj.relative_path)
+                                            .to_string_lossy()
+                                            .to_string();
+                                        let note = format!(
+                                            "\nACTIVE VIDEO PROJECT SUBFOLDER: {rel}/ (Title: \"{title}\")\n\
+                                            - Write ALL project files inside `{rel}/` (e.g. `{rel}/index.html`, `{rel}/script/scene1.js`..`sceneN.js`, `{rel}/audio/scene1.wav`, `{rel}/audio/scene1.words.json`, `{rel}/audio/sfx_*.json`).\n\
+                                            - Inside `{rel}/index.html`, keep relative asset URLs as `script/...` and `audio/...` (Studio serves directly from `{rel}/`).\n\
+                                            - Do NOT write scene or audio files into the workspace root.\n",
+                                            rel = proj.relative_path,
+                                            title = proj.title
+                                        );
+                                        (full, format!("{}/", proj.relative_path), note)
+                                    }
+                                    None => (
+                                        workspace_dir.to_string(),
+                                        String::new(),
+                                        String::new(),
+                                    ),
+                                };
+
+                            let seeded_kits = seed_skill_kit_scripts(&seed_target_dir, &path);
                             let seeded_note = if seeded_kits.is_empty() {
                                 String::new()
                             } else {
+                                let prefixed: Vec<String> = seeded_kits
+                                    .iter()
+                                    .map(|k| format!("{}{}", project_rel_prefix, k))
+                                    .collect();
                                 format!(
-                                    "\nSEEDED KIT FILES ALREADY IN WORKSPACE (DO NOT OVERWRITE OR SHRINK THESE): {}\n",
-                                    seeded_kits.join(", ")
+                                    "\nSEEDED KIT FILES ALREADY IN PROJECT (DO NOT OVERWRITE OR SHRINK THESE): {}\n",
+                                    prefixed.join(", ")
                                 )
                             };
 
@@ -176,12 +252,13 @@ pub fn resolve_dynamic_style_or_skill_command(workspace_dir: &str, prompt_text: 
                                 DESIGN TOKENS (from {path_display}/tokens.json):\n{tokens_json}\n\
                                 {brief_section}\
                                 {examples_section}\
+                                {project_note}\
                                 {seeded_note}\
                                 \"\"\"\n\
                                 MANDATORY RULES FOR THIS GENERATION:\n\
-                                1. Coordinate via the 3-Track Subagent Pipeline: delegate voiceover/SFX synthesis to `task(subagent_type: \"audio-director\")` and delegate modular per-scene scripts (`script/scene1.js`..`script/sceneN.js`) + `index.html` to `task(subagent_type: \"motion-designer\")`.\n\
-                                2. Pass the active skill path (`{path_display}`) and its `examples/` kit instructions directly in your prompt to `motion-designer`. The active skill's rendering architecture (e.g., 3D Three.js + `ClayKit` dual-canvas `#stage-webgl` with `preserveDrawingBuffer: true` + `#stage-hud`, smooth outlines, Neobrutalism subtitles) is NON-NEGOTIABLE — adapt storyboard mood/props *inside* the skill's architecture rather than falling back to plain 2D Canvas.\n\
-                                3. If `script/*-kit.js` (e.g. `script/clay-kit.js`) is already seeded in the workspace, DO NOT overwrite it — load it in `index.html` alongside `/script/three.min.js` and `/script/aetheria-motion.js`, preserve `examples/index.html`'s dual-canvas + `AM.drawSubtitles(..., {{ style: \"neobrutalism\", ... }})` structure, and build real 3D meshes in `scene3D` inside `script/scene1.js`..`sceneN.js`.\n\
+                                1. Coordinate via the 3-Track Subagent Pipeline: delegate voiceover/SFX synthesis to `task(subagent_type: \"audio-director\")` and delegate modular per-scene scripts (`{project_rel_prefix}script/scene1.js`..`sceneN.js`) + `{project_rel_prefix}index.html` to `task(subagent_type: \"motion-designer\")`.\n\
+                                2. Pass the active skill path (`{path_display}`), target project subfolder (`{project_rel_prefix}`), and `examples/` kit instructions directly in your prompt to `motion-designer` and `audio-director`. The active skill's rendering architecture (e.g., 3D Three.js + `ClayKit` dual-canvas `#stage-webgl` with `preserveDrawingBuffer: true` + `#stage-hud`, smooth outlines, Neobrutalism subtitles) is NON-NEGOTIABLE — adapt storyboard mood/props *inside* the skill's architecture rather than falling back to plain 2D Canvas.\n\
+                                3. If `script/*-kit.js` (e.g. `clay-kit.js`) is already seeded in `{project_rel_prefix}script/`, DO NOT overwrite it — load it in `{project_rel_prefix}index.html` alongside `/script/three.min.js` and `/script/aetheria-motion.js`, preserve `examples/index.html`'s dual-canvas + `AM.drawSubtitles(..., {{ style: \"neobrutalism\", ... }})` structure, and build real 3D meshes in `scene3D` inside `{project_rel_prefix}script/scene1.js`..`sceneN.js`.\n\
                                 4. Strictly apply these exact colors, fonts, camera movement rules, scale law (`u(refPx)`), and motion curves (`AM.spring`, `AM.anticipation`, `AM.stagger`).\n\
                                 5. Follow the Do's and Don'ts from the skill guidelines and exact brief specifications.",
                                 path_display = path.display()

@@ -78,3 +78,19 @@ export interface StudioCanvasSettings {
   outFrame: number | null;
 }
 
+export interface StudioProjectInfo {
+  id: string;
+  title: string;
+  relativePath: string;
+  hasIndex: boolean;
+  sceneCount: number;
+  duration: number;
+  updatedAtMs: number;
+}
+
+export interface StudioProjectsState {
+  activeProject: string | null;
+  hasRootLegacyFilm: boolean;
+  projects: StudioProjectInfo[];
+}
+

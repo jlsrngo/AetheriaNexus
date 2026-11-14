@@ -136,8 +136,9 @@ pub async fn capture_film_preview_frames(
         return Err(format!("HTML film not found at {}", html_path.display()));
     }
 
+    let film_root_str = film_root.to_string_lossy().to_string();
     let (http_port, _server_guard) =
-        start_ephemeral_film_server(film_root, ws_root.clone()).await?;
+        start_ephemeral_film_server(film_root.clone(), ws_root.clone()).await?;
     let cdp_port = pick_ephemeral_port()?;
     let _chrome_guard = spawn_headless_browser(&browser_exe, cdp_port, meta.width, meta.height)?;
 
@@ -162,8 +163,8 @@ pub async fn capture_film_preview_frames(
     wait_for_film_ready(&mut cdp, &mut meta).await?;
 
     let timestamps = normalize_preview_timestamps(&requested_timestamps, meta.duration);
-    let preview_dir = resolve_isolated_path(workspace_dir, ".aetheria/preview")
-        .unwrap_or_else(|_| ws_root.join(".aetheria").join("preview"));
+    let preview_dir = resolve_isolated_path(&film_root_str, ".aetheria/preview")
+        .unwrap_or_else(|_| film_root.join(".aetheria").join("preview"));
     let _ = tokio::fs::create_dir_all(&preview_dir).await;
 
     let mut frames = Vec::with_capacity(timestamps.len());

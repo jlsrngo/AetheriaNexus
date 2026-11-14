@@ -70,17 +70,10 @@ pub fn resolve_active_dir_from_request(
         .map(PathBuf::from)
 }
 
-/// Finds `index.html` inside the given opened project root (`<dir>/index.html` or `<dir>/workspace/index.html`).
+/// Finds `index.html` inside the active video project subfolder (`<dir>/projects/<slug>/index.html`)
+/// or legacy root (`<dir>/index.html` / `<dir>/workspace/index.html`).
 pub fn resolve_film_html_in_dir(ws_root: &Path) -> Option<PathBuf> {
-    let direct = ws_root.join("index.html");
-    if direct.is_file() {
-        return Some(direct);
-    }
-    let sub = ws_root.join("workspace").join("index.html");
-    if sub.is_file() {
-        return Some(sub);
-    }
-    None
+    super::project_registry::resolve_active_film_root(ws_root).map(|root| root.join("index.html"))
 }
 
 /// Shared resolver for headless export / CLI / inspection endpoints.

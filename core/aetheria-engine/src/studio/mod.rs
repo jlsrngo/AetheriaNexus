@@ -31,6 +31,7 @@ pub mod native_canvas;
 pub mod native_renderer;
 pub mod presets;
 pub mod preview_capture;
+pub mod project_registry;
 pub mod renderer;
 pub mod scheduler;
 pub mod script_generator;
@@ -176,6 +177,22 @@ pub fn router() -> Router {
             get(styles::handle_list_styles).post(styles::handle_list_styles),
         )
         // 9. Aetheria Motion Engine (Single-File HTML Canvas/SVG Film Inspector, Bundle & Isolated Assets)
+        .route(
+            "/api/studio/projects",
+            get(project_registry::handle_list_projects),
+        )
+        .route(
+            "/api/studio/projects/select",
+            post(project_registry::handle_select_project),
+        )
+        .route(
+            "/api/studio/projects/create",
+            post(project_registry::handle_create_project),
+        )
+        .route(
+            "/api/studio/projects/delete",
+            post(project_registry::handle_delete_project),
+        )
         .route(
             "/api/studio/film-meta",
             get(motion::handle_film_meta).post(motion::handle_film_meta),

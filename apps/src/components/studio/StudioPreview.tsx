@@ -170,6 +170,10 @@ export const StudioPreview: React.FC = () => {
         gridRows={gridRows}
         onUpdateCanvas={actions.updateCanvas}
         onRequestFullscreen={() => playerRef.current?.requestFullscreen()}
+        onProjectChanged={() => {
+          void actions.syncFromBackend();
+          reloadFilm();
+        }}
       />
 
       {canvas.showRulers && (

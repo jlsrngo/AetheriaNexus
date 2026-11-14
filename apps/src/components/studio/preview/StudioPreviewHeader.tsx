@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import type { StudioCanvasSettings, StudioComposition } from "../../../types/studio";
+import { StudioProjectSelector } from "./StudioProjectSelector";
 
 const GRID_PRESETS = [
   { label: "2×2", cols: 2, rows: 2 },
@@ -34,6 +35,7 @@ export interface StudioPreviewHeaderProps {
   gridRows: number;
   onUpdateCanvas: (partial: Partial<StudioCanvasSettings>) => void;
   onRequestFullscreen: () => void;
+  onProjectChanged: () => void;
 }
 
 export const StudioPreviewHeader: React.FC<StudioPreviewHeaderProps> = ({
@@ -44,6 +46,7 @@ export const StudioPreviewHeader: React.FC<StudioPreviewHeaderProps> = ({
   gridRows,
   onUpdateCanvas,
   onRequestFullscreen,
+  onProjectChanged,
 }) => (
   <div className="border-b border-[var(--border-color)] bg-[var(--bg-panel)] flex flex-col text-[11px] shrink-0">
     {/* Row 1: Active composition title and resolution */}
@@ -58,9 +61,12 @@ export const StudioPreviewHeader: React.FC<StudioPreviewHeaderProps> = ({
           {activeComposition.name.replace(/\s*\(\d+:\d+\)/g, "")}
         </span>
       </div>
-      <span className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] font-mono text-[10px] text-amber-400 font-semibold shrink-0 whitespace-nowrap">
-        {activeComposition.width}×{activeComposition.height} ({activeComposition.ratio})
-      </span>
+      <div className="flex items-center gap-2 shrink-0">
+        <StudioProjectSelector onProjectChanged={onProjectChanged} />
+        <span className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] font-mono text-[10px] text-amber-400 font-semibold shrink-0 whitespace-nowrap">
+          {activeComposition.width}×{activeComposition.height} ({activeComposition.ratio})
+        </span>
+      </div>
     </div>
 
     {/* Row 2: Canvas viewport & grid controls */}

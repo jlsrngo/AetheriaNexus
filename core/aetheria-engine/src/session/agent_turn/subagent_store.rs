@@ -131,15 +131,29 @@ pub fn resolve_parent_skill_or_voice_directive(
 
     match subagent_type {
         "motion-designer" | "qa-verifier" => {
-            crate::session::agent_turn::command_resolvers::resolve_motioncraft_style_command(
+            crate::session::agent_turn::command_resolvers::resolve_motioncraft_style_readonly(
                 workspace_dir,
                 &latest_user_text,
             )
+            .or_else(|| {
+                crate::session::agent_turn::command_resolvers::resolve_active_project_note(
+                    workspace_dir,
+                )
+            })
         }
         "audio-director" => {
-            crate::session::agent_turn::command_resolvers::resolve_voice_preset_command(
+            let voice = crate::session::agent_turn::command_resolvers::resolve_voice_preset_command(
                 &latest_user_text,
-            )
+            );
+            let proj = crate::session::agent_turn::command_resolvers::resolve_active_project_note(
+                workspace_dir,
+            );
+            match (voice, proj) {
+                (Some(v), Some(p)) => Some(format!("{}\n\n{}", v, p)),
+                (Some(v), None) => Some(v),
+                (None, Some(p)) => Some(p),
+                (None, None) => None,
+            }
         }
         _ => None,
     }
