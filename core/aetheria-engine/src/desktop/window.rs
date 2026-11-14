@@ -246,6 +246,7 @@ pub fn launch_desktop_window(url: &str) {
     let data_dir = aetheria_dot_dir().join("webview2");
     let _ = std::fs::create_dir_all(&data_dir);
     let mut web_context = wry::WebContext::new(Some(data_dir));
+    let target_url = resolve_webview_url(url);
 
     let _webview = match WebViewBuilder::new_with_web_context(&mut web_context)
         .with_initialization_script(DESKTOP_INIT_SCRIPT)
@@ -267,7 +268,7 @@ pub fn launch_desktop_window(url: &str) {
                 _ => {}
             }
         })
-        .with_url(url)
+        .with_url(&target_url)
         .build(&window)
     {
         Ok(wv) => wv,
@@ -304,4 +305,59 @@ pub fn launch_desktop_window(url: &str) {
         }
     });
 }
+
+fn resolve_webview_url_with(
+    default_url: &str,
+    debug_assertions_enabled: bool,
+    env_web_url: Option<&str>,
+) -> String {
+    if debug_assertions_enabled {
+        if let Some(raw) = env_web_url {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+    }
+    default_url.to_string()
+}
+
+fn resolve_webview_url(default_url: &str) -> String {
+    let env_url = std::env::var("AETHERIA_WEB_URL").ok();
+    resolve_webview_url_with(default_url, cfg!(debug_assertions), env_url.as_deref())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_webview_url_with;
+
+    #[test]
+    fn uses_aetheria_web_url_only_in_debug_builds() {
+        assert_eq!(
+            resolve_webview_url_with(
+                "http://127.0.0.1:4096",
+                true,
+                Some("http://127.0.0.1:5173")
+            ),
+            "http://127.0.0.1:5173"
+        );
+        assert_eq!(
+            resolve_webview_url_with("http://127.0.0.1:4096", true, Some("   ")),
+            "http://127.0.0.1:4096"
+        );
+        assert_eq!(
+            resolve_webview_url_with("http://127.0.0.1:4096", true, None),
+            "http://127.0.0.1:4096"
+        );
+        assert_eq!(
+            resolve_webview_url_with(
+                "http://127.0.0.1:4096",
+                false,
+                Some("http://127.0.0.1:5173")
+            ),
+            "http://127.0.0.1:4096"
+        );
+    }
+}
+
 
