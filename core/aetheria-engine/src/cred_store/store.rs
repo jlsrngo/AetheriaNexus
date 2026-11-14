@@ -211,6 +211,7 @@ pub fn get_credential(source: &str) -> Option<CredentialEntry> {
 pub fn set_credential(entry: CredentialEntry) {
     if entry.source == "antigravity" {
         crate::bridge::clear_antigravity_project_id_cache();
+        crate::bridge::clear_antigravity_cooldowns();
     }
     with_store(|store| {
         store.logged_out.remove(&entry.source);
@@ -222,6 +223,7 @@ pub fn set_credential(entry: CredentialEntry) {
 pub fn remove_credential(source: &str) -> bool {
     if source == "antigravity" {
         crate::bridge::clear_antigravity_project_id_cache();
+        crate::bridge::clear_antigravity_cooldowns();
     }
     with_store(|store| {
         let had_entry = store.entries.remove(source).is_some();

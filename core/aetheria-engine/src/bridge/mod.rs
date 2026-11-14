@@ -1,7 +1,8 @@
 //! Local-CLI Bridge (:20288) — OpenAI-compatible server lifecycle, origin security guard & router.
 
 mod antigravity;
-mod antigravity_auth;
+pub(crate) mod antigravity_auth;
+mod antigravity_safety;
 mod claude;
 mod codex;
 mod kiro;
@@ -12,6 +13,7 @@ mod routes;
 pub mod schema;
 
 pub(crate) use antigravity_auth::{clear_antigravity_project_id_cache, get_antigravity_project_id};
+pub(crate) use antigravity_safety::clear_antigravity_cooldowns;
 pub(crate) use response_format::{
     extract_content_text, make_completion_response, make_completion_response_with_reasoning,
     make_sse_response_from_result, make_sse_response_with_reasoning,

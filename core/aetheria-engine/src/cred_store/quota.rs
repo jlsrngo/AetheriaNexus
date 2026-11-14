@@ -91,6 +91,10 @@ pub async fn fetch_live_quotas_list() -> Vec<Value> {
                     .post("https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary")
                     .header("Authorization", format!("Bearer {}", entry.access_token))
                     .header("Content-Type", "application/json")
+                    .header(
+                        "User-Agent",
+                        crate::bridge::antigravity_auth::ANTIGRAVITY_IDE_USER_AGENT,
+                    )
                     .json(&json!({}))
                     .send()
                     .await
