@@ -152,6 +152,28 @@ fn kill_child_process_tree(pid: Option<u32>) {
     }
 }
 
+fn build_augmented_path(
+    current_path: Option<&std::ffi::OsStr>,
+    extra_dirs: &[PathBuf],
+) -> Option<std::ffi::OsString> {
+    let mut dirs: Vec<PathBuf> = extra_dirs
+        .iter()
+        .filter(|d| !d.as_os_str().is_empty())
+        .cloned()
+        .collect();
+    if let Some(existing) = current_path {
+        for p in std::env::split_paths(existing) {
+            if !dirs.contains(&p) {
+                dirs.push(p);
+            }
+        }
+    }
+    if dirs.is_empty() {
+        return None;
+    }
+    std::env::join_paths(dirs).ok()
+}
+
 async fn run_command_with_interrupt(
     program: &str,
     args: &[&str],
@@ -176,6 +198,15 @@ async fn run_command_with_interrupt(
         cmd.args(args);
     }
     cmd.current_dir(cwd);
+    let mut extra_path_dirs = vec![crate::paths::aetheria_dot_dir().join("bin")];
+    if let Some(ff) = crate::paths::locate_ffmpeg_binary() {
+        if let Some(parent) = ff.parent() {
+            extra_path_dirs.insert(0, parent.to_path_buf());
+        }
+    }
+    if let Some(merged_path) = build_augmented_path(std::env::var_os("PATH").as_deref(), &extra_path_dirs) {
+        cmd.env("PATH", merged_path);
+    }
     cmd.env("PYTHONIOENCODING", "utf-8");
     cmd.env("PYTHONUTF8", "1");
     cmd.stdin(std::process::Stdio::null());
@@ -261,4 +292,29 @@ async fn run_interruptible_shell(
     }
 
     initial_output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn augmented_path_prepends_ffmpeg_dir_without_duplicates() {
+        let bin_dir = PathBuf::from(if cfg!(windows) {
+            r"C:\tools\ffmpeg\bin"
+        } else {
+            "/opt/ffmpeg/bin"
+        });
+        let sys_dir = PathBuf::from(if cfg!(windows) {
+            r"C:\Windows\System32"
+        } else {
+            "/usr/bin"
+        });
+        let existing = std::env::join_paths([sys_dir.clone(), bin_dir.clone()]).expect("join paths");
+        let merged = build_augmented_path(Some(&existing), &[bin_dir.clone()]).expect("merged path");
+        let parts: Vec<PathBuf> = std::env::split_paths(&merged).collect();
+        assert_eq!(parts[0], bin_dir);
+        assert_eq!(parts[1], sys_dir);
+        assert_eq!(parts.iter().filter(|p| **p == bin_dir).count(), 1);
+    }
 }

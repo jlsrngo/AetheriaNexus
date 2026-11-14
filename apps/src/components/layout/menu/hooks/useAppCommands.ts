@@ -36,16 +36,11 @@ export function useAppCommands({
 
   const paste = useCallback(async () => {
     try {
-      if (typeof navigator !== "undefined" && navigator.clipboard?.readText) {
-        const text = await navigator.clipboard.readText();
-        if (text !== undefined) {
-          document.execCommand("insertText", false, text);
-          return;
-        }
-      }
+      // Rely on native browser/WebView paste command without async navigator.clipboard.readText()
+      // so WebView2 does not show a recurring "See text and images copied to the clipboard" prompt.
       document.execCommand("paste");
     } catch {
-      document.execCommand("paste");
+      // Ignore if native execCommand("paste") is unsupported in current context
     }
   }, []);
 

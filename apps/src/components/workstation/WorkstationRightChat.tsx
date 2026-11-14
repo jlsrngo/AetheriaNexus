@@ -1,4 +1,4 @@
-import { RefObject, useState, useMemo, useCallback, useEffect, memo } from "react";
+import { RefObject, useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef, memo } from "react";
 import { AetheriaLogo } from "../common/AetheriaLogo";
 import {
   ChevronUp,
@@ -8,6 +8,7 @@ import { LiveExecutionBadge, LiveStatusData } from "./LiveExecutionBadge";
 import { LiveMirrorCard } from "./LiveMirrorCard";
 import { LiveDocumentPreview } from "./LiveDocumentPreview";
 import { Message, SubagentTrackState } from "./chat/types";
+import type { ChatScrollMetrics } from "./chat/chatScrollUtils";
 import { ChatMessageBubble } from "./chat/ChatMessageBubble";
 import { ChatInputBox } from "./chat/ChatInputBox";
 import { ChatQueuedPrompts } from "./chat/ChatQueuedPrompts";
@@ -34,6 +35,7 @@ export interface WorkstationRightChatProps {
   subagentTracks?: SubagentTrackState[];
   liveStatus: LiveStatusData | null;
   messagesEndRef: RefObject<HTMLDivElement | null>;
+  onChatScrollPosition?: (metrics: ChatScrollMetrics) => void;
   activeWorkspace: Workspace | null;
   isStreaming: boolean;
   onSendMessage: (
@@ -71,6 +73,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
   subagentTracks = [],
   liveStatus,
   messagesEndRef,
+  onChatScrollPosition,
   isStreaming,
   onSendMessage,
   width = 320,
@@ -97,6 +100,8 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
   // CRITICAL: React Rules of Hooks - all hooks declared unconditionally at top
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [visibleLimit, setVisibleLimit] = useState<number>(INITIAL_VISIBLE_CHAT_MESSAGES);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const pendingPrependScrollHeightRef = useRef<number | null>(null);
   const [showThinking, setShowThinking] = useState<boolean>(() => {
     const saved = localStorage.getItem("aetheria_show_thinking");
     if (saved !== null) return saved === "true";
@@ -167,15 +172,39 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
     return allMessages.slice(allMessages.length - visibleLimit);
   }, [allMessages, visibleLimit]);
 
+  const handleLoadOlderMessages = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (container && pendingPrependScrollHeightRef.current === null) {
+      pendingPrependScrollHeightRef.current = container.scrollHeight;
+    }
+    setVisibleLimit((prev) => prev + LOAD_OLDER_STEP);
+  }, []);
+
+  useLayoutEffect(() => {
+    const prevHeight = pendingPrependScrollHeightRef.current;
+    const container = messagesContainerRef.current;
+    if (prevHeight === null || !container) return;
+    pendingPrependScrollHeightRef.current = null;
+    const heightDelta = container.scrollHeight - prevHeight;
+    if (heightDelta > 0) {
+      container.scrollTop += heightDelta;
+    }
+  }, [visibleLimit]);
+
   const handleScrollContainer = useCallback(
     (e: React.UIEvent<HTMLDivElement>) => {
-      if (hiddenCount <= 0) return;
       const el = e.currentTarget;
+      onChatScrollPosition?.({
+        scrollHeight: el.scrollHeight,
+        scrollTop: el.scrollTop,
+        clientHeight: el.clientHeight,
+      });
+      if (hiddenCount <= 0) return;
       if (el.scrollTop <= 48) {
-        setVisibleLimit((prev) => prev + LOAD_OLDER_STEP);
+        handleLoadOlderMessages();
       }
     },
-    [hiddenCount]
+    [hiddenCount, onChatScrollPosition, handleLoadOlderMessages]
   );
 
   if (collapsed) {
@@ -219,6 +248,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
 
       {/* Messages List Area */}
       <div
+        ref={messagesContainerRef}
         onScroll={handleScrollContainer}
         className="flex-1 overflow-y-auto overflow-x-hidden py-1 font-sans text-xs min-w-0"
       >
@@ -238,7 +268,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
               <div className="flex justify-center pt-1 pb-2">
                 <button
                   type="button"
-                  onClick={() => setVisibleLimit((prev) => prev + LOAD_OLDER_STEP)}
+                  onClick={handleLoadOlderMessages}
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] transition-colors cursor-pointer"
                 >
                   <ChevronUp className="w-3.5 h-3.5" />

@@ -76,24 +76,6 @@ export function useGlobalShortcuts({
       } else if (matchesShortcut(e, getEffectiveShortcut("toggle-word-wrap"))) {
         e.preventDefault();
         commands.toggleWordWrap();
-      } else if (matchesShortcut(e, getEffectiveShortcut("undo"))) {
-        e.preventDefault();
-        commands.undo();
-      } else if (matchesShortcut(e, getEffectiveShortcut("redo"))) {
-        e.preventDefault();
-        commands.redo();
-      } else if (matchesShortcut(e, getEffectiveShortcut("cut"))) {
-        e.preventDefault();
-        commands.cut();
-      } else if (matchesShortcut(e, getEffectiveShortcut("copy"))) {
-        e.preventDefault();
-        commands.copy();
-      } else if (matchesShortcut(e, getEffectiveShortcut("paste"))) {
-        e.preventDefault();
-        await commands.paste();
-      } else if (matchesShortcut(e, getEffectiveShortcut("select-all"))) {
-        e.preventDefault();
-        commands.selectAll();
       } else if (matchesShortcut(e, getEffectiveShortcut("fullscreen"))) {
         e.preventDefault();
         commands.toggleFullscreen();

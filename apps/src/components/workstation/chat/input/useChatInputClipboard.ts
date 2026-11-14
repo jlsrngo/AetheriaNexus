@@ -170,32 +170,11 @@ export function useChatInputClipboard({ textareaRef }: UseChatInputClipboardOpti
         }
       }
 
-      // 2. Second priority: Standard web clipboard files / items
+      // 2. Second priority: Standard web clipboard files / items from the native ClipboardEvent
       const fileList = extractClipboardFiles(clipboardData);
       if (fileList.length > 0) {
         await handleAddFiles(fileList);
         return true;
-      }
-
-      // 3. Third priority: Async navigator.clipboard.read() ONLY if clipboardData was not provided by the event
-      if (
-        !clipboardData &&
-        typeof navigator !== "undefined" &&
-        navigator.clipboard &&
-        typeof navigator.clipboard.read === "function"
-      ) {
-        try {
-          const clipItems = await navigator.clipboard.read();
-          for (const item of clipItems) {
-            const imgType = item.types.find((t) => t.startsWith("image/"));
-            if (imgType) {
-              const blob = await item.getType(imgType);
-              const file = new File([blob], `screenshot_${Date.now()}.png`, { type: imgType });
-              await handleAddFiles([file]);
-              return true;
-            }
-          }
-        } catch {}
       }
 
       return false;

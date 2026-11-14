@@ -391,6 +391,7 @@ export function UnifiedWorkstationPage() {
             subagentTracks={chat.subagentTracks}
             liveStatus={chat.liveStatus}
             messagesEndRef={chat.messagesEndRef}
+            onChatScrollPosition={chat.handleChatScrollPosition}
             activeWorkspace={activeWorkspace}
             isStreaming={chat.isStreaming}
             onSendMessage={chat.handleSendMessage}

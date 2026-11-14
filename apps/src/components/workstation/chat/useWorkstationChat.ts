@@ -35,6 +35,12 @@ import {
   dispatchCompletionNotification,
   getActiveProviderDiagnostic,
 } from "./chatDiagnostics";
+import {
+  getDistanceFromBottom,
+  isNearChatBottom,
+  shouldAutoScrollChat,
+  type ChatScrollMetrics,
+} from "./chatScrollUtils";
 
 
 export { resolveActiveSingleModel, getProviderDefaultModels };
@@ -100,6 +106,11 @@ export function useWorkstationChat({
   const queuedPromptsRef = useRef<QueuedPromptItem[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isPinnedToBottomRef = useRef(true);
+  const forceScrollToBottomRef = useRef(true);
+  const handleChatScrollPosition = useCallback((metrics: ChatScrollMetrics) => {
+    isPinnedToBottomRef.current = isNearChatBottom(metrics);
+  }, []);
   const abortControllerRef = useRef<AbortController | null>(null);
   const producedFilesRef = useRef<string[]>([]);
   const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -209,10 +220,12 @@ export function useWorkstationChat({
       setLiveStatus(null);
       setOptimisticMessages([]);
       updatePendingQuestion(null);
+      isPinnedToBottomRef.current = true;
+      forceScrollToBottomRef.current = true;
     }
   }, [activeFolder, activeChatId, clearWatchdog, setStreamingState, updatePendingQuestion]);
 
-  // 3. Smart, throttled auto-scroll on new messages (does not fight user scrolling up)
+  // 3. Smart, throttled auto-scroll on new messages (respects user scrolling up in idle & streaming)
   const isAutoScrollScheduledRef = useRef(false);
   useEffect(() => {
     if (isAutoScrollScheduledRef.current) return;
@@ -223,15 +236,29 @@ export function useWorkstationChat({
       const el = messagesEndRef.current;
       if (!el) return;
 
+      const forceScroll = forceScrollToBottomRef.current;
+      forceScrollToBottomRef.current = false;
+
       const container = el.parentElement;
       if (!container) {
-        el.scrollIntoView({ behavior: "auto" });
+        if (forceScroll || isPinnedToBottomRef.current) {
+          el.scrollIntoView({ behavior: "auto" });
+        }
         return;
       }
 
-      // If user is near bottom (< 160px) or user just sent a prompt / streaming ended, auto-scroll smoothly
-      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-      if (distanceFromBottom < 160 || !isStreaming) {
+      const distanceFromBottom = getDistanceFromBottom({
+        scrollHeight: container.scrollHeight,
+        scrollTop: container.scrollTop,
+        clientHeight: container.clientHeight,
+      });
+      if (
+        shouldAutoScrollChat({
+          distanceFromBottom,
+          isPinnedToBottom: isPinnedToBottomRef.current,
+          forceScroll,
+        })
+      ) {
         el.scrollIntoView({ behavior: "auto" });
       }
     });
@@ -817,6 +844,8 @@ export function useWorkstationChat({
     };
 
     setOptimisticMessages([newUserMsg, newAssistantMsg]);
+    isPinnedToBottomRef.current = true;
+    forceScrollToBottomRef.current = true;
     isLocalSendingRef.current = true;
     setStreamingState(true);
     producedFilesRef.current = [];
@@ -1863,6 +1892,7 @@ export function useWorkstationChat({
     setActiveModel,
     queuedPrompts,
     messagesEndRef,
+    handleChatScrollPosition,
     pendingQuestion,
     handleSendMessage,
     handleAnswerQuestion,
