@@ -104,10 +104,19 @@ pub fn urlencoding_decode(s: &str) -> String {
 fn resolve_target(base_dir: &Path, req_path: &str) -> PathBuf {
     let p = Path::new(req_path);
     if p.is_absolute() {
-        p.to_path_buf()
-    } else {
-        base_dir.join(req_path)
+        return p.to_path_buf();
     }
+    let direct = base_dir.join(req_path);
+    if direct.exists() || req_path.contains('/') || req_path.contains('\\') {
+        return direct;
+    }
+    for sub in ["ref", "img", ".aetheria/preview", "public"] {
+        let candidate = base_dir.join(sub).join(req_path);
+        if candidate.is_file() && contains_path(base_dir, &candidate) {
+            return candidate;
+        }
+    }
+    direct
 }
 
 fn forbidden_path_resp() -> Response {

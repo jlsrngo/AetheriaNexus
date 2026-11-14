@@ -190,4 +190,6 @@ pub fn router() -> Router {
             "/api/studio/ws-asset/*relpath",
             get(assets::handle_ws_asset),
         )
+        .route("/api/files/raw/*relpath", get(assets::handle_ws_asset))
+        .route("/files/raw/*relpath", get(assets::handle_ws_asset))
 }

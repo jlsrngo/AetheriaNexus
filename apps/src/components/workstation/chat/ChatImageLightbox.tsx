@@ -1,5 +1,9 @@
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { Sparkles, X } from "lucide-react";
+import {
+  fetchWorkspaceImageDataUrl,
+  resolveWorkspaceAssetUrl,
+} from "../../studio/htmlStageBundle";
 
 interface ChatImageLightboxProps {
   url: string | null;
@@ -10,6 +14,18 @@ export const ChatImageLightbox = memo(function ChatImageLightbox({
   url,
   onClose,
 }: ChatImageLightboxProps) {
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
+  const [triedFallback, setTriedFallback] = useState(false);
+
+  useEffect(() => {
+    setTriedFallback(false);
+    if (!url) {
+      setResolvedSrc(null);
+      return;
+    }
+    setResolvedSrc(resolveWorkspaceAssetUrl(url) || url);
+  }, [url]);
+
   if (!url) return null;
 
   return (
@@ -25,6 +41,7 @@ export const ChatImageLightbox = memo(function ChatImageLightbox({
         <button
           type="button"
           onClick={onClose}
+          aria-label="Close preview"
           className="w-6 h-6 rounded-full bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center justify-center transition-colors cursor-pointer border border-[var(--border-color)]"
           title="Close preview"
         >
@@ -36,9 +53,16 @@ export const ChatImageLightbox = memo(function ChatImageLightbox({
         onClick={(e) => e.stopPropagation()}
       >
         <img
-          src={url}
+          src={resolvedSrc || url}
           alt="Preview"
           className="max-w-full max-h-full rounded-lg object-contain"
+          onError={() => {
+            if (triedFallback) return;
+            setTriedFallback(true);
+            void fetchWorkspaceImageDataUrl(url).then((dataUrl) => {
+              if (dataUrl) setResolvedSrc(dataUrl);
+            });
+          }}
         />
       </div>
     </div>

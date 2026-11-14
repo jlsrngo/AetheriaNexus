@@ -9,6 +9,7 @@ export interface HtmlFilmScene {
   startFrame: number;
   durationFrames: number;
   audio?: string | null;
+  sfx?: string | null;
   words?: string | null;
 }
 
@@ -51,6 +52,20 @@ interface FilmBundleApiPayload {
   };
 }
 
+function extractCleanWorkspaceRelPath(rawUrl: string): string {
+  const withoutQuery = rawUrl.trim().split("?")[0]?.split("#")[0] || "";
+  const stripped = withoutQuery
+    .replace(/^https?:\/\/[^/]+/i, "")
+    .replace(/^(\.\/|\/)+/, "")
+    .replace(/\\/g, "/")
+    .replace(/^(api\/)?(studio\/ws-asset|files\/raw)\//i, "");
+  try {
+    return decodeURIComponent(stripped);
+  } catch {
+    return stripped;
+  }
+}
+
 /**
  * Resolves a relative film asset path against the active project folder endpoint.
  */
@@ -61,19 +76,56 @@ export function resolveWorkspaceAssetUrl(
   if (!rawUrl) return null;
   const trimmed = rawUrl.trim();
   if (!trimmed) return null;
+  if (trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
+    return trimmed;
+  }
   if (
-    trimmed.startsWith("http://") ||
-    trimmed.startsWith("https://") ||
-    trimmed.startsWith("data:") ||
-    trimmed.startsWith("blob:")
+    (trimmed.startsWith("http://") || trimmed.startsWith("https://")) &&
+    !/\/(api\/)?(studio\/ws-asset|files\/raw)\//i.test(trimmed)
   ) {
     return trimmed;
   }
-  const clean = trimmed.replace(/^(\.\/|\/)+/, "").replace(/\\/g, "/");
+  const clean = extractCleanWorkspaceRelPath(trimmed);
+  if (!clean) return null;
   const dir = dirOverride ?? activeDirectory();
   const baseUrl = `${API_BASE}/studio/ws-asset/${clean}`;
   const withDir = dir ? `${baseUrl}?directory=${encodeURIComponent(dir)}` : baseUrl;
   return appendEngineAuthToken(withDir);
+}
+
+/**
+ * Fetches a workspace image via authenticated `/api/file/content` IPC/HTTP and returns a `data:image/...` URL.
+ */
+export async function fetchWorkspaceImageDataUrl(
+  rawPathOrUrl: string | null | undefined,
+  dirOverride?: string | null
+): Promise<string | null> {
+  if (!rawPathOrUrl) return null;
+  const trimmed = rawPathOrUrl.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("data:")) return trimmed;
+  const clean = extractCleanWorkspaceRelPath(trimmed);
+  if (!clean) return null;
+  const dir = dirOverride ?? activeDirectory();
+  const dirParam = dir ? `&directory=${encodeURIComponent(dir)}` : "";
+  try {
+    const res = await apiFetch(
+      `/file/content?path=${encodeURIComponent(clean)}${dirParam}`
+    );
+    if (!res.ok) return null;
+    const payload = (await res.json()) as {
+      content?: string;
+      encoding?: string;
+      mimeType?: string;
+    };
+    if (payload.encoding === "base64" && payload.content) {
+      const mime = payload.mimeType || "image/png";
+      return `data:${mime};base64,${payload.content}`;
+    }
+  } catch {
+    // Best-effort fallback
+  }
+  return null;
 }
 
 /**

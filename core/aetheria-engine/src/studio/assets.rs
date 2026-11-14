@@ -79,10 +79,18 @@ pub async fn handle_ws_asset(
         if pub_dir.is_dir() {
             search_roots.push(pub_dir);
         }
+        if !clean_rel.contains('/') {
+            for sub in ["ref", "img", ".aetheria/preview"] {
+                let sub_dir = active_root.join(sub);
+                if sub_dir.is_dir() {
+                    search_roots.push(sub_dir);
+                }
+            }
+        }
 
         for root in search_roots {
             let candidate = root.join(&clean_rel);
-            if contains_path(&root, &candidate) && candidate.is_file() {
+            if contains_path(&active_root, &candidate) && candidate.is_file() {
                 return serve_ranged_file(&headers, &candidate).await;
             }
         }

@@ -3,7 +3,10 @@ import { AlertCircle, Check, Copy, RotateCcw, FileText, Send } from "lucide-reac
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
 import { useTheme } from "../../../lib/theme";
-import { API_BASE } from "../../../lib/api";
+import {
+  fetchWorkspaceImageDataUrl,
+  resolveWorkspaceAssetUrl,
+} from "../../studio/htmlStageBundle";
 import { getFileIcon } from "../../workspace/tree-utils";
 import { MessageThoughtBadge, type StepItem } from "../LiveExecutionBadge";
 import { ChatMessageContent } from "./ChatMessageContent";
@@ -18,7 +21,8 @@ const MESSAGE_TIME_FORMATTER = new Intl.DateTimeFormat([], {
   minute: "2-digit",
 });
 
-const IMAGE_MENTION_REGEX = /(?:@)?([a-zA-Z0-9_.-]+\.(?:png|jpg|jpeg|webp|gif))\b/gi;
+const IMAGE_MENTION_REGEX =
+  /(?:@)?((?:[a-zA-Z0-9_.-]+\/)*[a-zA-Z0-9_.-]+\.(?:png|jpg|jpeg|webp|gif))\b/gi;
 const IMAGE_EXT_REGEX = /\.(png|jpg|jpeg|webp|gif)$/i;
 const IMAGE_OR_SVG_EXT_REGEX = /\.(png|jpg|jpeg|webp|gif|svg)$/i;
 const THINK_TAG_REGEX = /<\/?think\??>/gi;
@@ -77,7 +81,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
           if (isImg) {
             fromFiles.push({
               name: f.name || "Attached image",
-              url: f.uri,
+              url: resolveWorkspaceAssetUrl(f.uri) || f.uri,
             });
           }
         }
@@ -86,9 +90,10 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
     // Fallback to legacy parsed @filename mentions if no structured files
     if (fromFiles.length === 0 && imageMentions.length > 0) {
       for (const imgName of imageMentions) {
+        const cleanName = imgName.replace(/^`+|`+$/g, "");
         fromFiles.push({
-          name: imgName,
-          url: `${API_BASE}/files/raw/${encodeURIComponent(imgName)}`,
+          name: cleanName,
+          url: resolveWorkspaceAssetUrl(cleanName) || cleanName,
         });
       }
     }
@@ -110,9 +115,9 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
 
   const displayContent = useMemo(() => {
     const raw = (msg?.content || "").replace(THINK_TAG_REGEX, "");
-    if (imageMentions.length === 0) return isStreaming ? raw : raw.trim();
+    if (!isUser || imageMentions.length === 0) return isStreaming ? raw : raw.trim();
     return raw.replace(IMAGE_MENTION_REGEX, "").trim();
-  }, [msg?.content, imageMentions, isStreaming]);
+  }, [msg?.content, imageMentions, isStreaming, isUser]);
 
   const externalSource = useMemo(() => {
     if (!isUser || !displayContent) return null;
@@ -467,9 +472,19 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                             alt={img.name}
                             className="max-w-[240px] max-h-[170px] rounded-lg object-contain group-hover/img:scale-[1.02] transition-transform duration-150 block"
                             onError={(e) => {
-                              const parent = (e.target as HTMLElement).parentElement;
-                              if (parent) {
-                                parent.innerHTML = `<div class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-panel)] rounded-lg"><svg class="w-3.5 h-3.5 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><span class="text-[11px] font-medium">${img.name}</span></div>`;
+                              const imgEl = e.currentTarget;
+                              if (imgEl.dataset.fallbackTried !== "1") {
+                                imgEl.dataset.fallbackTried = "1";
+                                void fetchWorkspaceImageDataUrl(img.name || img.url).then((dataUrl) => {
+                                  if (dataUrl) {
+                                    imgEl.src = dataUrl;
+                                  } else {
+                                    const parent = imgEl.parentElement;
+                                    if (parent) {
+                                      parent.innerHTML = `<div class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-panel)] rounded-lg"><svg class="w-3.5 h-3.5 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><span class="text-[11px] font-medium">${img.name}</span></div>`;
+                                    }
+                                  }
+                                });
                               }
                             }}
                           />

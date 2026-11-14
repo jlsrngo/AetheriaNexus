@@ -4,6 +4,10 @@ import { FileSpreadsheet, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
 import { useI18n } from "../../../lib/i18n";
+import {
+  fetchWorkspaceImageDataUrl,
+  resolveWorkspaceAssetUrl,
+} from "../../studio/htmlStageBundle";
 
 export interface TableBlock {
   type: "table";
@@ -163,6 +167,25 @@ const MARKDOWN_COMPONENTS = {
       {children}
     </pre>
   ),
+  img: ({ src, alt }: { src?: string; alt?: string }) => {
+    const resolved = resolveWorkspaceAssetUrl(typeof src === "string" ? src : null) || src || "";
+    return (
+      <img
+        src={resolved}
+        alt={alt || "Preview"}
+        className="max-w-[240px] max-h-[180px] rounded-lg object-contain border border-[var(--border-color)] bg-black/25 my-1.5"
+        onError={(e) => {
+          const imgEl = e.currentTarget;
+          if (imgEl.dataset.fallbackTried !== "1" && typeof src === "string") {
+            imgEl.dataset.fallbackTried = "1";
+            void fetchWorkspaceImageDataUrl(src).then((dataUrl) => {
+              if (dataUrl) imgEl.src = dataUrl;
+            });
+          }
+        }}
+      />
+    );
+  },
 };
 
 const CELL_MARKDOWN_COMPONENTS = {
