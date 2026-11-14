@@ -60,8 +60,52 @@ pub fn resolve_motioncraft_style_command(workspace_dir: &str, prompt_text: &str)
     resolve_dynamic_style_or_skill_command(workspace_dir, prompt_text)
 }
 
+/// Seeds non-scene kit scripts (e.g. `examples/script/clay-kit.js`) into `workspace/script/`
+/// via `resolve_isolated_path` when missing, so `motion-designer` uses the real 3D kit
+/// instead of rewriting a miniature 2D stub.
+fn seed_skill_kit_scripts(workspace_dir: &str, skill_dir: &Path) -> Vec<String> {
+    if workspace_dir.trim().is_empty() {
+        return Vec::new();
+    }
+    let src_dir = skill_dir.join("examples").join("script");
+    if !src_dir.is_dir() {
+        return Vec::new();
+    }
+    let mut seeded = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&src_dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if !p.is_file() {
+                continue;
+            }
+            let Some(fname) = p.file_name().and_then(|n| n.to_str()) else {
+                continue;
+            };
+            let lower = fname.to_ascii_lowercase();
+            if !lower.ends_with(".js") || lower.starts_with("scene") {
+                continue;
+            }
+            let rel = format!("script/{fname}");
+            if let Ok(dest) = crate::tool::path_guard::resolve_isolated_path(workspace_dir, &rel) {
+                if !dest.exists() {
+                    if let Some(parent) = dest.parent() {
+                        let _ = std::fs::create_dir_all(parent);
+                    }
+                    if std::fs::copy(&p, &dest).is_ok() {
+                        seeded.push(rel);
+                    }
+                } else {
+                    seeded.push(rel);
+                }
+            }
+        }
+    }
+    seeded.sort();
+    seeded
+}
+
 /// Dynamically detects and resolves style or design skill slash commands from `.aetheria/skills/*`.
-pub fn resolve_dynamic_style_or_skill_command(_workspace_dir: &str, prompt_text: &str) -> Option<String> {
+pub fn resolve_dynamic_style_or_skill_command(workspace_dir: &str, prompt_text: &str) -> Option<String> {
     let root = crate::paths::project_root();
 
     let mut slash_tags: Vec<String> = Vec::new();
@@ -116,6 +160,15 @@ pub fn resolve_dynamic_style_or_skill_command(_workspace_dir: &str, prompt_text:
                                 String::new()
                             };
                             let examples_section = collect_skill_examples(&path);
+                            let seeded_kits = seed_skill_kit_scripts(workspace_dir, &path);
+                            let seeded_note = if seeded_kits.is_empty() {
+                                String::new()
+                            } else {
+                                format!(
+                                    "\nSEEDED KIT FILES ALREADY IN WORKSPACE (DO NOT OVERWRITE OR SHRINK THESE): {}\n",
+                                    seeded_kits.join(", ")
+                                )
+                            };
 
                             return Some(format!(
                                 "[Active Motion Skill Triggered: /{name}]:\n\"\"\"\n\
@@ -123,11 +176,12 @@ pub fn resolve_dynamic_style_or_skill_command(_workspace_dir: &str, prompt_text:
                                 DESIGN TOKENS (from {path_display}/tokens.json):\n{tokens_json}\n\
                                 {brief_section}\
                                 {examples_section}\
+                                {seeded_note}\
                                 \"\"\"\n\
                                 MANDATORY RULES FOR THIS GENERATION:\n\
                                 1. Coordinate via the 3-Track Subagent Pipeline: delegate voiceover/SFX synthesis to `task(subagent_type: \"audio-director\")` and delegate modular per-scene scripts (`script/scene1.js`..`script/sceneN.js`) + `index.html` to `task(subagent_type: \"motion-designer\")`.\n\
                                 2. Pass the active skill path (`{path_display}`) and its `examples/` kit instructions directly in your prompt to `motion-designer`. The active skill's rendering architecture (e.g., 3D Three.js + `ClayKit` dual-canvas `#stage-webgl` with `preserveDrawingBuffer: true` + `#stage-hud`, smooth outlines, Neobrutalism subtitles) is NON-NEGOTIABLE — adapt storyboard mood/props *inside* the skill's architecture rather than falling back to plain 2D Canvas.\n\
-                                3. If `examples/script/*-kit.js` (e.g. `clay-kit.js`) exists, copy it verbatim into `script/` (e.g. via `bash` `cp` or full `write`) and preserve `examples/index.html`'s dual-canvas + `AM.drawSubtitles(..., {{ style: \"neobrutalism\", ... }})` structure — NEVER rewrite the kit into a minimal stub.\n\
+                                3. If `script/*-kit.js` (e.g. `script/clay-kit.js`) is already seeded in the workspace, DO NOT overwrite it — load it in `index.html` alongside `/script/three.min.js` and `/script/aetheria-motion.js`, preserve `examples/index.html`'s dual-canvas + `AM.drawSubtitles(..., {{ style: \"neobrutalism\", ... }})` structure, and build real 3D meshes in `scene3D` inside `script/scene1.js`..`sceneN.js`.\n\
                                 4. Strictly apply these exact colors, fonts, camera movement rules, scale law (`u(refPx)`), and motion curves (`AM.spring`, `AM.anticipation`, `AM.stagger`).\n\
                                 5. Follow the Do's and Don'ts from the skill guidelines and exact brief specifications.",
                                 path_display = path.display()
