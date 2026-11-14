@@ -409,7 +409,8 @@ export async function startLiveStack(options = {}) {
   };
 
   const engineUrl = `http://127.0.0.1:${enginePort}`;
-  const webUrl = "http://127.0.0.1:5173";
+  const webPort = startWeb ? await findAvailablePort(5173) : 5173;
+  const webUrl = `http://127.0.0.1:${webPort}`;
 
   try {
     engineChild = spawn(engineBin, ["serve", "--port", String(enginePort)], {
@@ -423,6 +424,7 @@ export async function startLiveStack(options = {}) {
         LOCALAPPDATA: appDataLocal,
         AETHERIA_ROOT: repoRoot,
         AETHERIA_HEADLESS: "1",
+        AETHERIA_DISABLE_OPEN_BROWSER: "1",
         Aetheria_SERVER_USERNAME: authUser,
         AETHERIA_SERVER_USERNAME: authUser,
         Aetheria_SERVER_PASSWORD: authPass,
@@ -454,7 +456,7 @@ export async function startLiveStack(options = {}) {
       const viteEntry = path.join(repoRoot, "node_modules", "vite", "bin", "vite.js");
       webChild = spawn(
         process.execPath,
-        [viteEntry, "--host", "127.0.0.1", "--port", "5173", "--strictPort"],
+        [viteEntry, "--host", "127.0.0.1", "--port", String(webPort), "--strictPort"],
         {
           cwd: path.join(repoRoot, "apps"),
           env: {

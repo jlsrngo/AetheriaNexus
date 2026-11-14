@@ -116,7 +116,7 @@ pub(crate) async fn get_antigravity_project_id(access_token: &str) -> String {
                             .or_else(|| tiers.first())
                             .and_then(|t| t.get("id").and_then(|id| id.as_str()))
                     })
-                    .unwrap_or("free-tier");
+                    .unwrap_or("legacy-tier");
 
                 let onboard_url = std::env::var("AETHERIA_ANTIGRAVITY_ONBOARD_URL").unwrap_or_else(|_| {
                     "https://cloudcode-pa.googleapis.com/v1internal:onboardUser".to_string()

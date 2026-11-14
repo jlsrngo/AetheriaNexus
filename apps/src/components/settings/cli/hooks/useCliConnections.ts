@@ -474,11 +474,7 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
       const authUrl = (json.data.authUrl as string | undefined) || "";
 
       if (authUrl) {
-        try {
-          window.open(authUrl, "_blank", "noopener,noreferrer");
-        } catch {
-          /* popup blocker fallback */
-        }
+        // Backend OAuth start opens the system browser via OS URL handler; keep toast fallback only.
         toast.info(isEn ? "Opening Login Page..." : "Membuka Halaman Login...", {
           description: isEn
             ? "If the browser tab didn't open automatically, click 'Open Page'."

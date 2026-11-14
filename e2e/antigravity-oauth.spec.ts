@@ -176,7 +176,7 @@ test.describe("Antigravity Independent Browser OAuth E2E (Real Engine + Browser)
       { workspaceDir: stack.workspaceDir },
     );
 
-    await page.goto(`/settings?folder=${encodeURIComponent(stack.workspaceDir)}`);
+    await page.goto(`${stack.webUrl}/settings?folder=${encodeURIComponent(stack.workspaceDir)}`);
 
     // Switch to CLI Bridges tab inside Settings.
     const cliTabBtn = page.getByRole("button", { name: /CLI Bridges/i });

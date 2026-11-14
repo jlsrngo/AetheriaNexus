@@ -33,14 +33,19 @@ pub fn get_oauth_status(request_id: &str) -> Option<OauthResult> {
 }
 
 pub fn open_browser_url(url: &str) {
+    if std::env::var("AETHERIA_DISABLE_OPEN_BROWSER").as_deref() == Ok("1") {
+        return;
+    }
     #[cfg(windows)]
     {
-        let mut cmd = std::process::Command::new("cmd");
+        // Launch rundll32 directly so cmd.exe never splits unquoted `&` query params.
+        let mut cmd = std::process::Command::new("rundll32.exe");
         crate::paths::configure_hidden_std_command(&mut cmd);
-        if let Err(_) = cmd.args(["/c", "start", "", url]).spawn() {
-            let mut fallback = std::process::Command::new("rundll32.exe");
+        if cmd.args(["url.dll,FileProtocolHandler", url]).spawn().is_err() {
+            let escaped = url.replace('&', "^&");
+            let mut fallback = std::process::Command::new("cmd");
             crate::paths::configure_hidden_std_command(&mut fallback);
-            let _ = fallback.args(["url.dll,FileProtocolHandler", url]).spawn();
+            let _ = fallback.args(["/c", "start", "", &escaped]).spawn();
         }
     }
     #[cfg(not(windows))]
@@ -102,7 +107,11 @@ pub fn url_decode(input: &str) -> String {
                 continue;
             }
         }
-        out.push(bytes[i]);
+        if bytes[i] == b'+' {
+            out.push(b' ');
+        } else {
+            out.push(bytes[i]);
+        }
         i += 1;
     }
     String::from_utf8_lossy(&out).into_owned()
@@ -149,6 +158,7 @@ async fn wait_for_local_oauth_callback(
         let mut code_opt = None;
         let mut state_opt = None;
         let mut error_opt = None;
+        let mut error_desc_opt = None;
         if let Some((_, query)) = path_part.split_once('?') {
             for pair in query.split('&') {
                 if let Some((k, v)) = pair.split_once('=') {
@@ -157,20 +167,29 @@ async fn wait_for_local_oauth_callback(
                         "code" => code_opt = Some(val),
                         "state" => state_opt = Some(val),
                         "error" => error_opt = Some(val),
+                        "error_description" => error_desc_opt = Some(val),
                         _ => {}
                     }
                 }
             }
         }
+        let combined_error = match (error_opt, error_desc_opt) {
+            (Some(err), Some(desc)) if !desc.trim().is_empty() => {
+                Some(format!("{}: {}", err, desc))
+            }
+            (Some(err), _) => Some(err),
+            (None, Some(desc)) if !desc.trim().is_empty() => Some(desc),
+            (None, _) => None,
+        };
 
-        let html = if error_opt.is_some() || code_opt.is_none() {
+        let html = if combined_error.is_some() || code_opt.is_none() {
             "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n<!DOCTYPE html><html><body style=\"background:#0c0c0e;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0\"><div style=\"text-align:center;padding:32px;border:1px solid #27272a;border-radius:12px\"><h2>Sign-in could not be completed</h2><p style=\"color:#a1a1aa\">You can close this tab and return to Aetheria.</p></div></body></html>"
         } else {
             "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n<!DOCTYPE html><html><body style=\"background:#0c0c0e;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0\"><div style=\"text-align:center;padding:32px;border:1px solid #27272a;border-radius:12px\"><h2>Signed in to Aetheria</h2><p style=\"color:#a1a1aa\">You can close this tab and return to Aetheria.</p><script>setTimeout(()=>window.close(),1200)</script></div></body></html>"
         };
         let _ = stream.write_all(html.as_bytes()).await;
         let _ = stream.shutdown().await;
-        return Some((code_opt, state_opt, error_opt));
+        return Some((code_opt, state_opt, combined_error));
     }
 }
 
@@ -740,14 +759,21 @@ mod tests {
         let auth_url = data["authUrl"].as_str().expect("authUrl string");
         assert!(auth_url.starts_with("https://accounts.google.com/o/oauth2/v2/auth?"));
         assert!(auth_url.contains("client_id=1071006060591-"));
+        assert!(auth_url.contains("&response_type=code&"));
         assert!(auth_url.contains("prompt=select_account%20consent"));
         assert!(auth_url.contains("access_type=offline"));
         assert!(auth_url.contains("redirect_uri=http%3A%2F%2Flocalhost%3A"));
+        assert!(auth_url.contains("&scope="));
+        assert!(auth_url.contains("&state="));
     }
 
     #[test]
-    fn url_decode_decodes_google_oauth_code_slashes() {
+    fn url_decode_decodes_google_oauth_code_slashes_and_plus_spaces() {
         assert_eq!(url_decode("4%2F0AanRR_test"), "4/0AanRR_test");
+        assert_eq!(
+            url_decode("Missing+required+param%3A+code%2B1"),
+            "Missing required param: code+1"
+        );
     }
 }
 
