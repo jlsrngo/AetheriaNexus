@@ -260,17 +260,20 @@ process.on('SIGTERM', () => { stopAll(); process.exit(0); });
     existing.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
     return existing[0] || null;
   };
+  if (!useBunFallback) {
+    console.log(`[⏱️ +${formatElapsed()}] [dev-app] Memastikan aetheria-engine terbaru (cargo build dev incremental)...`);
+    execSync('cargo build -p aetheria-engine --bin aetheria-engine', { cwd: rootDir, stdio: 'inherit' });
+  }
   const rustCandidates = [
     path.join(rootDir, 'target', 'debug', `aetheria-engine${exeExt}`),
     path.join(rootDir, 'target', 'release', `aetheria-engine${exeExt}`),
-    path.join(rootDir, 'apps', 'desktop', 'resources', `engine${exeExt}`),
-    path.join(rootDir, 'target', 'release', `aetheria${exeExt}`),
   ];
   const rustBin = !useBunFallback ? pickNewestExisting(rustCandidates) : null;
 
   let engineChild = null;
   if (rustBin) {
-    console.log(`[⏱️ +${formatElapsed()}] [dev-app] Menjalankan Native Rust Aetheria Engine (${path.basename(rustBin)}) pada :4096...`);
+    const relBin = path.relative(rootDir, rustBin);
+    console.log(`[⏱️ +${formatElapsed()}] [dev-app] Menjalankan Native Rust Aetheria Engine (${relBin}) pada :4096...`);
     engineChild = start('Engine', rustBin, ['serve', '--port', '4096'], {
       restartOnCrash: true,
       port: 4096,
@@ -278,33 +281,27 @@ process.on('SIGTERM', () => { stopAll(); process.exit(0); });
       onRestart: (c) => { engineChild = c; },
     });
   } else {
-    console.log(`[⏱️ +${formatElapsed()}] [dev-app] aetheria-engine belum di-compile, melakukan cargo build (debug)...`);
-    execSync('cargo build -p aetheria-engine --bin aetheria-engine', { cwd: rootDir, stdio: 'inherit' });
-    const compiledBin = path.join(rootDir, 'target', 'debug', `aetheria-engine${exeExt}`);
-    engineChild = start('Engine', compiledBin, ['serve', '--port', '4096'], {
-      restartOnCrash: true,
-      port: 4096,
-      env: auth.engineEnv,
-      onRestart: (c) => { engineChild = c; },
-    });
+    console.error('Binary engine tidak ditemukan. Silakan jalankan: npm run build:engine');
+    process.exit(1);
   }
 
   if (useViteHttp) {
     console.log(`[⏱️ +${formatElapsed()}] [dev-app] Menjalankan Vite HMR Server (:5173)...`);
+    const viteEnv = { ...auth.clientEnv, AETHERIA_API: 'http://127.0.0.1:4096' };
     const viteBin = path.join(rootDir, 'node_modules', 'vite', 'bin', 'vite.js');
     if (fs.existsSync(viteBin)) {
       start('Web', process.execPath, [viteBin], {
-        cwd: path.join(rootDir, 'apps', 'web'),
+        cwd: path.join(rootDir, 'apps'),
         restartOnCrash: true,
         port: 5173,
-        env: auth.clientEnv,
+        env: viteEnv,
       });
     } else {
       start('Web', 'npm', ['run', 'dev'], {
-        cwd: path.join(rootDir, 'apps', 'web'),
+        cwd: path.join(rootDir, 'apps'),
         restartOnCrash: true,
         port: 5173,
-        env: auth.clientEnv,
+        env: viteEnv,
       });
     }
   }
@@ -343,6 +340,7 @@ process.on('SIGTERM', () => { stopAll(); process.exit(0); });
   const rustDesktopCandidates = [
     path.join(rootDir, 'target', 'debug', 'aetheria-desktop' + exeExt),
     path.join(rootDir, 'target', 'debug', 'aetheria' + exeExt),
+    path.join(rootDir, 'target', 'debug', 'aetheria-engine' + exeExt),
     path.join(rootDir, 'target', 'release', 'aetheria' + exeExt),
     path.join(rootDir, 'target', 'release', 'aetheria-engine' + exeExt),
   ];
@@ -356,7 +354,10 @@ process.on('SIGTERM', () => { stopAll(); process.exit(0); });
   };
 
   if (desktopBin) {
-    const desktopChild = start('Desktop', desktopBin, [], {
+    const desktopArgs = path.basename(desktopBin).toLowerCase().includes('engine')
+      ? ['--gui', '--port', '4096']
+      : [];
+    const desktopChild = start('Desktop', desktopBin, desktopArgs, {
       cwd: rootDir,
       restartOnCrash: false,
       windowsHide: false,
@@ -367,7 +368,7 @@ process.on('SIGTERM', () => { stopAll(); process.exit(0); });
       process.exit(0);
     });
   } else {
-    console.error('Binary native desktop tidak ditemukan. Silakan jalankan: npm run tauri:dev atau cargo build --bin aetheria-engine');
+    console.error('Binary native desktop tidak ditemukan. Silakan jalankan: npm run tauri:dev atau npm run build:engine');
   }
 
   // Keep parent alive so child processes aren't killed
