@@ -84,6 +84,29 @@ pub fn locate_ffmpeg_binary() -> Option<PathBuf> {
                     }
                 }
             }
+            let npx_cache = local.join("npm-cache").join("_npx");
+            if let Ok(entries) = std::fs::read_dir(&npx_cache) {
+                for entry in entries.flatten() {
+                    let remotion_ff = entry
+                        .path()
+                        .join("node_modules")
+                        .join("@remotion")
+                        .join("compositor-win32-x64-msvc")
+                        .join("ffmpeg.exe");
+                    if remotion_ff.is_file() {
+                        fixed.push(remotion_ff);
+                    }
+                }
+            }
+            let capcut_apps = local.join("CapCut").join("Apps");
+            if let Ok(entries) = std::fs::read_dir(&capcut_apps) {
+                for entry in entries.flatten() {
+                    let capcut_ff = entry.path().join("ffmpeg.exe");
+                    if capcut_ff.is_file() {
+                        fixed.push(capcut_ff);
+                    }
+                }
+            }
         }
         let user = home_dir();
         fixed.push(user.join("scoop").join("shims").join("ffmpeg.exe"));

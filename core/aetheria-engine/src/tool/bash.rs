@@ -30,7 +30,7 @@ pub fn bash_tool_definition() -> Value {
                     },
                     "workdir": {
                         "type": "string",
-                        "description": "Relative working directory inside workspace. Defaults to '.aetheria/scratch'."
+                        "description": "Relative working directory inside workspace. Defaults to workspace root '.'."
                     }
                 },
                 "required": ["command"]
@@ -78,7 +78,7 @@ pub async fn execute_bash(
             .get(session_id)
             .cloned()
             .filter(|p| p.exists())
-            .unwrap_or_else(|| scratch_dir.clone())
+            .unwrap_or_else(|| PathBuf::from(workspace_dir))
     };
 
     let cmd_str = command.to_string();
@@ -261,7 +261,7 @@ async fn run_interruptible_shell(
             )
             .await
         } else {
-            let raw = format!("/C \"{}\"", cmd_str);
+            let raw = format!("/d /s /c \"{}\"", cmd_str);
             run_command_with_interrupt("cmd.exe", &[], Some(&raw), cwd, interrupt_rx).await
         }
     } else {
@@ -316,5 +316,49 @@ mod tests {
         assert_eq!(parts[0], bin_dir);
         assert_eq!(parts[1], sys_dir);
         assert_eq!(parts.iter().filter(|p| **p == bin_dir).count(), 1);
+    }
+
+    #[tokio::test]
+    async fn execute_bash_runs_in_workspace_root_and_resolves_ffprobe() {
+        let tmp = std::env::temp_dir().join(format!("aetheria_bash_ws_{}", crate::paths::now_ms()));
+        std::fs::create_dir_all(&tmp).expect("create temp ws");
+        std::fs::write(tmp.join("probe_marker.txt"), "ok").expect("write marker");
+
+        let ws_str = tmp.to_string_lossy().to_string();
+        let res = execute_bash(
+            "test-bash-cwd-session",
+            &ws_str,
+            &json!({ "command": "python -c \"import os; assert os.path.isfile('probe_marker.txt'); print('MARKER_OK')\"" }),
+        )
+        .await;
+        assert_eq!(res.get("ok").and_then(|v| v.as_bool()), Some(true), "res: {}", res);
+        assert!(
+            res.get("output")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .contains("MARKER_OK")
+        );
+
+        if let Some(ff) = crate::paths::locate_ffmpeg_binary() {
+            if let Some(parent) = ff.parent() {
+                let ffprobe_name = if cfg!(windows) { "ffprobe.exe" } else { "ffprobe" };
+                if parent.join(ffprobe_name).is_file() {
+                    let probe_res = execute_bash(
+                        "test-bash-ffprobe-session",
+                        &ws_str,
+                        &json!({ "command": "ffprobe -version" }),
+                    )
+                    .await;
+                    assert_eq!(
+                        probe_res.get("ok").and_then(|v| v.as_bool()),
+                        Some(true),
+                        "ffprobe failed: {}",
+                        probe_res
+                    );
+                }
+            }
+        }
+
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }
