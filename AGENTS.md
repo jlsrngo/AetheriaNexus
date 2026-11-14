@@ -73,7 +73,7 @@ Catatan lingkungan: target resmi adalah Windows. Di Linux, `cargo test` gagal bi
 **Ceklis — Menjalankan**
 
 - [ ] Engine hidup dan sehat: `GET /api/health` mengembalikan `healthy: true`.
-- [ ] Engine/Vite dijalankan **ulang setelah** kodemu berubah; skenario berjalan pada build yang berisi perubahanmu, bukan proses lama.
+- [ ] Engine/Vite dijalankan **ulang setelah** kodemu berubah (melalui build dev incremental `npm run build:engine`); skenario berjalan pada build yang berisi perubahanmu, bukan proses lama.
 - [ ] Jalur sukses lulus.
 - [ ] Minimal satu jalur gagal berperilaku semestinya (input tidak valid, engine mati, atau error provider): pesan error jelas, tidak crash, jendela tidak reload.
 - [ ] Bug fix: skenario **gagal** di kode lama, **lulus** di kode baru.
@@ -92,15 +92,15 @@ Catatan lingkungan: target resmi adalah Windows. Di Linux, `cargo test` gagal bi
 
 | Kebutuhan | Perintah | Mode & Kapan Dipakai |
 |---|---|---|
-| Compile & tes harian engine (`core/`) | `cargo build --bin aetheria-engine` atau `npm run dev:desktop` / `npm run dev` / `npm run dev:app` | **Debug (tanpa LTO, ~17 detik)**. Pakai ini untuk iterasi coding, bugfix, dan tes API/Playwright (`e2e/live-stack.mjs` otomatis memilih biner terbaru di `target/debug` atau `target/release`). |
-| Verifikasi desktop Tauri harian (`src-tauri/` + UI) | `npm run tauri:dev` | **Debug + Vite HMR**. Menjalankan shell desktop Tauri mode debug tanpa full release link maupun re-embed `apps/dist`. |
-| Full rilis / `.exe` portable & installer | `npm run bundle:prepare` (atau `npm run tauri:build`, `npm run start`) | **Release penuh (`--release`, LTO `thin`, `codegen-units = 1`)**. Hanya dijalankan di akhir saat fitur/perbaikan sudah lolos verifikasi debug dan memang diminta membungkus rilis/portable ke `dist-portable/`. |
+| Compile & tes harian engine (`core/`) | `npm run build:engine` / `npm run dev:engine` / `npm run check:rs` (atau `npm run dev:desktop` / `npm run dev:app`) | **Debug incremental (`~4.6 detik` setelah cache dependensi)**. Pakai ini untuk iterasi coding, bugfix, dan tes API/Playwright (`e2e/live-stack.mjs` otomatis memilih biner terbaru di `target/debug` atau `target/release`). |
+| Verifikasi desktop Tauri harian (`src-tauri/` + UI) | `npm run tauri:dev` | **Debug + Vite HMR (`devUrl`)**. Menjalankan shell desktop Tauri mode debug tanpa full release link maupun re-embed `apps/dist`. |
+| Full rilis / `.exe` portable & installer | `npm run bundle:prepare` (atau `npm run tauri:build`, `npm run start`) | **Release penuh (`--release`, LTO `thin`, `codegen-units = 1`)**. Hanya dijalankan untuk `tauri:build`, `bundle:prepare`, dan pengukuran performa. |
 
-* **Aturan keras agent:** Jangan menjalankan `npm run bundle:prepare`, `npm run tauri:build`, atau `cargo build/run --release` untuk testing harian/bugfix kecuali diminta eksplisit oleh user atau saat benar-benar menyiapkan rilis final.
+* **Aturan keras agent:** Dilarang memakai `--release` untuk dev/E2E (`npm run bundle:prepare`, `npm run tauri:build`, `npm run start`, atau `cargo build/run --release`). Jalur release hanya boleh dijalankan untuk `tauri:build`, `bundle:prepare`, dan pengukuran performa saat diminta eksplisit.
 
 **Catatan engine & lingkungan**
 
-* Hidupkan engine sendiri sebelum menjalankan skrip: `npm run dev:desktop` (debug), `npm run dev:app` (peluncur lokal), atau `npm run start` (release). Autentikasi memakai Basic auth; kredensial ada di `~/.aetheria/dev-server-password` (format `user:password`).
+* Untuk dev dan skenario E2E, bangun biner dev incremental dengan `npm run build:engine`, lalu jalankan engine dev (`npm run dev:engine`, `npm run dev:desktop`, atau `npm run dev:app`) dan jalankan skenario E2E. Dilarang memakai `--release` untuk dev/E2E; release hanya untuk `tauri:build`, `bundle:prepare`, dan pengukuran performa. Autentikasi memakai Basic auth; kredensial ada di `~/.aetheria/dev-server-password` (format `user:password`).
 * **Port tidak konsisten di repo:** `scripts/dev-app.cjs` memakai `:4096`, sedangkan proxy Vite dan default skrip smoke/knowledge memakai `:4196`. Set `AETHERIA_HEALTH` dan `AETHERIA_API` bila engine tidak di `:4196`. Jangan mengandalkan auto-start di `scripts/test-knowledge-e2e.ts`: ia menjalankan engine di `:4096` tetapi memeriksa health di `:4196`.
 * `test:knowledge` dan `test:smoke` memanggil model sungguhan (`AETHERIA_TEST_PROVIDER`, `AETHERIA_TEST_MODEL`). Tanpa kredensial provider, statusnya **Terblokir**, bukan lulus.
 * **Belum ada** `playwright.config.ts`, spec Playwright, maupun browser yang terunduh. Tugas UI pertama yang membutuhkan E2E membuat sebagai perubahan terpisah: konfigurasi minimal (`baseURL` `http://127.0.0.1:5173`), spec di `e2e/`, skrip `test:e2e` di `package.json`, dan `npx playwright install chromium`. Laporkan perubahan itu.
@@ -111,6 +111,7 @@ Catatan lingkungan: target resmi adalah Windows. Di Linux, `cargo test` gagal bi
 - [ ] Setiap baris diff terlacak ke permintaan.
 - [ ] Tidak ada `any`, `@ts-ignore`, atau `@ts-expect-error` baru.
 - [ ] Tidak ada tes yang di-skip, dihapus, atau dilonggarkan demi lulus.
+- [ ] Tidak menambah `--release` pada skrip dev/E2E.
 - [ ] Tidak ada secret, `.env`, kredensial, `dist/`, atau `target/` yang ikut ter-commit.
 - [ ] Tidak menjalankan `cargo fmt --all`: saat aturan ini ditulis, ±167 file belum sesuai rustfmt, sehingga hasilnya diff raksasa. Ikuti gaya file di sekitar.
 - [ ] Gate gagal karena kode lama? Buktikan dengan menjalankannya pada commit sebelum perubahanmu, laporkan, dan jangan memperbaikinya diam-diam di luar scope.
