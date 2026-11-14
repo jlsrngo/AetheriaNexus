@@ -40,6 +40,7 @@ pub async fn execute_capture_film_preview(workspace_dir: &str, arguments: &Value
                 .map(|f| {
                     json!({
                         "timestamp": f.timestamp,
+                        "relativeRatio": f.relative_ratio,
                         "path": f.saved_rel_path
                     })
                 })

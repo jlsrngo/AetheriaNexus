@@ -14,10 +14,12 @@ use serde_json::{json, Value};
 use std::path::PathBuf;
 
 const MAX_PREVIEW_FRAMES: usize = 4;
+pub const RELATIVE_PREVIEW_POSITIONS: [f64; 4] = [0.10, 0.35, 0.60, 0.85];
 
 #[derive(Clone, Debug)]
 pub struct PreviewFrameCapture {
     pub timestamp: f64,
+    pub relative_ratio: f64,
     pub saved_rel_path: String,
     pub data_url: String,
 }
@@ -31,13 +33,26 @@ pub struct FilmPreviewCaptureResult {
     pub frames: Vec<PreviewFrameCapture>,
 }
 
+pub(crate) fn compute_relative_ratio(timestamp: f64, duration: f64) -> f64 {
+    if duration <= 0.0 || !duration.is_finite() {
+        return 0.0;
+    }
+    (((timestamp / duration).clamp(0.0, 1.0)) * 100.0).round() / 100.0
+}
+
 pub(crate) fn normalize_preview_timestamps(raw: &[f64], duration: f64) -> Vec<f64> {
-    let max_t = (duration - 0.05).max(0.0);
+    let safe_dur = if duration.is_finite() && duration > 0.0 {
+        duration
+    } else {
+        5.0
+    };
+    let max_t = (safe_dur - 0.05).max(0.0);
     let mut out = Vec::new();
     let candidates: Vec<f64> = if raw.is_empty() {
-        let first = (duration * 0.12).min(0.8).max(0.1).min(max_t);
-        let mid = (duration * 0.5).min(max_t);
-        vec![first, mid]
+        RELATIVE_PREVIEW_POSITIONS
+            .iter()
+            .map(|ratio| (safe_dur * ratio).min(max_t))
+            .collect()
     } else {
         raw.iter()
             .copied()
@@ -148,6 +163,7 @@ pub async fn capture_film_preview_frames(
 
         frames.push(PreviewFrameCapture {
             timestamp: *ts,
+            relative_ratio: compute_relative_ratio(*ts, meta.duration),
             saved_rel_path: rel_path,
             data_url: format!("data:image/jpeg;base64,{}", b64),
         });
@@ -169,7 +185,8 @@ mod tests {
     #[test]
     fn normalizes_default_and_clamped_timestamps() {
         let defaults = normalize_preview_timestamps(&[], 10.0);
-        assert_eq!(defaults, vec![0.8, 5.0]);
+        assert_eq!(defaults, vec![1.0, 3.5, 6.0, 8.5]);
+        assert_eq!(compute_relative_ratio(3.5, 10.0), 0.35);
 
         let custom = normalize_preview_timestamps(&[-1.0, 0.25, 0.255, 99.0, 2.0, 3.0, 4.0], 6.0);
         assert_eq!(custom, vec![0.25, 5.95, 2.0]);

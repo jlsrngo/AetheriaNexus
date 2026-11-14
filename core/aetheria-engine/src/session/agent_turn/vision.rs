@@ -57,7 +57,7 @@ pub fn process_attached_files(
                     let img_path = ref_dir.join(format!("ref_{}", clean_name));
                     if std::fs::write(&img_path, &bytes).is_ok() {
                         ocr_transcriptions.push(format!(
-                            "[Reference Image Style Asset: '{}' saved at ref/ref_{} (use '/ref/ref_{}' in index.html / script/scene*.js or match its color palette, typography, and layout style)]",
+                            "[Reference Image Style Asset: '{}' saved at ref/ref_{} — translate its palette, composition, lighting, and typography into procedural Canvas/WebGL code; NEVER load or draw 'ref/ref_{}' directly as a canvas backdrop/image]",
                             file_name, clean_name, clean_name
                         ));
                     }
@@ -100,8 +100,9 @@ pub fn process_attached_files(
                                 ])
                                 .output();
 
-                            // Extract 3 visual style keyframes (1s, 3s, 6s) for Vision LLM
-                            for (idx, ts) in ["00:00:01", "00:00:03", "00:00:06"].iter().enumerate() {
+                            // Extract 4 visual style keyframes at normalized ratios [10%, 35%, 60%, 85%] (default 10s span) for Vision LLM
+                            let sample_points = super::social_links::compute_relative_sample_timestamps(10.0);
+                            for (idx, (_ratio, ts)) in sample_points.iter().enumerate() {
                                 let frame_jpg = ref_dir.join(format!("ref_frame_{}.jpg", idx + 1));
                                 let mut ff_frame = std::process::Command::new(ff);
                                 crate::paths::configure_hidden_std_command(&mut ff_frame);
@@ -112,7 +113,7 @@ pub fn process_attached_files(
                                         "-loglevel",
                                         "error",
                                         "-ss",
-                                        ts,
+                                        ts.as_str(),
                                         "-i",
                                         &vid_path.to_string_lossy(),
                                         "-frames:v",
@@ -135,7 +136,7 @@ pub fn process_attached_files(
                             }
                         }
                         ocr_transcriptions.push(format!(
-                            "[Reference Video Style & Voice Asset: '{}' saved at ref/ref_{}. Visual keyframes have been attached for style matching, and its voice track is extracted at 'ref/ref_voice.wav'. Only clone it (refAudio + cloneVoice: true) if it is the user's own voice or they confirmed permission; otherwise describe its tone in voiceDesign.]",
+                            "[Reference Video Style & Voice Asset: '{}' saved at ref/ref_{} with keyframes ref/ref_frame_1.jpg..ref/ref_frame_4.jpg at normalized ratios [10%, 35%, 60%, 85%]. Visual keyframes have been attached for style matching, and its voice track is extracted at 'ref/ref_voice.wav'. Only clone it (refAudio + cloneVoice: true) if it is the user's own voice or they confirmed permission; otherwise describe its tone in voiceDesign.]",
                             file_name, clean_name
                         ));
                     }

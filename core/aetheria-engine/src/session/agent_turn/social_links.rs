@@ -155,6 +155,26 @@ pub(crate) fn persist_reference_frames_to_dir(
     saved_files
 }
 
+pub const RELATIVE_REFERENCE_POSITIONS: [f64; 4] = [0.10, 0.35, 0.60, 0.85];
+
+pub(crate) fn compute_relative_sample_timestamps(duration_secs: f64) -> Vec<(f64, String)> {
+    let safe_dur = if duration_secs.is_finite() && duration_secs > 0.5 {
+        duration_secs
+    } else {
+        8.0
+    };
+    let max_t = (safe_dur - 0.05).max(0.1);
+    RELATIVE_REFERENCE_POSITIONS
+        .iter()
+        .map(|ratio| {
+            let t = ((safe_dur * ratio).min(max_t) * 100.0).round() / 100.0;
+            let mins = (t as u64) / 60;
+            let secs = t - (mins as f64 * 60.0);
+            (*ratio, format!("00:{:02}:{:05.2}", mins, secs))
+        })
+        .collect()
+}
+
 fn is_pinterest_url(url: &str) -> bool {
     let lower = url.to_ascii_lowercase();
     lower.starts_with("http")
@@ -223,7 +243,8 @@ pub async fn process_social_links(
                                         .output();
 
                                     let mut saved_frames = Vec::new();
-                                    for (idx, ts) in ["00:00:01", "00:00:04", "00:00:14"].iter().enumerate() {
+                                    let sample_points = compute_relative_sample_timestamps(duration as f64);
+                                    for (idx, (_ratio, ts)) in sample_points.iter().enumerate() {
                                         let frame_name = format!("ref_tiktok_frame_{}.jpg", idx + 1);
                                         let frame_jpg = ref_dir.join(&frame_name);
                                         let mut ff_frame = std::process::Command::new(ff_cmd);
@@ -232,7 +253,7 @@ pub async fn process_social_links(
                                             .args([
                                                 "-y",
                                                 "-ss",
-                                                ts,
+                                                ts.as_str(),
                                                 "-i",
                                                 &mp4_path.to_string_lossy(),
                                                 "-frames:v",
@@ -259,7 +280,7 @@ pub async fn process_social_links(
                     ocr_transcriptions.push(format!(
                         "[TikTok Reference Video Extracted (@{}, duration: {}s, title: \"{}\"):\n\
                         - Reference Video Saved: ref/ref_tiktok.mp4\n\
-                        - Reference Frames Saved: ref/ref_tiktok_frame_1.jpg, ref/ref_tiktok_frame_2.jpg, ref/ref_tiktok_frame_3.jpg\n\
+                        - Reference Frames Saved at normalized ratios [10%, 35%, 60%, 85%]: ref/ref_tiktok_frame_1.jpg, ref/ref_tiktok_frame_2.jpg, ref/ref_tiktok_frame_3.jpg, ref/ref_tiktok_frame_4.jpg\n\
                         - Reference Voice Track Extracted: ref/ref_voice.wav. When the user requests matching or using this voice sample, pass `refAudio: \"ref/ref_voice.wav\"` and `cloneVoice: true` to `voicebox_speak` so Voicebox clones the speaker's exact vocal timbre and intonation!\n\
                         - Keyframes attached to vision context: study the reference's motion language (entrance/exit choreography, camera moves, layout zones, typography hierarchy, palette) and translate it into this video's own style per the Visual Style System — inspired by, never a pixel copy.]",
                         author, duration, title
@@ -346,7 +367,8 @@ pub async fn process_social_links(
                                             has_mp4 = true;
                                         }
                                         if let Some(ff_cmd) = ffmpeg_bin {
-                                            for (idx, ts) in ["00:00:01", "00:00:03"].iter().enumerate() {
+                                            let sample_points = compute_relative_sample_timestamps(8.0);
+                                            for (idx, (_ratio, ts)) in sample_points.iter().enumerate() {
                                                 let frame_jpg = ref_dir
                                                     .join(format!("ref_pinterest_frame_{}.jpg", idx + 1));
                                                 let mut ff_frame = std::process::Command::new(ff_cmd);
@@ -355,7 +377,7 @@ pub async fn process_social_links(
                                                     .args([
                                                         "-y",
                                                         "-ss",
-                                                        ts,
+                                                        ts.as_str(),
                                                         "-i",
                                                         &mp4_path.to_string_lossy(),
                                                         "-frames:v",
@@ -461,6 +483,20 @@ mod tests {
         assert!(dir.join("ref_pinterest_frame_1.jpg").is_file());
         assert!(dir.join("ref_pinterest_frame_2.jpg").is_file());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn computes_paired_relative_sample_timestamps() {
+        let pts = compute_relative_sample_timestamps(10.0);
+        assert_eq!(
+            pts,
+            vec![
+                (0.10, "00:00:01.00".to_string()),
+                (0.35, "00:00:03.50".to_string()),
+                (0.60, "00:00:06.00".to_string()),
+                (0.85, "00:00:08.50".to_string()),
+            ]
+        );
     }
 }
 
