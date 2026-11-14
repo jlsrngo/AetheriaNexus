@@ -1,6 +1,9 @@
 //! Credential token refresh logic for OAuth providers (Codex, Claude, Kiro, Antigravity).
 
 use super::harvest::{harvest_all, harvest_antigravity, harvest_kiro};
+use super::oauth::{
+    url_encode, ANTIGRAVITY_OAUTH_CLIENT_ID, ANTIGRAVITY_OAUTH_CLIENT_SECRET, ANTIGRAVITY_TOKEN_URL,
+};
 use super::store::{decode_jwt_payload, get_credential, is_expired, set_credential};
 use super::types::CredentialEntry;
 use crate::paths::{now_iso, now_ms};
@@ -89,6 +92,73 @@ where
     }
 }
 
+async fn refresh_antigravity_oauth_token(
+    client: &reqwest::Client,
+    entry: &CredentialEntry,
+    token_url: &str,
+) -> Option<CredentialEntry> {
+    let rt = entry.refresh_token.as_deref().filter(|s| !s.is_empty())?;
+    let cid = entry
+        .client_id
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .unwrap_or(ANTIGRAVITY_OAUTH_CLIENT_ID);
+    let csec = entry
+        .client_secret
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .unwrap_or(ANTIGRAVITY_OAUTH_CLIENT_SECRET);
+
+    let form_body = format!(
+        "grant_type=refresh_token&refresh_token={}&client_id={}&client_secret={}",
+        url_encode(rt),
+        url_encode(cid),
+        url_encode(csec),
+    );
+    let resp = client
+        .post(token_url)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(form_body)
+        .send()
+        .await
+        .ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    let data: Value = resp.json().await.ok()?;
+    let new_at = data
+        .get("access_token")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())?
+        .to_string();
+    let new_rt = data
+        .get("refresh_token")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| entry.refresh_token.clone());
+    let expires_in = data
+        .get("expires_in")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(3600);
+
+    Some(CredentialEntry {
+        source: "antigravity".to_string(),
+        access_token: new_at,
+        refresh_token: new_rt,
+        expires_at: Some(now_ms() + expires_in * 1000),
+        client_id: Some(cid.to_string()),
+        client_secret: Some(csec.to_string()),
+        region: entry.region.clone(),
+        profile_arn: entry.profile_arn.clone(),
+        account_id: entry.account_id.clone(),
+        account_email: entry.account_email.clone(),
+        account_info: entry.account_info.clone(),
+        updated_at: now_iso(),
+        auto_harvested: entry.auto_harvested,
+    })
+}
+
 pub async fn refresh_credential_source(
     source: &str,
     entry: &CredentialEntry,
@@ -100,6 +170,15 @@ pub async fn refresh_credential_source(
 
     match source {
         "antigravity" => {
+            let token_url = std::env::var("AETHERIA_ANTIGRAVITY_TOKEN_URL")
+                .unwrap_or_else(|_| ANTIGRAVITY_TOKEN_URL.to_string());
+            if let Some(updated) = refresh_antigravity_oauth_token(&client, entry, &token_url).await {
+                set_credential(updated.clone());
+                return Some(updated);
+            }
+            if !entry.auto_harvested {
+                return None;
+            }
             if let Some(fresh) = harvest_antigravity() {
                 if !is_expired(&fresh, 60_000) {
                     set_credential(fresh.clone());

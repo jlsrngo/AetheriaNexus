@@ -264,6 +264,48 @@ pub fn harvest_antigravity() -> Option<CredentialEntry> {
     })
 }
 
+pub fn apply_harvested_entry(
+    store: &mut super::types::CredentialStore,
+    name: &str,
+    harvested_opt: Option<CredentialEntry>,
+) -> (bool, bool) {
+    if store.logged_out.contains(name) {
+        return (store.entries.contains_key(name), false);
+    }
+
+    if let Some(harvested) = harvested_opt {
+        let should_update = match store.entries.get(name) {
+            None => true,
+            Some(existing) => {
+                if !existing.auto_harvested
+                    && (!existing.access_token.is_empty() || existing.refresh_token.is_some())
+                {
+                    false
+                } else {
+                    let h_exp = harvested.expires_at.unwrap_or(0);
+                    let e_exp = existing.expires_at.unwrap_or(0);
+                    h_exp > e_exp
+                        || harvested.access_token != existing.access_token
+                        || (existing.account_email.is_none() && harvested.account_email.is_some())
+                        || harvested.account_email != existing.account_email
+                        || harvested.account_info != existing.account_info
+                }
+            }
+        };
+        let mut changed = false;
+        if should_update {
+            if name == "antigravity" {
+                crate::bridge::clear_antigravity_project_id_cache();
+            }
+            store.entries.insert(name.to_string(), harvested);
+            changed = true;
+        }
+        (true, changed)
+    } else {
+        (store.entries.contains_key(name), false)
+    }
+}
+
 pub fn harvest_all() -> HashMap<String, bool> {
     let mut results = HashMap::new();
     let harvesters: [(&str, fn() -> Option<CredentialEntry>); 5] = [
@@ -277,31 +319,11 @@ pub fn harvest_all() -> HashMap<String, bool> {
     with_store(|store| {
         let mut changed = false;
         for (name, func) in harvesters {
-            if let Some(harvested) = func() {
-                let should_update = match store.entries.get(name) {
-                    None => true,
-                    Some(existing) => {
-                        if !existing.auto_harvested && existing.account_email.is_some() && existing.expires_at.unwrap_or(0) >= harvested.expires_at.unwrap_or(0) {
-                            false
-                        } else {
-                            let h_exp = harvested.expires_at.unwrap_or(0);
-                            let e_exp = existing.expires_at.unwrap_or(0);
-                            h_exp > e_exp
-                                || harvested.access_token != existing.access_token
-                                || (existing.account_email.is_none() && harvested.account_email.is_some())
-                                || harvested.account_email != existing.account_email
-                                || harvested.account_info != existing.account_info
-                        }
-                    }
-                };
-                if should_update {
-                    store.entries.insert(name.to_string(), harvested);
-                    changed = true;
-                }
-                results.insert(name.to_string(), true);
-            } else {
-                results.insert(name.to_string(), store.entries.contains_key(name));
+            let (present, did_change) = apply_harvested_entry(store, name, func());
+            if did_change {
+                changed = true;
             }
+            results.insert(name.to_string(), present);
         }
         if changed {
             save_store_to_disk(store);
@@ -309,5 +331,67 @@ pub fn harvest_all() -> HashMap<String, bool> {
     });
 
     results
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cred_store::types::CredentialStore;
+
+    #[test]
+    fn apply_harvested_preserves_manual_oauth_over_pc_credentials() {
+        let mut store = CredentialStore::default();
+        store.entries.insert(
+            "antigravity".to_string(),
+            CredentialEntry {
+                source: "antigravity".to_string(),
+                access_token: "oauth-tok".to_string(),
+                refresh_token: Some("oauth-rt".to_string()),
+                expires_at: Some(1_000),
+                account_email: Some("oauth-user@example.com".to_string()),
+                auto_harvested: false,
+                ..Default::default()
+            },
+        );
+
+        let pc_harvested = CredentialEntry {
+            source: "antigravity".to_string(),
+            access_token: "pc-tok".to_string(),
+            expires_at: Some(9_999_999),
+            account_email: Some("pc-user@gmail.com".to_string()),
+            auto_harvested: true,
+            ..Default::default()
+        };
+
+        let (present, changed) =
+            apply_harvested_entry(&mut store, "antigravity", Some(pc_harvested));
+        assert!(present);
+        assert!(!changed);
+        assert_eq!(store.entries["antigravity"].access_token, "oauth-tok");
+        assert_eq!(
+            store.entries["antigravity"].account_email.as_deref(),
+            Some("oauth-user@example.com")
+        );
+    }
+
+    #[test]
+    fn apply_harvested_skips_logged_out_provider() {
+        let mut store = CredentialStore::default();
+        store.logged_out.insert("antigravity".to_string());
+
+        let pc_harvested = CredentialEntry {
+            source: "antigravity".to_string(),
+            access_token: "pc-tok".to_string(),
+            account_email: Some("pc-user@gmail.com".to_string()),
+            auto_harvested: true,
+            ..Default::default()
+        };
+
+        let (present, changed) =
+            apply_harvested_entry(&mut store, "antigravity", Some(pc_harvested));
+        assert!(!present);
+        assert!(!changed);
+        assert!(!store.entries.contains_key("antigravity"));
+    }
 }
 

@@ -11,6 +11,7 @@ mod response_format;
 mod routes;
 pub mod schema;
 
+pub(crate) use antigravity_auth::{clear_antigravity_project_id_cache, get_antigravity_project_id};
 pub(crate) use response_format::{
     extract_content_text, make_completion_response, make_completion_response_with_reasoning,
     make_sse_response_from_result, make_sse_response_with_reasoning,

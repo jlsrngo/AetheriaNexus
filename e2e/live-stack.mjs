@@ -339,12 +339,12 @@ async function findAvailablePort(preferredPort) {
 }
 
 /**
- * @param {{ aetheriaConfig?: unknown, startWeb?: boolean, enginePort?: number }} [options]
+ * @param {{ aetheriaConfig?: unknown, startWeb?: boolean, enginePort?: number, env?: Record<string, string> }} [options]
  *   aetheriaConfig: replace the default mock-provider config (parity harness points
  *   the engine at its own fake provider). startWeb: skip Vite when no UI is needed.
  */
 export async function startLiveStack(options = {}) {
-  const { aetheriaConfig, startWeb = true } = options;
+  const { aetheriaConfig, startWeb = true, env: extraEnv = {} } = options;
   const enginePort = options.enginePort ?? (await findAvailablePort(4196));
   const repoRoot = repoRootDir();
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aetheria-e2e-"));
@@ -427,6 +427,7 @@ export async function startLiveStack(options = {}) {
         AETHERIA_SERVER_USERNAME: authUser,
         Aetheria_SERVER_PASSWORD: authPass,
         AETHERIA_SERVER_PASSWORD: authPass,
+        ...extraEnv,
       },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,

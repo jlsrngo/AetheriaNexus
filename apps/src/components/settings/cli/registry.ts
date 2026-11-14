@@ -85,10 +85,10 @@ export const FALLBACK_CLI_REGISTRY: CliProviderDescriptor[] = [
       "gemini-2.5-flash",
       "claude-sonnet-4-6",
     ],
-    requiresCli: true,
+    requiresCli: false,
     loginMode: "terminal",
     supportsAutoConfigure: false,
-    supportsBrowserLogin: false,
+    supportsBrowserLogin: true,
   },
   {
     id: "kiro",

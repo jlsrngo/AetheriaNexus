@@ -3,6 +3,8 @@ export interface LiveStackOptions {
   aetheriaConfig?: unknown;
   /** Skip starting Vite when the test only exercises the engine HTTP API. Default true. */
   startWeb?: boolean;
+  /** Extra environment variables passed to the spawned `aetheria-engine` process. */
+  env?: Record<string, string>;
 }
 
 export interface MockLlmController {

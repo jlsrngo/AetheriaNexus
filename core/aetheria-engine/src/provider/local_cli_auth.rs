@@ -2,9 +2,9 @@
 
 use crate::bridge::LOCAL_CLI_BRIDGE_PORT;
 use crate::cred_store::{
-    get_all_credentials, get_credential, get_oauth_status, harvest_all, refresh_credential_source,
-    register_local_cli_to_config, remove_credential, set_credential, start_oauth_session,
-    CredentialEntry,
+    clear_logged_out, get_all_credentials, get_credential, get_oauth_status, harvest_all,
+    refresh_credential_source, register_local_cli_to_config, remove_credential, set_credential,
+    start_oauth_session, CredentialEntry,
 };
 use crate::paths::now_iso;
 use axum::{
@@ -33,6 +33,12 @@ pub async fn handle_local_cli_login(Json(body): Json<Value>) -> Response {
             .into_response()
         }
         "claude" | "codex" | "opencode-terminal" | "antigravity-cli" => {
+            let source_to_clear = match target {
+                "antigravity-cli" => "antigravity",
+                "opencode-terminal" => "opencode",
+                other => other,
+            };
+            clear_logged_out(source_to_clear);
             let cmd_str = match target {
                 "claude" => "claude",
                 "codex" => "codex",
@@ -232,7 +238,13 @@ pub async fn handle_local_cli_refresh(Json(body): Json<Value>) -> Response {
         "results": results,
         "data": {
             "success": any_ok || target.is_none(),
-            "message": if any_ok { "Token refreshed successfully." } else { "Credentials re-harvested." }
+            "message": if any_ok {
+                "Token refreshed successfully."
+            } else if target.is_some() {
+                "Failed to refresh token. Please sign in again."
+            } else {
+                "Credentials re-harvested."
+            }
         }
     }))
     .into_response()

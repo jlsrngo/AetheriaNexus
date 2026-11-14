@@ -27,8 +27,9 @@ pub use oauth::{get_oauth_status, open_browser_url, start_oauth_session};
 pub use quota::{fetch_all_quotas, fetch_live_quotas_list};
 pub use refresh::{ensure_fresh_credential, refresh_credential_source};
 pub use store::{
-    cred_file_path, get_all_credentials, get_credential, load_store_from_disk, remove_credential,
-    save_store_to_disk, set_credential,
+    clear_logged_out, cred_file_path, get_all_credentials, get_credential, load_store_from_disk,
+    load_store_from_path, remove_credential, save_store_to_disk, save_store_to_path,
+    set_credential,
 };
 pub use types::{default_version, CredentialEntry, CredentialStore, OauthResult};
 pub use vault_helpers::{

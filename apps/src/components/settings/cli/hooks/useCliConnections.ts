@@ -140,8 +140,10 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
             };
             try {
               localStorage.setItem("aetheria_cached_local_cli_status", JSON.stringify(updated));
-              if (updated.antigravity?.accountEmail) {
+              if (updated.antigravity?.loggedIn && updated.antigravity?.accountEmail) {
                 localStorage.setItem("aetheria_agy_email", updated.antigravity.accountEmail);
+              } else {
+                localStorage.removeItem("aetheria_agy_email");
               }
             } catch {}
             return updated;
@@ -503,6 +505,9 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
             description: isEn ? "Token received." : "Token diterima.",
           });
           await fetchStatus();
+          if (target === "antigravity" && !isGeminiActive) {
+            await handleConnectTarget("antigravity", "Google Antigravity");
+          }
           return;
         }
         if (result.status === "error") {
@@ -532,15 +537,29 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
   const handleAntigravityLogout = async () => {
     setIsLoggingOutAntigravity(true);
     try {
-      const res = await tauriCliLogin("antigravity-logout");
-      if (res.success) {
+      localStorage.removeItem("aetheria_agy_email");
+      if (
+        typeof window !== "undefined" &&
+        ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)
+      ) {
+        await tauriCliLogin("antigravity-logout").catch(() => {});
+      }
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/refresh${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: "antigravity", action: "logout" }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && (json.data?.success ?? json.ok)) {
         toast.info("Logged Out", {
           description: "Google Antigravity credentials cleared. You can now login with a new account.",
         });
         await handleDisconnect("antigravity", "Google Antigravity");
-        fetchStatus();
+        await fetchStatus();
       } else {
-        toast.error("Logout failed", { description: res.message });
+        toast.error("Logout failed", {
+          description: json.data?.message || json.error || `HTTP ${res.status}`,
+        });
       }
     } catch (err: any) {
       toast.error("Failed to logout", { description: err.message });

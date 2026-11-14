@@ -105,6 +105,15 @@ pub fn build_discovered_list() -> Vec<Value> {
     for (prov, disp, ctype, src_path, def_mod) in specs {
         let entry = creds.get(prov);
         let has_token = entry.map(|e| !e.access_token.is_empty()).unwrap_or(false);
+        let effective_src_path = if prov == "antigravity"
+            && entry
+                .map(|e| !e.auto_harvested && !e.access_token.is_empty())
+                .unwrap_or(false)
+        {
+            "Browser OAuth (~/.aetheria/local-cli-credentials.json)"
+        } else {
+            src_path
+        };
         let expired = entry
             .and_then(|e| e.expires_at)
             .map(|exp| now_ms() >= exp)
@@ -113,7 +122,7 @@ pub fn build_discovered_list() -> Vec<Value> {
             "provider": prov,
             "displayName": disp,
             "type": ctype,
-            "sourcePath": src_path,
+            "sourcePath": effective_src_path,
             "hasToken": has_token,
             "hasRefreshToken": entry.and_then(|e| e.refresh_token.as_ref()).is_some(),
             "isExpired": expired,
@@ -225,10 +234,10 @@ pub fn build_cli_provider_registry() -> Vec<Value> {
                 "gemini-2.5-flash",
                 "claude-sonnet-4-6"
             ],
-            "requiresCli": true,
+            "requiresCli": false,
             "loginMode": "terminal",
             "supportsAutoConfigure": false,
-            "supportsBrowserLogin": false
+            "supportsBrowserLogin": true
         }),
         json!({
             "id": "kiro",

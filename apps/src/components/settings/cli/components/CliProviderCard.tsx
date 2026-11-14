@@ -62,7 +62,7 @@ interface CliProviderCardProps {
   onTestPing: (id: CliProviderId, name: string) => void;
   onToggleExpand: (id: string) => void;
   onRefreshQuota: () => void;
-  onRefreshCred: (target: "claude" | "codex") => void;
+  onRefreshCred: (target: string) => void;
   onInjectCli: (target: "claude" | "codex") => void;
   onBrowserSignIn: (target: CliProviderId) => void;
   onSignOut: (target: string) => void;
@@ -126,7 +126,12 @@ export const CliProviderCard = memo(function CliProviderCard({
   const ownsOwnCredential = id === "opencode" || id === "antigravity";
   const discovered = data.discovered?.find((x) => x.provider === id);
   const codexPlan = id === "codex" ? data.codex?.plan : undefined;
-  const tokenExpiresAt = id === "codex" ? data.codex?.expiresAt : id === "kiro" ? data.kiro?.expiresAt : null;
+  const tokenExpiresAt =
+    id === "codex"
+      ? data.codex?.expiresAt
+      : id === "kiro"
+      ? data.kiro?.expiresAt
+      : discovered?.expiresAt ?? null;
   const neoCardBg = NEO_CLI_COLORS[id] || "bg-[#FFFDFB]";
 
   const dot = state.signedIn
@@ -481,10 +486,10 @@ export const CliProviderCard = memo(function CliProviderCard({
           )}
 
           <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-            {discovered?.hasToken && d.id !== "nineRouter" && !ownsOwnCredential && (
+            {discovered?.hasToken && d.id !== "nineRouter" && (!ownsOwnCredential || d.id === "antigravity") && (
               <button
                 type="button"
-                onClick={() => onRefreshCred(id as "claude" | "codex")}
+                onClick={() => onRefreshCred(id)}
                 disabled={refreshingTarget === id}
                 className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-none transition-all cursor-pointer font-medium flex items-center gap-1"
                 title={isEn ? "Refresh the harvested OAuth token" : "Perbarui token OAuth"}
@@ -516,7 +521,7 @@ export const CliProviderCard = memo(function CliProviderCard({
               </button>
             )}
 
-            {d.supportsBrowserLogin && (!state.signedIn || Boolean(refreshErrors[id])) && (
+            {d.supportsBrowserLogin && (!state.signedIn || Boolean(refreshErrors[id]) || d.id === "antigravity") && (
               <button
                 type="button"
                 onClick={() => onBrowserSignIn(id)}
@@ -536,6 +541,10 @@ export const CliProviderCard = memo(function CliProviderCard({
                   ? isEn
                     ? "Re-authenticate via browser"
                     : "Masuk ulang via browser"
+                  : state.signedIn && d.id === "antigravity"
+                  ? isEn
+                    ? "Switch account (Browser)"
+                    : "Ganti akun (Browser)"
                   : isEn
                   ? "Sign in with browser"
                   : "Masuk via browser"}

@@ -207,7 +207,15 @@ pub(crate) async fn handle_antigravity_request(body: Value, model: &str, is_stre
         inner_req["tools"] = json!([{ "functionDeclarations": fn_decls }]);
     }
 
-    let project_id = get_antigravity_project_id(&cred.access_token).await;
+    let project_id = match cred
+        .account_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        Some(pid) => pid.to_string(),
+        None => get_antigravity_project_id(&cred.access_token).await,
+    };
     let agy_payload = json!({
         "project": project_id,
         "model": upstream_model,

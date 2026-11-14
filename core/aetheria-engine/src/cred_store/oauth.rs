@@ -12,6 +12,14 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 static OAUTH_RESULTS: OnceLock<Mutex<HashMap<String, OauthResult>>> = OnceLock::new();
 
+pub const ANTIGRAVITY_OAUTH_CLIENT_ID: &str =
+    "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com";
+pub const ANTIGRAVITY_OAUTH_CLIENT_SECRET: &str = "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";
+pub const ANTIGRAVITY_AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
+pub const ANTIGRAVITY_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
+pub const ANTIGRAVITY_USERINFO_URL: &str = "https://www.googleapis.com/oauth2/v1/userinfo?alt=json";
+pub const ANTIGRAVITY_SCOPES: &str = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/cclog https://www.googleapis.com/auth/experimentsandconfigs";
+
 pub fn update_oauth_result(res: OauthResult) {
     let m = OAUTH_RESULTS.get_or_init(|| Mutex::new(HashMap::new()));
     if let Ok(mut guard) = m.lock() {
@@ -77,6 +85,204 @@ pub fn url_encode(s: &str) -> String {
         }
     }
     out
+}
+
+pub fn url_decode(input: &str) -> String {
+    let bytes = input.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let (Some(hi), Some(lo)) = (
+                (bytes[i + 1] as char).to_digit(16),
+                (bytes[i + 2] as char).to_digit(16),
+            ) {
+                out.push((hi * 16 + lo) as u8);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+fn generate_oauth_state() -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(format!("{}-{}-{}", now_ms(), std::process::id(), gen_id("st")).as_bytes());
+    let digest = hasher.finalize();
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&digest[..24])
+}
+
+async fn wait_for_local_oauth_callback(
+    listener: tokio::net::TcpListener,
+    expected_path: &str,
+    timeout_secs: u64,
+) -> Option<(Option<String>, Option<String>, Option<String>)> {
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
+    loop {
+        let now = tokio::time::Instant::now();
+        if now >= deadline {
+            return None;
+        }
+        let Ok(Ok((mut stream, _))) = tokio::time::timeout(deadline - now, listener.accept()).await
+        else {
+            return None;
+        };
+
+        let mut buf = vec![0u8; 4096];
+        let n = stream.read(&mut buf).await.unwrap_or(0);
+        let req_str = String::from_utf8_lossy(&buf[..n]);
+        let first_line = req_str.lines().next().unwrap_or("");
+        let path_part = first_line.split_whitespace().nth(1).unwrap_or("");
+        let req_path = path_part.split('?').next().unwrap_or("");
+
+        if req_path == "/favicon.ico" || (!expected_path.is_empty() && req_path != expected_path && !path_part.contains("code=") && !path_part.contains("error=")) {
+            let _ = stream
+                .write_all(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
+                .await;
+            let _ = stream.shutdown().await;
+            continue;
+        }
+
+        let mut code_opt = None;
+        let mut state_opt = None;
+        let mut error_opt = None;
+        if let Some((_, query)) = path_part.split_once('?') {
+            for pair in query.split('&') {
+                if let Some((k, v)) = pair.split_once('=') {
+                    let val = url_decode(v);
+                    match k {
+                        "code" => code_opt = Some(val),
+                        "state" => state_opt = Some(val),
+                        "error" => error_opt = Some(val),
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        let html = if error_opt.is_some() || code_opt.is_none() {
+            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n<!DOCTYPE html><html><body style=\"background:#0c0c0e;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0\"><div style=\"text-align:center;padding:32px;border:1px solid #27272a;border-radius:12px\"><h2>Sign-in could not be completed</h2><p style=\"color:#a1a1aa\">You can close this tab and return to Aetheria.</p></div></body></html>"
+        } else {
+            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n<!DOCTYPE html><html><body style=\"background:#0c0c0e;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0\"><div style=\"text-align:center;padding:32px;border:1px solid #27272a;border-radius:12px\"><h2>Signed in to Aetheria</h2><p style=\"color:#a1a1aa\">You can close this tab and return to Aetheria.</p><script>setTimeout(()=>window.close(),1200)</script></div></body></html>"
+        };
+        let _ = stream.write_all(html.as_bytes()).await;
+        let _ = stream.shutdown().await;
+        return Some((code_opt, state_opt, error_opt));
+    }
+}
+
+async fn complete_antigravity_oauth_callback(
+    code: String,
+    redirect_uri: String,
+) -> Result<String, String> {
+    let token_url = std::env::var("AETHERIA_ANTIGRAVITY_TOKEN_URL")
+        .unwrap_or_else(|_| ANTIGRAVITY_TOKEN_URL.to_string());
+    let userinfo_url = std::env::var("AETHERIA_ANTIGRAVITY_USERINFO_URL")
+        .unwrap_or_else(|_| ANTIGRAVITY_USERINFO_URL.to_string());
+
+    let http = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(20))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let form_body = format!(
+        "client_id={}&client_secret={}&code={}&redirect_uri={}&grant_type=authorization_code",
+        url_encode(ANTIGRAVITY_OAUTH_CLIENT_ID),
+        url_encode(ANTIGRAVITY_OAUTH_CLIENT_SECRET),
+        url_encode(&code),
+        url_encode(&redirect_uri)
+    );
+
+    let resp = http
+        .post(&token_url)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(form_body)
+        .send()
+        .await
+        .map_err(|e| format!("Google token exchange request failed: {}", e))?;
+
+    let status = resp.status();
+    let tok_json: Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("Invalid Google token response ({}): {}", status, e))?;
+
+    if !status.is_success() {
+        let msg = tok_json
+            .get("error_description")
+            .or_else(|| tok_json.get("error"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("Token exchange failed");
+        return Err(format!("Google OAuth error ({}): {}", status, msg));
+    }
+
+    let access_token = tok_json
+        .get("access_token")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| "Google token response missing access_token".to_string())?
+        .to_string();
+    let refresh_token = tok_json
+        .get("refresh_token")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+    let exp_in = tok_json
+        .get("expires_in")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(3600);
+
+    let mut email = None;
+    if !userinfo_url.trim().is_empty() {
+        if let Ok(ui_resp) = http
+            .get(&userinfo_url)
+            .header("Authorization", format!("Bearer {}", access_token))
+            .send()
+            .await
+        {
+            if ui_resp.status().is_success() {
+                if let Ok(ui_json) = ui_resp.json::<Value>().await {
+                    email = ui_json
+                        .get("email")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.is_empty())
+                        .map(|s| s.to_string());
+                }
+            }
+        }
+    }
+    if email.is_none() {
+        email = tok_json
+            .get("id_token")
+            .and_then(|v| v.as_str())
+            .and_then(decode_jwt_payload)
+            .and_then(|p| p.get("email").and_then(|v| v.as_str()).map(|s| s.to_string()));
+    }
+
+    let project_id = crate::bridge::get_antigravity_project_id(&access_token).await;
+    let info_label = email
+        .clone()
+        .unwrap_or_else(|| "Google Antigravity (OAuth)".to_string());
+
+    set_credential(CredentialEntry {
+        source: "antigravity".to_string(),
+        access_token,
+        refresh_token,
+        expires_at: Some(now_ms() + exp_in * 1000),
+        client_id: Some(ANTIGRAVITY_OAUTH_CLIENT_ID.to_string()),
+        client_secret: Some(ANTIGRAVITY_OAUTH_CLIENT_SECRET.to_string()),
+        account_id: Some(project_id),
+        account_email: email,
+        account_info: Some(info_label),
+        updated_at: now_iso(),
+        auto_harvested: false,
+        ..Default::default()
+    });
+    register_local_cli_to_config(crate::bridge::LOCAL_CLI_BRIDGE_PORT);
+    Ok("Connected to Google Antigravity!".to_string())
 }
 
 pub async fn start_oauth_session(target: &str, open_browser: bool) -> Result<Value, String> {
@@ -442,6 +648,106 @@ pub async fn start_oauth_session(target: &str, open_browser: bool) -> Result<Val
         }));
     }
 
+    if target == "antigravity" {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .map_err(|e| format!("Failed to bind local OAuth callback port: {}", e))?;
+        let port = listener.local_addr().map_err(|e| e.to_string())?.port();
+        let redirect_uri = format!("http://localhost:{}/oauth-callback", port);
+        let state = generate_oauth_state();
+
+        let auth_url = format!(
+            "{}?client_id={}&response_type=code&redirect_uri={}&scope={}&access_type=offline&prompt=select_account%20consent&state={}",
+            ANTIGRAVITY_AUTH_URL,
+            url_encode(ANTIGRAVITY_OAUTH_CLIENT_ID),
+            url_encode(&redirect_uri),
+            url_encode(ANTIGRAVITY_SCOPES),
+            url_encode(&state)
+        );
+
+        update_oauth_result(OauthResult {
+            request_id: request_id.clone(),
+            target: target_str.clone(),
+            status: "pending".to_string(),
+            message: "Waiting for browser OAuth login...".to_string(),
+            auth_url: Some(auth_url.clone()),
+            updated_at: now_ms(),
+        });
+
+        if open_browser {
+            open_browser_url(&auth_url);
+        }
+
+        let req_id_clone = request_id.clone();
+        let redirect_clone = redirect_uri.clone();
+        let state_clone = state.clone();
+
+        tokio::spawn(async move {
+            let outcome = match wait_for_local_oauth_callback(listener, "/oauth-callback", 300).await {
+                None => Err("Antigravity OAuth callback timed out.".to_string()),
+                Some((_, _, Some(err))) => Err(format!("Google OAuth returned error: {}", err)),
+                Some((None, _, None)) => Err("OAuth callback missing authorization code.".to_string()),
+                Some((Some(code), cb_state, None)) => {
+                    if cb_state.as_deref() != Some(state_clone.as_str()) {
+                        Err("Invalid OAuth state parameter.".to_string())
+                    } else {
+                        complete_antigravity_oauth_callback(code, redirect_clone).await
+                    }
+                }
+            };
+
+            match outcome {
+                Ok(msg) => update_oauth_result(OauthResult {
+                    request_id: req_id_clone,
+                    target: "antigravity".to_string(),
+                    status: "success".to_string(),
+                    message: msg,
+                    auth_url: None,
+                    updated_at: now_ms(),
+                }),
+                Err(msg) => update_oauth_result(OauthResult {
+                    request_id: req_id_clone,
+                    target: "antigravity".to_string(),
+                    status: "error".to_string(),
+                    message: msg,
+                    auth_url: None,
+                    updated_at: now_ms(),
+                }),
+            }
+        });
+
+        return Ok(json!({
+            "requestId": request_id,
+            "target": target_str,
+            "authUrl": auth_url
+        }));
+    }
+
     Err(format!("Unsupported OAuth target: {}", target))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn start_oauth_session_antigravity_builds_google_account_chooser_url() {
+        let data = start_oauth_session("antigravity", false)
+            .await
+            .expect("antigravity oauth start should succeed");
+        assert_eq!(data["target"], "antigravity");
+        assert!(data["requestId"].as_str().is_some());
+        let auth_url = data["authUrl"].as_str().expect("authUrl string");
+        assert!(auth_url.starts_with("https://accounts.google.com/o/oauth2/v2/auth?"));
+        assert!(auth_url.contains("client_id=1071006060591-"));
+        assert!(auth_url.contains("prompt=select_account%20consent"));
+        assert!(auth_url.contains("access_type=offline"));
+        assert!(auth_url.contains("redirect_uri=http%3A%2F%2Flocalhost%3A"));
+    }
+
+    #[test]
+    fn url_decode_decodes_google_oauth_code_slashes() {
+        assert_eq!(url_decode("4%2F0AanRR_test"), "4/0AanRR_test");
+    }
 }
 

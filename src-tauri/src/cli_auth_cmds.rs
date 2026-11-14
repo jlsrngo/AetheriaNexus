@@ -17,6 +17,12 @@ pub async fn tauri_cli_login(target: String) -> Result<serde_json::Value, String
             }))
         }
         "claude" | "codex" | "opencode-terminal" | "antigravity-cli" => {
+            let source_to_clear = match target.as_str() {
+                "antigravity-cli" => "antigravity",
+                "opencode-terminal" => "opencode",
+                other => other,
+            };
+            aetheria_engine::cred_store::clear_logged_out(source_to_clear);
             let cmd_str = match target.as_str() {
                 "claude" => "claude",
                 "codex" => "codex",

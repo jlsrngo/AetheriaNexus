@@ -2,7 +2,7 @@
 
 use crate::paths::now_iso;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub fn default_version() -> u32 {
     1
@@ -45,6 +45,8 @@ pub struct CredentialStore {
     pub version: u32,
     #[serde(default)]
     pub entries: HashMap<String, CredentialEntry>,
+    #[serde(default)]
+    pub logged_out: HashSet<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
