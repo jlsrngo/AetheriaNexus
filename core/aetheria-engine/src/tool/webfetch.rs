@@ -52,21 +52,89 @@ pub async fn execute_webfetch(arguments: &Value) -> Value {
         Ok(resp) => {
             let status = resp.status().as_u16();
             let raw_body = resp.text().await.unwrap_or_default();
+            let media = extract_html_media_urls(&raw_body);
             let cleaned = if format == "html" {
                 raw_body
             } else {
-                strip_html_to_readable_text(&raw_body)
+                let text = strip_html_to_readable_text(&raw_body);
+                if media.is_empty() {
+                    text
+                } else {
+                    format!("[Extracted Media URLs: {}]\n\n{}", media.join(", "), text)
+                }
             };
             let (bounded, _) = crate::tool::truncator::bound_tool_output("webfetch", &cleaned);
             json!({
                 "ok": (200..300).contains(&status),
                 "status": status,
                 "url": url,
+                "media": media,
                 "output": bounded
             })
         }
         Err(e) => json!({ "ok": false, "error": format!("webfetch failed: {}", e) }),
     }
+}
+
+fn read_tag_attr<'a>(tag: &'a str, attr: &str) -> Option<&'a str> {
+    for quote in ['"', '\''] {
+        let pat = format!("{}={}", attr, quote);
+        if let Some(idx) = tag.find(&pat) {
+            let rest = &tag[idx + pat.len()..];
+            if let Some(end) = rest.find(quote) {
+                return Some(&rest[..end]);
+            }
+        }
+    }
+    None
+}
+
+fn push_unique_media_url(urls: &mut Vec<String>, raw: &str, max_urls: usize) {
+    let cleaned = raw.replace("&amp;", "&").trim().to_string();
+    if (cleaned.starts_with("https://") || cleaned.starts_with("http://"))
+        && !urls.contains(&cleaned)
+        && urls.len() < max_urls
+    {
+        urls.push(cleaned);
+    }
+}
+
+pub(crate) fn extract_html_media_urls(html: &str) -> Vec<String> {
+    const MAX_MEDIA_URLS: usize = 5;
+    let mut urls = Vec::new();
+
+    let mut pos = 0;
+    while let Some(rel) = html[pos..].find('<') {
+        let start = pos + rel;
+        let Some(end_rel) = html[start..].find('>') else {
+            break;
+        };
+        let tag = &html[start..=start + end_rel];
+        let lower = tag.to_ascii_lowercase();
+        if lower.starts_with("<meta") {
+            let prop = read_tag_attr(&lower, "property")
+                .or_else(|| read_tag_attr(&lower, "name"))
+                .unwrap_or("");
+            if matches!(
+                prop,
+                "og:image" | "twitter:image" | "twitter:image:src" | "og:video" | "og:video:url"
+            ) {
+                if let Some(content) = read_tag_attr(tag, "content") {
+                    push_unique_media_url(&mut urls, content, MAX_MEDIA_URLS);
+                }
+            }
+        } else if lower.starts_with("<img") {
+            if let Some(src) = read_tag_attr(tag, "src") {
+                push_unique_media_url(&mut urls, src, MAX_MEDIA_URLS);
+            }
+        }
+        if urls.len() >= MAX_MEDIA_URLS {
+            break;
+        }
+        pos = start + end_rel + 1;
+    }
+
+    urls
 }
 
 fn strip_html_to_readable_text(html: &str) -> String {
@@ -84,5 +152,32 @@ fn strip_html_to_readable_text(html: &str) -> String {
         }
     }
     out.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extracts_og_image_and_img_src_up_to_five_urls() {
+        let html = r#"
+            <html><head>
+                <meta content="https://i.pinimg.com/736x/76/ed/af/76edaf00529634c5287f884a8b4ef38d.jpg" property="og:image"/>
+                <meta property="og:video" content="https://v1.pinimg.com/videos/mc/720p/sample.mp4"/>
+            </head><body>
+                <img src="https://example.com/1.png"/>
+                <img src="https://example.com/2.png"/>
+                <img src="https://example.com/3.png"/>
+                <img src="https://example.com/4.png"/>
+            </body></html>
+        "#;
+        let media = extract_html_media_urls(html);
+        assert_eq!(media.len(), 5);
+        assert_eq!(
+            media[0],
+            "https://i.pinimg.com/736x/76/ed/af/76edaf00529634c5287f884a8b4ef38d.jpg"
+        );
+        assert_eq!(media[1], "https://v1.pinimg.com/videos/mc/720p/sample.mp4");
+    }
 }
 
