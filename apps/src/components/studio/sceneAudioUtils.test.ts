@@ -47,6 +47,24 @@ describe("sceneAudioUtils", () => {
     expect(resolved.map((r) => r.scene.id)).toEqual(["s1"]);
   });
 
+  it("resolves both voice and sfx tracks for a scene when sfx is specified", () => {
+    const scenes = [
+      makeScene({
+        id: "s1",
+        audio: "audio/scene1.wav",
+        sfx: "audio/sfx_wind.wav",
+      }),
+    ];
+    const resolved = resolveSceneAudioTracks(scenes, "E:/Work", true, (raw) =>
+      raw ? `/ws/${raw}` : null
+    );
+    expect(resolved).toHaveLength(2);
+    expect(resolved[0]?.kind).toBe("voice");
+    expect(resolved[0]?.volumeScale).toBe(1);
+    expect(resolved[1]?.kind).toBe("sfx");
+    expect(resolved[1]?.volumeScale).toBe(0.45);
+  });
+
   it("computes clamped playback target seconds safely", () => {
     expect(computeAudioTargetSeconds(60, 0, 30)).toBe(2);
     expect(computeAudioTargetSeconds(10, 30, 30)).toBe(0);

@@ -68,9 +68,12 @@ export const SceneAudioSync: React.FC<SceneAudioSyncProps> = ({
   }, [resolvedTracks, onAudioError]);
 
   const syncSingleElement = useCallback(
-    (scene: HtmlFilmScene, el: HTMLAudioElement) => {
+    (scene: HtmlFilmScene, el: HTMLAudioElement, volumeScale = 1, keyId = scene.id, labelPath = scene.audio) => {
       const clock = latestClockRef.current;
-      const effectiveVolume = computeEffectiveAudioVolume(clock.volume, clock.isMuted);
+      const effectiveVolume = computeEffectiveAudioVolume(
+        (clock.volume ?? 1) * volumeScale,
+        clock.isMuted
+      );
       el.muted = clock.isMuted || effectiveVolume <= 0;
       el.volume = effectiveVolume;
       el.playbackRate = Math.max(0.25, Math.min(4, clock.playbackRate));
@@ -95,9 +98,9 @@ export const SceneAudioSync: React.FC<SceneAudioSyncProps> = ({
         void el.play().catch((err: unknown) => {
           const errName = err instanceof DOMException ? err.name : err instanceof Error ? err.name : undefined;
           if (errName === "AbortError") return;
-          const msg = formatAudioErrorMessage(scene.audio, el.error?.code, errName);
+          const msg = formatAudioErrorMessage(labelPath, el.error?.code, errName);
           console.error("[SceneAudioSync] play failed:", msg, err);
-          failedTracksRef.current.set(scene.id, msg);
+          failedTracksRef.current.set(keyId, msg);
           emitFirstTrackError();
         });
       } else if (!clock.isPlaying && !el.paused) {
@@ -108,9 +111,18 @@ export const SceneAudioSync: React.FC<SceneAudioSyncProps> = ({
   );
 
   useEffect(() => {
-    for (const { scene } of resolvedTracks) {
-      const el = audioRefs.current.get(scene.id);
-      if (el) syncSingleElement(scene, el);
+    for (const track of resolvedTracks) {
+      const keyId = track.trackKey || `${track.scene.id}:${track.kind || "voice"}`;
+      const el = audioRefs.current.get(keyId);
+      if (el) {
+        syncSingleElement(
+          track.scene,
+          el,
+          track.volumeScale ?? 1,
+          keyId,
+          track.kind === "sfx" ? track.scene.sfx : track.scene.audio
+        );
+      }
     }
   }, [frame, fps, isPlaying, playbackRate, volume, isMuted, resolvedTracks, syncSingleElement]);
 
@@ -127,35 +139,40 @@ export const SceneAudioSync: React.FC<SceneAudioSyncProps> = ({
 
   return (
     <div style={{ display: "none" }} aria-hidden="true">
-      {resolvedTracks.map(({ scene, src }) => (
-        <audio
-          key={`${scene.id}-${src}`}
-          preload="auto"
-          src={src}
-          onLoadedMetadata={(e) => {
-            syncSingleElement(scene, e.currentTarget);
-          }}
-          onCanPlay={(e) => {
-            if (failedTracksRef.current.delete(scene.id)) {
+      {resolvedTracks.map((track) => {
+        const { scene, src } = track;
+        const keyId = track.trackKey || `${scene.id}:${track.kind || "voice"}`;
+        const labelPath = track.kind === "sfx" ? scene.sfx : scene.audio;
+        return (
+          <audio
+            key={`${keyId}-${src}`}
+            preload="auto"
+            src={src}
+            onLoadedMetadata={(e) => {
+              syncSingleElement(scene, e.currentTarget, track.volumeScale ?? 1, keyId, labelPath);
+            }}
+            onCanPlay={(e) => {
+              if (failedTracksRef.current.delete(keyId)) {
+                emitFirstTrackError();
+              }
+              syncSingleElement(scene, e.currentTarget, track.volumeScale ?? 1, keyId, labelPath);
+            }}
+            onError={(e) => {
+              const msg = formatAudioErrorMessage(labelPath, e.currentTarget.error?.code);
+              console.error("[SceneAudioSync] media error:", msg);
+              failedTracksRef.current.set(keyId, msg);
               emitFirstTrackError();
-            }
-            syncSingleElement(scene, e.currentTarget);
-          }}
-          onError={(e) => {
-            const msg = formatAudioErrorMessage(scene.audio, e.currentTarget.error?.code);
-            console.error("[SceneAudioSync] media error:", msg);
-            failedTracksRef.current.set(scene.id, msg);
-            emitFirstTrackError();
-          }}
-          ref={(el) => {
-            if (el) {
-              audioRefs.current.set(scene.id, el);
-            } else {
-              audioRefs.current.delete(scene.id);
-            }
-          }}
-        />
-      ))}
+            }}
+            ref={(el) => {
+              if (el) {
+                audioRefs.current.set(keyId, el);
+              } else {
+                audioRefs.current.delete(keyId);
+              }
+            }}
+          />
+        );
+      })}
     </div>
   );
 };

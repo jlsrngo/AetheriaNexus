@@ -14,6 +14,8 @@ pub struct FilmSceneSpec {
     pub start_frame: u32,
     pub duration_frames: u32,
     pub audio: Option<String>,
+    #[serde(default)]
+    pub sfx: Option<String>,
     pub words: Option<String>,
 }
 
@@ -298,6 +300,14 @@ fn collect_ordered_scripts(html_path: &Path) -> Vec<(String, String, String)> {
             entries_list.push((order_key, name, p));
         }
     }
+    let has_explicit_scene_script = entries_list
+        .iter()
+        .any(|((tier, _), name, _)| *tier == 2 && name.to_ascii_lowercase().starts_with("scene"));
+    if has_explicit_scene_script {
+        entries_list.retain(|((tier, _), name, _)| {
+            !(*tier == 4 && name.to_ascii_lowercase().starts_with("scene"))
+        });
+    }
     entries_list.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
 
     entries_list
@@ -467,6 +477,9 @@ pub fn parse_scenes_from_sources(
                     start_frame,
                     duration_frames,
                     audio: extract_string_field(block, "audio"),
+                    sfx: extract_string_field(block, "sfx")
+                        .or_else(|| extract_string_field(block, "sfxAudio"))
+                        .or_else(|| extract_string_field(block, "sfxPath")),
                     words: extract_string_field(block, "words")
                         .or_else(|| extract_string_field(block, "wordsPath")),
                 });
@@ -501,6 +514,7 @@ pub fn parse_scenes_from_sources(
                     start_frame,
                     duration_frames,
                     audio: None,
+                    sfx: None,
                     words: None,
                 }
             })
@@ -520,6 +534,7 @@ pub fn parse_scenes_from_sources(
         start_frame: 0,
         duration_frames: total_frames,
         audio: None,
+        sfx: None,
         words: None,
     }]
 }

@@ -36,14 +36,8 @@ pub fn build_ffmpeg_command(
         .arg(meta.fps.max(1).to_string())
         .args(["-i", "pipe:0"]);
 
-    let mut active_audios: Vec<(PathBuf, u64, f64, f64)> = Vec::new();
+    let mut active_audios: Vec<(PathBuf, u64, f64, f64, f64)> = Vec::new();
     for scene in &meta.scenes {
-        let Some(ref audio_rel) = scene.audio else {
-            continue;
-        };
-        let Some(audio_path) = find_scene_audio_file(film_root, ws_root, audio_rel) else {
-            continue;
-        };
         let sc_start = scene.start.max(0.0);
         let sc_end = sc_start + scene.duration.max(0.0);
         if sc_end <= start_sec || sc_start >= end_sec {
@@ -52,22 +46,37 @@ pub fn build_ffmpeg_command(
         let trim_start = (start_sec - sc_start).max(0.0);
         let max_dur = (end_sec - sc_start.max(start_sec)).max(0.05);
         let delay_ms = ((sc_start - start_sec).max(0.0) * 1000.0).round() as u64;
-        active_audios.push((audio_path, delay_ms, trim_start, max_dur));
+
+        if let Some(ref audio_rel) = scene.audio {
+            if let Some(audio_path) = find_scene_audio_file(film_root, ws_root, audio_rel) {
+                active_audios.push((audio_path, delay_ms, trim_start, max_dur, 1.0));
+            }
+        }
+        if let Some(ref sfx_rel) = scene.sfx {
+            if let Some(sfx_path) = find_scene_audio_file(film_root, ws_root, sfx_rel) {
+                active_audios.push((sfx_path, delay_ms, trim_start, max_dur, 0.45));
+            }
+        }
     }
 
-    for (audio_path, _, _, _) in &active_audios {
+    for (audio_path, _, _, _, _) in &active_audios {
         cmd.arg("-i").arg(audio_path);
     }
 
     if !active_audios.is_empty() {
         let mut filter_parts = Vec::with_capacity(active_audios.len() + 1);
         let mut mix_labels = Vec::with_capacity(active_audios.len());
-        for (idx, (_, delay_ms, trim_start, max_dur)) in active_audios.iter().enumerate() {
+        for (idx, (_, delay_ms, trim_start, max_dur, vol)) in active_audios.iter().enumerate() {
             let input_idx = idx + 1;
             let label = format!("[a{}]", idx);
+            let vol_filter = if (*vol - 1.0).abs() > 0.01 {
+                format!(",volume={:.2}", vol)
+            } else {
+                String::new()
+            };
             filter_parts.push(format!(
-                "[{}:a]atrim=start={:.4}:duration={:.4},asetpts=PTS-STARTPTS,adelay={}|{}{}",
-                input_idx, trim_start, max_dur, delay_ms, delay_ms, label
+                "[{}:a]atrim=start={:.4}:duration={:.4},asetpts=PTS-STARTPTS{},adelay={}|{}{}",
+                input_idx, trim_start, max_dur, vol_filter, delay_ms, delay_ms, label
             ));
             mix_labels.push(label);
         }

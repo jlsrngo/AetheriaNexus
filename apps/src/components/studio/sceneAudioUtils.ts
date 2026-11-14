@@ -3,10 +3,13 @@ import { type HtmlFilmScene, resolveWorkspaceAssetUrl } from "./htmlStageBundle"
 export interface ResolvedAudioTrack {
   scene: HtmlFilmScene;
   src: string;
+  kind?: "voice" | "sfx";
+  volumeScale?: number;
+  trackKey?: string;
 }
 
 /**
- * Resolves scene audio URLs only once engine media auth has settled so `<audio>`
+ * Resolves scene audio and optional SFX URLs only once engine media auth has settled so `<audio>`
  * never fires a premature unauthenticated request on startup.
  */
 export function resolveSceneAudioTracks(
@@ -19,12 +22,34 @@ export function resolveSceneAudioTracks(
   ) => string | null = resolveWorkspaceAssetUrl
 ): ResolvedAudioTrack[] {
   if (!authSettled) return [];
-  return scenes
-    .map((scene) => ({
-      scene,
-      src: resolveUrl(scene.audio, activeDir),
-    }))
-    .filter((item): item is ResolvedAudioTrack => Boolean(item.src));
+  const tracks: ResolvedAudioTrack[] = [];
+  for (const scene of scenes) {
+    if (scene.audio) {
+      const voiceSrc = resolveUrl(scene.audio, activeDir);
+      if (voiceSrc) {
+        tracks.push({
+          scene,
+          src: voiceSrc,
+          kind: "voice",
+          volumeScale: 1,
+          trackKey: `${scene.id}:voice:${scene.startFrame}`,
+        });
+      }
+    }
+    if (scene.sfx) {
+      const sfxSrc = resolveUrl(scene.sfx, activeDir);
+      if (sfxSrc) {
+        tracks.push({
+          scene,
+          src: sfxSrc,
+          kind: "sfx",
+          volumeScale: 0.45,
+          trackKey: `${scene.id}:sfx:${scene.startFrame}`,
+        });
+      }
+    }
+  }
+  return tracks;
 }
 
 /** Clamps a normalized audio volume level cleanly to `[0, 1]`. */
