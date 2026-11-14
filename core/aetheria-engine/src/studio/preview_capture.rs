@@ -65,6 +65,18 @@ pub(crate) fn validate_render_at_eval_response(
     Ok(())
 }
 
+pub(crate) fn validate_non_identical_frames(frames: &[PreviewFrameCapture]) -> Result<(), String> {
+    if frames.len() >= 2 {
+        let first = frames[0].data_url.trim();
+        if !first.is_empty() && frames.iter().skip(1).all(|f| f.data_url.trim() == first) {
+            return Err(
+                "All captured preview frames are byte-for-byte identical — the film likely failed to render or is frozen across timestamps. Inspect index.html and script/scene*.js.".to_string(),
+            );
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn normalize_preview_timestamps(raw: &[f64], duration: f64) -> Vec<f64> {
     let safe_dur = if duration.is_finite() && duration > 0.0 {
         duration
@@ -196,6 +208,8 @@ pub async fn capture_film_preview_frames(
         });
     }
 
+    validate_non_identical_frames(&frames)?;
+
     Ok(FilmPreviewCaptureResult {
         width: meta.width,
         height: meta.height,
@@ -248,5 +262,36 @@ mod tests {
             }
         });
         assert!(validate_render_at_eval_response(&ok_resp, 1.0).is_ok());
+    }
+
+    #[test]
+    fn rejects_byte_identical_preview_frames() {
+        let identical = vec![
+            PreviewFrameCapture {
+                timestamp: 1.0,
+                relative_ratio: 0.1,
+                saved_rel_path: ".aetheria/preview/preview_0.jpg".to_string(),
+                data_url: "data:image/jpeg;base64,AAAA".to_string(),
+            },
+            PreviewFrameCapture {
+                timestamp: 5.0,
+                relative_ratio: 0.35,
+                saved_rel_path: ".aetheria/preview/preview_1.jpg".to_string(),
+                data_url: "data:image/jpeg;base64,AAAA".to_string(),
+            },
+        ];
+        let err = validate_non_identical_frames(&identical).unwrap_err();
+        assert!(err.contains("byte-for-byte identical"));
+
+        let distinct = vec![
+            identical[0].clone(),
+            PreviewFrameCapture {
+                timestamp: 5.0,
+                relative_ratio: 0.35,
+                saved_rel_path: ".aetheria/preview/preview_1.jpg".to_string(),
+                data_url: "data:image/jpeg;base64,BBBB".to_string(),
+            },
+        ];
+        assert!(validate_non_identical_frames(&distinct).is_ok());
     }
 }

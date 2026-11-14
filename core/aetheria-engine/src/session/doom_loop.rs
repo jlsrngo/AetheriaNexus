@@ -67,6 +67,18 @@ impl DoomLoopDetector {
             return None;
         }
 
+        // 3. When a workspace-mutating tool runs (`write`, `edit`, `apply_patch`, `codemode`),
+        // reset `call_counts` for visual verification tools (`capture_film_preview`, `render_video`)
+        // because the underlying scene/HTML code on disk has changed.
+        if matches!(
+            t_norm.as_str(),
+            "write" | "edit" | "apply_patch" | "codemode"
+        ) {
+            self.call_counts.retain(|(tool, _), _| {
+                !matches!(tool.as_str(), "capture_film_preview" | "render_video")
+            });
+        }
+
         let key = (
             t_norm.clone(),
             args_canonical.trim().to_string(),
@@ -153,6 +165,21 @@ mod tests {
         // 4th total invocation of tool_a triggers total count breaker
         let blocked = detector.check_and_record("tool_a", "{}");
         assert!(blocked.is_some());
+    }
+
+    #[test]
+    fn test_allows_capture_film_preview_after_workspace_mutations() {
+        let mut detector = DoomLoopDetector::new(3);
+        let preview_args = r#"{"timestamps":[1,5,10,18]}"#;
+
+        for idx in 1..=5 {
+            let write_args = format!(r#"{{"filePath":"script/scene{}.js","content":"// v{}"}}"#, idx, idx);
+            assert!(detector.check_and_record("write", &write_args).is_none());
+            assert!(
+                detector.check_and_record("capture_film_preview", preview_args).is_none(),
+                "capture_film_preview after a file write must not be blocked by prior preview counts"
+            );
+        }
     }
 }
 
