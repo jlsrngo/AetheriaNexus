@@ -110,6 +110,51 @@ pub(crate) fn extract_pinterest_media_from_html(
     (title, image_url, mp4_url)
 }
 
+pub(crate) fn persist_reference_frames_to_dir(
+    ref_dir: &Path,
+    prefix: &str,
+    primary_bytes: Option<(&[u8], &str)>,
+    extracted_jpg_frames: &[Vec<u8>],
+) -> Vec<String> {
+    let _ = std::fs::create_dir_all(ref_dir);
+    let mut saved_files = Vec::new();
+
+    if let Some((bytes, ext)) = primary_bytes {
+        if !bytes.is_empty() {
+            let main_rel = format!("ref/ref_{}.{}", prefix, ext);
+            let main_path = ref_dir.join(format!("ref_{}.{}", prefix, ext));
+            if std::fs::write(&main_path, bytes).is_ok() {
+                saved_files.push(main_rel);
+            }
+        }
+    }
+
+    if !extracted_jpg_frames.is_empty() {
+        for (idx, frame_bytes) in extracted_jpg_frames.iter().enumerate() {
+            if frame_bytes.is_empty() {
+                continue;
+            }
+            let frame_name = format!("ref_{}_frame_{}.jpg", prefix, idx + 1);
+            let frame_path = ref_dir.join(&frame_name);
+            if std::fs::write(&frame_path, frame_bytes).is_ok() {
+                saved_files.push(format!("ref/{}", frame_name));
+            }
+        }
+    } else if let Some((bytes, ext)) = primary_bytes {
+        if !bytes.is_empty() {
+            for idx in 1..=2 {
+                let frame_name = format!("ref_{}_frame_{}.{}", prefix, idx, ext);
+                let frame_path = ref_dir.join(&frame_name);
+                if std::fs::write(&frame_path, bytes).is_ok() {
+                    saved_files.push(format!("ref/{}", frame_name));
+                }
+            }
+        }
+    }
+
+    saved_files
+}
+
 fn is_pinterest_url(url: &str) -> bool {
     let lower = url.to_ascii_lowercase();
     lower.starts_with("http")
@@ -177,9 +222,10 @@ pub async fn process_social_links(
                                         ])
                                         .output();
 
+                                    let mut saved_frames = Vec::new();
                                     for (idx, ts) in ["00:00:01", "00:00:04", "00:00:14"].iter().enumerate() {
-                                        let frame_jpg = std::env::temp_dir()
-                                            .join(format!("aetheria_tiktok_ref_{}.jpg", idx));
+                                        let frame_name = format!("ref_tiktok_frame_{}.jpg", idx + 1);
+                                        let frame_jpg = ref_dir.join(&frame_name);
                                         let mut ff_frame = std::process::Command::new(ff_cmd);
                                         crate::paths::configure_hidden_std_command(&mut ff_frame);
                                         let _ = ff_frame
@@ -197,10 +243,14 @@ pub async fn process_social_links(
                                             ])
                                             .output();
                                         if let Ok(jpg_bytes) = std::fs::read(&frame_jpg) {
-                                            let b64 = BASE64_STANDARD.encode(&jpg_bytes);
-                                            image_urls.push(format!("data:image/jpeg;base64,{}", b64));
+                                            if !jpg_bytes.is_empty() {
+                                                saved_frames.push(format!("ref/{}", frame_name));
+                                                let b64 = BASE64_STANDARD.encode(&jpg_bytes);
+                                                image_urls.push(format!("data:image/jpeg;base64,{}", b64));
+                                            }
                                         }
                                     }
+                                    let _ = saved_frames;
                                 }
                             }
                         }
@@ -209,6 +259,7 @@ pub async fn process_social_links(
                     ocr_transcriptions.push(format!(
                         "[TikTok Reference Video Extracted (@{}, duration: {}s, title: \"{}\"):\n\
                         - Reference Video Saved: ref/ref_tiktok.mp4\n\
+                        - Reference Frames Saved: ref/ref_tiktok_frame_1.jpg, ref/ref_tiktok_frame_2.jpg, ref/ref_tiktok_frame_3.jpg\n\
                         - Reference Voice Track Extracted: ref/ref_voice.wav. When the user requests matching or using this voice sample, pass `refAudio: \"ref/ref_voice.wav\"` and `cloneVoice: true` to `voicebox_speak` so Voicebox clones the speaker's exact vocal timbre and intonation!\n\
                         - Keyframes attached to vision context: study the reference's motion language (entrance/exit choreography, camera moves, layout zones, typography hierarchy, palette) and translate it into this video's own style per the Visual Style System — inspired by, never a pixel copy.]",
                         author, duration, title
@@ -257,7 +308,9 @@ pub async fn process_social_links(
                         let ref_dir = crate::tool::path_guard::resolve_isolated_path(workspace_dir, "ref")
                             .unwrap_or_else(|_| Path::new(workspace_dir).join("ref"));
                         let _ = std::fs::create_dir_all(&ref_dir);
-                        let mut saved_files = Vec::new();
+                        let mut primary_img: Option<(Vec<u8>, String, String)> = None;
+                        let mut extracted_video_frames: Vec<Vec<u8>> = Vec::new();
+                        let mut has_mp4 = false;
 
                         if let Some(ref img_url) = img_url_opt {
                             if let Ok(img_resp) = client.get(img_url).send().await {
@@ -276,11 +329,9 @@ pub async fn process_social_links(
                                 };
                                 if let Ok(bytes) = img_resp.bytes().await {
                                     if !bytes.is_empty() {
-                                        let dest = ref_dir.join(format!("ref_pinterest.{}", ext));
-                                        let _ = std::fs::write(&dest, &bytes);
-                                        saved_files.push(format!("ref/ref_pinterest.{}", ext));
                                         let b64 = BASE64_STANDARD.encode(&bytes);
                                         image_urls.push(format!("data:{};base64,{}", mime, b64));
+                                        primary_img = Some((bytes.to_vec(), ext.to_string(), mime));
                                     }
                                 }
                             }
@@ -292,12 +343,12 @@ pub async fn process_social_links(
                                     if !vbytes.is_empty() {
                                         let mp4_path = ref_dir.join("ref_pinterest.mp4");
                                         if std::fs::write(&mp4_path, &vbytes).is_ok() {
-                                            saved_files.push("ref/ref_pinterest.mp4".to_string());
+                                            has_mp4 = true;
                                         }
                                         if let Some(ff_cmd) = ffmpeg_bin {
                                             for (idx, ts) in ["00:00:01", "00:00:03"].iter().enumerate() {
-                                                let frame_jpg = std::env::temp_dir()
-                                                    .join(format!("aetheria_pin_ref_{}.jpg", idx));
+                                                let frame_jpg = ref_dir
+                                                    .join(format!("ref_pinterest_frame_{}.jpg", idx + 1));
                                                 let mut ff_frame = std::process::Command::new(ff_cmd);
                                                 crate::paths::configure_hidden_std_command(&mut ff_frame);
                                                 if ff_frame
@@ -321,6 +372,7 @@ pub async fn process_social_links(
                                                         if !jpg_bytes.is_empty() {
                                                             let b64 = BASE64_STANDARD.encode(&jpg_bytes);
                                                             image_urls.push(format!("data:image/jpeg;base64,{}", b64));
+                                                            extracted_video_frames.push(jpg_bytes);
                                                         }
                                                     }
                                                 }
@@ -329,6 +381,18 @@ pub async fn process_social_links(
                                     }
                                 }
                             }
+                        }
+
+                        let mut saved_files = persist_reference_frames_to_dir(
+                            &ref_dir,
+                            "pinterest",
+                            primary_img
+                                .as_ref()
+                                .map(|(bytes, ext, _)| (bytes.as_slice(), ext.as_str())),
+                            &extracted_video_frames,
+                        );
+                        if has_mp4 {
+                            saved_files.push("ref/ref_pinterest.mp4".to_string());
                         }
 
                         if !saved_files.is_empty() || pin_title.is_some() {
@@ -373,6 +437,30 @@ mod tests {
         );
         assert!(is_pinterest_url("https://pin.it/4pV09EcBu"));
         assert!(!is_pinterest_url("https://example.com/foo"));
+    }
+
+    #[test]
+    fn persists_pinterest_image_and_named_frames_in_ref_dir() {
+        let dir = std::env::temp_dir().join(format!("aetheria_pin_g1_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let saved = persist_reference_frames_to_dir(
+            &dir,
+            "pinterest",
+            Some((b"fake-jpg-bytes", "jpg")),
+            &[],
+        );
+        assert_eq!(
+            saved,
+            vec![
+                "ref/ref_pinterest.jpg".to_string(),
+                "ref/ref_pinterest_frame_1.jpg".to_string(),
+                "ref/ref_pinterest_frame_2.jpg".to_string(),
+            ]
+        );
+        assert!(dir.join("ref_pinterest.jpg").is_file());
+        assert!(dir.join("ref_pinterest_frame_1.jpg").is_file());
+        assert!(dir.join("ref_pinterest_frame_2.jpg").is_file());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
 
