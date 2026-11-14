@@ -11,7 +11,9 @@ import {
   computeAudioTargetSeconds,
   computeEffectiveAudioVolume,
   formatAudioErrorMessage,
+  isAudioTrackFinished,
   resolveSceneAudioTracks,
+  shouldResyncAudioTime,
 } from "./sceneAudioUtils";
 
 export interface SceneAudioSyncProps {
@@ -71,8 +73,9 @@ export const SceneAudioSync: React.FC<SceneAudioSyncProps> = ({
     (scene: HtmlFilmScene, el: HTMLAudioElement, volumeScale = 1, keyId = scene.id, labelPath = scene.audio) => {
       const clock = latestClockRef.current;
       const effectiveVolume = computeEffectiveAudioVolume(
-        (clock.volume ?? 1) * volumeScale,
-        clock.isMuted
+        clock.volume,
+        clock.isMuted,
+        volumeScale
       );
       el.muted = clock.isMuted || effectiveVolume <= 0;
       el.volume = effectiveVolume;
@@ -86,7 +89,17 @@ export const SceneAudioSync: React.FC<SceneAudioSyncProps> = ({
       }
 
       const targetSec = computeAudioTargetSeconds(clock.frame, scene.startFrame, clock.fps);
-      if (Math.abs(el.currentTime - targetSec) > (clock.isPlaying ? 0.18 : 0.04)) {
+      if (isAudioTrackFinished(targetSec, el.duration)) {
+        if (!el.paused) el.pause();
+        return;
+      }
+
+      if (el.readyState < 1) {
+        // Wait for loadedmetadata/canplay so play() never starts from 0s before seeking.
+        return;
+      }
+
+      if (shouldResyncAudioTime(el.currentTime, targetSec, clock.isPlaying, el.paused)) {
         try {
           el.currentTime = targetSec;
         } catch {

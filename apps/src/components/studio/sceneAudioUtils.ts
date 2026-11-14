@@ -58,13 +58,35 @@ export function clampAudioVolume(volume: number | undefined): number {
   return Math.max(0, Math.min(1, Math.round(volume * 100) / 100));
 }
 
-/** Resolves the effective `<audio>` volume applied to playback elements. */
+/** Resolves the effective `<audio>` volume using a perceptual curve (`v^2`) so 50% feels like half loudness. */
 export function computeEffectiveAudioVolume(
   volume: number | undefined,
-  isMuted: boolean
+  isMuted: boolean,
+  volumeScale = 1
 ): number {
   if (isMuted) return 0;
-  return clampAudioVolume(volume);
+  const master = clampAudioVolume(volume);
+  const scale = typeof volumeScale === "number" && Number.isFinite(volumeScale)
+    ? Math.max(0, Math.min(1, volumeScale))
+    : 1;
+  const perceptual = Math.pow(master, 2) * scale;
+  return Math.max(0, Math.min(1, Math.round(perceptual * 1000) / 1000));
+}
+
+/** Returns true when the scene clock has already reached or passed the audio clip's end. */
+export function isAudioTrackFinished(targetSec: number, duration: number): boolean {
+  return Number.isFinite(duration) && duration > 0 && targetSec >= duration - 0.02;
+}
+
+/** Determines whether `<audio>.currentTime` has drifted enough to warrant a seek. */
+export function shouldResyncAudioTime(
+  currentTime: number,
+  targetSec: number,
+  isPlaying: boolean,
+  isElementPaused: boolean
+): boolean {
+  const tolerance = isPlaying && !isElementPaused ? 0.08 : 0.03;
+  return Math.abs(currentTime - targetSec) > tolerance;
 }
 
 /** Converts timeline frame offset within a scene into non-negative playback seconds. */

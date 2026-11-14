@@ -6,7 +6,9 @@ import {
   computeAudioTargetSeconds,
   computeEffectiveAudioVolume,
   formatAudioErrorMessage,
+  isAudioTrackFinished,
   resolveSceneAudioTracks,
+  shouldResyncAudioTime,
 } from "./sceneAudioUtils";
 
 function makeScene(overrides: Partial<HtmlFilmScene> = {}): HtmlFilmScene {
@@ -93,14 +95,27 @@ describe("sceneAudioUtils", () => {
     vi.unstubAllGlobals();
   });
 
-  it("clamps volume levels to [0, 1] and zeroes output when muted", () => {
+  it("applies perceptual volume curve, track scale, and zeroes output when muted", () => {
     expect(clampAudioVolume(undefined)).toBe(1);
     expect(clampAudioVolume(Number.NaN)).toBe(1);
     expect(clampAudioVolume(-0.4)).toBe(0);
     expect(clampAudioVolume(1.6)).toBe(1);
     expect(clampAudioVolume(0.375)).toBe(0.38);
 
-    expect(computeEffectiveAudioVolume(0.65, false)).toBe(0.65);
+    expect(computeEffectiveAudioVolume(1, false)).toBe(1);
+    expect(computeEffectiveAudioVolume(0.5, false)).toBe(0.25);
+    expect(computeEffectiveAudioVolume(0.5, false, 0.45)).toBe(0.113);
     expect(computeEffectiveAudioVolume(0.65, true)).toBe(0);
+  });
+
+  it("prevents re-triggering finished audio clips and tightens sync tolerance", () => {
+    expect(isAudioTrackFinished(4.1, 4.115)).toBe(true);
+    expect(isAudioTrackFinished(3.5, 4.115)).toBe(false);
+    expect(isAudioTrackFinished(1.0, Number.NaN)).toBe(false);
+
+    expect(shouldResyncAudioTime(1.0, 1.05, true, false)).toBe(false);
+    expect(shouldResyncAudioTime(1.0, 1.1, true, false)).toBe(true);
+    expect(shouldResyncAudioTime(1.0, 1.05, true, true)).toBe(true);
+    expect(shouldResyncAudioTime(1.0, 1.05, false, true)).toBe(true);
   });
 });
