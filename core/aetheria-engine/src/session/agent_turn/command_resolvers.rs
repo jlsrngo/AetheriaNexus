@@ -126,9 +126,10 @@ pub fn resolve_dynamic_style_or_skill_command(_workspace_dir: &str, prompt_text:
                                 \"\"\"\n\
                                 MANDATORY RULES FOR THIS GENERATION:\n\
                                 1. Coordinate via the 3-Track Subagent Pipeline: delegate voiceover/SFX synthesis to `task(subagent_type: \"audio-director\")` and delegate modular per-scene scripts (`script/scene1.js`..`script/sceneN.js`) + `index.html` to `task(subagent_type: \"motion-designer\")`.\n\
-                                2. Pass the active skill path (`{path_display}`) and its `examples/` kit instructions directly in your prompt to `motion-designer`. The active skill's rendering architecture (e.g., 3D Three.js + `ClayKit` dual-canvas, smooth outlines, Neobrutalism subtitles) is NON-NEGOTIABLE — adapt storyboard mood/props *inside* the skill's architecture rather than falling back to plain 2D Canvas.\n\
-                                3. Strictly apply these exact colors, fonts, camera movement rules, scale law (`u(refPx)`), and motion curves (`AM.spring`, `AM.anticipation`, `AM.stagger`).\n\
-                                4. Follow the Do's and Don'ts from the skill guidelines and exact brief specifications.",
+                                2. Pass the active skill path (`{path_display}`) and its `examples/` kit instructions directly in your prompt to `motion-designer`. The active skill's rendering architecture (e.g., 3D Three.js + `ClayKit` dual-canvas `#stage-webgl` with `preserveDrawingBuffer: true` + `#stage-hud`, smooth outlines, Neobrutalism subtitles) is NON-NEGOTIABLE — adapt storyboard mood/props *inside* the skill's architecture rather than falling back to plain 2D Canvas.\n\
+                                3. If `examples/script/*-kit.js` (e.g. `clay-kit.js`) exists, copy it verbatim into `script/` (e.g. via `bash` `cp` or full `write`) and preserve `examples/index.html`'s dual-canvas + `AM.drawSubtitles(..., {{ style: \"neobrutalism\", ... }})` structure — NEVER rewrite the kit into a minimal stub.\n\
+                                4. Strictly apply these exact colors, fonts, camera movement rules, scale law (`u(refPx)`), and motion curves (`AM.spring`, `AM.anticipation`, `AM.stagger`).\n\
+                                5. Follow the Do's and Don'ts from the skill guidelines and exact brief specifications.",
                                 path_display = path.display()
                             ));
                         }
